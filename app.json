@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "dadHealth",
+    "slug": "dadhealth-mobile",
+    "version": "1.0.0",
+    "scheme": "dadhealth",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#0A0A0A",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "co.uk.dadhealth"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0A0A0A"
+      },
+      "package": "co.uk.dadhealth"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
