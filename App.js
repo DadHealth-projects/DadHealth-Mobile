@@ -5,7 +5,6 @@ import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useFonts } from 'expo-font';
 import {
   Barlow_400Regular,
@@ -18,7 +17,8 @@ import {
   BarlowCondensed_800ExtraBold,
 } from '@expo-google-fonts/barlow-condensed';
 
-import BottomTabNavigator from './navigation/BottomTabNavigator';
+import { AuthProvider } from './contexts/AuthContext';
+import RootNavigator from './contexts/RootNavigator';
 import { colors } from './theme';
 
 // Force the dark background through React Navigation's own theme so there's
@@ -34,8 +34,6 @@ const navTheme = {
     border: colors.border,
   },
 };
-
-const RootStack = createNativeStackNavigator();
 
 export default function App() {
   // Map @expo-google-fonts modules to the family names used in tailwind.config.js / theme.ts.
@@ -55,12 +53,12 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <NavigationContainer theme={navTheme}>
-        <StatusBar style="light" />
-        <RootStack.Navigator screenOptions={{ headerShown: false }}>
-          <RootStack.Screen name="Tabs" component={BottomTabNavigator} />
-        </RootStack.Navigator>
-      </NavigationContainer>
+      <AuthProvider>
+        <NavigationContainer theme={navTheme}>
+          <StatusBar style="light" />
+          <RootNavigator />
+        </NavigationContainer>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

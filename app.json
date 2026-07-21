@@ -13,7 +13,8 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "co.uk.dadhealth"
+      "bundleIdentifier": "co.uk.dadhealth",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -26,7 +27,16 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Dad Health to use Face ID to log you in."
+        }
+      ],
+      "expo-web-browser",
+      "expo-apple-authentication"
     ]
   }
 }
