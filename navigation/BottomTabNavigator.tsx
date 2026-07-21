@@ -1,7 +1,10 @@
 import React from 'react';
-import { View } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import {
+  createBottomTabNavigator,
+  BottomTabBarProps,
+} from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import HomeScreen from '../screens/HomeScreen';
@@ -9,62 +12,173 @@ import FitnessScreen from '../screens/FitnessScreen';
 import MindScreen from '../screens/MindScreen';
 import BondScreen from '../screens/BondScreen';
 import CommunityScreen from '../screens/CommunityScreen';
-import { colors, typography, shadows } from '../theme';
+import { colors, fonts } from '../theme';
 
-const Tab = createBottomTabNavigator();
-
-// Feather icon per tab (lime when active, muted white when inactive).
-const ICONS: Record<string, keyof typeof Feather.glyphMap> = {
-  Home: 'home',
-  Fitness: 'activity',
-  Mind: 'wind',
-  Bond: 'heart',
-  Community: 'users',
+export type BottomTabsParamList = {
+  Fit: undefined;
+  Mind: undefined;
+  Home: undefined;
+  Bond: undefined;
+  Squad: undefined;
 };
 
-export default function BottomTabNavigator() {
+const Tab = createBottomTabNavigator<BottomTabsParamList>();
+
+type TabMeta = {
+  label: string;
+  icon: keyof typeof Feather.glyphMap;
+  center?: boolean;
+};
+
+const TAB_META: Record<keyof BottomTabsParamList, TabMeta> = {
+  Fit: {
+    label: 'Fit',
+    icon: 'activity',
+  },
+  Mind: {
+    label: 'Mind',
+    icon: 'wind',
+  },
+  Home: {
+    label: 'Home',
+    icon: 'home',
+    center: true,
+  },
+  Bond: {
+    label: 'Bond',
+    icon: 'heart',
+  },
+  Squad: {
+    label: 'Squad',
+    icon: 'users',
+  },
+};
+
+const INACTIVE = 'rgba(255,255,255,0.32)';
+
+function MockupTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarShowLabel: true,
-        // Lime icons, dark bg, white labels
-        tabBarActiveTintColor: colors.lime,
-        tabBarInactiveTintColor: colors.mutedText,
-        tabBarStyle: {
-          backgroundColor: colors.card,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          borderTopLeftRadius: 22,
-          borderTopRightRadius: 22,
-          height: 66 + insets.bottom,
-          paddingTop: 10,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 12,
-          ...shadows.tabBar,
-        },
-        tabBarItemStyle: {
-          paddingTop: 2,
-        },
-        tabBarLabelStyle: typography.tabLabel,
-        tabBarIcon: ({ color, focused }) => (
-          // Rounded pill that lights up lime behind the active icon.
-          <View
-            className={`h-[38px] w-[52px] items-center justify-center rounded-full ${
-              focused ? 'bg-lime/12' : 'bg-transparent'
-            }`}
-          >
-            <Feather name={ICONS[route.name]} size={22} color={color} />
-          </View>
-        ),
-      })}
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        backgroundColor: colors.dark,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.06)',
+        paddingTop: 8,
+        paddingBottom: insets.bottom > 0 ? insets.bottom : 14,
+      }}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Fitness" component={FitnessScreen} />
+      {state.routes.map((route, index) => {
+        const meta = TAB_META[route.name as keyof BottomTabsParamList];
+        const focused = state.index === index;
+
+        const onPress = () => {
+          const event = navigation.emit({
+            type: 'tabPress',
+            target: route.key,
+            canPreventDefault: true,
+          });
+
+          if (!focused && !event.defaultPrevented) {
+            navigation.navigate(route.name as never);
+          }
+        };
+
+        if (meta.center) {
+          return (
+            <Pressable
+              key={route.key}
+              onPress={onPress}
+              accessibilityRole="button"
+              accessibilityState={{ selected: focused }}
+              accessibilityLabel={meta.label}
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+              }}
+            >
+              <View
+                style={{
+                  width: 52,
+                  height: 52,
+                  marginTop: -14,
+                  borderRadius: 16,
+                  backgroundColor: colors.lime,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: colors.lime,
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.45,
+                  shadowRadius: 12,
+                  elevation: 10,
+                }}
+              >
+                <Feather
+                  name={meta.icon}
+                  size={24}
+                  color={colors.dark}
+                />
+              </View>
+            </Pressable>
+          );
+        }
+
+        return (
+          <Pressable
+            key={route.key}
+            onPress={onPress}
+            accessibilityRole="button"
+            accessibilityState={{ selected: focused }}
+            accessibilityLabel={meta.label}
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            <Feather
+              name={meta.icon}
+              size={20}
+              color={focused ? colors.lime : INACTIVE}
+            />
+
+            <Text
+              style={{
+                fontFamily: fonts.bodySemiBold,
+                fontSize: 9,
+                letterSpacing: 1.5,
+                textTransform: 'uppercase',
+                color: focused ? colors.lime : INACTIVE,
+              }}
+            >
+              {meta.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export default function BottomTabNavigator() {
+  return (
+    <Tab.Navigator
+      initialRouteName="Home"
+      screenOptions={{
+        headerShown: false,
+        lazy: false,
+      }}
+      tabBar={(props) => <MockupTabBar {...props} />}
+    >
+      <Tab.Screen name="Fit" component={FitnessScreen} />
       <Tab.Screen name="Mind" component={MindScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Bond" component={BondScreen} />
-      <Tab.Screen name="Community" component={CommunityScreen} />
+      <Tab.Screen name="Squad" component={CommunityScreen} />
     </Tab.Navigator>
   );
 }
