@@ -1,11 +1,17 @@
 import React, { useEffect, useState } from 'react';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import BiometricGate from '../components/BiometricGate';
 import Splash from '../components/Splash';
 import LoginScreen from '../screens/LoginScreen';
+import { useAuth } from './AuthContext';
 import { hasBiometricCredentials, isBiometricAvailable } from '../lib/biometric';
+import { colors } from '../theme';
 
 type Mode = 'checking' | 'biometric' | 'login';
+
+type UnauthedStackParamList = { Login: undefined };
+const Stack = createNativeStackNavigator<UnauthedStackParamList>();
 
 /**
  * The signed-out experience. Instead of always showing the login form, it copies
@@ -18,11 +24,21 @@ type Mode = 'checking' | 'biometric' | 'login';
  * post-logout flow (logout clears the session → this re-runs → auto biometric).
  */
 export default function UnauthedFlow() {
+  const { manualSignOut } = useAuth();
   const [mode, setMode] = useState<Mode>('checking');
 
   useEffect(() => {
     let active = true;
     (async () => {
+      // After an EXPLICIT Log Out, skip the biometric auto-prompt and land on
+      // the Login screen. Otherwise the stored Face ID creds silently re-login
+      // the user and they bounce straight back to Home (the "logout → home"
+      // loop). Fresh launches still get the biometric gate.
+      if (manualSignOut) {
+        setMode('login');
+        return;
+      }
+
       const [available, hasCreds] = await Promise.all([
         isBiometricAvailable(),
         hasBiometricCredentials(),
@@ -33,9 +49,19 @@ export default function UnauthedFlow() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [manualSignOut]);
 
   if (mode === 'checking') return <Splash />;
   if (mode === 'biometric') return <BiometricGate onFallback={() => setMode('login')} />;
-  return <LoginScreen />;
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+        contentStyle: { backgroundColor: colors.dark },
+      }}
+    >
+      <Stack.Screen name="Login" component={LoginScreen} />
+    </Stack.Navigator>
+  );
 }

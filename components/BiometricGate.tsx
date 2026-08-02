@@ -11,18 +11,12 @@ type Props = {
   onFallback: () => void;
 };
 
-/**
- * Launch/logout biometric gate. On mount it immediately prompts Face ID / Touch
- * ID (like a banking app) — the user does NOT tap a button first. On success the
- * stored credentials sign the user in, the session updates, and RootNavigator
- * swaps to the dashboard. On failure/cancel we surface a retry plus a clear
- * "Use password" path to the login screen.
- */
 export default function BiometricGate({ onFallback }: Props) {
   const [label, setLabel] = useState('Face ID');
   const [error, setError] = useState<string | null>(null);
   const [prompting, setPrompting] = useState(true);
   const started = useRef(false);
+  const retried = useRef(false);
 
   const runBiometric = useCallback(async () => {
     setError(null);
@@ -31,16 +25,39 @@ export default function BiometricGate({ onFallback }: Props) {
     // On success the auth listener flips `session` and this component unmounts;
     // no navigation needed here. On failure, show retry + password fallback.
     if (!result.success) {
+      // Transient "prompt couldn't present" right after a sheet/Modal dismisses
+      // (app_cancel / system_cancel) — retry once automatically before showing
+      // the fallback. A genuine user cancel or a lockout goes straight to the
+      // password path, no scary error.
+      const transient =
+        result.code === 'app_cancel' || result.code === 'system_cancel';
+      if (transient && !retried.current) {
+        retried.current = true;
+        setTimeout(() => void runBiometric(), 450);
+        return;
+      }
+
       setPrompting(false);
+
+      if (result.code === 'user_cancel' || result.code === 'user_fallback') {
+        // They explicitly chose the password path — drop them there.
+        onFallback();
+        return;
+      }
+
       setError(result.error ?? 'Authentication failed. Please sign in with your password.');
     }
-  }, []);
+  }, [onFallback]);
 
-  // Auto-prompt exactly once when the gate first appears.
+  // Auto-prompt once when the gate appears, but wait ~450ms so any just-dismissed
+  // modal (e.g. the Account Sheet after Log Out) has fully torn down. Presenting
+  // Face ID while the previous Modal is still animating out makes iOS return
+  // `app_cancel` and the prompt never shows.
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    void runBiometric();
+    const t = setTimeout(() => void runBiometric(), 450);
+    return () => clearTimeout(t);
   }, [runBiometric]);
 
   useEffect(() => {
