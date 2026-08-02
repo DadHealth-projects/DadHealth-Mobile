@@ -5,6 +5,9 @@ import BottomTabNavigator from './BottomTabNavigator';
 import LoginScreen from '../screens/LoginScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import WelcomeScreen from '../screens/WelcomeScreen';
+import OnboardingGoalsScreen from '../screens/OnboardingGoalsScreen';
+import OnboardingCustodyScreen from '../screens/OnboardingCustodyScreen';
 import { colors } from '../theme';
 
 export type AppStackParamList = {
@@ -12,14 +15,21 @@ export type AppStackParamList = {
   Login: undefined;
   Profile: undefined;
   Settings: undefined;
+  Welcome: undefined;
+  OnboardingGoals: undefined;
+  OnboardingCustody: { goals: string[] } | undefined;
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
 
-export default function AppNavigator() {
+export default function AppNavigator({
+  initialRouteName = 'Tabs',
+}: {
+  initialRouteName?: keyof AppStackParamList;
+}) {
   return (
     <Stack.Navigator
-      initialRouteName="Tabs"
+      initialRouteName={initialRouteName}
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
@@ -28,6 +38,9 @@ export default function AppNavigator() {
         },
       }}
     >
+      <Stack.Screen name="Welcome" component={WelcomeScreen} />
+      <Stack.Screen name="OnboardingGoals" component={OnboardingGoalsScreen} />
+      <Stack.Screen name="OnboardingCustody" component={OnboardingCustodyScreen} />
       {/* Main application */}
       <Stack.Screen
         name="Tabs"

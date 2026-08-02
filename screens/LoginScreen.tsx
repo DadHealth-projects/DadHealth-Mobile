@@ -162,7 +162,7 @@ export default function LoginScreen() {
 
       // No biometric prompt? Close the Login screen and let auth state drive navigation.
       if (!pendingBiometricEnrollment) {
-        navigation.goBack();
+        if (navigation.canGoBack()) navigation.goBack();
       }
     } finally {
       setLoading(null);
@@ -181,7 +181,7 @@ export default function LoginScreen() {
         return;
       }
 
-      navigation.goBack();
+      if (navigation.canGoBack()) navigation.goBack();
     } finally {
       setLoading(null);
     }
@@ -199,7 +199,7 @@ export default function LoginScreen() {
         return;
       }
 
-      navigation.goBack();
+      if (navigation.canGoBack()) navigation.goBack();
     } finally {
       setLoading(null);
     }
@@ -217,7 +217,7 @@ export default function LoginScreen() {
         return;
       }
 
-      navigation.goBack();
+      if (navigation.canGoBack()) navigation.goBack();
     } finally {
       setLoading(null);
     }
@@ -284,7 +284,7 @@ export default function LoginScreen() {
           {/* Close (X) — dismisses the modal, returning to where it was opened. */}
           <View className="flex-row justify-end mb-lg">
             <Pressable
-              onPress={() => navigation.goBack()}
+              onPress={() => { if (navigation.canGoBack()) navigation.goBack(); }}
               hitSlop={8}
               className="h-[40px] w-[40px] rounded-full border border-border items-center justify-center"
             >
