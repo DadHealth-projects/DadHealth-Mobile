@@ -9,7 +9,7 @@ const CREDENTIALS_KEY = 'dadhealth.biometric.credentials';
 
 type StoredCredentials = { email: string; password: string };
 
-export type BiometricResult = { success: boolean; error?: string };
+export type BiometricResult = { success: boolean; error?: string; code?: string };
 
 /** True when the device has biometric hardware AND the user has enrolled a face/finger. */
 export async function isBiometricAvailable(): Promise<boolean> {
@@ -103,7 +103,19 @@ export async function biometricLogin(): Promise<BiometricResult> {
   });
 
   if (!auth.success) {
-    return { success: false, error: 'Biometric authentication failed.' };
+    // `auth.error` is a nullable union that doesn't include every string we
+    // match against, so widen it to `string | null` for a clean comparison.
+    const code = auth.error as string | null;
+    const message =
+      code === 'user_cancel' ||
+      code === 'system_cancel' ||
+      code === 'app_cancel' ||
+      code === 'user_fallback'
+        ? 'Authentication cancelled.'
+        : code === 'lockout'
+          ? 'Too many attempts. Please sign in with your password.'
+          : 'Biometric authentication failed.';
+    return { success: false, error: message, code: code ?? undefined };
   }
 
   let creds: StoredCredentials;

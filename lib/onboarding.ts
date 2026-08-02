@@ -1,57 +1,72 @@
-// Phase 1 onboarding contract — mirrors the web (dadHealth Phase1OnboardingModal
-// + OnboardingCheck) so mobile writes compatible data to public.user_profile.
-
 export type OnboardingProfile = {
-  display_name?: string | null;
-  parent_type?: string | null;
-  pronouns?: string | null;
-  custody_arrangement?: string | null;
-  kids_ages?: string[] | null;
+  goals?: string[] | null;
+  custody_pattern?: string | null;
+  onboarding_complete?: boolean | null;
 };
 
-export const PARENT_TYPE_OPTIONS: { value: string; label: string }[] = [
-  { value: 'dad', label: 'Dad' },
-  { value: 'stepdad', label: 'Stepdad' },
-  { value: 'granddad', label: 'Granddad' },
-  { value: 'co_parent', label: 'Co-parent' },
-  { value: 'same_sex_parent', label: 'Same-sex parent' },
-  { value: 'non_binary_parent', label: 'Non-binary parent' },
-  { value: 'other', label: 'Other' },
-];
+export const GOALS = [
+  { icon: '🧠', title: 'I want to be more present', sub: 'Phone down, eyes up — actually there' },
+  { icon: '💚', title: "I'm struggling and not saying so", sub: 'Mental health, stress, or just running on empty' },
+  { icon: '💪', title: 'I want to get physically healthier', sub: 'Lose weight, build fitness, feel better' },
+  { icon: '💔', title: "I'm going through a tough chapter", sub: 'Separation, co-parenting, or doing it alone' },
+  { icon: '🗓️', title: 'I want to find things to do with my kids', sub: 'Activities, days out, quality time ideas' },
+  { icon: '⭐', title: 'I just want to be a better dad', sub: "No specific reason. That's enough." },
+] as const;
 
-export const PRONOUN_OPTIONS: { value: string; label: string }[] = [
-  { value: 'he_him', label: 'He / Him' },
-  { value: 'she_her', label: 'She / Her' },
-  { value: 'they_them', label: 'They / Them' },
-  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
-];
+export const CUSTODY_OPTIONS = [
+  { value: 'daily', icon: '👨‍👧', label: 'Every day', sub: "I'm with my kids daily" },
+  { value: 'split', icon: '🔄', label: '50/50', sub: 'Shared custody, roughly equal time' },
+  { value: 'weekends', icon: '🗓️', label: 'Occasionally — weekends or specific days', sub: 'Set days each week or every other weekend' },
+  { value: 'varies', icon: '🔀', label: 'Flexible — it varies', sub: 'No fixed pattern, changes week to week' },
+] as const;
 
-export const CUSTODY_OPTIONS: { value: string; label: string; hint?: string }[] = [
-  { value: 'daily', label: 'Every day', hint: 'I live with my kids full-time' },
-  { value: 'most_days', label: 'Most days' },
-  { value: 'alternate_weeks', label: 'Alternate weeks' },
-  { value: 'occasional', label: 'Occasionally', hint: 'Weekends or specific days' },
-  { value: 'flexible', label: 'Flexible / it varies' },
-];
+export type CustodyPattern = (typeof CUSTODY_OPTIONS)[number]['value'];
 
-export const KIDS_AGES_OPTIONS: { value: string; label: string }[] = [
-  { value: 'toddler_0_4', label: 'Toddler (0–4)' },
-  { value: 'primary_5_11', label: 'Primary (5–11)' },
-  { value: 'teen_12_plus', label: 'Teen (12+)' },
-  { value: 'adult_18_plus', label: 'Adult (18+)' },
-];
+export const LEGACY_CUSTODY_MAP: Record<CustodyPattern, string> = {
+  daily: 'daily',
+  split: 'alternate_weeks',
+  weekends: 'occasional',
+  varies: 'flexible',
+};
 
 /**
- * Phase 1 is complete once the four required fields are saved. Pronouns (Q3) is
- * optional per the onboarding spec, so it's not part of the check. Identical to
- * the web `isPhase1Complete`.
+ * M2.1 is complete only when BOTH new-style fields are present: at least one
+ * goal AND a custody pattern. The legacy `onboarding_complete` flag (set by the
+ * old web goals flow) is deliberately NOT trusted — it predates custody
+ * selection, so existing accounts are routed through the new onboarding once.
  */
-export function isPhase1Complete(profile: OnboardingProfile | null | undefined): boolean {
+export function isOnboardingComplete(profile: OnboardingProfile | null | undefined): boolean {
   if (!profile) return false;
-  if (!profile.display_name || !profile.display_name.trim()) return false;
-  if (!profile.parent_type) return false;
-  if (!profile.custody_arrangement) return false;
-  const ages = profile.kids_ages;
-  if (!Array.isArray(ages) || ages.length === 0) return false;
-  return true;
+  return (
+    Array.isArray(profile.goals) &&
+    profile.goals.length > 0 &&
+    Boolean(profile.custody_pattern)
+  );
+}
+
+type SupabaseErrorShape = { code?: string; message?: string; details?: string; hint?: string };
+
+/** Maps database failures to practical inline guidance without exposing provider text. */
+export function onboardingSaveErrorMessage(error: unknown): string {
+  const detail: SupabaseErrorShape = typeof error === 'object' && error !== null
+    ? error as SupabaseErrorShape
+    : {};
+  const code = detail.code ?? '';
+  const message = detail.message?.toLowerCase() ?? '';
+  if (code === '23502' || code === '23514' || message.includes('violates')) {
+    return 'That selection could not be saved. Please check it and try again.';
+  }
+  if (code === '42501' || message.includes('row-level security') || message.includes('permission')) {
+    return "We couldn't verify your account. Please sign in again and retry.";
+  }
+  if (code === '42703' || message.includes('custody_pattern')) {
+    return 'Your app database needs a quick update before this can be saved. Please contact support.';
+  }
+  if (message.includes('network') || message.includes('fetch') || message.includes('timeout')) {
+    return 'Check your connection, then try again.';
+  }
+  if (code === '429' || message.includes('rate limit')) {
+    return 'Too many attempts. Please wait a moment, then try again.';
+  }
+  return 'We could not save your choices just now. Please try again.';
 }
