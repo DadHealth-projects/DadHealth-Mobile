@@ -158,11 +158,13 @@ export default function AccountSheet({ visible, onClose }: AccountSheetProps) {
         },
       ];
 
-  // Logout closes the sheet and defers to the existing signOut(); the auth
-  // listener drops the tree back to UnauthedFlow. No auth logic duplicated here.
+  // Logout closes the sheet first, then signs out after the exit animation so
+  // the tree swap to UnauthedFlow happens after this modal has fully dismissed.
+  // Signing out mid-dismissal unmounts the Modal abruptly, which can make the
+  // subsequent Face ID prompt fail to present (`app_cancel`).
   const handleSignOut = () => {
     onClose();
-    void signOut();
+    setTimeout(() => void signOut(), ANIM_MS);
   };
 
   const email = user?.email ?? null;
