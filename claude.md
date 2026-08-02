@@ -101,104 +101,126 @@
 - `screens/ProfileScreen.tsx` — now a modal; added an X close button
   (`navigation.goBack()`). Still shows email + Log Out + web dashboard link.
 
-## Onboarding (kept, but NOT gated in M1)
-- `screens/OnboardingScreen.tsx`, `lib/onboarding.ts`, and AuthContext's
-  `onboardingComplete` / `refreshOnboarding` are intact and available for the
-  milestone where onboarding is implemented. RootNavigator no longer blocks Home
-  behind them. No new onboarding behavior was added for this milestone.
+# Milestone 2: Full Screen Conversion + Onboarding ✅
 
-## M1 notes / follow-ups
-- **Email confirmation** is a Supabase Auth dashboard setting on the shared prod
-  project (`vpshxswclkczbjtiyirc`) — it can't be toggled from mobile code, and
-  disabling it affects web too. For dev/testing, disable "Confirm email" in the
-  Supabase dashboard so email+password sign-in works without confirmation.
-- Center tab = Home/Dad Score (the flagship + landing). If the client wants the
-  center to be a dedicated Progress/Score screen instead, it's a one-line change
-  in `TAB_META` + a new screen.
+## Scope delivered
 
-## Authentication flow (production / "banking app" behaviour)
-Session logic is copied from the web (single `onAuthStateChange`, SecureStore
-persistence) — the mobile flow only adds the biometric-first gating on top.
+### Welcome Screen (`screens/WelcomeScreen.tsx`)
+- First screen shown to new users (when `onboardingComplete === false`).
+- Dad Health logo + tagline: "A healthier life, with your kids at the heart of it."
+- Progress bar (1/3 dots) + "Continue" button → navigates to OnboardingGoals.
 
-- **Launch**: `RootNavigator` → `loading ? Splash`. If a Supabase session is
-  restored → straight to `AppNavigator` (Home). No session → `UnauthedFlow`.
-- `contexts/UnauthedFlow.tsx` — the signed-out experience: if biometrics are
-  available AND enrolled → `BiometricGate` (auto-prompts Face ID/Touch ID on mount,
-  no button tap). Otherwise → `LoginScreen`. The login form is the LAST fallback.
-- `components/BiometricGate.tsx` — auto-prompts on mount; success signs in via
-  stored creds (session flips, tree swaps to Home); failure/cancel shows retry +
-  "Use password instead" → LoginScreen.
-- **Logout** happens ONLY from Profile → clears session → `UnauthedFlow` re-runs →
-  auto biometric again if still enabled (creds are kept on logout by design; the
-  user can cancel to reach the login form, or disable Face ID in Profile).
-- **Interpretation note**: the brief's flowchart says *session exists → Dashboard*,
-  so we do NOT force Face ID when a valid session is already restored. Biometric
-  gating triggers only when there is no session (fresh install, expiry, logout).
+### Onboarding Goals Screen (`screens/OnboardingGoalsScreen.tsx`)
+- Second screen in the onboarding flow.
+- "What brings you here?" — 6 goal cards with icons (e.g. "I want to be more present",
+  "I want to get stronger", etc.) defined in `lib/onboarding.ts` as `GOALS`.
+- Multi-select toggle (chips style). Progress bar (2/3 dots).
+- Saves selected goals to `user_profile.goals` via Supabase upsert on "Continue".
+- Uses `navigation.replace('OnboardingCustody', { goals })` — no back button,
+  can't re-submit goals twice.
+- Fixed footer layout (always-visible Continue button) — same pattern as custody screen.
 
-## Biometric enrollment (opt-in — no silent saving)
-- `AuthContext.signIn` no longer saves credentials silently. On a successful
-  password sign-in (biometrics available + not already enrolled) it stages the
-  creds **in memory only** (`pendingBiometricEnrollment`, email exposed / password
-  private).
-- `components/BiometricEnrollmentModal.tsx` shows over the dashboard: *"Use Face ID
-  to sign in next time?"* → **Enable** persists creds to the keychain; **Not Now**
-  discards them. Also disable-able later in Profile → Settings.
-- Face ID / OAuth sign-ins don't trigger enrollment (Face ID is already enrolled;
-  OAuth has no password to store — biometric unlock is password-credential based).
+### Onboarding Custody Screen (`screens/OnboardingCustodyScreen.tsx`)
+- Third and final onboarding screen.
+- "How often do you see your kids?" — 5 custody options with icons + subtext.
+- Progress bar (3/3 dots). No back button.
+- **Single combined save**: writes goals (passed from previous step via route params) +
+  `custody_pattern` + legacy `custody_arrangement` (mapped via `LEGACY_CUSTODY_MAP`) +
+  `onboarding_complete: true` in ONE Supabase upsert.
+- After save, calls `refreshOnboarding()` — if complete, instantly resets the
+  navigation stack to `Tabs` via `navigation.reset()`.
+- Shows "Your Bond score is protected" info card for non-daily custody selections.
+- Fixed footer layout with `LimeButton` (always visible, no hand-rolled Pressable).
 
-## Login screen (`screens/LoginScreen.tsx`)
-- Modes mirror the web `AuthModal`: **signin / signup / forgot**.
-- Email+password sign-in & create-account, **Forgot password** (Supabase
-  `resetPasswordForEmail`, `redirectTo` the web `/auth/callback?next=/auth/reset-password`),
-  Google + Apple buttons, and the Face ID fallback button (when enrolled).
-- Apple button only renders when `isAppleAuthAvailable()` (iOS + module present).
+### Root Navigator Gating (`contexts/RootNavigator.tsx`)
+- When `session` is true but `onboardingComplete` is false → renders `AppNavigator`
+  with `initialRouteName="Welcome"` and `key="onboarding"` (forces remount).
+- When `session` is true and `onboardingComplete` is true → renders `AppNavigator`
+  with `initialRouteName="Tabs"` and `key="tabs"`.
+- When `session` is null → renders `AppNavigator` with `initialRouteName="Tabs"` and
+  `key="tabs"` (stays on the app with "?" avatar — no redirect to LoginScreen).
+- Loading state shows dark `Splash` component.
 
-## OAuth (`lib/oauth.ts`) — needs external setup + a DEV BUILD
-Client code is done and typechecks, but Google/Apple will NOT function in Expo Go:
-- **Google**: `supabase.auth.signInWithOAuth` → `expo-web-browser` in-app browser →
-  redirect back to `dadhealth://auth/callback` (scheme already in `app.json`) →
-  PKCE `exchangeCodeForSession` (or implicit `setSession`). Requires a dev build
-  (custom-scheme redirect isn't available in Expo Go) + Supabase Google provider +
-  the redirect URL allow-listed + Google OAuth client IDs.
-- **Apple**: `expo-apple-authentication` native sheet → `supabase.auth.signInWithIdToken`.
-  Requires `usesAppleSignIn: true` + the `expo-apple-authentication` plugin (both
-  added to `app.json`), a dev build, an Apple Services ID, and the Supabase Apple
-  provider configured for bundle id `co.uk.dadhealth`.
-- Added deps: `expo-web-browser`, `expo-auth-session`, `expo-apple-authentication`,
-  `expo-crypto` (via `npx expo install`). Both providers fail gracefully (clear
-  error, no crash) until the above config + dev build exist.
+### Onboarding Data Model (`lib/onboarding.ts`)
+- `CUSTODY_OPTIONS`: 5 patterns with icons, labels, and subtext: Daily, Most Days,
+  Alternate Weeks, Occasionally, Flexible.
+- `LEGACY_CUSTODY_MAP`: maps each `CustodyPattern` to the old `custody_arrangement`
+  string for web compatibility (e.g. `daily` → `Every day`).
+- `GOALS`: 6 goal cards with icons and subtext for the goals screen.
+- `isOnboardingComplete()`: checks `goals` (non-empty array), `custody_pattern`
+  (non-null), and `onboarding_complete === true`.
+- `onboardingSaveErrorMessage()`: user-friendly error messages for common Supabase
+  error codes (42703 = missing column, 23505 = duplicate, etc.).
 
-## Account UX Refactor — Phase 1 ✅ (UX-only, no auth changes)
-Replaced the avatar → direct-navigation with a modern animated **Account Sheet**
-(Apple Fitness / Spotify / GitHub Mobile style). No auth/Supabase/biometric/session
-/onboarding logic was touched.
-- `components/AccountSheet.tsx` — custom bottom sheet (props: `visible`, `onClose`;
-  everything else from `useAuth()`). Owns overlay/backdrop/animation/rows/gestures.
-  Built on RN's built-in `Animated` + `Modal` (NOT Reanimated — same worklets-crash
-  reason as `FadeInView`). Slide-up `translateY` + backdrop fade (300ms, rgba(0,0,0,0.55)),
-  `bg-card` + `rounded-t-card` + 24px padding. Rows are 56px, Feather icon left /
-  title center / chevron right, 16px spacing. Dismiss on backdrop tap, Android back
-  (`onRequestClose`), and drag-down (PanResponder, >110px or fast flick).
-  - Logged OUT: Sign In · Settings · Help & Support.
-  - Logged IN: My Profile · Settings · Help & Support · ── · Log Out (red).
-  - Sign In → close then `navigate('Login')`. My Profile → `Profile`. Settings →
-    `Settings`. Help → `Linking.openURL(WEB_URL/help)`. Log Out → `onClose()` +
-    existing `signOut()` (auth listener drops to UnauthedFlow — nothing duplicated).
-- `components/ScreenScaffold.tsx` — avatar no longer navigates; holds
-  `accountOpen` state, opens `<AccountSheet/>`. `AccountButton` now takes `onPress`.
-- `screens/SettingsScreen.tsx` — new placeholder ("Coming Soon"), added to AppNavigator.
-- `navigation/AppNavigator.tsx` — registered `Settings` screen (type already existed).
-- `screens/ProfileScreen.tsx` — removed the Log Out section (+ `signingOut`/`signOut`/
-  `ActivityIndicator`/`handleSignOut`); Profile is now reached ONLY via the sheet.
-- Untouched (per brief): AuthContext, RootNavigator, LoginScreen, supabase.ts,
-  biometric.ts, secureStore.ts, BottomTabNavigator.
-- Note: brief listed Profile as "only Avatar/Email/Member Since/Subscription/
-  Connected Devices/Biometric" — those extra sections have no data source yet, so
-  Phase 1 only removed Log Out and kept the existing identity + biometric + web-
-  dashboard content. Add the new sections when their data lands.
+### Logout Behavior
+- Logout from the Account Sheet → session clears → `RootNavigator` renders the
+  tabs directly (not `UnauthedFlow`).
+- The Account Sheet automatically switches to the logged-out state (shows "Sign In"
+  instead of "My Profile", "Log Out" row is hidden).
+- Account button in `ScreenScaffold` shows "?" when logged out.
+- Tapping "?" → Account Sheet → "Sign In" → navigates to the Login screen.
+- After sign-in the session flips and the tree re-renders with the full experience.
+
+### AppNavigator (`navigation/AppNavigator.tsx`)
+- Updated `AppStackParamList`: `OnboardingCustody: { goals: string[] } | undefined`.
+- `initialRouteName` prop (defaults to `'Tabs'`).
+- Now accepts and uses `initialRouteName` prop from `RootNavigator`.
+- Onboarding screens are registered before the Tabs screen in the stack so the
+  initialRouteName can be 'Welcome'.
+
+## Onboarding flow
+1. **Fresh install / onboarding reset** → RootNavigator sees `onboardingComplete: false`
+   → renders AppNavigator with `initialRouteName="Welcome"`.
+2. **Welcome** → tap "Continue" → navigate to OnboardingGoals.
+3. **OnboardingGoals** → select goals → tap "Continue" → upsert goals to Supabase →
+   `navigation.replace('OnboardingCustody', { goals })`.
+4. **OnboardingCustody** → select custody → tap "Continue" → single upsert (goals +
+   custody_pattern + custody_arrangement + onboarding_complete: true) →
+   `refreshOnboarding()` → `navigation.reset({ routes: [{ name: 'Tabs' }] })`.
+5. **Tabs** → full app experience. Logout stays on Tabs with "?" avatar.
+
+## Remaining screens (placeholder — no mockups yet)
+The 5 pillar screens (Home, Fitness, Mind, Bond, Community) are still running the
+old `ScreenScaffold` with placeholder cards. The mockups in `mockups/DadHealth_AppStore_Screenshots (1).html`
+show the intended designs for each pillar but have NOT been implemented yet:
+
+- **Home** — should show Dad Score ring, score breakdown bars, daily check-in (mood + sleep),
+  daily goals/streak. Currently shows static placeholder cards.
+- **Fitness** — should show workout timer, exercise list, progress stats, meal planner,
+  workout generator, TDEE calculator. Currently shows static placeholder cards.
+- **Mind** — should show breathing circle (4-4-4 with audio), journal with prompts,
+  mood trend chart, therapist finder, crisis support. Currently shows static placeholder cards.
+- **Bond** — should show Bond score, custody-adaptive scoring, Present Dad Mode toggle,
+  milestone tracker with photo uploads, dad date ideas with filters, conversation starters,
+  co-parenting calendar, Cook Together recipes, Dad Days search. Currently shows static
+  placeholder cards.
+- **Community** — should show post feed (compose, like, save, delete), circles grid,
+  live sessions, trending tags, anonymous posting. Currently shows static placeholder cards.
+
+## Database schema notes
+- `user_profile` table: requires `custody_pattern` column (text). If missing, run:
+  ```sql
+  alter table user_profile add column if not exists custody_pattern text;
+  ```
+- `onboarding_complete` column (boolean) in `user_profile`.
+- `goals` column (jsonb) in `user_profile`.
+- The `custody_arrangement` column is kept for web compatibility — both are written
+  on the custody step.
+
+## Key files for Milestone 2
+- `screens/WelcomeScreen.tsx` — onboarding entry point
+- `screens/OnboardingGoalsScreen.tsx` — goal selection (step 2)
+- `screens/OnboardingCustodyScreen.tsx` — custody selection (step 3, final save)
+- `lib/onboarding.ts` — data model, options, completion check, save error messages
+- `contexts/RootNavigator.tsx` — auth + onboarding gating
+- `navigation/AppNavigator.tsx` — stack with onboarding screens + Tabs
+- `contexts/AuthContext.tsx` — `onboardingComplete`, `refreshOnboarding()`, `manualSignOut`
 
 ## Next milestone
-- (define next milestone)
+- **Full Screen Conversion** — replace the placeholder `ScreenScaffold` with actual
+  content matching the mockups for all 5 tabs (Home, Fitness, Mind, Bond, Community).
+  Each screen should pull real data from the Supabase hooks (useDashboard, useFitness,
+  useMind, useBond, useCommunity) and render the intended UI from the mockups.
 
 ## Known Gotchas
 - Windows + Expo: use `--legacy-peer-deps` if peer conflicts arise
@@ -221,10 +243,12 @@ Replaced the avatar → direct-navigation with a modern animated **Account Sheet
 
 ## Testing
 - Run `npx expo start --clear` from `dadhealth-mobile/` (press `i` / scan QR in Expo Go)
-- LoginScreen shows first; sign in with a web test account → lands on **Home** (center tab)
+- **Onboarding**: reset profile in Supabase SQL Editor:
+  `update public.user_profile set onboarding_complete = false, goals = '[]'::jsonb, custody_pattern = null, custody_arrangement = null where user_id = '<your-id>';`
+  Then restart the app → Welcome → Goals → Custody → Tabs.
+- **Logout**: tap "?" avatar → Account Sheet → Log Out → stays on Home with "?" avatar.
+- **Sign in**: tap "?" → Account Sheet → Sign In → sign in → lands on Home with your initial.
+- **Biometric enrollment**: after first manual sign-in, "Use Face ID" modal appears.
 - Bottom bar matches the mockup: Fit · Mind · **Home (raised lime center)** · Bond · Squad
-- Tap the top-right account avatar (any pillar screen) → Profile modal → Log Out returns to LoginScreen
-- Kill & reopen the app while signed in → auto-logs in (SecureStore session)
-- Face ID: after one manual sign-in, "Log in with Face ID" appears on LoginScreen
 - Confirm colors match web exactly (lime #C8F55A on dark #0A0A0A)
 - No console errors
