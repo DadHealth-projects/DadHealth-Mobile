@@ -14,7 +14,7 @@ import {
   hasBiometricCredentials,
   saveBiometricCredentials,
 } from '../lib/biometric';
-import { isPhase1Complete } from '../lib/onboarding';
+import { isOnboardingComplete } from '../lib/onboarding';
 
 type AuthResult = { error: string | null };
 
@@ -32,8 +32,17 @@ interface AuthContextType {
    * `null` while unknown (no user, or the profile is still being fetched).
    */
   onboardingComplete: boolean | null;
-  /** Re-fetch onboarding status (call after finishing the onboarding flow). */
-  refreshOnboarding: () => Promise<void>;
+  /**
+   * True immediately after an EXPLICIT Log Out from the Account Sheet.
+   * UnauthedFlow uses this to skip the biometric auto-prompt and go straight to
+   * the Login screen — otherwise the stored Face ID creds silently re-log the
+   * user in and they bounce straight back to Home (the "logout → home" loop).
+   * Resets to false on the next successful manual sign-in, or when a session
+   * arrives.
+   */
+  manualSignOut: boolean;
+  /** Re-fetch onboarding status and report whether the new flow is complete. */
+  refreshOnboarding: () => Promise<boolean>;
   signUp: (email: string, password: string) => Promise<AuthResult>;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   /** Send a password-reset email (same behaviour as the web AuthModal). */
@@ -57,7 +66,8 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: true,
   onboardingComplete: null,
-  refreshOnboarding: async () => {},
+  manualSignOut: false,
+  refreshOnboarding: async () => false,
   signUp: async () => ({ error: null }),
   signIn: async () => ({ error: null }),
   resetPassword: async () => ({ error: null }),
@@ -73,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+  const [manualSignOut, setManualSignOut] = useState(false);
   // Credentials from the most recent successful password sign-in, held ONLY in
   // memory until the user accepts/declines the biometric enrollment prompt. Never
   // persisted unless they opt in. Cleared on decline and on sign-out.
@@ -91,6 +102,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!nextSession) {
       setPendingEnrollment(null);
       setOnboardingComplete(null);
+    } else {
+      // Any real session (password or biometric sign-in) clears the manual
+      // sign-out flag so the biometric gate returns on future launches.
+      setManualSignOut(false);
     }
 
     setLoading(false);
@@ -101,15 +116,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Fetch onboarding status whenever the signed-in user changes. Kept separate
   // from the auth listener so it's a profile read, not an auth round-trip.
-  const loadOnboarding = useCallback(async (userId: string) => {
+  const loadOnboarding = useCallback(async (userId: string): Promise<boolean> => {
     try {
       const { data, error } = await supabase
         .from('user_profile')
-        .select('display_name,parent_type,custody_arrangement,kids_ages')
+        .select('goals,custody_pattern,onboarding_complete')
         .eq('user_id', userId)
         .maybeSingle();
       if (error) throw error;
-      setOnboardingComplete(isPhase1Complete(data));
+      const complete = isOnboardingComplete(data);
+      setOnboardingComplete(complete);
+      return complete;
     } catch (error) {
       // Don't trap the user in a splash on a transient profile-read failure —
       // let them into the app and surface onboarding later if needed.
@@ -117,10 +134,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         '[auth]',
         JSON.stringify({
           op: 'loadOnboarding',
+          code: typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined,
           message: error instanceof Error ? error.message : String(error),
+          details: typeof error === 'object' && error !== null && 'details' in error ? error.details : undefined,
+          hint: typeof error === 'object' && error !== null && 'hint' in error ? error.hint : undefined,
         })
       );
-      setOnboardingComplete(true);
+      setOnboardingComplete(false);
+      return false;
     }
   }, []);
 
@@ -134,8 +155,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void loadOnboarding(userId);
   }, [user?.id, loadOnboarding]);
 
-  const refreshOnboarding = useCallback(async () => {
-    if (user?.id) await loadOnboarding(user.id);
+  const refreshOnboarding = useCallback(async (): Promise<boolean> => {
+    if (!user?.id) return false;
+    return loadOnboarding(user.id);
   }, [user?.id, loadOnboarding]);
 
   const signUp = useCallback(async (email: string, password: string): Promise<AuthResult> => {
@@ -158,6 +180,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) {
       return { error: error.message };
     }
+
+    setManualSignOut(false);
 
     try {
       const biometricAvailable = await isBiometricAvailable();
@@ -204,6 +228,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
   setPendingEnrollment(null);
+  // Flag that this is an EXPLICIT logout so UnauthedFlow lands on the Login
+  // screen instead of auto-prompting Face ID (which would silently re-login
+  // with the stored credentials and bounce the user straight back to Home).
+  setManualSignOut(true);
 
   const { error } = await supabase.auth.signOut();
 
@@ -223,6 +251,7 @@ const value: AuthContextType = {
   session,
   loading,
   onboardingComplete,
+  manualSignOut,
   refreshOnboarding,
   signUp,
   signIn,
