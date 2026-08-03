@@ -7,7 +7,7 @@ import {
 } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import HomeScreen from '../screens/HomeScreen';
+import HomeTabScreen from '../screens/HomeTabScreen';
 import FitnessScreen from '../screens/FitnessScreen';
 import MindScreen from '../screens/MindScreen';
 import BondScreen from '../screens/BondScreen';
@@ -176,7 +176,7 @@ export default function BottomTabNavigator() {
     >
       <Tab.Screen name="Fit" component={FitnessScreen} />
       <Tab.Screen name="Mind" component={MindScreen} />
-      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Home" component={HomeTabScreen} />
       <Tab.Screen name="Bond" component={BondScreen} />
       <Tab.Screen name="Squad" component={CommunityScreen} />
     </Tab.Navigator>
