@@ -1,36 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
 import AccountSheet from './AccountSheet';
+import AccountButton from './AccountButton';
 import Card from './Card';
 import FadeInView from './FadeInView';
 import LimeButton from './LimeButton';
-import { useAuth } from '../contexts/AuthContext';
 import { colors } from '../theme';
-
-function AccountButton({ onPress }: { onPress: () => void }) {
-  const { user, session } = useAuth();
-
-  const initial = session
-  ? (user?.email?.[0] ?? 'D').toUpperCase()
-  : '?';
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel="Account"
-      hitSlop={8}
-      className="h-[40px] w-[40px] rounded-full border border-lime/40 bg-lime/10 items-center justify-center active:opacity-70"
-    >
-      <Text className="font-heading-bold text-lime text-[16px]">
-        {initial}
-      </Text>
-    </Pressable>
-  );
-}
 
 export type ScaffoldCard = {
   icon: keyof typeof Feather.glyphMap;
