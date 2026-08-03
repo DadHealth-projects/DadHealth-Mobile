@@ -8,6 +8,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import OnboardingGoalsScreen from '../screens/OnboardingGoalsScreen';
 import OnboardingCustodyScreen from '../screens/OnboardingCustodyScreen';
+import ProgressScreen from '../screens/ProgressScreen';
 import { colors } from '../theme';
 
 export type AppStackParamList = {
@@ -18,6 +19,7 @@ export type AppStackParamList = {
   Welcome: undefined;
   OnboardingGoals: undefined;
   OnboardingCustody: { goals: string[] } | undefined;
+  Progress: undefined;
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -41,6 +43,15 @@ export default function AppNavigator({
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
       <Stack.Screen name="OnboardingGoals" component={OnboardingGoalsScreen} />
       <Stack.Screen name="OnboardingCustody" component={OnboardingCustodyScreen} />
+      <Stack.Screen
+        name="Progress"
+        component={ProgressScreen}
+        options={{
+          presentation: 'card',
+          animation: 'slide_from_right',
+          gestureEnabled: true,
+        }}
+      />
       {/* Main application */}
       <Stack.Screen
         name="Tabs"
