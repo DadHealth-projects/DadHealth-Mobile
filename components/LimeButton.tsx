@@ -1,5 +1,11 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, Text } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  Text,
+  View,
+} from 'react-native';
+
 import { colors, shadows } from '../theme';
 
 type LimeButtonProps = {
@@ -7,22 +13,60 @@ type LimeButtonProps = {
   onPress?: () => void;
   disabled?: boolean;
   loading?: boolean;
+  accessibilityLabel?: string;
 };
 
-/**
- * Lime accent button — web `LimeButton`. Rounded (12px), lime fill that shifts
- * to lime-hover and dims on press for a clear active state, with a lime glow.
- */
-export default function LimeButton({ label, onPress, disabled = false, loading = false }: LimeButtonProps) {
+function ButtonSkeleton() {
+  return (
+    <View
+      className="h-[20px] w-[120px] rounded-full bg-dark/20"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    />
+  );
+}
+
+export default function LimeButton({
+  label,
+  onPress,
+  disabled = false,
+  loading = false,
+  accessibilityLabel,
+}: LimeButtonProps) {
+  const isDisabled = disabled || loading;
+
   return (
     <Pressable
       onPress={onPress}
-      disabled={disabled || loading}
-      style={shadows.button}
-      className="bg-lime rounded-button px-lg py-md items-center justify-center active:bg-lime-hover active:opacity-90 disabled:opacity-50"
+      disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityState={{
+        disabled: isDisabled,
+        busy: loading,
+      }}
+      accessibilityLabel={accessibilityLabel ?? label}
+      style={({ pressed }) => [
+        shadows.button,
+        {
+          opacity: isDisabled ? 0.55 : pressed ? 0.9 : 1,
+        },
+      ]}
+      className="bg-lime rounded-button px-lg py-md items-center justify-center"
     >
-      {loading ? <ActivityIndicator color={colors.dark} /> : (
-        <Text className="font-heading-bold text-dark text-[15px] tracking-[1px] uppercase">{label}</Text>
+      {loading ? (
+        <>
+          <ActivityIndicator
+            size="small"
+            color={colors.dark}
+          />
+          <View className="mt-sm">
+            <ButtonSkeleton />
+          </View>
+        </>
+      ) : (
+        <Text className="font-heading-bold text-dark text-[15px] tracking-[1px] uppercase">
+          {label}
+        </Text>
       )}
     </Pressable>
   );

@@ -44,16 +44,19 @@ function logFailure(operation: string, error: unknown): void {
 function messageFor(error: unknown): string {
   const detail = errorDetails(error);
   const text = detail.message?.toLowerCase() ?? '';
+  if (text.includes('timeout')) {
+  return "DadHealth is taking longer than expected. Please try again.";
+}
   if (detail.code === '42501' || text.includes('permission') || text.includes('row-level security')) {
     return "We couldn't verify your account. Please sign in again, then reload your dashboard.";
   }
   if (text.includes('network') || text.includes('fetch') || text.includes('timeout')) {
-    return 'Check your connection, then try again.';
+   return "We couldn't reach DadHealth. Check your internet connection and pull down to try again.";
   }
   if (detail.code === '429' || text.includes('rate limit')) {
     return 'Too many requests. Please wait a moment, then try again.';
   }
-  return 'We could not load your dashboard just now. Please try again.';
+  return "Couldn't load today's dashboard. Please try again.";
 }
 
 function numberScore(value: unknown): number {
@@ -97,6 +100,15 @@ async function updateStreak(userId: string): Promise<void> {
     .from('user_streaks')
     .upsert({ user_id: userId, streak_count: streakCount, last_activity_date: today }, { onConflict: 'user_id' });
   if (writeError) throw writeError;
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms = 10000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('Request timeout')), ms),
+    ),
+  ]);
 }
 
 async function fetchDashboard(userId: string): Promise<DashboardData> {
@@ -146,7 +158,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
 
 export function useDashboard(userId: string | undefined) {
   const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(Boolean(userId));
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkingIn, setCheckingIn] = useState(false);
 
@@ -159,7 +171,7 @@ export function useDashboard(userId: string | undefined) {
     setLoading(true);
     setError(null);
     try {
-      setData(await fetchDashboard(userId));
+      setData(await withTimeout(fetchDashboard(userId)));
     } catch (fetchError) {
       logFailure('loadDashboard', fetchError);
       setError(messageFor(fetchError));
@@ -168,7 +180,18 @@ export function useDashboard(userId: string | undefined) {
     }
   }, [userId]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+  let mounted = true;
+
+  (async () => {
+    if (!mounted) return;
+    await refresh();
+  })();
+
+  return () => {
+    mounted = false;
+  };
+}, [refresh]);
 
   const saveCheckIn = useCallback(async (moodValue: number, sleepHours: number): Promise<{ error: string | null }> => {
     if (!userId) return { error: "You're not signed in. Please sign in again to save your check-in." };

@@ -3,6 +3,7 @@ import {
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
+  RefreshControl,
   Text,
   TextInput,
   View,
@@ -10,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import HomeSkeleton from '../components/skeleton/HomeSkeleton';
 
 import AccountButton from '../components/AccountButton';
 import type { AppStackParamList } from '../navigation/AppNavigator';
@@ -111,28 +113,39 @@ export function DashboardScreenContent({
     setSleep('');
   };
 
+  if (loading && !data) {
+  return (
+    <SafeAreaView
+      edges={['top']}
+      style={{ flex: 1, backgroundColor: colors.dark }}
+    >
+      <HomeSkeleton />
+    </SafeAreaView>
+  );
+}
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-        <ScrollView
+<ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           contentContainerClassName="px-lg pt-lg pb-[120px] gap-xl"
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={() => void refresh()}
+              tintColor={colors.lime}
+            />
+          }
         >
           <View className="flex-row justify-end">
             <AccountButton onPress={() => setAccountOpen(true)} />
           </View>
 
-          {loading && !data ? (
-            <View className="flex-1 items-center justify-center py-xl">
-              <View className="h-[54px] w-[54px] rounded-full border-[3px] border-lime border-t-transparent" />
-              <Text className="font-heading-bold text-lime text-[18px] tracking-[0.5px] uppercase mt-md">Loading your day...</Text>
-            </View>
-          ) : null}
-
           {dashboardError && !data ? (
             <Card className="border-lime/30 gap-md">
-              <Text className="font-heading-bold text-white text-[20px] uppercase">Your dashboard could not load</Text>
+              <Text className="font-heading-bold text-white text-[20px] uppercase">Couldn't load today's dashboard</Text>
               <Text className="font-body text-muted-text text-[14px] leading-[21px]">{dashboardError}</Text>
               <LimeButton label="Try again" onPress={() => void refresh()} />
             </Card>
@@ -233,7 +246,9 @@ export function DashboardScreenContent({
               <FadeInView delay={180}>
                 <SectionTitle>Today's plan</SectionTitle>
                 {data.goals.length === 0 ? (
-                  <Text className="font-body text-muted-text text-[14px] leading-[21px] mt-md">Your plan will appear once you add goals in onboarding.</Text>
+                  <Text className="font-body text-muted-text text-[14px] leading-[21px] mt-md">Start by adding your first goal.
+
+Small daily wins build momentum.</Text>
                 ) : (
                   <View className="mt-md border-t border-lime/20">
                     {data.goals.map((goal) => {
@@ -289,7 +304,9 @@ export function DashboardScreenContent({
               <FadeInView delay={280}>
                 <SectionTitle>Smart reminders</SectionTitle>
                 {data.reminders.length === 0 ? (
-                  <Text className="font-body text-muted-text text-[14px] mt-md">No reminders yet.</Text>
+                  <Text className="font-body text-muted-text text-[14px] mt-md">You're all caught up today.
+
+New reminders will appear here.</Text>
                 ) : (
                   <View className="mt-md gap-sm">
                     {data.reminders.map((reminder) => (
@@ -306,8 +323,8 @@ export function DashboardScreenContent({
               <FadeInView delay={330}>
                 <Card className="border-lime/30">
                   <Text className="font-heading-bold text-lime text-[13px] tracking-label uppercase">This week's challenge</Text>
-                  <Text className="font-heading-bold text-white text-[24px] leading-[26px] uppercase mt-sm">{data.challenge?.title ?? 'No active challenge'}</Text>
-                  <Text className="font-body text-muted-text text-[14px] mt-sm">{data.challenge ? `${data.challenge.participants_count ?? 0} dads taking part` : 'Check back soon for the next challenge.'}</Text>
+                  <Text className="font-heading-bold text-white text-[24px] leading-[26px] uppercase mt-sm">{data.challenge?.title ?? 'Next challenge coming soon.'}</Text>
+                  <Text className="font-body text-muted-text text-[14px] mt-sm">{data.challenge ? `${data.challenge.participants_count ?? 0} dads taking part` : "We'll notify you when the next challenge goes live."}</Text>
                   <Pressable
                     onPress={onGoProgress}
                     className="self-start border border-lime rounded-button px-md py-sm mt-md active:bg-lime/10"

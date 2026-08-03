@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
-import AccountSheet from './AccountSheet';
 import AccountButton from './AccountButton';
+import AccountSheet from './AccountSheet';
 import Card from './Card';
 import FadeInView from './FadeInView';
 import LimeButton from './LimeButton';
@@ -20,31 +20,57 @@ type ScreenScaffoldProps = {
   label: string;
   title: string;
   intro?: string;
-  cards?: ScaffoldCard[];
+
+  cards?: readonly ScaffoldCard[];
+
   ctaLabel?: string;
+  onPressCTA?: () => void;
+  ctaLoading?: boolean;
+
+  children?: React.ReactNode;
 };
+
+const ANIMATION_DELAY = 120;
+const ANIMATION_STEP = 90;
 
 export default function ScreenScaffold({
   label,
   title,
   intro,
-  cards = [],
+  cards,
   ctaLabel,
+  onPressCTA,
+  ctaLoading = false,
+  children,
 }: ScreenScaffoldProps) {
   const [accountOpen, setAccountOpen] = useState(false);
+
+  const openAccountSheet = useCallback(() => {
+    setAccountOpen(true);
+  }, []);
+
+  const closeAccountSheet = useCallback(() => {
+    setAccountOpen(false);
+  }, []);
 
   return (
     <SafeAreaView
       edges={['top']}
-      style={{ flex: 1, backgroundColor: colors.dark }}
+      style={{
+        flex: 1,
+        backgroundColor: colors.dark,
+      }}
     >
       <ScrollView
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerClassName="px-lg pt-xl pb-[120px] gap-lg"
-      >
-        <View className="flex-row justify-end">
-          <AccountButton onPress={() => setAccountOpen(true)} />
+  showsVerticalScrollIndicator={false}
+  keyboardShouldPersistTaps="handled"
+  contentContainerClassName="px-lg pt-lg pb-[120px] gap-xl"
+>
+        <View
+          className="flex-row justify-end"
+          accessibilityRole="header"
+        >
+          <AccountButton onPress={openAccountSheet} />
         </View>
 
         <FadeInView>
@@ -60,17 +86,17 @@ export default function ScreenScaffold({
             {title}
           </Text>
 
-          {intro && (
+          {intro ? (
             <Text className="font-body text-muted-text text-[15px] leading-[24px] mt-md">
               {intro}
             </Text>
-          )}
+          ) : null}
         </FadeInView>
 
-        {cards.map((card, index) => (
+        {cards?.map((card, index) => (
           <FadeInView
             key={card.title}
-            delay={120 + index * 90}
+            delay={ANIMATION_DELAY + index * ANIMATION_STEP}
           >
             <Card className="flex-row gap-md items-start">
               <View className="h-[46px] w-[46px] rounded-button bg-lime/10 items-center justify-center">
@@ -94,16 +120,25 @@ export default function ScreenScaffold({
           </FadeInView>
         ))}
 
-        {ctaLabel && (
-          <FadeInView delay={120 + cards.length * 90}>
-            <LimeButton label={ctaLabel} />
+        {children}
+
+        {ctaLabel ? (
+          <FadeInView
+            delay={ANIMATION_DELAY + (cards?.length ?? 0) * ANIMATION_STEP}
+          >
+            <LimeButton
+              label={ctaLabel}
+              onPress={onPressCTA}
+              loading={ctaLoading}
+              accessibilityLabel={ctaLabel}
+            />
           </FadeInView>
-        )}
+        ) : null}
       </ScrollView>
 
       <AccountSheet
         visible={accountOpen}
-        onClose={() => setAccountOpen(false)}
+        onClose={closeAccountSheet}
       />
     </SafeAreaView>
   );
