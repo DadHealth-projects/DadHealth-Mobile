@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
 import Card from '../components/Card';
+import AppTopBar from '../components/AppTopBar';
 import FadeInView from '../components/FadeInView';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -59,7 +60,7 @@ export default function ProfileScreen() {
     });
   };
 
-  const email = user?.email ?? '—';
+  const email = user?.email ?? '0';
   const initial = (user?.email?.[0] ?? '?').toUpperCase();
 
   if (!session) {
@@ -126,7 +127,8 @@ export default function ProfileScreen() {
         contentContainerClassName="px-lg pt-xl pb-[120px] gap-lg"
       >
         {/* Close (modal) */}
-        <View className="flex-row justify-end">
+        <AppTopBar
+          rightAccessory={
           <Pressable
             onPress={() => navigation.goBack()}
             accessibilityRole="button"
@@ -136,7 +138,8 @@ export default function ProfileScreen() {
           >
             <Feather name="x" size={20} color={colors.text} />
           </Pressable>
-        </View>
+          }
+        />
 
         <FadeInView>
           <View className="flex-row items-center gap-sm mb-md">

@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
 import Card from '../components/Card';
+import AppTopBar from '../components/AppTopBar';
 import FadeInView from '../components/FadeInView';
 import { colors } from '../theme';
 
@@ -22,7 +23,8 @@ export default function SettingsScreen() {
         contentContainerClassName="px-lg pt-xl pb-[120px] gap-lg"
       >
         {/* Close (modal) */}
-        <View className="flex-row justify-end">
+        <AppTopBar
+          rightAccessory={
           <Pressable
             onPress={() => navigation.goBack()}
             accessibilityRole="button"
@@ -32,7 +34,8 @@ export default function SettingsScreen() {
           >
             <Feather name="x" size={20} color={colors.text} />
           </Pressable>
-        </View>
+          }
+        />
 
         <FadeInView>
           <View className="flex-row items-center gap-sm mb-md">
