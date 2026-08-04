@@ -10,14 +10,6 @@ export default function HomeSkeleton() {
       showsVerticalScrollIndicator={false}
       contentContainerClassName="px-lg pt-lg pb-[120px]"
     >
-      <View className="items-end mb-xl">
-        <SkeletonBlock
-          width={44}
-          height={44}
-          radius={22}
-        />
-      </View>
-
       <SkeletonBlock
         width="28%"
         height={14}

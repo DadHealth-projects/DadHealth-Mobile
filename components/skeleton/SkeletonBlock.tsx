@@ -2,13 +2,14 @@ import React, { useEffect, useRef } from 'react';
 import {
   Animated,
   Easing,
+  type DimensionValue,
   ViewStyle,
 } from 'react-native';
 
 import { colors } from '../../theme';
 
 type Props = {
-  width?: number | string;
+  width?: DimensionValue;
   height: number;
   radius?: number;
   style?: ViewStyle;
