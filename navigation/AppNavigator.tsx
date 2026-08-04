@@ -1,7 +1,8 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import type { NavigatorScreenParams } from '@react-navigation/native';
 
-import BottomTabNavigator from './BottomTabNavigator';
+import BottomTabNavigator, { type BottomTabsParamList } from './BottomTabNavigator';
 import LoginScreen from '../screens/LoginScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
@@ -12,7 +13,7 @@ import ProgressScreen from '../screens/ProgressScreen';
 import { colors } from '../theme';
 
 export type AppStackParamList = {
-  Tabs: undefined;
+  Tabs: NavigatorScreenParams<BottomTabsParamList> | undefined;
   Login: undefined;
   Profile: undefined;
   Settings: undefined;

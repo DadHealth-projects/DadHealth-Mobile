@@ -2,10 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
-  Linking,
   Modal,
   PanResponder,
   Pressable,
+  ScrollView,
   Text,
   View,
   type LayoutChangeEvent,
@@ -14,14 +14,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import {
   useNavigation,
+  useRoute,
   type NavigationProp,
 } from '@react-navigation/native';
 
 import { useAuth } from '../contexts/AuthContext';
 import { colors } from '../theme';
 import type { AppStackParamList } from '../navigation/AppNavigator';
-
-const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? 'https://dadhealth.co.uk';
+import type { BottomTabsParamList } from '../navigation/BottomTabNavigator';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 /** Slide + backdrop-fade duration (ms). */
@@ -32,7 +32,12 @@ const DISMISS_THRESHOLD = 110;
 type AccountSheetProps = {
   visible: boolean;
   onClose: () => void;
+  variant?: 'navigation' | 'account';
+  activeSection?: DashboardSection;
+  onSelectSection?: (section: DashboardSection) => void;
 };
+
+export type DashboardSection = 'HOME' | 'FITNESS' | 'MIND' | 'BOND' | 'COMMUNITY' | 'PROGRESS';
 
 type Row = {
   icon: keyof typeof Feather.glyphMap;
@@ -40,6 +45,7 @@ type Row = {
   onPress: () => void;
   /** Destructive rows (Log Out) render in red with no chevron. */
   destructive?: boolean;
+  active?: boolean;
 };
 
 /**
@@ -52,8 +58,15 @@ type Row = {
  * Built on RN's built-in `Animated` + `Modal` (NOT Reanimated) — same reason as
  * FadeInView: Reanimated's worklets runtime can crash under Expo Go here.
  */
-export default function AccountSheet({ visible, onClose }: AccountSheetProps) {
+export default function AccountSheet({
+  visible,
+  onClose,
+  variant = 'account',
+  activeSection,
+  onSelectSection,
+}: AccountSheetProps) {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
+  const route = useRoute();
   const { session, user, signOut } = useAuth();
 
   // Keep the Modal mounted through the exit animation: `mounted` trails `visible`.
@@ -122,41 +135,64 @@ export default function AccountSheet({ visible, onClose }: AccountSheetProps) {
     if (action) setTimeout(action, ANIM_MS);
   };
 
-  const rows: Row[] = session
+  const goTab = (screen: keyof BottomTabsParamList) =>
+    closeThen(() => navigation.navigate('Tabs', { screen }));
+
+  const dashboardRows: Array<{ icon: keyof typeof Feather.glyphMap; title: string; section: DashboardSection }> = [
+    { icon: 'home', title: 'Home', section: 'HOME' },
+    { icon: 'activity', title: 'Fitness', section: 'FITNESS' },
+    { icon: 'wind', title: 'Mind', section: 'MIND' },
+    { icon: 'heart', title: 'Bond', section: 'BOND' },
+    { icon: 'users', title: 'Squad', section: 'COMMUNITY' },
+    { icon: 'bar-chart-2', title: 'Progress', section: 'PROGRESS' },
+  ];
+
+  const navigationRows: Row[] = dashboardRows.map((row) => ({
+    icon: row.icon,
+    title: row.title,
+    active: activeSection === row.section,
+    onPress: () => closeThen(() => onSelectSection?.(row.section)),
+  }));
+
+  const accountRows: Row[] = session
     ? [
         {
           icon: 'user',
-          title: 'My Profile',
+          title: 'Profile',
+          active: route.name === 'Profile',
           onPress: () => closeThen(() => navigation.navigate('Profile')),
+        },
+        {
+          icon: 'award',
+          title: 'Dad Health Pro',
+          onPress: () => goTab('Home'),
         },
         {
           icon: 'settings',
           title: 'Settings',
+          active: route.name === 'Settings',
           onPress: () => closeThen(() => navigation.navigate('Settings')),
-        },
-        {
-          icon: 'help-circle',
-          title: 'Help & Support',
-          onPress: () => closeThen(() => Linking.openURL(`${WEB_URL}/help`).catch(() => {})),
         },
       ]
     : [
         {
           icon: 'log-in',
-          title: 'Sign In',
+          title: 'Login',
           onPress: () => closeThen(() => navigation.navigate('Login')),
+        },
+        {
+          icon: 'award',
+          title: 'Dad Health Pro',
+          onPress: () => goTab('Home'),
         },
         {
           icon: 'settings',
           title: 'Settings',
           onPress: () => closeThen(() => navigation.navigate('Settings')),
         },
-        {
-          icon: 'help-circle',
-          title: 'Help & Support',
-          onPress: () => closeThen(() => Linking.openURL(`${WEB_URL}/help`).catch(() => {})),
-        },
       ];
+
+  const rows = variant === 'navigation' ? navigationRows : accountRows;
 
   // Logout closes the sheet first, then signs out after the exit animation so
   // the tree swap to UnauthedFlow happens after this modal has fully dismissed.
@@ -190,7 +226,7 @@ export default function AccountSheet({ visible, onClose }: AccountSheetProps) {
         <Pressable
           style={{ flex: 1 }}
           accessibilityRole="button"
-          accessibilityLabel="Close account menu"
+          accessibilityLabel={variant === 'navigation' ? 'Close navigation menu' : 'Close account menu'}
           onPress={onClose}
         />
       </Animated.View>
@@ -203,27 +239,28 @@ export default function AccountSheet({ visible, onClose }: AccountSheetProps) {
           left: 0,
           right: 0,
           bottom: 0,
+          maxHeight: SCREEN_HEIGHT * 0.9,
           transform: [{ translateY }],
         }}
         className="bg-card rounded-t-card"
       >
         <SafeAreaView edges={['bottom']}>
-          <View className="p-lg pt-md" {...panResponder.panHandlers}>
+          <View className="pt-md" {...panResponder.panHandlers}>
             {/* Grab handle */}
             <View className="h-[5px] w-[40px] rounded-full bg-border self-center mb-lg" />
 
             {/* Header: ──── ACCOUNT ──── */}
-            <View className="flex-row items-center gap-md mb-lg">
+            <View className="flex-row items-center gap-md mb-lg px-lg">
               <View className="flex-1 h-[1px] bg-border" />
               <Text className="font-heading-semibold text-muted-text text-[13px] tracking-label uppercase">
-                Account
+                {variant === 'navigation' ? 'Navigate' : 'Account'}
               </Text>
               <View className="flex-1 h-[1px] bg-border" />
             </View>
 
-            {session && email ? (
+            {variant === 'account' && session && email ? (
               <Text
-                className="font-body text-tertiary-text text-[13px] text-center mb-md"
+                className="font-body text-tertiary-text text-[13px] text-center mb-md px-lg"
                 numberOfLines={1}
               >
                 {email}
@@ -231,24 +268,25 @@ export default function AccountSheet({ visible, onClose }: AccountSheetProps) {
             ) : null}
 
             {/* Menu rows */}
-            <View className="gap-md">
-              {rows.map((row) => (
-                <AccountRow key={row.title} {...row} />
-              ))}
-            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-lg pb-lg">
+              <View className="gap-xs">
+                {rows.map((row) => (
+                  <AccountRow key={row.title} {...row} />
+                ))}
+              </View>
 
-            {/* Log Out (logged in only) */}
-            {session ? (
-              <>
-                <View className="h-[1px] bg-border my-md" />
-                <AccountRow
-                  icon="log-out"
-                  title="Log Out"
-                  destructive
-                  onPress={handleSignOut}
-                />
-              </>
-            ) : null}
+              {variant === 'account' && session ? (
+                <>
+                  <View className="h-[1px] bg-border my-md" />
+                  <AccountRow
+                    icon="log-out"
+                    title="Log Out"
+                    destructive
+                    onPress={handleSignOut}
+                  />
+                </>
+              ) : null}
+            </ScrollView>
           </View>
         </SafeAreaView>
       </Animated.View>
@@ -256,7 +294,7 @@ export default function AccountSheet({ visible, onClose }: AccountSheetProps) {
   );
 }
 
-function AccountRow({ icon, title, onPress, destructive }: Row) {
+function AccountRow({ icon, title, onPress, destructive, active }: Row) {
   const tint = destructive ? '#F87171' : colors.lime;
 
   return (
@@ -264,7 +302,10 @@ function AccountRow({ icon, title, onPress, destructive }: Row) {
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={title}
-      className="h-[56px] flex-row items-center gap-md rounded-button px-sm active:bg-muted/40"
+      accessibilityState={active ? { selected: true } : undefined}
+      className={`h-[52px] flex-row items-center gap-md rounded-button px-sm active:bg-muted/40 ${
+        active ? 'bg-lime/10 border border-lime/25' : ''
+      }`}
     >
       <View
         className="h-[40px] w-[40px] rounded-button items-center justify-center"
