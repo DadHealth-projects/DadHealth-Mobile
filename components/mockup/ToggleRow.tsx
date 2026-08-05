@@ -16,7 +16,7 @@ function ToggleRow({ title, subtitle, value, onToggle }: ToggleRowProps) {
       accessibilityRole="switch"
       accessibilityState={{ checked: value }}
       accessibilityLabel={title}
-      className="flex-row items-center justify-between rounded-card border border-lime/25 bg-lime/[0.07] px-md py-md active:opacity-85"
+      className="flex-row items-center justify-between border-y border-lime/25 px-md py-md active:opacity-85"
     >
       <View className="flex-1 pr-md">
         <Text className="font-heading-bold text-white text-[14px] tracking-[0.5px] uppercase">

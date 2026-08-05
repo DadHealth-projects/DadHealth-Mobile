@@ -1,7 +1,8 @@
 import React, { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 
-import { shadows } from '../../theme';
+import { colors, shadows } from '../../theme';
 
 type PillarCardProps = {
   emoji: string;
@@ -48,6 +49,12 @@ function PillarCard({
           {description}
         </Text>
       </View>
+
+      {onPress ? (
+        <View className="h-[28px] justify-center">
+          <Feather name="chevron-right" size={20} color={lime ? colors.dark : colors.lime} />
+        </View>
+      ) : null}
     </View>
   );
 
