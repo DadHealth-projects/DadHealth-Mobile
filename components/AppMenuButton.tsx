@@ -13,12 +13,12 @@ function AppMenuButton({ onPress }: AppMenuButtonProps) {
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="Open navigation menu"
-      accessibilityHint="Opens the Dad Health app menu"
+      accessibilityLabel="Open dashboard sections"
+      accessibilityHint="Opens the Dashboard subsection menu"
       hitSlop={10}
       className="h-[44px] w-[44px] rounded-button border border-lime/30 bg-lime/10 items-center justify-center active:opacity-80"
     >
-      <Feather name="menu" size={22} color={colors.lime} />
+      <Feather name="chevron-left" size={24} color={colors.lime} />
     </Pressable>
   );
 }

@@ -143,16 +143,23 @@ export default function AccountSheet({
     { icon: 'activity', title: 'Fitness', section: 'FITNESS' },
     { icon: 'wind', title: 'Mind', section: 'MIND' },
     { icon: 'heart', title: 'Bond', section: 'BOND' },
-    { icon: 'users', title: 'Squad', section: 'COMMUNITY' },
+    { icon: 'users', title: 'Community', section: 'COMMUNITY' },
     { icon: 'bar-chart-2', title: 'Progress', section: 'PROGRESS' },
   ];
 
-  const navigationRows: Row[] = dashboardRows.map((row) => ({
-    icon: row.icon,
-    title: row.title,
-    active: activeSection === row.section,
-    onPress: () => closeThen(() => onSelectSection?.(row.section)),
-  }));
+  const navigationRows: Row[] = [
+    ...dashboardRows.map((row) => ({
+      icon: row.icon,
+      title: row.title,
+      active: activeSection === row.section,
+      onPress: () => closeThen(() => onSelectSection?.(row.section)),
+    })),
+    {
+      icon: 'award',
+      title: 'Dad Health Pro',
+      onPress: () => goTab('Home'),
+    },
+  ];
 
   const accountRows: Row[] = session
     ? [
