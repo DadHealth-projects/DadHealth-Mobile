@@ -17,6 +17,10 @@ import TDEECalculatorScreen from '../screens/TDEECalculatorScreen';
 import BreathingSessionScreen from '../screens/BreathingSessionScreen';
 import JournalScreen from '../screens/JournalScreen';
 import TherapistDirectoryScreen from '../screens/TherapistDirectoryScreen';
+import DadDaysSearchScreen from '../screens/DadDaysSearchScreen';
+import MilestoneTrackerScreen from '../screens/MilestoneTrackerScreen';
+import CookTogetherScreen from '../screens/CookTogetherScreen';
+import SharedCalendarScreen from '../screens/SharedCalendarScreen';
 import { colors } from '../theme';
 
 export type AppStackParamList = {
@@ -35,6 +39,10 @@ export type AppStackParamList = {
   BreathingSession: undefined;
   Journal: undefined;
   TherapistDirectory: undefined;
+  DadDaysSearch: undefined;
+  MilestoneTracker: undefined;
+  CookTogether: undefined;
+  SharedCalendar: { token?: string } | undefined;
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -110,6 +118,26 @@ export default function AppNavigator({
         component={TherapistDirectoryScreen}
         options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
       />
+      <Stack.Screen
+        name="DadDaysSearch"
+        component={DadDaysSearchScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
+      />
+        <Stack.Screen
+          name="MilestoneTracker"
+        component={MilestoneTrackerScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
+        />
+        <Stack.Screen
+          name="CookTogether"
+          component={CookTogetherScreen}
+          options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
+        />
+        <Stack.Screen
+          name="SharedCalendar"
+          component={SharedCalendarScreen}
+          options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
+        />
       {/* Main application */}
       <Stack.Screen
         name="Tabs"

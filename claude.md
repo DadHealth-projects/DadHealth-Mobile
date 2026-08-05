@@ -171,6 +171,12 @@ Reviewed and approved component by component, including:
 - Crisis support
 - Statistics and screen states
 
+### Bond
+
+Completed.
+
+Reviewed and approved component by component, including Dad Days, milestones, Cook Together, conversation starters and the shared custody calendar.
+
 ---
 
 # Deferred Product Improvements
@@ -181,6 +187,7 @@ These are intentionally outside the migration scope.
 - Mood Week weekday labels
 - Native subscription flow before App Store submission
 - TDEE calculation history and body-value logging
+- Non-contact Days card and its wording versus reduced non-custody Bond Score weighting
 
 Do not solve these during migration.
 
@@ -192,9 +199,8 @@ Continue migrating standalone screens.
 
 Order:
 
-1. Bond
-2. Squad (Community)
-3. Progress
+1. Squad (Community)
+2. Progress
 
 Each screen follows the same review → approval → implementation workflow.
 
