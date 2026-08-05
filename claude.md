@@ -1,122 +1,172 @@
-I would reduce `CLAUDE.md` dramatically. Right now it's become a project history document instead of an instruction document. Keep it focused on **how to work**, **current state**, and **next task**.
-
-Something like this:
-
----
-
 # CLAUDE.md — DadHealth Mobile
 
-## Project Rules
+# Project Rules
 
-* The **web app** is the source of truth for:
+## Source of Truth
 
-  * Features
-  * Business logic
-  * Calculations
-  * Supabase queries
-  * Copy
+### Web App = WHAT to build
 
-* The **App Store mockups** are the source of truth for:
+Use the web app as the source of truth for:
 
-  * Layout
-  * UI
-  * UX
-  * Spacing
-  * Typography
-  * Component styling
+- Features
+- Business logic
+- Calculations
+- Supabase queries
+- Copy
 
-Never copy the web layout onto mobile.
+### App Store Mockups = HOW to build it
+
+Use the mockups as the source of truth for:
+
+- Layout
+- UI
+- UX
+- Visual hierarchy
+- Spacing
+- Typography
+- Component styling
+
+Never copy the web layout or visual hierarchy onto mobile.
+
+Every mobile screen must feel like a native app built from the mockups while preserving the web functionality.
 
 ---
 
 # Migration Workflow
 
-Work one component at a time.
+Never migrate an entire screen at once.
 
-For every component:
+Break every screen into small components.
+
+Example
+
+Fitness
+
+- Header
+- Statistics
+- Workout Card
+- Workout Timer
+- Workout Library
+- Meal Planner
+- TDEE
+- Loading / Empty / Error States
+
+Each component follows this workflow.
 
 1. Read the web component.
 2. Explain exactly what it does.
-3. Compare it with the current mobile version.
-4. Recommend:
+3. Compare it with the current mobile implementation.
+4. Recommend one of:
 
-   * Keep
-   * Modify
-   * Remove
-   * Replace
-5. Wait for approval.
-6. **Only after approval, enter coding mode and update that component.**
-7. Stop coding.
-8. Explain what changed.
+- Keep
+- Modify
+- Remove
+- Replace
+
+5. Wait for me to explicitly say **Approved**.
+6. Only then enter coding mode.
+7. Update **only** the approved component.
+8. Explain exactly what changed.
 9. Return to review mode.
 10. Continue with the next component.
 
 Never implement multiple components without approval.
 
+If you finish implementing an approved component, immediately return to review mode.
+
+Never continue coding until another approval is given.
+
+---
+
+# Migration Principles
+
+Migration is **not** redesign.
+
+If a web feature doesn't naturally fit mobile:
+
+- Keep the feature.
+- Reorganize it using the mockup design language.
+- Do not copy the web layout.
+
+Never remove features.
+
+Never invent features.
+
+Never redesign business logic.
+
+If something is a product issue rather than a migration issue:
+
+- Record it under **Deferred Product Improvements**.
+- Continue the migration.
+
+If uncertain:
+
+Stop.
+
+Ask.
+
+Never assume UI, product behavior or data.
+
 ---
 
 # Current Status
 
-## ✅ Completed
+## Completed
 
 ### Public Home
 
-Completed using the App Store mockup as the design reference while preserving web functionality.
+Completed.
 
-Changes include:
+Uses:
 
-* Mockup hero
-* Left-aligned Dad Health logo
-* Improved logged-out onboarding section
-* Dad Score preview
-* Zero used instead of dash for unavailable score
-* Dot placeholders for unavailable pillar values
-* Mood preview
-* Community count
-* Start Free CTA
-* Statistics
-* Pillars section
+- Web functionality
+- Mockup layout
+- Native onboarding flow
+- Native score preview
+- Native pillar presentation
 
----
+### Logged-in Dashboard
 
-### Dashboard (Logged-in)
-
-Dashboard migration is complete.
+Completed.
 
 Reviewed and approved component by component.
 
 Includes:
 
-* Header
-* Dad Score
-* Daily Check-in
-* Today's Plan
-* Mood This Week
-* Smart Reminders
-* Weekly Challenge
-* Upgrade Pro
-* Navigation
-* Loading
-* Empty states
-* Error states
+- Header
+- Dad Score
+- Daily Check-in
+- Today's Plan
+- Mood This Week
+- Smart Reminders
+- Weekly Challenge
+- Upgrade Pro
+- Navigation
+- Loading States
+- Empty States
+- Error States
 
-Dashboard now follows the mockup design while preserving web logic.
+Both completed screens follow:
+
+- Web = functionality
+- Mockups = design
 
 ---
 
 # Deferred Product Improvements
 
-These are intentionally **not** part of migration.
+These are intentionally outside the migration scope.
 
-* Today's Plan onboarding mismatch
-* Mood week weekday labels
-* Native subscription flow before App Store submission
+- Today's Plan onboarding mismatch
+- Mood Week weekday labels
+- Native subscription flow before App Store submission
+- TDEE calculation history and body-value logging
 
 Do not solve these during migration.
 
 ---
 
-# Next Task
+# Remaining Screens
 
 Continue migrating standalone screens.
 
@@ -126,9 +176,9 @@ Order:
 2. Mind
 3. Bond
 4. Squad (Community)
-5. Progress (if needed)
+5. Progress
 
-Follow the review workflow for every component.
+Each screen follows the same review → approval → implementation workflow.
 
 ---
 
@@ -138,29 +188,28 @@ Keep the current native navigation.
 
 Bottom Tabs
 
-* Fit
-* Mind
-* Home
-* Bond
-* Squad
+- Fit
+- Mind
+- Home
+- Bond
+- Squad
 
-Secondary screens remain inside the account/profile menu.
+Secondary screens remain inside the Account/Profile menu.
 
-Do not introduce a hamburger menu unless explicitly requested.
+Do not introduce new navigation patterns unless explicitly requested.
 
 ---
 
-# Important
+# Documentation
 
-This file is **not** a changelog.
+This file is not a changelog.
 
-Do not document every implementation detail here.
+Keep it focused on:
 
-Keep it updated with only:
+- Project rules
+- Workflow
+- Current completed work
+- Remaining work
+- Deferred product decisions
 
-* Project rules
-* Current completed work
-* Remaining work
-* Workflow
-
-Remove historical notes once they are no longer relevant.
+Remove historical implementation notes once they are no longer relevant.
