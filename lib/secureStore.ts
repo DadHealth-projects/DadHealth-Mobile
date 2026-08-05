@@ -11,33 +11,20 @@ import * as SecureStore from 'expo-secure-store';
  *
  * Hardening: every SecureStore call is wrapped in try/catch and NEVER throws — a
  * Supabase storage adapter that throws will break sign-in / sign-out (this is the
- * cause of the "logout stuck on spinner" bug). Failures are logged structurally,
- * and stored VALUES (tokens) are never logged — only the non-secret key name.
+ * cause of the "logout stuck on spinner" bug). Failures are handled silently so
+ * internal storage details never appear in the client console.
  */
-const TAG = '[secureStore]';
 const CHUNK_SIZE = 2000;
 
 const countKey = (key: string) => `${key}.__count`;
 const chunkKey = (key: string, i: number) => `${key}.${i}`;
-
-function logWarn(op: string, error: unknown, extra: Record<string, unknown> = {}): void {
-  console.warn(
-    TAG,
-    JSON.stringify({
-      op,
-      message: error instanceof Error ? error.message : String(error),
-      ...extra,
-    })
-  );
-}
 
 async function getChunkCount(key: string): Promise<number> {
   try {
     const raw = await SecureStore.getItemAsync(countKey(key));
     const n = raw ? parseInt(raw, 10) : 0;
     return Number.isFinite(n) && n > 0 ? n : 0;
-  } catch (error) {
-    logWarn('getChunkCount', error, { key });
+  } catch {
     return 0;
   }
 }
@@ -50,8 +37,7 @@ async function removeAllChunks(key: string): Promise<void> {
     keys.map(async (k) => {
       try {
         await SecureStore.deleteItemAsync(k);
-      } catch (error) {
-        logWarn('deleteItem', error, { key });
+      } catch {
       }
     })
   );
@@ -67,14 +53,12 @@ export const SecureStoreAdapter = {
         const part = await SecureStore.getItemAsync(chunkKey(key, i));
         // A missing chunk means corrupted/partial state — treat as no value.
         if (part == null) {
-          logWarn('getItem.missingChunk', new Error('missing chunk'), { key, index: i });
           return null;
         }
         parts.push(part);
       }
       return parts.join('');
-    } catch (error) {
-      logWarn('getItem', error, { key });
+    } catch {
       return null;
     }
   },
@@ -92,17 +76,15 @@ export const SecureStoreAdapter = {
         chunks.map((chunk, i) => SecureStore.setItemAsync(chunkKey(key, i), chunk))
       );
       await SecureStore.setItemAsync(countKey(key), String(chunks.length));
-    } catch (error) {
+    } catch {
       // Swallow: a storage adapter must not throw or it breaks Supabase auth.
-      logWarn('setItem', error, { key });
     }
   },
 
   async removeItem(key: string): Promise<void> {
     try {
       await removeAllChunks(key);
-    } catch (error) {
-      logWarn('removeItem', error, { key });
+    } catch {
     }
   },
 };

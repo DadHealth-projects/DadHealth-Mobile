@@ -35,15 +35,7 @@ export async function hasBiometricCredentials(): Promise<boolean> {
   try {
     const raw = await SecureStore.getItemAsync(CREDENTIALS_KEY);
     return raw != null;
-  } catch (error) {
-    console.warn(
-      '[biometric]',
-      JSON.stringify({
-        op: 'read',
-        message: error instanceof Error ? error.message : String(error),
-      }),
-    );
-
+  } catch {
     return false;
   }
 }
@@ -59,14 +51,7 @@ export async function saveBiometricCredentials(email: string, password: string):
     CREDENTIALS_KEY,
     JSON.stringify(payload),
   );
-} catch (error) {
-  console.warn(
-    '[biometric]',
-    JSON.stringify({
-      op: 'save',
-      message: error instanceof Error ? error.message : String(error),
-    }),
-  );
+} catch {
 }
 }
 
@@ -134,7 +119,7 @@ export async function biometricLogin(): Promise<BiometricResult> {
   if (error) {
     // Password likely changed — drop the stale credentials.
     await clearBiometricCredentials();
-    return { success: false, error: error.message };
+    return { success: false, error: 'Biometric sign-in is no longer available. Please sign in with your password.' };
   }
   return { success: true };
 }
