@@ -17,6 +17,7 @@ export type DadDateItem = {
   age_range: string | null;
   budget: string | null;
   time: string | null;
+  duration_minutes: number | null;
 };
 
 export type MilestoneItem = {
@@ -244,7 +245,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     supabase.from('journal_entries').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('created_at', monthStart).lte('created_at', `${monthEndDate}T23:59:59`),
     supabase.from('milestones').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('date', monthStart).lte('date', monthEndDate),
     supabase.from('milestones').select('id,date,text,photo_url').eq('user_id', userId).order('date', { ascending: false }).limit(8),
-    supabase.from('dad_dates').select('id,icon,name,age_range,budget,time'),
+    supabase.from('dad_dates').select('id,icon,name,age_range,budget,time_of_day,duration_minutes'),
     supabase.from('body_metrics').select('value').eq('user_id', userId).eq('metric_type', 'weight').order('recorded_at', { ascending: false }).limit(2),
     supabase.from('workout_sessions').select('duration_minutes').eq('user_id', userId).gte('performed_at', todayStart.toISOString()).lte('performed_at', todayEnd.toISOString()),
     supabase.from('workout_sessions').select('performed_at,duration_minutes').eq('user_id', userId).gte('performed_at', sevenDaysAgo.toISOString()),
@@ -314,13 +315,19 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     .flatMap((row) => {
       const name = textOrNull(row.name);
       if (!name) return [];
+      const duration = typeof row.duration_minutes === 'number' ? row.duration_minutes : null;
       return [{
         id: String(row.id ?? name),
         icon: textOrNull(row.icon),
         name,
         age_range: textOrNull(row.age_range),
         budget: textOrNull(row.budget),
-        time: textOrNull(row.time),
+        duration_minutes: duration,
+        time: textOrNull(row.time_of_day) ?? (
+          duration !== null
+            ? (duration >= 60 ? `${Math.floor(duration / 60)} hr` : `${duration} min`)
+            : null
+        ),
       }];
     });
 
