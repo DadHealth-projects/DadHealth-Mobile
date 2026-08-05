@@ -9,6 +9,7 @@ type AppTopBarProps = {
   showNavigation?: boolean;
   activeSection?: DashboardSection;
   onSelectSection?: (section: DashboardSection) => void;
+  leftAccessory?: React.ReactNode;
   rightAccessory?: React.ReactNode;
 };
 
@@ -16,6 +17,7 @@ export default function AppTopBar({
   showNavigation = false,
   activeSection,
   onSelectSection,
+  leftAccessory,
   rightAccessory,
 }: AppTopBarProps) {
   const [navigationOpen, setNavigationOpen] = useState(false);
@@ -29,7 +31,7 @@ export default function AppTopBar({
         {showNavigation ? (
           <AppMenuButton onPress={() => setNavigationOpen(true)} />
         ) : (
-          <View />
+          leftAccessory ?? <View />
         )}
         <View className="flex-row items-center gap-sm">
           <AccountButton onPress={() => setAccountOpen(true)} />
