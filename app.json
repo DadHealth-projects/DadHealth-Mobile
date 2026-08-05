@@ -43,7 +43,8 @@
         }
       ],
       "expo-web-browser",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "expo-asset"
     ],
     "extra": {
       "eas": {
