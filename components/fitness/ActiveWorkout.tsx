@@ -140,7 +140,7 @@ export default function ActiveWorkout({
 
     if (sessionResult.error) {
       setMessageTone('error');
-      setMessage(sessionResult.error.message);
+      setMessage('We could not log this session. Please try again.');
       setSaving(false);
       return;
     }
@@ -153,7 +153,7 @@ export default function ActiveWorkout({
       });
       if (completionResult.error) {
         setMessageTone('error');
-        setMessage(`Session logged, but workout completion could not be saved: ${completionResult.error.message}`);
+        setMessage('Your session was logged, but the workout could not be marked complete. Please try again.');
         setSaving(false);
         setCurrentExerciseIndex((current) => (current + 1) % moves.length);
         return;

@@ -108,12 +108,11 @@ export default function AIWorkoutScreen() {
       });
       const responseText = await response.text();
       const payload = JSON.parse(responseText) as FitnessWorkout & { error?: string };
-      if (!response.ok) throw new Error(payload.error ?? 'Unable to generate workout.');
+      if (!response.ok) throw new Error('generation_failed');
       setGeneratedWorkout(payload);
       await library.refresh();
-    } catch (generationError) {
-      const message = generationError instanceof Error ? generationError.message : 'Unable to generate workout.';
-      setError(message);
+    } catch {
+      setError('We could not generate your workout. Please try again.');
     } finally {
       setGenerating(false);
     }
