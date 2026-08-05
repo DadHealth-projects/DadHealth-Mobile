@@ -44,7 +44,14 @@
       ],
       "expo-web-browser",
       "expo-apple-authentication",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Dad Health to use your location to find nearby Dad Days."
+        }
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {
