@@ -14,6 +14,9 @@ import ActiveWorkoutScreen from '../screens/ActiveWorkoutScreen';
 import AIWorkoutScreen from '../screens/AIWorkoutScreen';
 import MealPlannerScreen from '../screens/MealPlannerScreen';
 import TDEECalculatorScreen from '../screens/TDEECalculatorScreen';
+import BreathingSessionScreen from '../screens/BreathingSessionScreen';
+import JournalScreen from '../screens/JournalScreen';
+import TherapistDirectoryScreen from '../screens/TherapistDirectoryScreen';
 import { colors } from '../theme';
 
 export type AppStackParamList = {
@@ -29,6 +32,9 @@ export type AppStackParamList = {
   AIWorkout: { workoutId?: string } | undefined;
   MealPlanner: undefined;
   TDEECalculator: undefined;
+  BreathingSession: undefined;
+  Journal: undefined;
+  TherapistDirectory: undefined;
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -87,6 +93,21 @@ export default function AppNavigator({
       <Stack.Screen
         name="TDEECalculator"
         component={TDEECalculatorScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
+      />
+      <Stack.Screen
+        name="BreathingSession"
+        component={BreathingSessionScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
+      />
+      <Stack.Screen
+        name="Journal"
+        component={JournalScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
+      />
+      <Stack.Screen
+        name="TherapistDirectory"
+        component={TherapistDirectoryScreen}
         options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
       />
       {/* Main application */}
