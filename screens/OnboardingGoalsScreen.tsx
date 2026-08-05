@@ -50,9 +50,6 @@ export default function OnboardingGoalsScreen() {
       // single combined save on the custody step (Phase 6).
       navigation.replace('OnboardingCustody', { goals: selectedGoals });
     } catch (saveError) {
-      const detail: { code?: string; message?: string; details?: string; hint?: string } =
-        typeof saveError === 'object' && saveError !== null ? saveError : {};
-      console.warn('[onboarding]', JSON.stringify({ op: 'saveGoals', code: detail.code, message: detail.message, details: detail.details, hint: detail.hint }));
       setError(onboardingSaveErrorMessage(saveError));
     } finally {
       setSaving(false);
@@ -117,4 +114,3 @@ export default function OnboardingGoalsScreen() {
     </SafeAreaView>
   );
 }
-

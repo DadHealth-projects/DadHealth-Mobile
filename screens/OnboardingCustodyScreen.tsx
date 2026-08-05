@@ -73,9 +73,6 @@ export default function OnboardingCustodyScreen({ navigation, route }: Props) {
         setError('Your choices were saved, but we could not verify completion. Please close and reopen the app, then try again.');
       }
     } catch (saveError) {
-      const detail: { code?: string; message?: string; details?: string; hint?: string } =
-        typeof saveError === 'object' && saveError !== null ? saveError : {};
-      console.warn('[onboarding]', JSON.stringify({ op: 'saveCustody', code: detail.code, message: detail.message, details: detail.details, hint: detail.hint }));
       setError(onboardingSaveErrorMessage(saveError));
     } finally {
       setSaving(false);
@@ -148,4 +145,3 @@ export default function OnboardingCustodyScreen({ navigation, route }: Props) {
     </SafeAreaView>
   );
 }
-
