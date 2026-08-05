@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { supabase } from '../lib/supabase';
-import { isProSubscriptionStatus } from '../lib/proStatus';
+import { isProfilePro } from '../lib/proStatus';
 
 export type Reminder = {
   id: string;
@@ -242,7 +242,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     badgesResult,
     postsResult,
   ] = await Promise.all([
-    supabase.from('user_profile').select('display_name,goals,subscription_status').eq('user_id', userId).maybeSingle(),
+    supabase.from('user_profile').select('display_name,goals,is_pro,subscription_status').eq('user_id', userId).maybeSingle(),
     supabase.from('dad_score_view').select('mind_score,body_score,bond_score').eq('user_id', userId).maybeSingle(),
     supabase.from('mood_logs').select('date,mood_value').eq('user_id', userId).gte('date', weekStart).order('date'),
     supabase.from('weekly_challenges').select('title,participants_count').eq('active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
@@ -433,7 +433,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     challenge: challengeResult.data ?? null,
     dadsCount: countResult.count ?? 0,
     streak: typeof streakResult.data?.streak_count === 'number' ? streakResult.data.streak_count : null,
-    isPro: isProSubscriptionStatus(profile?.subscription_status),
+    isPro: isProfilePro(profile),
 
     monthWorkouts,
     weightDisplay,
