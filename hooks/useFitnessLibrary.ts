@@ -49,7 +49,7 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
       const adminResult = await adminQuery;
       if (adminResult.error) {
         setWorkouts([]);
-        setError(adminResult.error.message);
+        setError('We could not load the workout library. Please try again.');
       } else {
         setWorkouts((adminResult.data ?? []) as FitnessWorkout[]);
       }
@@ -76,7 +76,7 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
 
     if (adminResult.error || generatedResult.error) {
       setWorkouts([]);
-      setError(adminResult.error?.message ?? generatedResult.error?.message ?? 'Unable to load workouts.');
+      setError('We could not load your workouts. Please try again.');
       setLoading(false);
       return;
     }

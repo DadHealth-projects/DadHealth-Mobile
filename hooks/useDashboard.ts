@@ -104,17 +104,6 @@ function errorDetails(error: unknown): DashboardError {
   return typeof error === 'object' && error !== null ? error as DashboardError : {};
 }
 
-function logFailure(operation: string, error: unknown): void {
-  const detail = errorDetails(error);
-  console.warn('[dashboard]', JSON.stringify({
-    operation,
-    code: detail.code,
-    message: detail.message,
-    details: detail.details,
-    hint: detail.hint,
-  }));
-}
-
 function messageFor(error: unknown): string {
   const detail = errorDetails(error);
   const text = detail.message?.toLowerCase() ?? '';
@@ -270,16 +259,6 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
   if (profileResult.error) throw profileResult.error;
   // Scores and shared collections are nonessential. A restrictive policy should
   // never blank a member's private dashboard.
-  if (scoresResult.error) logFailure('loadScores', scoresResult.error);
-  if (moodsResult.error) logFailure('loadMoodLogs', moodsResult.error);
-  if (challengeResult.error) logFailure('loadChallenge', challengeResult.error);
-  if (countResult.error) logFailure('loadCommunityCount', countResult.error);
-  if (streakResult.error) logFailure('loadStreak', streakResult.error);
-  if (milestonesResult.error) logFailure('loadMilestones', milestonesResult.error);
-  if (dadDatesResult.error) logFailure('loadDadDates', dadDatesResult.error);
-  if (circlesResult.error) logFailure('loadCircles', circlesResult.error);
-  if (postsResult.error) logFailure('loadPosts', postsResult.error);
-  if (badgesResult.error) logFailure('loadBadges', badgesResult.error);
 
   const profile = profileResult.data;
   const dashboard = dashboardResult.error
@@ -483,7 +462,6 @@ async function runFetch(userId: string): Promise<void> {
   try {
     setStore({ data: await withTimeout(fetchDashboard(userId)), error: null });
   } catch (fetchError) {
-    logFailure('loadDashboard', fetchError);
     setStore({ error: messageFor(fetchError) });
   } finally {
     setStore({ loading: false });
@@ -568,7 +546,6 @@ export function useDashboard(userId: string | undefined) {
       await refresh();
       return { error: null };
     } catch (saveError) {
-      logFailure('saveCheckIn', saveError);
       return { error: messageFor(saveError).replace('load your dashboard', 'save your check-in') };
     } finally {
       setCheckingIn(false);
@@ -593,7 +570,6 @@ export function useDashboard(userId: string | undefined) {
       ? await supabase.from('user_circles').delete().eq('user_id', userId).eq('circle_id', circleId)
       : await supabase.from('user_circles').insert({ user_id: userId, circle_id: circleId });
     if (result.error) {
-      logFailure(joined ? 'leaveCircle' : 'joinCircle', result.error);
       await refresh();
     }
   }, [refresh, userId]);
