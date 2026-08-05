@@ -151,6 +151,26 @@ Both completed screens follow:
 - Web = functionality
 - Mockups = design
 
+### Fitness
+
+Completed.
+
+Reviewed and approved component by component, including focused native flows for active workouts, AI workouts, meal planning and TDEE.
+
+### Mind
+
+Completed.
+
+Reviewed and approved component by component, including:
+
+- Header
+- Mood This Week
+- Breathing session
+- Private journal
+- Therapist directory
+- Crisis support
+- Statistics and screen states
+
 ---
 
 # Deferred Product Improvements
@@ -172,11 +192,9 @@ Continue migrating standalone screens.
 
 Order:
 
-1. Fitness
-2. Mind
-3. Bond
-4. Squad (Community)
-5. Progress
+1. Bond
+2. Squad (Community)
+3. Progress
 
 Each screen follows the same review → approval → implementation workflow.
 

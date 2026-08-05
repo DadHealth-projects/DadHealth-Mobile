@@ -85,11 +85,11 @@ export default function MealPlannerScreen() {
         body: JSON.stringify({ calorieTarget, dietaryPreference, preferences: preferences.trim(), mealsPerDay, adults }),
       });
       const payload = await response.json() as MealPlan & { error?: string };
-      if (!response.ok) throw new Error(payload.error ?? 'Unable to generate meal plan.');
+      if (!response.ok) throw new Error('generation_failed');
       setGeneratedPlan(payload);
       setSelectedDay(0);
-    } catch (generationError) {
-      setError(generationError instanceof Error ? generationError.message : 'Unable to generate meal plan.');
+    } catch {
+      setError('We could not generate your meal plan. Please try again.');
     } finally {
       setGenerating(false);
     }
