@@ -154,7 +154,7 @@ export default function LoginScreen() {
         ) {
           setError('Incorrect email or password.');
         } else {
-          setError(error);
+          setError('We could not sign you in. Please try again.');
         }
 
         return;
@@ -177,7 +177,7 @@ export default function LoginScreen() {
       const result = await biometricLogin();
 
       if (!result.success) {
-        setError(result.error ?? 'Biometric login failed.');
+        setError('Biometric login failed. Sign in with your password and try again.');
         return;
       }
 
@@ -195,7 +195,7 @@ export default function LoginScreen() {
       const { error } = await signInWithApple();
 
       if (error) {
-        setError(error);
+        setError('Apple sign-in could not be completed. Please try again.');
         return;
       }
 
@@ -213,7 +213,7 @@ export default function LoginScreen() {
       const { error } = await signInWithGoogle();
 
       if (error) {
-        setError(error);
+        setError('Google sign-in could not be completed. Please try again.');
         return;
       }
 
@@ -237,7 +237,7 @@ export default function LoginScreen() {
     const { error: err } = await resetPassword(email);
 
     if (err) {
-      setError(err);
+      setError('We could not send the reset email. Please try again.');
       return;
     }
 
@@ -258,7 +258,7 @@ export default function LoginScreen() {
     const { error: err } = await signUp(email, password);
 
     if (err) {
-      setError(err);
+      setError('We could not create your account. Please try again.');
       return;
     }
 

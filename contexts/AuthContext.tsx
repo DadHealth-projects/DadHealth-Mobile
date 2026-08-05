@@ -127,19 +127,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const complete = isOnboardingComplete(data);
       setOnboardingComplete(complete);
       return complete;
-    } catch (error) {
+    } catch {
       // Don't trap the user in a splash on a transient profile-read failure —
       // let them into the app and surface onboarding later if needed.
-      console.warn(
-        '[auth]',
-        JSON.stringify({
-          op: 'loadOnboarding',
-          code: typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined,
-          message: error instanceof Error ? error.message : String(error),
-          details: typeof error === 'object' && error !== null && 'details' in error ? error.details : undefined,
-          hint: typeof error === 'object' && error !== null && 'hint' in error ? error.hint : undefined,
-        })
-      );
       setOnboardingComplete(false);
       return false;
     }
@@ -165,7 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: email.trim(),
       password,
     });
-    return { error: error?.message ?? null };
+    return { error: error ? 'We could not create your account. Please try again.' : null };
   }, []);
 
  const signIn = useCallback(
@@ -178,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (error) {
-      return { error: error.message };
+      return { error: 'Incorrect email or password.' };
     }
 
     setManualSignOut(false);
@@ -193,15 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           password,
         });
       }
-    } catch (e) {
-      console.warn(
-        '[auth]',
-        JSON.stringify({
-          op: 'biometric-check',
-          message: e instanceof Error ? e.message : String(e),
-        }),
-      );
-    }
+    } catch {}
 
     return { error: null };
   },
@@ -212,7 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${WEB_URL}/auth/callback?next=/auth/reset-password`,
     });
-    return { error: error?.message ?? null };
+    return { error: error ? 'We could not send the reset email. Please try again.' : null };
   }, []);
 
   const completeBiometricEnrollment = useCallback(
@@ -233,17 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // with the stored credentials and bounce the user straight back to Home).
   setManualSignOut(true);
 
-  const { error } = await supabase.auth.signOut();
-
-  if (error) {
-    console.warn(
-      '[auth]',
-      JSON.stringify({
-        op: 'signOut',
-        message: error.message,
-      }),
-    );
-  }
+  await supabase.auth.signOut();
 }, []);
 
 const value: AuthContextType = {
