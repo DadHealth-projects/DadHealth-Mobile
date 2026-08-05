@@ -27,15 +27,6 @@ WebBrowser.maybeCompleteAuthSession();
 
 export type OAuthResult = { error: string | null };
 
-const TAG = '[oauth]';
-
-function logWarn(op: string, error: unknown): void {
-  console.warn(
-    TAG,
-    JSON.stringify({ op, message: error instanceof Error ? error.message : String(error) })
-  );
-}
-
 /** Turn the provider redirect URL back into a Supabase session. */
 async function completeSessionFromUrl(url: string): Promise<OAuthResult> {
   // PKCE flow: the redirect carries `?code=...`.
@@ -43,7 +34,7 @@ async function completeSessionFromUrl(url: string): Promise<OAuthResult> {
   const code = parsed.searchParams.get('code');
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    return { error: error?.message ?? null };
+    return { error: error ? 'We could not complete sign-in. Please try again.' : null };
   }
 
   // Implicit flow: tokens arrive in the URL fragment (`#access_token=...`).
@@ -53,7 +44,7 @@ async function completeSessionFromUrl(url: string): Promise<OAuthResult> {
   const refresh_token = params.get('refresh_token');
   if (access_token && refresh_token) {
     const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-    return { error: error?.message ?? null };
+    return { error: error ? 'We could not complete sign-in. Please try again.' : null };
   }
 
   return { error: 'Sign-in did not return a session. Please try again.' };
@@ -67,7 +58,7 @@ export async function signInWithGoogle(): Promise<OAuthResult> {
       provider: 'google',
       options: { redirectTo, skipBrowserRedirect: true },
     });
-    if (error) return { error: error.message };
+    if (error) return { error: 'Google sign-in could not be started. Please try again.' };
     if (!data?.url) return { error: 'Could not start Google sign-in.' };
 
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
@@ -79,8 +70,7 @@ export async function signInWithGoogle(): Promise<OAuthResult> {
       return { error: null };
     }
     return { error: 'Google sign-in did not complete.' };
-  } catch (error) {
-    logWarn('signInWithGoogle', error);
+  } catch {
     return { error: 'Google sign-in failed. Please try again.' };
   }
 }
@@ -108,13 +98,12 @@ export async function signInWithApple(): Promise<OAuthResult> {
     if (!token) return { error: 'Apple did not return an identity token.' };
 
     const { error } = await supabase.auth.signInWithIdToken({ provider: 'apple', token });
-    return { error: error?.message ?? null };
+    return { error: error ? 'Apple sign-in could not be completed. Please try again.' : null };
   } catch (error) {
     // The user tapping "Cancel" on the native sheet is not a real error.
     if (error && typeof error === 'object' && 'code' in error && error.code === 'ERR_REQUEST_CANCELED') {
       return { error: null };
     }
-    logWarn('signInWithApple', error);
     return { error: 'Apple sign-in failed. Please try again.' };
   }
 }

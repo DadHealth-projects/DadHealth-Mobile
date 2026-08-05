@@ -4,8 +4,6 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { SecureStoreAdapter } from './secureStore';
 
-const TAG = '[supabase]';
-
 // Keys live only in .env (EXPO_PUBLIC_*). No hardcoded fallback — a missing
 // config fails fast rather than silently shipping baked-in credentials.
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -18,7 +16,6 @@ if (!supabaseUrl) missing.push('EXPO_PUBLIC_SUPABASE_URL');
 if (!supabaseAnonKey) missing.push('EXPO_PUBLIC_SUPABASE_ANON_KEY');
 
 if (missing.length > 0) {
-  console.error(TAG, JSON.stringify({ event: 'missing_env', missing }));
   throw new Error(
     `Dad Health configuration error: missing ${missing.join(', ')}.\n` +
       'Copy these from ../dadHealth/.env into dadhealth-mobile/.env (see README).'
@@ -47,13 +44,7 @@ AppState.addEventListener('change', (state) => {
     } else {
       supabase.auth.stopAutoRefresh();
     }
-  } catch (error) {
-    console.warn(
-      TAG,
-      JSON.stringify({
-        event: 'autorefresh_toggle_failed',
-        message: error instanceof Error ? error.message : String(error),
-      })
-    );
+  } catch {
+    // A transient native lifecycle failure should not interrupt the user.
   }
 });
