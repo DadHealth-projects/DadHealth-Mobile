@@ -54,7 +54,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer theme={navTheme}>
+        <NavigationContainer theme={navTheme} linking={{ prefixes: ['dadhealth://'], config: { screens: { SharedCalendar: 'shared-calendar' } } }}>
           <StatusBar style="light" />
           <RootNavigator />
         </NavigationContainer>
