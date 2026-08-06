@@ -3,82 +3,74 @@ import * as SecureStore from 'expo-secure-store';
 
 import { supabase } from './supabase';
 
-// Small, single-blob credential store (well under SecureStore's 2 KB limit),
-// separate from the chunked session store in secureStore.ts.
-const CREDENTIALS_KEY = 'dadhealth.biometric.credentials';
+const LEGACY_CREDENTIALS_KEY = 'dadhealth.biometric.credentials';
+const SESSION_KEY = 'dadhealth.biometric.session.v2';
 
-type StoredCredentials = { email: string; password: string };
+type StoredSession = { refreshToken: string };
 
 export type BiometricResult = { success: boolean; error?: string; code?: string };
 
-/** True when the device has biometric hardware AND the user has enrolled a face/finger. */
+const secureStoreOptions: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
+
+async function removeLegacyCredentials(): Promise<void> {
+  await SecureStore.deleteItemAsync(LEGACY_CREDENTIALS_KEY).catch(() => {});
+}
+
 export async function isBiometricAvailable(): Promise<boolean> {
   const hasHardware = await LocalAuthentication.hasHardwareAsync();
   if (!hasHardware) return false;
   return LocalAuthentication.isEnrolledAsync();
 }
 
-/** Human label for the button, e.g. "Face ID", "Touch ID". */
 export async function getBiometricLabel(): Promise<string> {
   const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-  if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-    return 'Face ID';
-  }
-  if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
-    return 'Touch ID';
-  }
+  if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) return 'Face ID';
+  if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) return 'Touch ID';
   return 'Biometrics';
 }
 
-/** Whether we have credentials saved from a previous manual login. */
 export async function hasBiometricCredentials(): Promise<boolean> {
   try {
-    const raw = await SecureStore.getItemAsync(CREDENTIALS_KEY);
-    return raw != null;
+    await removeLegacyCredentials();
+    const raw = await SecureStore.getItemAsync(SESSION_KEY, secureStoreOptions);
+    if (!raw) return false;
+    const stored = JSON.parse(raw) as Partial<StoredSession>;
+    return typeof stored.refreshToken === 'string' && stored.refreshToken.length > 0;
   } catch {
     return false;
   }
 }
 
-/**
- * Persist credentials after a successful manual sign-in so the user can unlock
- * with biometrics next time. Stored in the hardware keychain.
- */
-export async function saveBiometricCredentials(email: string, password: string): Promise<void> {
-  const payload: StoredCredentials = { email, password };
+/** Persist only the revocable Supabase refresh token, never the user's password. */
+export async function saveBiometricSession(refreshToken: string): Promise<void> {
   try {
-  await SecureStore.setItemAsync(
-    CREDENTIALS_KEY,
-    JSON.stringify(payload),
-  );
-} catch {
-}
+    await removeLegacyCredentials();
+    await SecureStore.setItemAsync(
+      SESSION_KEY,
+      JSON.stringify({ refreshToken } satisfies StoredSession),
+      secureStoreOptions,
+    );
+  } catch {}
 }
 
 export async function clearBiometricCredentials(): Promise<void> {
-  await SecureStore.deleteItemAsync(CREDENTIALS_KEY);
+  await Promise.all([
+    SecureStore.deleteItemAsync(SESSION_KEY).catch(() => {}),
+    removeLegacyCredentials(),
+  ]);
 }
 
-/**
- * Prompt Face ID / Touch ID and, on success, sign in with the stored credentials.
- *
- * Note: this intentionally takes no email/password argument (unlike the Track B
- * sketch). At biometric-unlock time we don't have the password to hand — the
- * whole point is that the user doesn't retype it — so we read what was saved on
- * the previous manual login. If biometrics fail or nothing is stored, the caller
- * falls back to manual password entry.
- */
 export async function biometricLogin(): Promise<BiometricResult> {
   if (!(await isBiometricAvailable())) {
     return { success: false, error: 'Biometric login is not set up on this device.' };
   }
 
-  const raw = await SecureStore.getItemAsync(CREDENTIALS_KEY);
+  await removeLegacyCredentials();
+  const raw = await SecureStore.getItemAsync(SESSION_KEY, secureStoreOptions);
   if (!raw) {
-    return {
-      success: false,
-      error: 'Sign in with your password once to enable biometric login.',
-    };
+    return { success: false, error: 'Sign in with your password once to enable biometric login.' };
   }
 
   const auth = await LocalAuthentication.authenticateAsync({
@@ -88,38 +80,30 @@ export async function biometricLogin(): Promise<BiometricResult> {
   });
 
   if (!auth.success) {
-    // `auth.error` is a nullable union that doesn't include every string we
-    // match against, so widen it to `string | null` for a clean comparison.
     const code = auth.error as string | null;
-    const message =
-      code === 'user_cancel' ||
-      code === 'system_cancel' ||
-      code === 'app_cancel' ||
-      code === 'user_fallback'
-        ? 'Authentication cancelled.'
-        : code === 'lockout'
-          ? 'Too many attempts. Please sign in with your password.'
-          : 'Biometric authentication failed.';
-    return { success: false, error: message, code: code ?? undefined };
+    const error = code === 'user_cancel' || code === 'system_cancel' || code === 'app_cancel' || code === 'user_fallback'
+      ? 'Authentication cancelled.'
+      : code === 'lockout'
+        ? 'Too many attempts. Please sign in with your password.'
+        : 'Biometric authentication failed.';
+    return { success: false, error, code: code ?? undefined };
   }
 
-  let creds: StoredCredentials;
+  let stored: StoredSession;
   try {
-    creds = JSON.parse(raw) as StoredCredentials;
+    stored = JSON.parse(raw) as StoredSession;
+    if (typeof stored.refreshToken !== 'string' || !stored.refreshToken) throw new Error('invalid_session');
   } catch {
     await clearBiometricCredentials();
-    return { success: false, error: 'Saved credentials were corrupted. Please sign in again.' };
+    return { success: false, error: 'Biometric sign-in needs to be enabled again.' };
   }
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email: creds.email,
-    password: creds.password,
-  });
-
-  if (error) {
-    // Password likely changed — drop the stale credentials.
+  const { data, error } = await supabase.auth.refreshSession({ refresh_token: stored.refreshToken });
+  if (error || !data.session?.refresh_token) {
     await clearBiometricCredentials();
     return { success: false, error: 'Biometric sign-in is no longer available. Please sign in with your password.' };
   }
+
+  await saveBiometricSession(data.session.refresh_token);
   return { success: true };
 }
