@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { Text, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 
 export type ScoreItem = {
   label: string;
@@ -13,6 +14,8 @@ type DadScoreCardProps = {
   scoreLabel?: string;
   ring?: boolean;
   missingScore?: number | string;
+  lockedLabel?: string;
+  missingItemValue?: string;
   children?: React.ReactNode;
 };
 
@@ -23,6 +26,8 @@ function DadScoreCard({
   scoreLabel = 'Dad Score',
   ring = true,
   missingScore = 0,
+  lockedLabel,
+  missingItemValue,
   children,
 }: DadScoreCardProps) {
   return (
@@ -50,6 +55,15 @@ function DadScoreCard({
         )}
 
         <View className="flex-1">
+          {lockedLabel ? (
+            <View className="min-h-[82px] items-center justify-center gap-sm border-y border-dark/15">
+              <Feather name="lock" size={18} color="#080808" />
+              <Text className="font-heading-bold text-dark/60 text-[10px] uppercase text-center">
+                {lockedLabel}
+              </Text>
+            </View>
+          ) : (
+            <>
           {title ? (
             <Text className="font-heading-bold text-dark text-[13px] uppercase tracking-[0.5px] mb-md">
               {title}
@@ -64,7 +78,11 @@ function DadScoreCard({
                 </Text>
 
                 {item.value === null ? (
-                  <View className="h-[6px] w-[6px] rounded-full bg-dark/50" />
+                  missingItemValue ? (
+                    <Text className="font-heading-bold text-dark/60 text-[10px]">{missingItemValue}</Text>
+                  ) : (
+                    <View className="h-[6px] w-[6px] rounded-full bg-dark/50" />
+                  )
                 ) : (
                   <Text className="font-heading-bold text-dark/60 text-[10px]">
                     {item.value}%
@@ -84,6 +102,8 @@ function DadScoreCard({
               </View>
             </View>
           ))}
+            </>
+          )}
         </View>
       </View>
 
