@@ -6,16 +6,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import * as SecureStore from 'expo-secure-store';
 
-import AppTopBar from '../components/AppTopBar';
-import LimeButton from '../components/LimeButton';
-import ScreenHero from '../components/mockup/ScreenHero';
-import { useAuth } from '../contexts/AuthContext';
-import { useDashboard } from '../hooks/useDashboard';
-import { trackEvent } from '../lib/analytics';
-import { isProfilePro } from '../lib/proStatus';
-import { supabase } from '../lib/supabase';
-import type { AppStackParamList } from '../navigation/AppNavigator';
-import { colors } from '../theme';
+import AppTopBar from '../../components/AppTopBar';
+import LimeButton from '../../components/LimeButton';
+import ScreenHero from '../../components/mockup/ScreenHero';
+import { useAuth } from '../../contexts/AuthContext';
+import { useDashboard } from '../../hooks/useDashboard';
+import { trackEvent } from '../../lib/analytics';
+import { isProfilePro } from '../../lib/proStatus';
+import { supabase } from '../../lib/supabase';
+import type { AppStackParamList } from '../../navigation/AppNavigator';
+import { colors } from '../../theme';
 
 type Budget = 'free' | 'under_20' | 'over_20';
 type ChildAge = 'toddler' | 'primary' | 'teen';
@@ -206,8 +206,18 @@ function DropdownOptions<T extends string>({ options, value, onChange }: { optio
   return <View className="border-b border-border">{options.map((option, index) => { const selected = option.value === value; return <Pressable key={option.value} onPress={() => onChange(option.value)} accessibilityRole="button" accessibilityState={{ selected }} className={`min-h-[44px] flex-row items-center justify-between px-sm active:opacity-75 ${index > 0 ? 'border-t border-border' : ''} ${selected ? 'bg-lime/10' : ''}`}><Text className={`font-heading-bold text-[13px] uppercase ${selected ? 'text-lime' : 'text-white'}`}>{option.label}</Text>{selected ? <Feather name="check" size={17} color={colors.lime} /> : null}</Pressable>; })}</View>;
 }
 
+function openSecureWebsite(value: string) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:') throw new Error('unsafe_url');
+    void Linking.openURL(url.toString()).catch(() => Alert.alert('Unable to open website', 'Please try again.'));
+  } catch {
+    Alert.alert('Unable to open website', 'This result does not have a secure website link.');
+  }
+}
+
 function ResultRow({ result, saving, onSave }: { result: SearchResult; saving: boolean; onSave: () => void }) {
-  return <View className="rounded-button border border-border bg-card p-md gap-md"><Text className="font-heading-bold text-white text-[17px] uppercase">{result.name}</Text><Text className="font-body text-white/50 text-[13px] leading-[19px]">{result.description}</Text><View className="flex-row flex-wrap gap-sm"><Meta icon="navigation" text={`${result.distanceMiles.toFixed(1)} miles`} /><Meta icon="credit-card" text={result.estimatedCost} /><Meta icon="users" text={result.ageRange} /></View><Text className="font-body text-white/35 text-[11px] leading-[16px]">{result.address}</Text><View className="flex-row gap-sm"><Pressable onPress={() => void Linking.openURL(result.websiteUrl).catch(() => Alert.alert('Unable to open website', 'Please try again.'))} className="flex-1 min-h-[44px] rounded-button bg-lime items-center justify-center"><Text className="font-heading-bold text-dark text-[11px] uppercase">Find out more</Text></Pressable><Pressable onPress={onSave} disabled={saving} className="flex-1 min-h-[44px] rounded-button border border-lime items-center justify-center disabled:opacity-50"><Text className="font-heading-bold text-lime text-[11px] uppercase">{saving ? 'Saving' : 'Save to list'}</Text></Pressable></View></View>;
+  return <View className="rounded-button border border-border bg-card p-md gap-md"><Text className="font-heading-bold text-white text-[17px] uppercase">{result.name}</Text><Text className="font-body text-white/50 text-[13px] leading-[19px]">{result.description}</Text><View className="flex-row flex-wrap gap-sm"><Meta icon="navigation" text={`${result.distanceMiles.toFixed(1)} miles`} /><Meta icon="credit-card" text={result.estimatedCost} /><Meta icon="users" text={result.ageRange} /></View><Text className="font-body text-white/35 text-[11px] leading-[16px]">{result.address}</Text><View className="flex-row gap-sm"><Pressable onPress={() => openSecureWebsite(result.websiteUrl)} className="flex-1 min-h-[44px] rounded-button bg-lime items-center justify-center"><Text className="font-heading-bold text-dark text-[11px] uppercase">Find out more</Text></Pressable><Pressable onPress={onSave} disabled={saving} className="flex-1 min-h-[44px] rounded-button border border-lime items-center justify-center disabled:opacity-50"><Text className="font-heading-bold text-lime text-[11px] uppercase">{saving ? 'Saving' : 'Save to list'}</Text></Pressable></View></View>;
 }
 
 function Meta({ icon, text }: { icon: keyof typeof Feather.glyphMap; text: string }) { return <View className="flex-row items-center gap-xs"><Feather name={icon} size={13} color={colors.lime} /><Text className="font-body text-white/45 text-[11px]">{text}</Text></View>; }
