@@ -7,16 +7,16 @@ import DateTimePicker, { type DateTimePickerEvent } from '@react-native-communit
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 
-import AppTopBar from '../components/AppTopBar';
-import LimeButton from '../components/LimeButton';
-import ScreenHero from '../components/mockup/ScreenHero';
-import { useAuth } from '../contexts/AuthContext';
-import { useDashboard } from '../hooks/useDashboard';
-import { trackEvent } from '../lib/analytics';
-import { isProfilePro } from '../lib/proStatus';
-import { supabase } from '../lib/supabase';
-import type { AppStackParamList } from '../navigation/AppNavigator';
-import { colors } from '../theme';
+import AppTopBar from '../../components/AppTopBar';
+import LimeButton from '../../components/LimeButton';
+import ScreenHero from '../../components/mockup/ScreenHero';
+import { useAuth } from '../../contexts/AuthContext';
+import { useDashboard } from '../../hooks/useDashboard';
+import { trackEvent } from '../../lib/analytics';
+import { isProfilePro } from '../../lib/proStatus';
+import { supabase } from '../../lib/supabase';
+import type { AppStackParamList } from '../../navigation/AppNavigator';
+import { colors } from '../../theme';
 
 type Milestone = { id: string; date: string; text: string; tag: string; photo_url: string | null };
 type PreparedPhoto = { uri: string; name: string; type: string };
