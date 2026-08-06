@@ -3,14 +3,14 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import Card from '../components/Card';
-import FadeInView from '../components/FadeInView';
-import LimeButton from '../components/LimeButton';
-import { useAuth } from '../contexts/AuthContext';
-import { CUSTODY_OPTIONS, LEGACY_CUSTODY_MAP, onboardingSaveErrorMessage, type CustodyPattern } from '../lib/onboarding';
-import { supabase } from '../lib/supabase';
-import type { AppStackParamList } from '../navigation/AppNavigator';
-import { colors } from '../theme';
+import Card from '../../components/Card';
+import FadeInView from '../../components/FadeInView';
+import LimeButton from '../../components/LimeButton';
+import { useAuth } from '../../contexts/AuthContext';
+import { CUSTODY_OPTIONS, LEGACY_CUSTODY_MAP, onboardingSaveErrorMessage, type CustodyPattern } from '../../lib/onboarding';
+import { supabase } from '../../lib/supabase';
+import type { AppStackParamList } from '../../navigation/AppNavigator';
+import { colors } from '../../theme';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'OnboardingCustody'>;
 
