@@ -226,43 +226,81 @@ These are intentionally outside the migration scope.
 These items may be considered during Final Polish, but only one at a time after review and explicit approval.
 
 ---
-
 # Next Milestone
 
-## Final Polish and Product Improvements
+## Milestone 3 — Native Integrations
 
-The screen migration and cross-screen code audit are complete. No standalone web product screens remain to migrate.
+The screen migration is complete.
 
-Dad Health Pro remains an existing Dashboard subsection and must not be rebuilt as a separate native screen.
+Milestone 3 focuses on making DadHealth a true native mobile application while preserving the existing product behaviour.
 
-Work in this milestone must continue incrementally:
+Every integration must still follow the same review workflow.
 
-1. Review one product improvement or polish group.
-2. Explain the current behavior and the proposed change.
-3. Recommend Keep, Modify, Remove or Replace.
-4. Wait for explicit approval.
-5. Implement only the approved group.
-6. Run focused regression checks.
-7. Report changed files and return to review mode.
+Review one integration at a time.
 
-Priority order:
+Explain:
 
-1. Resolve approved Deferred Product Improvements.
-2. Cross-screen accessibility and safe-area verification.
-3. Loading, empty, authentication, Pro and error-state consistency.
-4. Performance and unnecessary-query review.
-5. Final iOS and Android regression testing.
+- What the web currently does.
+- What native capability is being added.
+- Required libraries.
+- Required Supabase changes.
+- Native permissions.
+- Offline behaviour.
+- Edge cases.
 
-Out of scope unless explicitly requested:
+Recommend:
 
-- App Store or Google Play submission
-- StoreKit or native subscription implementation
-- Stripe or payment-flow changes
-- App Review preparation
-- Release planning
-- New product features not already approved
+- Keep
+- Modify
+- Remove
+- Replace
+
+Wait for explicit approval.
+
+Implement only the approved integration.
+
+Return to review mode before continuing.
 
 ---
+
+## Planned Order
+
+1. Push Notifications (OneSignal)
+2. Apple HealthKit (iOS)
+3. Google Health Connect (Android)
+4. Native Stripe Payment Sheet
+5. Apple Pay
+6. Google Pay
+7. Offline Mode
+8. Deep Links
+9. Final iOS / Android testing
+
+---
+
+## Milestone Principles
+
+Native integrations must enhance the existing product.
+
+Do not redesign existing features.
+
+Do not change business logic unless explicitly approved.
+
+Preserve:
+
+- Existing Supabase architecture
+- Existing API routes
+- Existing permissions
+- Existing calculations
+
+If an integration requires database schema changes, API changes or new tables:
+
+Stop.
+
+Explain the required changes.
+
+Wait for approval before implementation.
+
+Deployment, production configuration and App Store submission remain separate tasks and are not part of implementation unless explicitly requested.
 
 # Navigation
 
