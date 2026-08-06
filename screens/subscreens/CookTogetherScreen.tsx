@@ -4,14 +4,14 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import AppTopBar from '../components/AppTopBar';
-import LimeButton from '../components/LimeButton';
-import ScreenHero from '../components/mockup/ScreenHero';
-import { useAuth } from '../contexts/AuthContext';
-import { useDashboard } from '../hooks/useDashboard';
-import { type CookTogetherRecipe, useCookTogetherRecipes } from '../hooks/useCookTogetherRecipes';
-import type { AppStackParamList } from '../navigation/AppNavigator';
-import { colors } from '../theme';
+import AppTopBar from '../../components/AppTopBar';
+import LimeButton from '../../components/LimeButton';
+import ScreenHero from '../../components/mockup/ScreenHero';
+import { useAuth } from '../../contexts/AuthContext';
+import { useDashboard } from '../../hooks/useDashboard';
+import { type CookTogetherRecipe, useCookTogetherRecipes } from '../../hooks/useCookTogetherRecipes';
+import type { AppStackParamList } from '../../navigation/AppNavigator';
+import { colors } from '../../theme';
 
 const DIFFICULTIES = [{ value: 'all', label: 'All difficulty' }, { value: 'easy', label: 'Easy' }, { value: 'medium', label: 'Medium' }] as const;
 const TIMES = [{ value: 'all', label: 'Any time' }, { value: 15, label: 'Under 15 min' }, { value: 30, label: 'Under 30 min' }, { value: 45, label: 'Under 45 min' }] as const;
