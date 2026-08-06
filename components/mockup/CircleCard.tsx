@@ -9,6 +9,7 @@ type CircleCardProps = {
   membersCount: number | null;
   joined: boolean;
   onToggle?: (id: string, joined: boolean) => void;
+  busy?: boolean;
 };
 
 /**
@@ -17,13 +18,13 @@ type CircleCardProps = {
  * The `circles` table has no description column, so no strapline is shown —
  * inventing copy would break the "never invent" rule.
  */
-function CircleCard({ id, leading, name, membersCount, joined, onToggle }: CircleCardProps) {
+function CircleCard({ id, leading, name, membersCount, joined, onToggle, busy = false }: CircleCardProps) {
   const onPress = useCallback(() => onToggle?.(id, joined), [id, joined, onToggle]);
 
   return (
     <Pressable
       onPress={onToggle ? onPress : undefined}
-      disabled={!onToggle}
+      disabled={!onToggle || busy}
       accessibilityRole="button"
       accessibilityState={{ selected: joined }}
       accessibilityLabel={`${name} — ${joined ? 'Joined' : 'Join'}`}
@@ -48,7 +49,7 @@ function CircleCard({ id, leading, name, membersCount, joined, onToggle }: Circl
             joined ? 'text-lime' : 'text-white/25'
           }`}
         >
-          {joined ? 'Joined ✓' : 'Join'}
+          {busy ? 'Saving' : joined ? 'Joined ✓' : 'Join'}
         </Text>
       </View>
     </Pressable>
