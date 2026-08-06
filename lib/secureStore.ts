@@ -15,13 +15,16 @@ import * as SecureStore from 'expo-secure-store';
  * internal storage details never appear in the client console.
  */
 const CHUNK_SIZE = 2000;
+const secureStoreOptions: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
 
 const countKey = (key: string) => `${key}.__count`;
 const chunkKey = (key: string, i: number) => `${key}.${i}`;
 
 async function getChunkCount(key: string): Promise<number> {
   try {
-    const raw = await SecureStore.getItemAsync(countKey(key));
+    const raw = await SecureStore.getItemAsync(countKey(key), secureStoreOptions);
     const n = raw ? parseInt(raw, 10) : 0;
     return Number.isFinite(n) && n > 0 ? n : 0;
   } catch {
@@ -50,7 +53,7 @@ export const SecureStoreAdapter = {
       if (count === 0) return null;
       const parts: string[] = [];
       for (let i = 0; i < count; i++) {
-        const part = await SecureStore.getItemAsync(chunkKey(key, i));
+        const part = await SecureStore.getItemAsync(chunkKey(key, i), secureStoreOptions);
         // A missing chunk means corrupted/partial state — treat as no value.
         if (part == null) {
           return null;
@@ -73,9 +76,9 @@ export const SecureStoreAdapter = {
         chunks.push(value.slice(i, i + CHUNK_SIZE));
       }
       await Promise.all(
-        chunks.map((chunk, i) => SecureStore.setItemAsync(chunkKey(key, i), chunk))
+        chunks.map((chunk, i) => SecureStore.setItemAsync(chunkKey(key, i), chunk, secureStoreOptions))
       );
-      await SecureStore.setItemAsync(countKey(key), String(chunks.length));
+      await SecureStore.setItemAsync(countKey(key), String(chunks.length), secureStoreOptions);
     } catch {
       // Swallow: a storage adapter must not throw or it breaks Supabase auth.
     }

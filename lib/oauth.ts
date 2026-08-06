@@ -37,16 +37,6 @@ async function completeSessionFromUrl(url: string): Promise<OAuthResult> {
     return { error: error ? 'We could not complete sign-in. Please try again.' : null };
   }
 
-  // Implicit flow: tokens arrive in the URL fragment (`#access_token=...`).
-  const fragment = url.includes('#') ? url.slice(url.indexOf('#') + 1) : '';
-  const params = new URLSearchParams(fragment);
-  const access_token = params.get('access_token');
-  const refresh_token = params.get('refresh_token');
-  if (access_token && refresh_token) {
-    const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-    return { error: error ? 'We could not complete sign-in. Please try again.' : null };
-  }
-
   return { error: 'Sign-in did not return a session. Please try again.' };
 }
 
