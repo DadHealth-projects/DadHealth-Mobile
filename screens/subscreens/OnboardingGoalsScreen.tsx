@@ -4,14 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import Card from '../components/Card';
-import FadeInView from '../components/FadeInView';
-import LimeButton from '../components/LimeButton';
-import { useAuth } from '../contexts/AuthContext';
-import { GOALS, onboardingSaveErrorMessage } from '../lib/onboarding';
-import { supabase } from '../lib/supabase';
-import type { AppStackParamList } from '../navigation/AppNavigator';
-import { colors } from '../theme';
+import Card from '../../components/Card';
+import FadeInView from '../../components/FadeInView';
+import LimeButton from '../../components/LimeButton';
+import { useAuth } from '../../contexts/AuthContext';
+import { GOALS, onboardingSaveErrorMessage } from '../../lib/onboarding';
+import { supabase } from '../../lib/supabase';
+import type { AppStackParamList } from '../../navigation/AppNavigator';
+import { colors } from '../../theme';
 
 type Navigation = NativeStackNavigationProp<AppStackParamList, 'OnboardingGoals'>;
 
