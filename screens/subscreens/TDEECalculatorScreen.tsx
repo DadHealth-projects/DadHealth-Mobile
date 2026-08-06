@@ -4,9 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
-import AppTopBar from '../components/AppTopBar';
-import LimeButton from '../components/LimeButton';
-import ScreenHero from '../components/mockup/ScreenHero';
+import AppTopBar from '../../components/AppTopBar';
+import LimeButton from '../../components/LimeButton';
+import ScreenHero from '../../components/mockup/ScreenHero';
 import {
   ACTIVITY_LABELS,
   calculateTDEE,
@@ -15,9 +15,9 @@ import {
   type TDEEActivityLevel,
   type TDEEGender,
   type TDEEResult,
-} from '../lib/tdee';
-import type { AppStackParamList } from '../navigation/AppNavigator';
-import { colors } from '../theme';
+} from '../../lib/tdee';
+import type { AppStackParamList } from '../../navigation/AppNavigator';
+import { colors } from '../../theme';
 
 type UnitSystem = 'metric' | 'imperial';
 const ACTIVITIES = (Object.keys(ACTIVITY_LABELS) as TDEEActivityLevel[]).map((value) => ({ value, label: ACTIVITY_LABELS[value] }));
