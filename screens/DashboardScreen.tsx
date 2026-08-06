@@ -41,7 +41,7 @@ import BondScreen from './BondScreen';
 import CommunityScreen from './CommunityScreen';
 import FitnessScreen from './FitnessScreen';
 import MindScreen from './MindScreen';
-import ProgressScreen from './ProgressScreen';
+import ProgressScreen from './subscreens/ProgressScreen';
 
 /** Signed-in dashboard screen, kept separate from the public Home experience. */
 export default function DashboardScreen() {
@@ -95,6 +95,7 @@ export function DashboardScreenContent({
   const [sleep, setSleep] = useState('7');
   const [checkInError, setCheckInError] = useState<string | null>(null);
   const [goalStatuses, setGoalStatuses] = useState<Record<string, DashboardGoalStatus>>({});
+  const [showRefreshSkeleton, setShowRefreshSkeleton] = useState(false);
 
   const now = useMemo(() => new Date(), []);
   const dateLabel = useMemo(
@@ -191,9 +192,16 @@ export function DashboardScreenContent({
     if (result.error) setCheckInError(result.error);
   }, [moodValue, saveCheckIn, sleep]);
 
-  const handleRefresh = useCallback(() => void refresh(), [refresh]);
+  const handleRefresh = useCallback(async () => {
+    setShowRefreshSkeleton(true);
+    try {
+      await refresh();
+    } finally {
+      setShowRefreshSkeleton(false);
+    }
+  }, [refresh]);
 
-  if (loading && !data) {
+  if ((loading && !data) || showRefreshSkeleton) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
         <View className="px-lg pt-lg">
@@ -216,7 +224,7 @@ export function DashboardScreenContent({
           keyboardShouldPersistTaps="handled"
           contentContainerClassName="px-lg pt-lg pb-[120px] gap-xl"
           refreshControl={
-            <RefreshControl refreshing={loading} onRefresh={handleRefresh} tintColor={colors.lime} />
+            <RefreshControl refreshing={loading} onRefresh={() => void handleRefresh()} tintColor={colors.lime} />
           }
         >
           <AppTopBar
