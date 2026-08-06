@@ -4,13 +4,13 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import AppTopBar from '../components/AppTopBar';
-import LimeButton from '../components/LimeButton';
-import ScreenHero from '../components/mockup/ScreenHero';
-import { useAuth } from '../contexts/AuthContext';
-import { type Therapist, useTherapists } from '../hooks/useTherapists';
-import type { AppStackParamList } from '../navigation/AppNavigator';
-import { colors } from '../theme';
+import AppTopBar from '../../components/AppTopBar';
+import LimeButton from '../../components/LimeButton';
+import ScreenHero from '../../components/mockup/ScreenHero';
+import { useAuth } from '../../contexts/AuthContext';
+import { type Therapist, useTherapists } from '../../hooks/useTherapists';
+import type { AppStackParamList } from '../../navigation/AppNavigator';
+import { colors } from '../../theme';
 
 const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL ?? 'https://www.dadhealth.co.uk').replace(/\/$/, '');
 
