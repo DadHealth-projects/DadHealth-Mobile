@@ -18,7 +18,7 @@ function AppMenuButton({ onPress }: AppMenuButtonProps) {
       hitSlop={10}
       className="h-[44px] w-[44px] rounded-button border border-lime/30 bg-lime/10 items-center justify-center active:opacity-80"
     >
-      <Feather name="chevron-left" size={24} color={colors.lime} />
+      <Feather name="chevron-right" size={24} color={colors.lime} />
     </Pressable>
   );
 }

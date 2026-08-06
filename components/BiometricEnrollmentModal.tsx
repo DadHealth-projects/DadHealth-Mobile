@@ -58,7 +58,7 @@ export default function BiometricEnrollmentModal() {
             {`Use ${label} to sign in next time?`}
           </Text>
           <Text className="font-body text-muted-text text-[15px] leading-[22px] text-center mt-sm">
-            {`Skip typing your password — unlock Dad Health with ${label}. You can turn this off anytime in Profile.`}
+            {`Skip typing your password - unlock Dad Health with ${label}. You can turn this off in Privacy & Security.`}
           </Text>
 
           <Pressable
