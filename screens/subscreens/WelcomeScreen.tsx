@@ -4,10 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import FadeInView from '../components/FadeInView';
-import LimeButton from '../components/LimeButton';
-import type { AppStackParamList } from '../navigation/AppNavigator';
-import { colors } from '../theme';
+import FadeInView from '../../components/FadeInView';
+import LimeButton from '../../components/LimeButton';
+import type { AppStackParamList } from '../../navigation/AppNavigator';
+import { colors } from '../../theme';
 
 type Navigation = NativeStackNavigationProp<AppStackParamList, 'Welcome'>;
 
@@ -19,7 +19,7 @@ export default function WelcomeScreen() {
       <View className="flex-1 px-lg pt-xl pb-xl justify-between">
         <FadeInView>
           <Image
-            source={require('../assets/LOGO.png')}
+            source={require('../../assets/LOGO.png')}
             resizeMode="contain"
             accessibilityLabel="Dad Health"
             className="w-full h-[156px]"
