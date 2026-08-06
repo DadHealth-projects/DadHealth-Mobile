@@ -4,12 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
-import AppTopBar from '../components/AppTopBar';
-import LimeButton from '../components/LimeButton';
-import { useAuth } from '../contexts/AuthContext';
-import { type JournalEntry, useJournalEntries } from '../hooks/useJournalEntries';
-import type { AppStackParamList } from '../navigation/AppNavigator';
-import { colors } from '../theme';
+import AppTopBar from '../../components/AppTopBar';
+import LimeButton from '../../components/LimeButton';
+import { useAuth } from '../../contexts/AuthContext';
+import { type JournalEntry, useJournalEntries } from '../../hooks/useJournalEntries';
+import type { AppStackParamList } from '../../navigation/AppNavigator';
+import { colors } from '../../theme';
 
 const JOURNAL_PROMPTS = [
   'What felt heavy today, and why?',
