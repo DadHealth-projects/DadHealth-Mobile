@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 
 type ScreenHeroProps = {
   /** Small lime eyebrow. */
-  eyebrow: string;
+  eyebrow?: string;
   /** Main headline. Newlines are preserved. */
   headline: string;
   /** Optional final line rendered in lime. */
@@ -26,14 +26,12 @@ function ScreenHero({
 
   return (
     <View className={containerAlign}>
-      <Text
-        className={`font-heading-bold text-lime uppercase tracking-label text-[11px] ${textAlign}`}
-      >
-        {eyebrow}
-      </Text>
+      {eyebrow ? (
+        <Text className={`font-heading-bold text-lime uppercase tracking-label text-[11px] ${textAlign}`}>{eyebrow}</Text>
+      ) : null}
 
       <Text
-        className={`font-heading uppercase text-white text-[54px] leading-[54px] mt-[10px] ${textAlign}`}
+        className={`font-heading uppercase text-white text-[54px] leading-[54px] ${eyebrow ? 'mt-[10px]' : ''} ${textAlign}`}
       >
         {headline}
         {accent ? (

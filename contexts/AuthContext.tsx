@@ -12,7 +12,7 @@ import { supabase } from '../lib/supabase';
 import {
   isBiometricAvailable,
   hasBiometricCredentials,
-  saveBiometricCredentials,
+  saveBiometricSession,
 } from '../lib/biometric';
 import { isOnboardingComplete } from '../lib/onboarding';
 
@@ -32,15 +32,6 @@ interface AuthContextType {
    * `null` while unknown (no user, or the profile is still being fetched).
    */
   onboardingComplete: boolean | null;
-  /**
-   * True immediately after an EXPLICIT Log Out from the Account Sheet.
-   * UnauthedFlow uses this to skip the biometric auto-prompt and go straight to
-   * the Login screen — otherwise the stored Face ID creds silently re-log the
-   * user in and they bounce straight back to Home (the "logout → home" loop).
-   * Resets to false on the next successful manual sign-in, or when a session
-   * arrives.
-   */
-  manualSignOut: boolean;
   /** Re-fetch onboarding status and report whether the new flow is complete. */
   refreshOnboarding: () => Promise<boolean>;
   signUp: (email: string, password: string) => Promise<AuthResult>;
@@ -55,8 +46,8 @@ interface AuthContextType {
    */
   pendingBiometricEnrollment: { email: string } | null;
   /**
-   * Resolve the enrollment prompt. `enable` true saves the just-used credentials
-   * to the keychain (opt-in); either way the pending prompt is cleared.
+   * Resolve the enrollment prompt. `enable` saves the current revocable refresh
+   * token to the device keychain; either way the pending prompt is cleared.
    */
   completeBiometricEnrollment: (enable: boolean) => Promise<void>;
 }
@@ -66,7 +57,6 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: true,
   onboardingComplete: null,
-  manualSignOut: false,
   refreshOnboarding: async () => false,
   signUp: async () => ({ error: null }),
   signIn: async () => ({ error: null }),
@@ -83,13 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
-  const [manualSignOut, setManualSignOut] = useState(false);
-  // Credentials from the most recent successful password sign-in, held ONLY in
-  // memory until the user accepts/declines the biometric enrollment prompt. Never
-  // persisted unless they opt in. Cleared on decline and on sign-out.
+  // The revocable refresh token from the latest password sign-in is held only in
+  // memory until the user opts into biometric login. Raw passwords are never stored.
   const [pendingEnrollment, setPendingEnrollment] = useState<{
     email: string;
-    password: string;
+    refreshToken: string;
   } | null>(null);
 
  useEffect(() => {
@@ -102,10 +90,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!nextSession) {
       setPendingEnrollment(null);
       setOnboardingComplete(null);
-    } else {
-      // Any real session (password or biometric sign-in) clears the manual
-      // sign-out flag so the biometric gate returns on future launches.
-      setManualSignOut(false);
     }
 
     setLoading(false);
@@ -171,17 +155,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: 'Incorrect email or password.' };
     }
 
-    setManualSignOut(false);
-
     try {
       const biometricAvailable = await isBiometricAvailable();
       const enrolled = await hasBiometricCredentials();
 
       if (biometricAvailable && !enrolled) {
-        setPendingEnrollment({
-          email: trimmed,
-          password,
-        });
+        const refreshToken = data.session?.refresh_token;
+        if (refreshToken) setPendingEnrollment({ email: trimmed, refreshToken });
       }
     } catch {}
 
@@ -202,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const creds = pendingEnrollment;
       setPendingEnrollment(null);
       if (enable && creds) {
-        await saveBiometricCredentials(creds.email, creds.password);
+        await saveBiometricSession(creds.refreshToken);
       }
     },
     [pendingEnrollment]
@@ -210,11 +190,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
   setPendingEnrollment(null);
-  // Flag that this is an EXPLICIT logout so UnauthedFlow lands on the Login
-  // screen instead of auto-prompting Face ID (which would silently re-login
-  // with the stored credentials and bounce the user straight back to Home).
-  setManualSignOut(true);
-
   await supabase.auth.signOut();
 }, []);
 
@@ -223,7 +198,6 @@ const value: AuthContextType = {
   session,
   loading,
   onboardingComplete,
-  manualSignOut,
   refreshOnboarding,
   signUp,
   signIn,
