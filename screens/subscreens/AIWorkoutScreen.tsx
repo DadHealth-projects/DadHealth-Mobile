@@ -9,16 +9,16 @@ import {
   type RouteProp,
 } from '@react-navigation/native';
 
-import AppTopBar from '../components/AppTopBar';
-import LimeButton from '../components/LimeButton';
-import ScreenHero from '../components/mockup/ScreenHero';
-import TagPill from '../components/dashboard/TagPill';
-import type { FitnessWorkout } from '../hooks/useFitnessLibrary';
-import { useFitnessLibrary } from '../hooks/useFitnessLibrary';
-import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
-import type { AppStackParamList } from '../navigation/AppNavigator';
-import { colors } from '../theme';
+import AppTopBar from '../../components/AppTopBar';
+import LimeButton from '../../components/LimeButton';
+import ScreenHero from '../../components/mockup/ScreenHero';
+import TagPill from '../../components/dashboard/TagPill';
+import type { FitnessWorkout } from '../../hooks/useFitnessLibrary';
+import { useFitnessLibrary } from '../../hooks/useFitnessLibrary';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
+import type { AppStackParamList } from '../../navigation/AppNavigator';
+import { colors } from '../../theme';
 
 const CONFIGURED_WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? 'https://www.dadhealth.co.uk';
 const WEB_URL = CONFIGURED_WEB_URL
