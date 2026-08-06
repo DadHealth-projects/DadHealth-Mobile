@@ -12,15 +12,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, Ionicons } from '@expo/vector-icons';
 
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   biometricLogin,
   getBiometricLabel,
   hasBiometricCredentials,
   isBiometricAvailable,
-} from '../lib/biometric';
-import { isAppleAuthAvailable, signInWithApple, signInWithGoogle } from '../lib/oauth';
-import { colors } from '../theme';
+} from '../../lib/biometric';
+import { isAppleAuthAvailable, signInWithApple, signInWithGoogle } from '../../lib/oauth';
+import { colors } from '../../theme';
 import { useNavigation } from '@react-navigation/native';
 
 type LoadingKind =
