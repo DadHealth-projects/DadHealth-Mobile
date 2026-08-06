@@ -5,13 +5,13 @@ import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@r
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import AppTopBar from '../components/AppTopBar';
-import LimeButton from '../components/LimeButton';
-import ScreenHero from '../components/mockup/ScreenHero';
-import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
-import type { AppStackParamList } from '../navigation/AppNavigator';
-import { colors } from '../theme';
+import AppTopBar from '../../components/AppTopBar';
+import LimeButton from '../../components/LimeButton';
+import ScreenHero from '../../components/mockup/ScreenHero';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
+import type { AppStackParamList } from '../../navigation/AppNavigator';
+import { colors } from '../../theme';
 
 type Schedule = { id: string; user_id: string; custody_dates: string[] | null; co_parent_user_id: string | null };
 type SharedEvent = { id: string; schedule_id: string; event_date: string; event_type: 'handover' | 'school' | 'custody'; notes: string | null };
