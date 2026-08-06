@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import { Pressable, Text } from 'react-native';
+import { Image, Pressable, Text } from 'react-native';
 
 import { useAuth } from '../contexts/AuthContext';
 
@@ -9,6 +9,7 @@ type AccountButtonProps = {
 
 function AccountButton({ onPress }: AccountButtonProps) {
   const { user, session } = useAuth();
+  const avatarUrl = typeof user?.user_metadata?.dadhealth_avatar_url === 'string' ? user.user_metadata.dadhealth_avatar_url : null;
 
   const initial = useMemo(() => {
     if (!session) return '?';
@@ -28,12 +29,9 @@ function AccountButton({ onPress }: AccountButtonProps) {
       hitSlop={10}
       className="h-[44px] w-[44px] rounded-full border border-lime/30 bg-lime/10 items-center justify-center active:opacity-80"
     >
-      <Text
-        allowFontScaling
-        className="font-heading-bold text-lime text-[16px]"
-      >
-        {initial}
-      </Text>
+      {avatarUrl ? <Image source={{ uri: avatarUrl }} className="h-full w-full rounded-full" resizeMode="cover" /> : (
+        <Text allowFontScaling className="font-heading-bold text-lime text-[16px]">{initial}</Text>
+      )}
     </Pressable>
   );
 }
