@@ -3,24 +3,30 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
 import BottomTabNavigator, { type BottomTabsParamList } from './BottomTabNavigator';
-import LoginScreen from '../screens/LoginScreen';
-import ProfileScreen from '../screens/ProfileScreen';
-import SettingsScreen from '../screens/SettingsScreen';
-import WelcomeScreen from '../screens/WelcomeScreen';
-import OnboardingGoalsScreen from '../screens/OnboardingGoalsScreen';
-import OnboardingCustodyScreen from '../screens/OnboardingCustodyScreen';
-import ProgressScreen from '../screens/ProgressScreen';
-import ActiveWorkoutScreen from '../screens/ActiveWorkoutScreen';
-import AIWorkoutScreen from '../screens/AIWorkoutScreen';
-import MealPlannerScreen from '../screens/MealPlannerScreen';
-import TDEECalculatorScreen from '../screens/TDEECalculatorScreen';
-import BreathingSessionScreen from '../screens/BreathingSessionScreen';
-import JournalScreen from '../screens/JournalScreen';
-import TherapistDirectoryScreen from '../screens/TherapistDirectoryScreen';
-import DadDaysSearchScreen from '../screens/DadDaysSearchScreen';
-import MilestoneTrackerScreen from '../screens/MilestoneTrackerScreen';
-import CookTogetherScreen from '../screens/CookTogetherScreen';
-import SharedCalendarScreen from '../screens/SharedCalendarScreen';
+import LoginScreen from '../screens/subscreens/LoginScreen';
+import ProfileScreen from '../screens/subscreens/ProfileScreen';
+import SettingsScreen from '../screens/subscreens/SettingsScreen';
+import WelcomeScreen from '../screens/subscreens/WelcomeScreen';
+import OnboardingGoalsScreen from '../screens/subscreens/OnboardingGoalsScreen';
+import OnboardingCustodyScreen from '../screens/subscreens/OnboardingCustodyScreen';
+import ProgressScreen from '../screens/subscreens/ProgressScreen';
+import ActiveWorkoutScreen from '../screens/subscreens/ActiveWorkoutScreen';
+import AIWorkoutScreen from '../screens/subscreens/AIWorkoutScreen';
+import MealPlannerScreen from '../screens/subscreens/MealPlannerScreen';
+import TDEECalculatorScreen from '../screens/subscreens/TDEECalculatorScreen';
+import BreathingSessionScreen from '../screens/subscreens/BreathingSessionScreen';
+import JournalScreen from '../screens/subscreens/JournalScreen';
+import TherapistDirectoryScreen from '../screens/subscreens/TherapistDirectoryScreen';
+import DadDaysSearchScreen from '../screens/subscreens/DadDaysSearchScreen';
+import MilestoneTrackerScreen from '../screens/subscreens/MilestoneTrackerScreen';
+import CookTogetherScreen from '../screens/subscreens/CookTogetherScreen';
+import SharedCalendarScreen from '../screens/subscreens/SharedCalendarScreen';
+import CreateCommunityPostScreen from '../screens/subscreens/CreateCommunityPostScreen';
+import CommunityPostThreadScreen from '../screens/subscreens/CommunityPostThreadScreen';
+import CommunityFeedScreen from '../screens/subscreens/CommunityFeedScreen';
+import NotificationSettingsScreen from '../screens/subscreens/NotificationSettingsScreen';
+import PrivacySecurityScreen from '../screens/subscreens/PrivacySecurityScreen';
+import TermsPrivacyScreen from '../screens/subscreens/TermsPrivacyScreen';
 import { colors } from '../theme';
 
 export type AppStackParamList = {
@@ -43,6 +49,12 @@ export type AppStackParamList = {
   MilestoneTracker: undefined;
   CookTogether: undefined;
   SharedCalendar: { token?: string } | undefined;
+  CreateCommunityPost: undefined;
+  CommunityPostThread: { postId: string };
+  CommunityFeed: undefined;
+  NotificationSettings: undefined;
+  PrivacySecurity: undefined;
+  TermsPrivacy: undefined;
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -136,6 +148,36 @@ export default function AppNavigator({
         <Stack.Screen
           name="SharedCalendar"
           component={SharedCalendarScreen}
+          options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
+        />
+        <Stack.Screen
+          name="CreateCommunityPost"
+          component={CreateCommunityPostScreen}
+          options={{ presentation: 'card', animation: 'slide_from_bottom', gestureEnabled: true }}
+        />
+        <Stack.Screen
+          name="CommunityPostThread"
+          component={CommunityPostThreadScreen}
+          options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
+        />
+        <Stack.Screen
+          name="CommunityFeed"
+          component={CommunityFeedScreen}
+          options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
+        />
+        <Stack.Screen
+          name="NotificationSettings"
+          component={NotificationSettingsScreen}
+          options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
+        />
+        <Stack.Screen
+          name="PrivacySecurity"
+          component={PrivacySecurityScreen}
+          options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
+        />
+        <Stack.Screen
+          name="TermsPrivacy"
+          component={TermsPrivacyScreen}
           options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
         />
       {/* Main application */}

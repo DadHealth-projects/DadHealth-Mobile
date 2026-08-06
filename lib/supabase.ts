@@ -29,6 +29,7 @@ export const supabase: SupabaseClient = createClient(supabaseUrl!, supabaseAnonK
     storage: SecureStoreAdapter,
     autoRefreshToken: true,
     persistSession: true,
+    flowType: 'pkce',
     // No URL-based session detection on native.
     detectSessionInUrl: false,
   },
