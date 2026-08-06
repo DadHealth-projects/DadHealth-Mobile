@@ -3,6 +3,7 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
+import AppTopBar from '../components/AppTopBar';
 import DadScoreCard from '../components/dashboard/DadScoreCard';
 import FadeInView from '../components/FadeInView';
 import LimeButton from '../components/LimeButton';
@@ -54,6 +55,9 @@ export default function HomeScreen() {
   if (loading) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
+        <View className="px-lg pt-lg">
+          <AppTopBar />
+        </View>
         <PublicHomeSkeleton />
       </SafeAreaView>
     );
@@ -68,6 +72,8 @@ export default function HomeScreen() {
           <RefreshControl refreshing={loading} onRefresh={() => void refresh()} tintColor={colors.lime} />
         }
       >
+        <AppTopBar />
+
         <View className="items-start">
           <View className="flex-row items-baseline">
             <Text className="font-heading text-lime text-[26px] uppercase">
