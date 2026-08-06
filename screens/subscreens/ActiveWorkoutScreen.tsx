@@ -9,14 +9,14 @@ import {
   type RouteProp,
 } from '@react-navigation/native';
 
-import AppTopBar from '../components/AppTopBar';
-import ActiveWorkout from '../components/fitness/ActiveWorkout';
-import LimeButton from '../components/LimeButton';
-import PillarSkeleton from '../components/skeleton/PillarSkeleton';
-import { useAuth } from '../contexts/AuthContext';
-import { useFitnessLibrary } from '../hooks/useFitnessLibrary';
-import type { AppStackParamList } from '../navigation/AppNavigator';
-import { colors } from '../theme';
+import AppTopBar from '../../components/AppTopBar';
+import ActiveWorkout from '../../components/fitness/ActiveWorkout';
+import LimeButton from '../../components/LimeButton';
+import PillarSkeleton from '../../components/skeleton/PillarSkeleton';
+import { useAuth } from '../../contexts/AuthContext';
+import { useFitnessLibrary } from '../../hooks/useFitnessLibrary';
+import type { AppStackParamList } from '../../navigation/AppNavigator';
+import { colors } from '../../theme';
 
 export default function ActiveWorkoutScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
