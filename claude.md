@@ -111,6 +111,21 @@ Never assume UI, product behavior or data.
 
 # Current Status
 
+## Screen Migration Milestone
+
+Completed.
+
+All standalone native product screens, focused sub-screens, account flows and dashboard subsections have been migrated and reviewed.
+
+The codebase security and organization audit is also complete:
+
+- Native tab screens live directly in `screens/`.
+- Stack, detail, authentication, onboarding and settings screens live in `screens/subscreens/`.
+- Known npm dependency vulnerabilities were remediated without forcing an Expo major upgrade.
+- Biometric login stores a revocable Supabase refresh token, never a password.
+- Google OAuth uses PKCE.
+- Confirmed dead screen and component code was removed.
+
 ## Completed
 
 ### Public Home
@@ -177,6 +192,24 @@ Completed.
 
 Reviewed and approved component by component, including Dad Days, milestones, Cook Together, conversation starters and the shared custody calendar.
 
+### Squad
+
+Completed.
+
+Reviewed and approved component by component, including circles, community posts, post threads, recent-post navigation and live sessions.
+
+### Progress
+
+Completed.
+
+Reviewed and approved component by component, including Dad Score reporting, saved reports, sleep quality and mood correlation.
+
+### Account and Settings
+
+Completed.
+
+Includes Profile, profile photos, Push Notifications, Privacy & Security, Terms & Privacy and Sign Out.
+
 ---
 
 # Deferred Product Improvements
@@ -188,21 +221,46 @@ These are intentionally outside the migration scope.
 - Native subscription flow before App Store submission
 - TDEE calculation history and body-value logging
 - Non-contact Days card and its wording versus reduced non-custody Bond Score weighting
+- Progress badge catalogue fallback is labelled as earned when no earned badges exist
 
-Do not solve these during migration.
+These items may be considered during Final Polish, but only one at a time after review and explicit approval.
 
 ---
 
-# Remaining Screens
+# Next Milestone
 
-Continue migrating standalone screens.
+## Final Polish and Product Improvements
 
-Order:
+The screen migration and cross-screen code audit are complete. No standalone web product screens remain to migrate.
 
-1. Squad (Community)
-2. Progress
+Dad Health Pro remains an existing Dashboard subsection and must not be rebuilt as a separate native screen.
 
-Each screen follows the same review → approval → implementation workflow.
+Work in this milestone must continue incrementally:
+
+1. Review one product improvement or polish group.
+2. Explain the current behavior and the proposed change.
+3. Recommend Keep, Modify, Remove or Replace.
+4. Wait for explicit approval.
+5. Implement only the approved group.
+6. Run focused regression checks.
+7. Report changed files and return to review mode.
+
+Priority order:
+
+1. Resolve approved Deferred Product Improvements.
+2. Cross-screen accessibility and safe-area verification.
+3. Loading, empty, authentication, Pro and error-state consistency.
+4. Performance and unnecessary-query review.
+5. Final iOS and Android regression testing.
+
+Out of scope unless explicitly requested:
+
+- App Store or Google Play submission
+- StoreKit or native subscription implementation
+- Stripe or payment-flow changes
+- App Review preparation
+- Release planning
+- New product features not already approved
 
 ---
 
