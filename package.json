@@ -59,9 +59,6 @@
   },
   "overrides": {
     "react-native-worklets": "0.5.1",
-    "minimatch": {
-      "brace-expansion": "5.0.9"
-    },
     "postcss": "8.5.24",
     "uuid": "11.1.1"
   }
