@@ -32,7 +32,7 @@ type TabMeta = {
 
 const TAB_META: Record<keyof BottomTabsParamList, TabMeta> = {
   Fit: {
-    label: 'Fit',
+    label: 'Body',
     icon: 'activity',
   },
   Mind: {

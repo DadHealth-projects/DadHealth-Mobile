@@ -308,7 +308,7 @@ Keep the current native navigation.
 
 Bottom Tabs
 
-- Fit
+- Body
 - Mind
 - Home
 - Bond
