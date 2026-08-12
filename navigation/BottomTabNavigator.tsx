@@ -54,7 +54,7 @@ const TAB_META: Record<keyof BottomTabsParamList, TabMeta> = {
   },
 };
 
-const INACTIVE = 'rgba(255,255,255,0.32)';
+const INACTIVE = 'rgba(200,245,90,0.52)';
 
 function MockupTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();

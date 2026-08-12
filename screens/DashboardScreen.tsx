@@ -201,7 +201,7 @@ export function DashboardScreenContent({
     }
   }, [refresh]);
 
-  if ((loading && !data) || showRefreshSkeleton) {
+  if ((!data && !dashboardError) || showRefreshSkeleton) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
         <View className="px-lg pt-lg">
