@@ -22,7 +22,7 @@ function ToggleRow({ title, subtitle, value, onToggle }: ToggleRowProps) {
         <Text className="font-heading-bold text-white text-[14px] tracking-[0.5px] uppercase">
           {title}
         </Text>
-        <Text className="font-body text-white/45 text-[11px] leading-[16px] mt-xs">{subtitle}</Text>
+        <Text className="font-body text-muted-text text-[11px] leading-[16px] mt-xs">{subtitle}</Text>
       </View>
 
       <View

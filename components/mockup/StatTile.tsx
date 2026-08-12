@@ -13,7 +13,7 @@ function StatTile({ value, label }: StatTileProps) {
         {value}
       </Text>
 
-      <Text className="font-body text-white/45 text-[11px] leading-[16px] mt-[4px]">
+      <Text className="font-body text-muted-text text-[11px] leading-[16px] mt-[4px]">
         {label}
       </Text>
     </View>
