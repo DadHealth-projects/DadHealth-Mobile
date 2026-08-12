@@ -113,7 +113,7 @@ export default function HomeScreen() {
               </Text>
             </View>
 
-            <Text className="font-body text-white/50 text-[14px] leading-[21px] mt-sm">
+            <Text className="font-body text-muted-text text-[14px] leading-[21px] mt-sm">
               Create your free account and receive your first Dad Health Score.
             </Text>
 
@@ -127,7 +127,7 @@ export default function HomeScreen() {
               accessibilityLabel="Sign in to your existing account"
               className="self-center mt-md px-md py-sm active:opacity-70"
             >
-              <Text className="font-heading-bold text-white/55 text-[11px] uppercase tracking-[1px]">
+              <Text className="font-heading-bold text-tertiary-text text-[11px] uppercase tracking-[1px]">
                 Already have an account? Sign in
               </Text>
             </Pressable>
@@ -149,7 +149,7 @@ export default function HomeScreen() {
 
         <FadeInView delay={240}>
           <View className="gap-md">
-            <Text className="font-heading-bold text-white/50 text-[11px] tracking-[2px] uppercase">
+            <Text className="font-heading-bold text-muted-text text-[11px] tracking-[2px] uppercase">
               Pillars
             </Text>
             {PILLARS.map((pillar, index) => (

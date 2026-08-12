@@ -42,7 +42,7 @@ function ScreenHero({
       {sub ? (
         <View className="max-w-[300px] mt-8">
           <Text
-            className={`font-body text-white/50 text-[15px] leading-[22px] ${textAlign}`}
+            className={`font-body text-muted-text text-[15px] leading-[22px] ${textAlign}`}
           >
             {sub}
           </Text>
