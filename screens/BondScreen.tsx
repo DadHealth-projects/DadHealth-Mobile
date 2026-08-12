@@ -22,20 +22,6 @@ import { supabase } from '../lib/supabase';
 import { colors } from '../theme';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 
-/** Mockup 3's feature rows — copy from the mockup, behaviour from the web Bond page. */
-const BOND_FEATURES = [
-  {
-    emoji: '📅',
-    title: 'Shared custody calendar',
-    description: 'Every day, 50/50, weekends — Bond score adapts to your situation',
-  },
-  {
-    emoji: '🏆',
-    title: 'Milestone tracker',
-    description: 'Log the moments that matter. First bike ride. Said I love you unprompted.',
-  },
-] as const;
-
 /**
  * Bond tab — the web dashboard BOND screen's features
  * (`dashboardPreview/BondScreen.tsx`: dad date ideas, cook together, milestones,
@@ -136,30 +122,6 @@ export default function BondScreen({
       </FadeInView>
 
       <FadeInView delay={140}>
-        <View className="gap-sm">
-          {BOND_FEATURES.map((feature) => (
-            <PillarCard
-              key={feature.title}
-              emoji={feature.emoji}
-              title={feature.title}
-              description={feature.description}
-              onPress={feature.title === 'Milestone tracker' ? () => navigation.navigate('MilestoneTracker') : feature.title === 'Shared custody calendar' ? () => navigation.navigate('SharedCalendar') : undefined}
-              accessibilityLabel={feature.title === 'Milestone tracker' ? 'Open milestone tracker' : feature.title === 'Shared custody calendar' ? 'Open shared custody calendar' : undefined}
-            />
-          ))}
-        </View>
-      </FadeInView>
-
-      <FadeInView delay={190}>
-        <ToggleRow
-          title="Present Dad Mode"
-          subtitle="Block distractions for 60 minutes"
-          value={presentMode}
-          onToggle={togglePresentMode}
-        />
-      </FadeInView>
-
-      <FadeInView delay={215}>
         <Pressable
           onPress={() => navigation.navigate('DadDaysSearch')}
           accessibilityRole="button"
@@ -171,13 +133,13 @@ export default function BondScreen({
           </View>
           <View className="flex-1 min-w-0">
             <Text className="font-heading-bold text-white text-[17px] uppercase">Find Dad Days near you</Text>
-            <Text className="font-body text-white/45 text-[12px] leading-[18px] mt-xs">Search by age, budget and distance.</Text>
+            <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">Search by age, budget and distance.</Text>
           </View>
           <Feather name="chevron-right" size={20} color={colors.lime} />
         </Pressable>
       </FadeInView>
 
-      <FadeInView delay={240}>
+      <FadeInView delay={190}>
         <Pressable onPress={() => setDadDatesOpen((open) => !open)} accessibilityRole="button" accessibilityState={{ expanded: dadDatesOpen }} accessibilityLabel="Dad date ideas" className="min-h-[44px] flex-row items-center justify-between mb-md active:opacity-75">
           <Text className="font-heading-bold text-white text-[22px] leading-[24px] tracking-[0.5px] uppercase">Dad date ideas</Text>
           <Feather name={dadDatesOpen ? 'chevron-down' : 'chevron-right'} size={22} color={colors.lime} />
@@ -186,7 +148,7 @@ export default function BondScreen({
           <View>
             {dateFilters.length > 1 ? <View className="mb-md"><FilterChips options={dateFilters} selected={dateFilter} onSelect={setDateFilter} /></View> : null}
             {filteredDadDates.length === 0 ? (
-              <Text className="font-body text-white/50 text-[14px]">No dad dates yet</Text>
+              <Text className="font-body text-muted-text text-[14px]">No dad dates yet</Text>
             ) : (
               <View className="gap-sm">
                 {filteredDadDates.map((dadDate) => (
@@ -204,13 +166,42 @@ export default function BondScreen({
         ) : null}
       </FadeInView>
 
-      <FadeInView delay={290}>
+      <FadeInView delay={240}>
         <SectionHeader title="Cook together" className="mb-md" />
         <Pressable onPress={() => navigation.navigate('CookTogether')} accessibilityRole="button" accessibilityLabel="Open Cook Together recipes" className="min-h-[92px] flex-row items-center gap-md rounded-button border border-lime/25 bg-card px-md py-md active:opacity-75">
           <View className="h-[42px] w-[42px] rounded-full bg-lime items-center justify-center"><Feather name="coffee" size={19} color={colors.dark} /></View>
-          <View className="flex-1"><Text className="font-heading-bold text-white text-[17px] uppercase">Meals that matter</Text><Text className="font-body text-white/45 text-[12px] leading-[18px] mt-xs">Cook with your kids and build connection.</Text></View>
+          <View className="flex-1"><Text className="font-heading-bold text-white text-[17px] uppercase">Meals that matter</Text><Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">Cook with your kids and build connection.</Text></View>
           <Feather name="chevron-right" size={20} color={colors.lime} />
         </Pressable>
+      </FadeInView>
+
+      <FadeInView delay={290}>
+        <PillarCard
+          emoji="📅"
+          title="Co-parenting calendar"
+          description="Every day, 50/50, weekends — Bond score adapts to your situation"
+          onPress={() => navigation.navigate('SharedCalendar')}
+          accessibilityLabel="Open co-parenting calendar"
+        />
+      </FadeInView>
+
+      <FadeInView delay={320}>
+        <PillarCard
+          emoji="🏆"
+          title="Milestone tracker"
+          description="Log the moments that matter. First bike ride. Said I love you unprompted."
+          onPress={() => navigation.navigate('MilestoneTracker')}
+          accessibilityLabel="Open milestone tracker"
+        />
+      </FadeInView>
+
+      <FadeInView delay={350}>
+        <ToggleRow
+          title="Present Dad Mode"
+          subtitle="Block distractions for 60 minutes"
+          value={presentMode}
+          onToggle={togglePresentMode}
+        />
       </FadeInView>
 
       <FadeInView delay={380}>
@@ -218,7 +209,7 @@ export default function BondScreen({
           <Text className="font-heading-bold text-white text-[22px] leading-[24px] uppercase">Conversation starters</Text>
           <Feather name={startersOpen ? 'chevron-down' : 'chevron-right'} size={22} color={colors.lime} />
         </Pressable>
-        {startersOpen ? <View className="mt-md gap-sm">{startersLoading ? <View className="h-[56px] bg-white/5" /> : startersError ? <View className="gap-md border-l-[3px] border-l-red-300 pl-md"><Text className="font-body text-white/50 text-[13px]">Conversation starters are unavailable.</Text><Pressable onPress={() => void loadConversationStarters()}><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable></View> : conversationStarters.length === 0 ? <Text className="font-body text-white/45 text-[14px]">No conversation starters yet.</Text> : conversationStarters.map((prompt) => <View key={prompt} className="border-b border-border border-l-[3px] border-l-lime py-md pl-md"><Text className="font-body text-white/55 text-[14px] leading-[20px] italic">"{prompt}"</Text></View>)}</View> : null}
+        {startersOpen ? <View className="mt-md gap-sm">{startersLoading ? <View className="h-[56px] bg-white/5" /> : startersError ? <View className="gap-md border-l-[3px] border-l-red-300 pl-md"><Text className="font-body text-muted-text text-[13px]">Conversation starters are unavailable.</Text><Pressable onPress={() => void loadConversationStarters()}><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable></View> : conversationStarters.length === 0 ? <Text className="font-body text-muted-text text-[14px]">No conversation starters yet.</Text> : conversationStarters.map((prompt) => <View key={prompt} className="border-b border-border border-l-[3px] border-l-lime py-md pl-md"><Text className="font-body text-tertiary-text text-[14px] leading-[20px] italic">"{prompt}"</Text></View>)}</View> : null}
       </FadeInView>
     </PillarScreen>
   );
