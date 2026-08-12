@@ -43,7 +43,7 @@ function ActivityCard({
         </Text>
 
         {description ? (
-          <Text className="font-body text-white/45 text-[12px] leading-[17px] mt-xs">
+          <Text className="font-body text-muted-text text-[12px] leading-[17px] mt-xs">
             {description}
           </Text>
         ) : null}
@@ -57,7 +57,7 @@ function ActivityCard({
               >
                 <Text
                   className={`font-heading-bold text-[9px] tracking-[0.5px] ${
-                    index === 0 ? 'text-dark' : 'text-white/50'
+                    index === 0 ? 'text-dark' : 'text-muted-text'
                   }`}
                 >
                   {badge}
