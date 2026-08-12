@@ -26,13 +26,13 @@ function GreetingHeader({ name, weekday, dateLabel, dadsCount, isPro, streak }: 
 
       <View className="flex-row items-center flex-wrap gap-sm mt-md">
         {isPro ? <TagPill label="Pro" /> : null}
-        <Text className="font-body text-white/50 text-[14px]">{dateLabel}</Text>
+        <Text className="font-body text-muted-text text-[14px]">{dateLabel}</Text>
         <View className="h-[4px] w-[4px] rounded-full bg-lime" />
-        <Text className="font-body text-white/50 text-[14px]">
+        <Text className="font-body text-muted-text text-[14px]">
           {dadsCount > 0 ? dadsCount.toLocaleString() : '0'} dads in community
         </Text>
         <View className="h-[4px] w-[4px] rounded-full bg-lime" />
-        <Text className="font-body text-white/50 text-[14px]">
+        <Text className="font-body text-muted-text text-[14px]">
           {streak === null ? '0-day streak' : `${streak}-day streak`}
         </Text>
       </View>

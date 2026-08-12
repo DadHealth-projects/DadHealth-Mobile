@@ -41,12 +41,12 @@ function CircleCard({ id, leading, name, membersCount, joined, onToggle, busy = 
       </Text>
 
       <View className="flex-row items-center justify-between mt-md">
-        <Text className="font-heading-bold text-white/30 text-[9px] tracking-[0.5px] uppercase">
+        <Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.5px] uppercase">
           {membersCount ?? 0} dads
         </Text>
         <Text
           className={`font-heading-bold text-[9px] tracking-[1px] uppercase ${
-            joined ? 'text-lime' : 'text-white/25'
+            joined ? 'text-lime' : busy ? 'text-white/25' : 'text-tertiary-text'
           }`}
         >
           {busy ? 'Saving' : joined ? 'Joined ✓' : 'Join'}
