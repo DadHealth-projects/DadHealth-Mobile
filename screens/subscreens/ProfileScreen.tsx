@@ -83,7 +83,7 @@ export default function ProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-lg pt-lg pb-[120px] gap-xl">
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Close profile" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
         {!session ? (
-          <View className="gap-md border-y border-border py-xl"><Text className="font-body text-white/50 text-[14px]">You're not signed in.</Text><Pressable onPress={() => navigation.navigate('Login')} className="min-h-[44px] self-start justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[12px] uppercase">Sign in</Text></Pressable></View>
+          <View className="gap-md border-y border-border py-xl"><Text className="font-body text-muted-text text-[14px]">You're not signed in.</Text><Pressable onPress={() => navigation.navigate('Login')} className="min-h-[44px] self-start justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[12px] uppercase">Sign in</Text></Pressable></View>
         ) : (
           <>
             <FadeInView delay={80}>
@@ -114,7 +114,7 @@ export default function ProfileScreen() {
             </FadeInView>
           </>
         )}
-        {message ? <Text accessibilityRole="alert" className="font-body text-white/55 text-[12px]">{message}</Text> : null}
+        {message ? <Text accessibilityRole="alert" className="font-body text-tertiary-text text-[12px]">{message}</Text> : null}
       </ScrollView>
 
       <Modal visible={photoPreviewOpen} transparent animationType="fade" onRequestClose={() => setPhotoPreviewOpen(false)}>

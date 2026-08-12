@@ -61,19 +61,19 @@ export default function PrivacySecurityScreen() {
           <View className="border-t border-border">
             <View className="min-h-[82px] flex-row items-center gap-md border-b border-border py-md">
               <View className="h-[36px] w-[36px] items-center justify-center"><Feather name={biometricEnabled ? 'unlock' : 'lock'} size={19} color={colors.lime} /></View>
-              <View className="flex-1"><Text className="font-heading-bold text-white text-[14px] uppercase">{biometricLabel} login</Text><Text className="font-body text-white/45 text-[11px] leading-[17px] mt-xs">{!biometricAvailable ? 'Biometric login is not available on this device.' : biometricEnabled ? `Unlock Dad Health with ${biometricLabel}.` : `Sign in with your password once to enable ${biometricLabel}.`}</Text></View>
-              {biometricEnabled ? <Pressable onPress={disableBiometric} accessibilityRole="button" className="min-h-[40px] justify-center border-b border-red-300"><Text className="font-heading-bold text-red-300 text-[10px] uppercase">Turn off</Text></Pressable> : <Text className="font-heading-bold text-white/30 text-[10px] uppercase">Off</Text>}
+              <View className="flex-1"><Text className="font-heading-bold text-white text-[14px] uppercase">{biometricLabel} login</Text><Text className="font-body text-muted-text text-[11px] leading-[17px] mt-xs">{!biometricAvailable ? 'Biometric login is not available on this device.' : biometricEnabled ? `Unlock Dad Health with ${biometricLabel}.` : `Sign in with your password once to enable ${biometricLabel}.`}</Text></View>
+              {biometricEnabled ? <Pressable onPress={disableBiometric} accessibilityRole="button" className="min-h-[40px] justify-center border-b border-red-300"><Text className="font-heading-bold text-red-300 text-[10px] uppercase">Turn off</Text></Pressable> : <Text className="font-heading-bold text-tertiary-text text-[10px] uppercase">Off</Text>}
             </View>
 
             <Pressable onPress={sendReset} accessibilityRole="button" className="min-h-[68px] flex-row items-center gap-md border-b border-border active:opacity-70">
               <View className="h-[36px] w-[36px] items-center justify-center"><Feather name="key" size={19} color={colors.lime} /></View>
-              <View className="flex-1"><Text className="font-heading-bold text-white text-[14px] uppercase">Reset password</Text><Text className="font-body text-white/45 text-[11px] mt-xs" numberOfLines={1}>{user.email}</Text></View>
+              <View className="flex-1"><Text className="font-heading-bold text-white text-[14px] uppercase">Reset password</Text><Text className="font-body text-muted-text text-[11px] mt-xs" numberOfLines={1}>{user.email}</Text></View>
               <Feather name="chevron-right" size={18} color={colors.lime} />
             </Pressable>
           </View>
         )}
 
-        {message ? <Text accessibilityRole="alert" className="font-body text-white/55 text-[12px]">{message}</Text> : null}
+        {message ? <Text accessibilityRole="alert" className="font-body text-tertiary-text text-[12px]">{message}</Text> : null}
       </ScrollView>
     </SafeAreaView>
   );
