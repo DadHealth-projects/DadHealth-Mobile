@@ -66,7 +66,7 @@ export default function ActiveWorkoutScreen() {
           </View>
         ) : !workout ? (
           <View className="gap-md border-y border-border py-lg">
-            <Text className="font-body text-white/45 text-[13px] leading-[19px]">No workout is available to start.</Text>
+            <Text className="font-body text-muted-text text-[13px] leading-[19px]">No workout is available to start.</Text>
             <LimeButton label="Back to Fitness" onPress={close} />
           </View>
         ) : (

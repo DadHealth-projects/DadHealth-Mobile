@@ -174,7 +174,7 @@ export default function ActiveWorkout({
         <Text className="font-heading text-white text-[52px] leading-[52px]">
           {formatTime(elapsedSeconds)}
         </Text>
-        <Text className="font-heading-semibold text-white/40 text-[11px] tracking-[1px] uppercase mt-xs">
+        <Text className="font-heading-semibold text-tertiary-text text-[11px] tracking-[1px] uppercase mt-xs">
           Workout timer · {moves.length} moves
         </Text>
         <View className="gap-sm mt-md">
@@ -240,7 +240,7 @@ export default function ActiveWorkout({
                   <Text className="font-heading-bold text-white text-[15px] tracking-[0.5px] uppercase">
                     {move.title}
                   </Text>
-                  <Text className="font-body text-white/40 text-[11px] mt-xs">{move.detail}</Text>
+                  <Text className="font-body text-muted-text text-[11px] mt-xs">{move.detail}</Text>
                 </View>
                 {move.tag ? <TagPill label={move.tag} /> : null}
               </View>
