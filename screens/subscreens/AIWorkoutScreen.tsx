@@ -149,7 +149,7 @@ export default function AIWorkoutScreen() {
             <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
               Workout filters
             </Text>
-            <Text className="font-body text-white/45 text-[12px] leading-[18px] mt-xs">
+            <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">
               Set the session constraints before generating.
             </Text>
           </View>
@@ -264,7 +264,7 @@ export default function AIWorkoutScreen() {
               ))}
             </View>
             {displayedWorkout.exercises.length > 3 ? (
-              <Text className="font-body text-white/35 text-[12px]">
+              <Text className="font-body text-tertiary-text text-[12px]">
                 +{displayedWorkout.exercises.length - 3} more moves in the full workout
               </Text>
             ) : null}
@@ -300,7 +300,7 @@ function DropdownTrigger({
     >
       <View className="flex-row items-center gap-xs">
         <Feather name={icon} size={14} color={colors.lime} />
-        <Text className="font-heading-bold text-white/40 text-[9px] tracking-[0.8px] uppercase">
+        <Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.8px] uppercase">
           {label}
         </Text>
       </View>

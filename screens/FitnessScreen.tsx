@@ -140,7 +140,7 @@ export default function FitnessScreen({
               sub={`${moveCount} moves · workout + meal planner hub`}
             />
             {fitnessSummary.latestLoggedDate ? (
-              <Text className="font-heading-semibold text-white/35 text-[11px] tracking-[1px] uppercase mt-sm">
+              <Text className="font-heading-semibold text-tertiary-text text-[11px] tracking-[1px] uppercase mt-sm">
                 Last logged {fitnessSummary.latestLoggedDate}
               </Text>
             ) : null}
@@ -163,13 +163,65 @@ export default function FitnessScreen({
         </View>
       </FadeInView>
 
+      <FadeInView delay={120}>
+        {standalone ? (
+          <Card className="gap-md border-lime/25">
+            <View className="flex-row items-start justify-between gap-md">
+              <View className="flex-1">
+                <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
+                  Active workout
+                </Text>
+                <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">
+                  {selectedWorkout?.title ?? 'Dad Strength'}
+                </Text>
+                <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
+                  {moveCount} moves
+                  {selectedWorkout ? ` · ${selectedWorkout.duration_mins} min · ${EQUIPMENT_LABEL[selectedWorkout.equipment]}` : ''}
+                </Text>
+              </View>
+              <TagPill label={selectedWorkout ? FOCUS_LABEL[selectedWorkout.focus] : 'Full body'} />
+            </View>
+            <LimeButton label="Start workout →" onPress={hasUser ? openActiveWorkout : requireAuth} />
+          </Card>
+        ) : data?.featuredWorkoutTitle ? (
+          <Card className="border-lime/25 gap-sm">
+            <Text className="font-heading-bold text-white text-[18px] tracking-[0.5px] uppercase">
+              {data.featuredWorkoutTitle}
+            </Text>
+            <Text className="font-body text-muted-text text-[12px] leading-[18px]">
+              {data.featuredWorkoutMeta ?? 'Latest logged session'}
+            </Text>
+          </Card>
+        ) : (
+          <Card className="border-lime/25">
+            <Text className="font-body text-muted-text text-[13px] leading-[19px]">
+              Log your first workout to populate this card.
+            </Text>
+          </Card>
+        )}
+      </FadeInView>
+
       {standalone ? (
-        <FadeInView delay={130}>
+        <FadeInView delay={140}>
+          <SectionHeader title="Body this week" className="mb-md" />
+          <Card>
+            <MiniBarChart
+              values={data?.bodyWeekSeries ?? EMPTY_BODY_WEEK}
+              labels={MOOD_WEEK_LABELS}
+              maxValue={4}
+              height={72}
+            />
+          </Card>
+        </FadeInView>
+      ) : null}
+
+      {standalone ? (
+        <FadeInView delay={165}>
           <View>
             <SectionHeader title="Workout library" className="mb-md" />
             <Card className="gap-md">
               <View className="flex-row items-center justify-between gap-sm">
-                <Text className="font-heading-bold text-white/50 text-[11px] tracking-[1px] uppercase">
+                <Text className="font-heading-bold text-muted-text text-[11px] tracking-[1px] uppercase">
                   {fitnessLibrary.proError ? 'Workout access unavailable' : fitnessLibrary.isPro ? 'All available workouts' : 'Free workouts (8 max)'}
                 </Text>
                 <TagPill label={`${fitnessLibrary.workouts.length} shown`} tone="outline" />
@@ -186,7 +238,7 @@ export default function FitnessScreen({
                 </View>
               ) : fitnessLibrary.workouts.length === 0 ? (
                 <View className="py-md">
-                  <Text className="font-body text-white/45 text-[13px] leading-[19px]">No workouts are available yet.</Text>
+                  <Text className="font-body text-muted-text text-[13px] leading-[19px]">No workouts are available yet.</Text>
                 </View>
               ) : (
                 <View className="gap-sm">
@@ -206,7 +258,7 @@ export default function FitnessScreen({
                       <Text className="font-heading-bold text-white text-[15px] tracking-[0.5px] uppercase">
                         {workout.title}
                       </Text>
-                      <Text className="font-body text-white/45 text-[12px] leading-[18px] mt-xs">
+                      <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">
                         {workout.duration_mins} min · {EQUIPMENT_LABEL[workout.equipment]} · {FOCUS_LABEL[workout.focus]}
                       </Text>
                     </Pressable>
@@ -225,46 +277,8 @@ export default function FitnessScreen({
         </FadeInView>
       ) : null}
 
-      <FadeInView delay={140}>
-        {standalone ? (
-          <Card className="gap-md border-lime/25">
-            <View className="flex-row items-start justify-between gap-md">
-              <View className="flex-1">
-                <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
-                  Active workout
-                </Text>
-                <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">
-                  {selectedWorkout?.title ?? 'Dad Strength'}
-                </Text>
-                <Text className="font-body text-white/45 text-[12px] leading-[18px] mt-sm">
-                  {moveCount} moves
-                  {selectedWorkout ? ` · ${selectedWorkout.duration_mins} min · ${EQUIPMENT_LABEL[selectedWorkout.equipment]}` : ''}
-                </Text>
-              </View>
-              <TagPill label={selectedWorkout ? FOCUS_LABEL[selectedWorkout.focus] : 'Full body'} />
-            </View>
-            <LimeButton label="Start workout →" onPress={hasUser ? openActiveWorkout : requireAuth} />
-          </Card>
-        ) : data?.featuredWorkoutTitle ? (
-          <Card className="border-lime/25 gap-sm">
-            <Text className="font-heading-bold text-white text-[18px] tracking-[0.5px] uppercase">
-              {data.featuredWorkoutTitle}
-            </Text>
-            <Text className="font-body text-white/45 text-[12px] leading-[18px]">
-              {data.featuredWorkoutMeta ?? 'Latest logged session'}
-            </Text>
-          </Card>
-        ) : (
-          <Card className="border-lime/25">
-            <Text className="font-body text-white/50 text-[13px] leading-[19px]">
-              Log your first workout to populate this card.
-            </Text>
-          </Card>
-        )}
-      </FadeInView>
-
       {standalone ? (
-        <FadeInView delay={165}>
+        <FadeInView delay={190}>
           <Card className="gap-md border-lime/25">
             <View className="flex-row items-start justify-between gap-md">
               <View className="flex-1">
@@ -274,7 +288,7 @@ export default function FitnessScreen({
                 <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">
                   Built around your day
                 </Text>
-                <Text className="font-body text-white/45 text-[12px] leading-[18px] mt-sm">
+                <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
                   Choose your time, equipment and focus. Generate a workout you can start immediately.
                 </Text>
               </View>
@@ -289,13 +303,13 @@ export default function FitnessScreen({
       ) : null}
 
       {standalone ? (
-        <FadeInView delay={180}>
+        <FadeInView delay={215}>
           <Card className="gap-md border-lime/25">
             <View className="flex-row items-start justify-between gap-md">
               <View className="flex-1">
                 <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Meal planner</Text>
                 <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">Fuel your whole week</Text>
-                <Text className="font-body text-white/45 text-[12px] leading-[18px] mt-sm">Generate a personalised 5-day plan with recipes, macros and a shopping list.</Text>
+                <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">Generate a personalised 5-day plan with recipes, macros and a shopping list.</Text>
               </View>
               <TagPill label={fitnessLibrary.proError ? 'Unavailable' : fitnessLibrary.isPro ? 'Pro' : 'Preview'} />
             </View>
@@ -304,39 +318,43 @@ export default function FitnessScreen({
         </FadeInView>
       ) : null}
 
-      <FadeInView delay={190}>
+      <FadeInView delay={240}>
         <Card className="border-lime/25 gap-sm">
           <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
-            Know your daily calories
+            {standalone ? 'Do you know your calories?' : 'Know your daily calories'}
           </Text>
-          <Text className="font-body text-white/45 text-[12px] leading-[18px]">
-            Calculate your TDEE and discover the exact calories you need to maintain, lose, or gain
-            weight — built for busy dads.
+          <Text className="font-body text-muted-text text-[12px] leading-[18px]">
+            {standalone
+              ? 'Find the daily calories your body needs.'
+              : 'Calculate your TDEE and discover the exact calories you need to maintain, lose, or gain weight — built for busy dads.'}
           </Text>
           <Pressable
             onPress={openTdee}
             accessibilityRole="button"
-            accessibilityLabel="Calculate TDEE"
+            accessibilityLabel={standalone ? 'Calculate daily calories' : 'Calculate TDEE'}
             className="self-start rounded-button bg-lime px-md py-sm mt-xs active:opacity-90"
           >
             <Text className="font-heading-bold text-dark text-[11px] tracking-[1px] uppercase">
-              Calculate TDEE →
+              {standalone ? 'Calculate' : 'Calculate TDEE →'}
             </Text>
           </Pressable>
         </Card>
       </FadeInView>
 
-      <FadeInView delay={240}>
-        <SectionHeader title="Body this week" className="mb-md" />
-        <Card>
-          <MiniBarChart
-            values={data?.bodyWeekSeries ?? EMPTY_BODY_WEEK}
-            labels={MOOD_WEEK_LABELS}
-            maxValue={4}
-            height={72}
-          />
-        </Card>
-      </FadeInView>
+      {!standalone ? (
+        <FadeInView delay={240}>
+          <SectionHeader title="Body this week" className="mb-md" />
+          <Card>
+            <MiniBarChart
+              values={data?.bodyWeekSeries ?? EMPTY_BODY_WEEK}
+              labels={MOOD_WEEK_LABELS}
+              maxValue={4}
+              height={72}
+            />
+          </Card>
+        </FadeInView>
+      ) : null}
+
     </PillarScreen>
   );
 }
