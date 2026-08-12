@@ -71,7 +71,7 @@ export default function BreathingSessionScreen() {
             <Text accessibilityLiveRegion="polite" className="font-heading-bold text-lime text-[15px] tracking-label uppercase">{phase}</Text>
             <Text className="font-heading text-lime text-[72px] leading-[76px]">{count}</Text>
           </Animated.View>
-          <Text className="font-body text-white/40 text-[12px] mt-xl">Inhale 4 · Hold 4 · Exhale 4</Text>
+          <Text className="font-body text-muted-text text-[12px] mt-xl">Inhale 4 · Hold 4 · Exhale 4</Text>
         </View>
         <View className="gap-md">
           <LimeButton label={active ? 'Stop' : 'Begin'} onPress={toggle} />

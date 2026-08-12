@@ -100,7 +100,7 @@ export default function JournalScreen() {
               <Text className="font-heading text-white uppercase text-[42px] leading-[44px]">
                 Journal entries
               </Text>
-              <Text className="font-body text-white/50 text-[15px] leading-[22px] mt-sm">
+              <Text className="font-body text-muted-text text-[15px] leading-[22px] mt-sm">
                 For your eyes only.
               </Text>
             </View>
@@ -115,7 +115,7 @@ export default function JournalScreen() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerClassName="gap-sm">
                   {JOURNAL_PROMPTS.map((prompt) => {
                     const selected = selectedPrompt === prompt;
-                    return <Pressable key={prompt} onPress={() => setSelectedPrompt(selected ? null : prompt)} accessibilityRole="button" accessibilityState={{ selected }} className={`max-w-[220px] rounded-button border px-md py-sm active:opacity-75 ${selected ? 'border-lime bg-lime/10' : 'border-border bg-card'}`}><Text className={`font-body text-[12px] leading-[17px] ${selected ? 'text-lime' : 'text-white/60'}`}>{prompt}</Text></Pressable>;
+                    return <Pressable key={prompt} onPress={() => setSelectedPrompt(selected ? null : prompt)} accessibilityRole="button" accessibilityState={{ selected }} className={`max-w-[220px] rounded-button border px-md py-sm active:opacity-75 ${selected ? 'border-lime bg-lime/10' : 'border-border bg-card'}`}><Text className={`font-body text-[12px] leading-[17px] ${selected ? 'text-lime' : 'text-tertiary-text'}`}>{prompt}</Text></Pressable>;
                   })}
                 </ScrollView>
               </View>
@@ -143,10 +143,10 @@ export default function JournalScreen() {
               ) : journal.error ? (
                 <View accessibilityRole="alert" className="gap-md rounded-button border border-red-400/40 bg-red-400/10 p-md"><Text className="font-body text-red-300 text-[13px]">{journal.error}</Text><LimeButton label="Retry entries" onPress={() => void journal.refresh()} /></View>
               ) : journal.entries.length === 0 ? (
-                <View className="border-y border-border py-xl"><Text className="font-heading-bold text-white text-[17px] uppercase">No entries yet</Text><Text className="font-body text-white/40 text-[13px] leading-[19px] mt-xs">Your private entries will appear here.</Text></View>
+                <View className="border-y border-border py-xl"><Text className="font-heading-bold text-white text-[17px] uppercase">No entries yet</Text><Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">Your private entries will appear here.</Text></View>
               ) : (
                 <View className="gap-sm">
-                  {journal.entries.map((entry) => <Pressable key={entry.id} onPress={() => openEntry(entry)} accessibilityRole="button" accessibilityLabel={`Open journal entry from ${formatDate(entry.created_at)}`} className="rounded-button border border-border bg-card p-md active:opacity-75"><View className="flex-row items-center justify-between gap-sm"><Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">{formatDate(entry.created_at)}</Text><Feather name="chevron-right" size={18} color={colors.lime} /></View>{entry.prompt ? <Text numberOfLines={2} className="font-heading-bold text-white text-[14px] uppercase mt-sm">{entry.prompt}</Text> : null}<Text numberOfLines={2} className="font-body text-white/50 text-[12px] leading-[18px] mt-xs">{entry.content}</Text></Pressable>)}
+                  {journal.entries.map((entry) => <Pressable key={entry.id} onPress={() => openEntry(entry)} accessibilityRole="button" accessibilityLabel={`Open journal entry from ${formatDate(entry.created_at)}`} className="rounded-button border border-border bg-card p-md active:opacity-75"><View className="flex-row items-center justify-between gap-sm"><Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">{formatDate(entry.created_at)}</Text><Feather name="chevron-right" size={18} color={colors.lime} /></View>{entry.prompt ? <Text numberOfLines={2} className="font-heading-bold text-white text-[14px] uppercase mt-sm">{entry.prompt}</Text> : null}<Text numberOfLines={2} className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">{entry.content}</Text></Pressable>)}
                 </View>
               )}
             </View>
