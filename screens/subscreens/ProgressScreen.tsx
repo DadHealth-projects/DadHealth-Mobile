@@ -122,7 +122,7 @@ export default function ProgressScreen({
             <View className="gap-md border-y border-border py-xl">
               <Feather name="log-in" size={22} color={colors.lime} />
               <Text className="font-heading-bold text-white text-[18px] uppercase">Log in to view progress</Text>
-              <Text className="font-body text-white/50 text-[13px] leading-[19px]">Your score, reports and health patterns are private to your account.</Text>
+              <Text className="font-body text-muted-text text-[13px] leading-[19px]">Your score, reports and health patterns are private to your account.</Text>
               <Pressable onPress={() => navigation.navigate('Login')} accessibilityRole="button" className="min-h-[44px] self-start justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[11px] uppercase">Log in</Text></Pressable>
             </View>
           </>
@@ -182,7 +182,7 @@ export default function ProgressScreen({
                     <Feather name="share-2" size={16} color={colors.lime} />
                     <Text className="font-heading-bold text-lime text-[11px] uppercase">Share report</Text>
                   </Pressable>
-                  {reportMessage ? <Text className="font-body text-white/45 text-[12px] mt-sm">{reportMessage}</Text> : null}
+                  {reportMessage ? <Text className="font-body text-muted-text text-[12px] mt-sm">{reportMessage}</Text> : null}
                 </>
               )}
             </FadeInView>
@@ -194,7 +194,7 @@ export default function ProgressScreen({
               ) : progressBadges.error ? (
                 <View className="gap-sm border-y border-red-400/30 py-lg"><Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{progressBadges.error}</Text><Pressable onPress={() => void progressBadges.refresh()} accessibilityRole="button"><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable></View>
               ) : progressBadges.badges.length === 0 ? (
-                <Text className="font-body text-white/50 text-[13px] leading-[19px]">No badges earned yet.</Text>
+                <Text className="font-body text-muted-text text-[13px] leading-[19px]">No badges earned yet.</Text>
               ) : (
                 <View className="flex-row flex-wrap gap-sm">
                   {progressBadges.badges.map((badge) => (
@@ -217,7 +217,7 @@ export default function ProgressScreen({
                 <View className="gap-md border-y border-border py-lg">
                   <Feather name="lock" size={20} color={colors.lime} />
                   <Text className="font-heading-bold text-white text-[16px] uppercase">Sleep tracker</Text>
-                  <Text className="font-body text-white/50 text-[13px] leading-[19px]">Your sleep is connected to your mood, your patience and your energy. This shows you exactly how.</Text>
+                  <Text className="font-body text-muted-text text-[13px] leading-[19px]">Your sleep is connected to your mood, your patience and your energy. This shows you exactly how.</Text>
                   <Pressable onPress={() => navigation.navigate('Tabs', { screen: 'Home' })} accessibilityRole="button" className="min-h-[42px] self-start justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[11px] uppercase">View Dad Health Pro</Text></Pressable>
                 </View>
               ) : progressSleep.loading ? (
@@ -229,12 +229,12 @@ export default function ProgressScreen({
                   <View className="h-[78px] flex-row border-y border-border">
                     {progressSleep.days.map((day, index) => {
                       const statusColor = day.hours == null ? colors.border : day.hours >= 7 ? colors.lime : day.hours >= 6 ? 'rgba(200,245,90,0.45)' : '#5A5A5A';
-                      return <View key={day.key} className={`flex-1 items-center justify-center gap-xs ${index < progressSleep.days.length - 1 ? 'border-r border-border' : ''}`}><Text className="font-heading-bold text-white text-[12px]">{day.hours == null ? '-' : day.hours.toFixed(1)}</Text><View className="h-[5px] w-[5px] rounded-full" style={{ backgroundColor: statusColor }} /><Text className="font-heading-bold text-white/40 text-[8px] uppercase">{day.label}</Text></View>;
+                      return <View key={day.key} className={`flex-1 items-center justify-center gap-xs ${index < progressSleep.days.length - 1 ? 'border-r border-border' : ''}`}><Text className="font-heading-bold text-white text-[12px]">{day.hours == null ? '-' : day.hours.toFixed(1)}</Text><View className="h-[5px] w-[5px] rounded-full" style={{ backgroundColor: statusColor }} /><Text className="font-heading-bold text-tertiary-text text-[8px] uppercase">{day.label}</Text></View>;
                     })}
                   </View>
                   <View className="flex-row items-start gap-sm border-b border-border py-md">
                     <Feather name="zap" size={15} color={colors.lime} />
-                    <Text className="flex-1 font-body text-white/55 text-[12px] leading-[18px]"><Text className="font-heading-bold text-lime text-[11px] uppercase">Pattern spotted: </Text>{progressSleep.pattern}</Text>
+                    <Text className="flex-1 font-body text-tertiary-text text-[12px] leading-[18px]"><Text className="font-heading-bold text-lime text-[11px] uppercase">Pattern spotted: </Text>{progressSleep.pattern}</Text>
                   </View>
                 </>
               )}
@@ -247,8 +247,8 @@ export default function ProgressScreen({
               ) : progressSleep.error ? null : (
                 <View className="border-t border-border">
                   <View className="flex-row items-center gap-lg py-sm border-b border-border">
-                    <View className="flex-row items-center gap-xs"><View className="h-[3px] w-[18px] bg-lime" /><Text className="font-heading-bold text-white/45 text-[9px] uppercase">Sleep</Text></View>
-                    <View className="flex-row items-center gap-xs"><View className="h-[3px] w-[18px] bg-white/35" /><Text className="font-heading-bold text-white/45 text-[9px] uppercase">Mood</Text></View>
+                    <View className="flex-row items-center gap-xs"><View className="h-[3px] w-[18px] bg-lime" /><Text className="font-heading-bold text-muted-text text-[9px] uppercase">Sleep</Text></View>
+                    <View className="flex-row items-center gap-xs"><View className="h-[3px] w-[18px] bg-white/35" /><Text className="font-heading-bold text-muted-text text-[9px] uppercase">Mood</Text></View>
                   </View>
                   <View>
                     {progressSleep.days.map((day) => {
@@ -256,12 +256,12 @@ export default function ProgressScreen({
                       const moodWidth = day.mood == null ? 0 : Math.min(100, Math.round((day.mood / 4) * 100));
                       return (
                         <View key={day.key} className="min-h-[48px] flex-row items-center gap-sm border-b border-border py-xs">
-                          <Text className="w-[30px] font-heading-bold text-white/45 text-[9px] uppercase">{day.label}</Text>
+                          <Text className="w-[30px] font-heading-bold text-muted-text text-[9px] uppercase">{day.label}</Text>
                           <View className="flex-1 gap-xs">
                             <View className="h-[4px] bg-white/[0.06]"><View className="h-full bg-lime" style={{ width: `${sleepWidth}%` }} /></View>
                             <View className="h-[4px] bg-white/[0.06]"><View className="h-full bg-white/35" style={{ width: `${moodWidth}%` }} /></View>
                           </View>
-                          <Text className="w-[62px] font-body text-white/35 text-[9px] text-right">{day.hours == null ? '-' : `${day.hours}h`} / {day.mood == null ? '-' : `${day.mood}/4`}</Text>
+                          <Text className="w-[62px] font-body text-tertiary-text text-[9px] text-right">{day.hours == null ? '-' : `${day.hours}h`} / {day.mood == null ? '-' : `${day.mood}/4`}</Text>
                         </View>
                       );
                     })}
@@ -279,7 +279,7 @@ export default function ProgressScreen({
 function ProgressDataRow({ label, value }: { label: string; value: string }) {
   return (
     <View className="min-h-[54px] flex-row items-center justify-between gap-md border-b border-border py-sm">
-      <Text className="font-heading-bold text-white/45 text-[10px] uppercase">{label}</Text>
+      <Text className="font-heading-bold text-muted-text text-[10px] uppercase">{label}</Text>
       <Text className="flex-1 font-body text-white text-[13px] text-right">{value}</Text>
     </View>
   );

@@ -68,7 +68,7 @@ function SettingsRow({ icon, label, onPress, pending = false, future = false }: 
       <View className="h-[34px] w-[34px] items-center justify-center">
         <Feather name={icon} size={18} color={disabled ? colors.tertiaryText : colors.lime} />
       </View>
-      <Text className={`flex-1 font-heading-bold text-[14px] uppercase ${disabled ? 'text-white/45' : 'text-white'}`}>{label}</Text>
+      <Text className={`flex-1 font-heading-bold text-[14px] uppercase ${disabled ? 'text-muted-text' : 'text-white'}`}>{label}</Text>
       {future ? <Text className="font-heading-bold text-white/25 text-[9px] uppercase">Future</Text> : pending ? <Text className="font-heading-bold text-white/25 text-[9px] uppercase">Pending</Text> : <Feather name="chevron-right" size={18} color={colors.lime} />}
     </Pressable>
   );
