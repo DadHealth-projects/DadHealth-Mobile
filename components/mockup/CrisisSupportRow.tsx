@@ -35,7 +35,7 @@ function CrisisSupportRow({
         <Text className="font-heading-bold text-red-300 text-[12px] tracking-[0.5px] uppercase">
           {title}
         </Text>
-        <Text className="font-body text-white/40 text-[11px] leading-[16px] mt-xs">{subtitle}</Text>
+        <Text className="font-body text-muted-text text-[11px] leading-[16px] mt-xs">{subtitle}</Text>
       </View>
       <Feather name="phone" size={18} color="#F87171" />
     </Pressable>

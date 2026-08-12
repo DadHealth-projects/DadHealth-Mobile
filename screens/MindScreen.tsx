@@ -148,7 +148,7 @@ function MoodAccessPanel({
         </View>
         <View className="flex-1 min-w-0">
           <Text className="font-heading-bold text-white text-[17px] uppercase">{title}</Text>
-          <Text className="font-body text-white/45 text-[12px] leading-[18px] mt-xs">{description}</Text>
+          <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">{description}</Text>
         </View>
         <Feather name="lock" size={17} color={colors.lime} />
       </View>
@@ -179,7 +179,7 @@ function MindFeatureRow({
       </View>
       <View className="flex-1 min-w-0">
         <Text className="font-heading-bold text-white text-[17px] uppercase">{title}</Text>
-        <Text className="font-body text-white/45 text-[12px] leading-[18px] mt-xs">{description}</Text>
+        <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">{description}</Text>
       </View>
       {onPress ? <Feather name="chevron-right" size={20} color={colors.lime} /> : null}
     </View>
