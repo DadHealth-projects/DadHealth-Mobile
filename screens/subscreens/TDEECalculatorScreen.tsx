@@ -65,7 +65,7 @@ export default function TDEECalculatorScreen() {
           <View className="gap-lg">
             <SegmentedControl options={[{ value: 'metric', label: 'Metric' }, { value: 'imperial', label: 'Imperial' }]} value={units} onChange={(value) => { setUnits(value); setResult(null); setError(null); }} />
             <View>
-              <Text className="font-heading-bold text-white/40 text-[9px] tracking-[0.8px] uppercase mb-sm">Gender</Text>
+              <Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.8px] uppercase mb-sm">Gender</Text>
               <SegmentedControl options={[{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }]} value={gender} onChange={setGender} />
             </View>
             <View className="flex-row gap-md">
@@ -80,7 +80,7 @@ export default function TDEECalculatorScreen() {
           </View>
 
           {error ? <View accessibilityRole="alert" className="rounded-button border border-red-400/40 bg-red-400/10 p-md"><Text className="font-body text-red-300 text-[13px] leading-[19px]">{error}</Text></View> : null}
-          <View className="gap-sm"><LimeButton label="Calculate TDEE" onPress={calculate} />{result ? <Pressable onPress={reset} accessibilityRole="button" className="min-h-[44px] items-center justify-center"><Text className="font-heading-bold text-white/50 text-[12px] uppercase">Reset</Text></Pressable> : null}</View>
+          <View className="gap-sm"><LimeButton label="Calculate TDEE" onPress={calculate} />{result ? <Pressable onPress={reset} accessibilityRole="button" className="min-h-[44px] items-center justify-center"><Text className="font-heading-bold text-muted-text text-[12px] uppercase">Reset</Text></Pressable> : null}</View>
 
           {result ? (
             <View className="gap-xl border-t border-border pt-lg">
@@ -97,7 +97,7 @@ export default function TDEECalculatorScreen() {
                 <TargetRow label="Aggressive cut" value={result.aggressiveFatLoss} detail="750 kcal daily deficit" />
                 <TargetRow label="Lean bulk" value={result.muscleGain} detail="300 kcal daily surplus" />
               </View>
-              <View className="gap-md"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Insights</Text>{insights.map((text, index) => <View key={index} className="border-l-2 border-lime pl-md"><Text className="font-body text-white/50 text-[12px] leading-[18px]">{text}</Text></View>)}</View>
+              <View className="gap-md"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Insights</Text>{insights.map((text, index) => <View key={index} className="border-l-2 border-lime pl-md"><Text className="font-body text-muted-text text-[12px] leading-[18px]">{text}</Text></View>)}</View>
             </View>
           ) : null}
         </ScrollView>
@@ -122,15 +122,15 @@ function buildInsights(result: TDEEResult) {
 }
 
 function SegmentedControl<T extends string>({ options, value, onChange }: { options: readonly { value: T; label: string }[]; value: T; onChange: (value: T) => void }) {
-  return <View className="flex-row border border-border">{options.map((option, index) => { const selected = option.value === value; return <Pressable key={option.value} onPress={() => onChange(option.value)} accessibilityRole="button" accessibilityState={{ selected }} className={`flex-1 min-h-[44px] items-center justify-center ${index ? 'border-l border-border' : ''} ${selected ? 'bg-lime/10' : ''}`}><Text className={`font-heading-bold text-[12px] uppercase ${selected ? 'text-lime' : 'text-white/45'}`}>{option.label}</Text></Pressable>; })}</View>;
+  return <View className="flex-row border border-border">{options.map((option, index) => { const selected = option.value === value; return <Pressable key={option.value} onPress={() => onChange(option.value)} accessibilityRole="button" accessibilityState={{ selected }} className={`flex-1 min-h-[44px] items-center justify-center ${index ? 'border-l border-border' : ''} ${selected ? 'bg-lime/10' : ''}`}><Text className={`font-heading-bold text-[12px] uppercase ${selected ? 'text-lime' : 'text-muted-text'}`}>{option.label}</Text></Pressable>; })}</View>;
 }
 
 function NumberField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (value: string) => void; placeholder: string }) {
-  return <View className="flex-1 gap-xs"><Text className="font-heading-bold text-white/40 text-[9px] tracking-[0.8px] uppercase">{label}</Text><TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor="rgba(255,255,255,0.25)" keyboardType="numeric" accessibilityLabel={label} className="min-h-[48px] border-b border-border font-heading-bold text-white text-[17px] py-sm" /></View>;
+  return <View className="flex-1 gap-xs"><Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.8px] uppercase">{label}</Text><TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor="rgba(255,255,255,0.25)" keyboardType="numeric" accessibilityLabel={label} className="min-h-[48px] border-b border-border font-heading-bold text-white text-[17px] py-sm" /></View>;
 }
 
 function DropdownTrigger({ label, value, open, onPress }: { label: string; value: string; open: boolean; onPress: () => void }) {
-  return <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ expanded: open }} className="px-sm py-md"><View className="flex-row items-center gap-xs"><Feather name="activity" size={14} color={colors.lime} /><Text className="font-heading-bold text-white/40 text-[9px] tracking-[0.8px] uppercase">{label}</Text></View><View className="flex-row items-center gap-xs mt-xs"><Text numberOfLines={1} className="font-heading-bold text-white text-[12px] uppercase flex-1">{value}</Text><Feather name={open ? 'chevron-up' : 'chevron-down'} size={15} color={colors.lime} /></View></Pressable>;
+  return <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ expanded: open }} className="px-sm py-md"><View className="flex-row items-center gap-xs"><Feather name="activity" size={14} color={colors.lime} /><Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.8px] uppercase">{label}</Text></View><View className="flex-row items-center gap-xs mt-xs"><Text numberOfLines={1} className="font-heading-bold text-white text-[12px] uppercase flex-1">{value}</Text><Feather name={open ? 'chevron-up' : 'chevron-down'} size={15} color={colors.lime} /></View></Pressable>;
 }
 
 function DropdownOptions<T extends string>({ options, value, onChange }: { options: readonly { value: T; label: string }[]; value: T; onChange: (value: T) => void }) {
@@ -138,9 +138,9 @@ function DropdownOptions<T extends string>({ options, value, onChange }: { optio
 }
 
 function ResultStat({ label, value, detail }: { label: string; value: string; detail?: string }) {
-  return <View className="w-[48%] min-h-[96px] rounded-button border border-border bg-card p-md"><Text numberOfLines={1} adjustsFontSizeToFit className="font-heading text-lime text-[25px] uppercase">{value}</Text><Text className="font-heading-bold text-white/45 text-[10px] uppercase mt-xs">{label}</Text>{detail ? <Text numberOfLines={1} className="font-body text-white/30 text-[10px] mt-xs">{detail}</Text> : null}</View>;
+  return <View className="w-[48%] min-h-[96px] rounded-button border border-border bg-card p-md"><Text numberOfLines={1} adjustsFontSizeToFit className="font-heading text-lime text-[25px] uppercase">{value}</Text><Text className="font-heading-bold text-muted-text text-[10px] uppercase mt-xs">{label}</Text>{detail ? <Text numberOfLines={1} className="font-body text-tertiary-text text-[10px] mt-xs">{detail}</Text> : null}</View>;
 }
 
 function TargetRow({ label, value, detail, highlighted = false }: { label: string; value: number; detail: string; highlighted?: boolean }) {
-  return <View className={`flex-row items-center justify-between gap-md border-b pb-md ${highlighted ? 'border-lime/50' : 'border-border'}`}><View className="flex-1"><Text className={`font-heading-bold text-[14px] uppercase ${highlighted ? 'text-lime' : 'text-white'}`}>{label}</Text><Text className="font-body text-white/35 text-[11px] mt-xs">{detail}</Text></View><Text className={`font-heading text-[25px] ${highlighted ? 'text-lime' : 'text-white'}`}>{value.toLocaleString()} <Text className="text-[11px]">kcal</Text></Text></View>;
+  return <View className={`flex-row items-center justify-between gap-md border-b pb-md ${highlighted ? 'border-lime/50' : 'border-border'}`}><View className="flex-1"><Text className={`font-heading-bold text-[14px] uppercase ${highlighted ? 'text-lime' : 'text-white'}`}>{label}</Text><Text className="font-body text-tertiary-text text-[11px] mt-xs">{detail}</Text></View><Text className={`font-heading text-[25px] ${highlighted ? 'text-lime' : 'text-white'}`}>{value.toLocaleString()} <Text className="text-[11px]">kcal</Text></Text></View>;
 }
