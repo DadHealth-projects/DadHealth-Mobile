@@ -113,7 +113,7 @@ export default function MealPlannerScreen() {
         <View className="gap-md">
           <View>
             <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Plan filters</Text>
-            <Text className="font-body text-white/45 text-[12px] leading-[18px] mt-xs">Choose your targets.</Text>
+            <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">Choose your targets.</Text>
           </View>
           <View className="flex-row border-y border-border">
             <DropdownTrigger icon="activity" label="Calories" value={`${calorieTarget}`} open={openFilter === 'calories'} onPress={() => setOpenFilter(openFilter === 'calories' ? null : 'calories')} />
@@ -126,7 +126,7 @@ export default function MealPlannerScreen() {
           <View className="border-y border-border"><DropdownTrigger icon="shield" label="Diet" value={DIETS.find((item) => item.value === dietaryPreference)?.label ?? 'No strict diet'} open={openFilter === 'diet'} onPress={() => setOpenFilter(openFilter === 'diet' ? null : 'diet')} /></View>
           {openFilter === 'diet' ? <DropdownOptions options={DIETS} value={dietaryPreference} onChange={(value) => { setDietaryPreference(value); setOpenFilter(null); }} /> : null}
           <View className="gap-xs">
-            <Text className="font-heading-bold text-white/40 text-[9px] tracking-[0.8px] uppercase">Preferences</Text>
+            <Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.8px] uppercase">Preferences</Text>
             <TextInput value={preferences} onChangeText={setPreferences} placeholder="e.g. high-protein, no fish" placeholderTextColor="rgba(255,255,255,0.25)" accessibilityLabel="Other meal preferences" className="min-h-[48px] border-b border-border font-body text-white text-[14px] py-sm" />
           </View>
         </View>
@@ -144,16 +144,16 @@ export default function MealPlannerScreen() {
               <Text className="font-heading text-white text-[27px] uppercase">{displayedDay.day ?? `Day ${selectedDay + 1}`}</Text>
               {Object.entries(displayedDay.meals ?? {}).map(([mealType, meal]) => (
                 <View key={mealType} className="border-b border-border pb-md gap-xs">
-                  <View className="flex-row items-center justify-between gap-sm"><Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">{mealType}</Text><Text className="font-body text-white/35 text-[11px]">{meal.prep_time ?? ''}</Text></View>
+                  <View className="flex-row items-center justify-between gap-sm"><Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">{mealType}</Text><Text className="font-body text-tertiary-text text-[11px]">{meal.prep_time ?? ''}</Text></View>
                   <Text className="font-heading-bold text-white text-[16px] uppercase">{meal.name ?? 'Unavailable'}</Text>
-                  <Text className="font-body text-white/50 text-[12px] leading-[18px]">{meal.ingredients?.join(', ') ?? 'Ingredients not available'}</Text>
-                  {meal.macros ? <Text className="font-body text-white/35 text-[11px] uppercase">{Object.entries(meal.macros).map(([key, value]) => `${key}: ${value}`).join('  ·  ')}</Text> : null}
+                  <Text className="font-body text-muted-text text-[12px] leading-[18px]">{meal.ingredients?.join(', ') ?? 'Ingredients not available'}</Text>
+                  {meal.macros ? <Text className="font-body text-tertiary-text text-[11px] uppercase">{Object.entries(meal.macros).map(([key, value]) => `${key}: ${value}`).join('  ·  ')}</Text> : null}
                 </View>
               ))}
             </View>
-            {grocerySections.length ? <View className="gap-md"><Text className="font-heading text-white text-[28px] uppercase">Shopping list</Text>{grocerySections.map((section) => <View key={section.category} className="border-b border-border pb-md"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">{section.category}</Text><Text className="font-body text-white/55 text-[13px] leading-[20px] mt-xs">{section.items.join(', ')}</Text></View>)}</View> : null}
+            {grocerySections.length ? <View className="gap-md"><Text className="font-heading text-white text-[28px] uppercase">Shopping list</Text>{grocerySections.map((section) => <View key={section.category} className="border-b border-border pb-md"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">{section.category}</Text><Text className="font-body text-tertiary-text text-[13px] leading-[20px] mt-xs">{section.items.join(', ')}</Text></View>)}</View> : null}
           </View>
-        ) : user && library.isPro ? <Text className="font-body text-white/40 text-[13px] leading-[19px]">Your plan will appear here after you generate it.</Text> : null}
+        ) : user && library.isPro ? <Text className="font-body text-muted-text text-[13px] leading-[19px]">Your plan will appear here after you generate it.</Text> : null}
       </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -166,7 +166,7 @@ function normalizeGroceryList(list: MealPlan['grocery_list']): GrocerySection[] 
 }
 
 function DropdownTrigger({ icon, label, value, divided = false, open, onPress }: { icon: keyof typeof Feather.glyphMap; label: string; value: string; divided?: boolean; open: boolean; onPress: () => void }) {
-  return <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ expanded: open }} className={`flex-1 min-w-0 px-sm py-md active:opacity-75 ${divided ? 'border-l border-border' : ''}`}><View className="flex-row items-center gap-xs"><Feather name={icon} size={14} color={colors.lime} /><Text className="font-heading-bold text-white/40 text-[9px] tracking-[0.8px] uppercase">{label}</Text></View><View className="flex-row items-center gap-xs mt-xs"><Text numberOfLines={1} adjustsFontSizeToFit className="font-heading-bold text-white text-[12px] uppercase flex-1">{value}</Text><Feather name={open ? 'chevron-up' : 'chevron-down'} size={15} color={colors.lime} /></View></Pressable>;
+  return <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ expanded: open }} className={`flex-1 min-w-0 px-sm py-md active:opacity-75 ${divided ? 'border-l border-border' : ''}`}><View className="flex-row items-center gap-xs"><Feather name={icon} size={14} color={colors.lime} /><Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.8px] uppercase">{label}</Text></View><View className="flex-row items-center gap-xs mt-xs"><Text numberOfLines={1} adjustsFontSizeToFit className="font-heading-bold text-white text-[12px] uppercase flex-1">{value}</Text><Feather name={open ? 'chevron-up' : 'chevron-down'} size={15} color={colors.lime} /></View></Pressable>;
 }
 
 function DropdownOptions<T extends string | number>({ options, value, onChange }: { options: readonly { value: T; label: string }[]; value: T; onChange: (value: T) => void }) {
