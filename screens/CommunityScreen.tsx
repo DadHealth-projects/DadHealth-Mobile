@@ -159,7 +159,7 @@ export default function CommunityScreen({
         ) : circlesLoading ? (
           <View className="flex-row flex-wrap gap-sm">{[0, 1, 2, 3].map((item) => <View key={item} className="h-[132px] w-[48%] rounded-card bg-white/5" />)}</View>
         ) : communityCircles.length === 0 ? (
-          <Text className="font-body text-white/50 text-[14px]">No circles yet</Text>
+          <Text className="font-body text-muted-text text-[14px]">No circles yet</Text>
         ) : (
           <View className="flex-row flex-wrap gap-sm">
             {communityCircles.map((circle) => (
@@ -210,7 +210,7 @@ export default function CommunityScreen({
               <Text className="font-heading-bold text-white text-[15px] uppercase">
                 {feed.posts.length === 0 ? 'No posts yet' : `${feed.posts.length} ${feed.posts.length === 1 ? 'post' : 'posts'} available`}
               </Text>
-              <Text className="font-body text-white/45 text-[12px] mt-[2px]">
+              <Text className="font-body text-muted-text text-[12px] mt-[2px]">
                 {feed.posts.length === 0 ? 'Be the first to share with the squad.' : 'View them now'}
               </Text>
             </View>
@@ -221,13 +221,13 @@ export default function CommunityScreen({
 
       <FadeInView delay={180}>
         <SectionHeader title="Live sessions" className="mb-md" />
-        {liveSessionsLoading ? <View className="gap-sm"><View className="h-[54px] border-y border-border bg-white/[0.02]" /><View className="h-[54px] border-b border-border bg-white/[0.02]" /></View> : liveSessionsError ? <View className="gap-sm"><Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{liveSessionsError}</Text><Pressable onPress={() => void loadLiveSessions()} accessibilityRole="button"><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable></View> : liveSessions.length === 0 ? <Text className="font-body text-white/45 text-[13px]">No live sessions are scheduled yet.</Text> : <View>{liveSessions.map((session) => <View key={session.id} className="border-b border-border py-md gap-xs"><Text className="font-heading-bold text-lime text-[14px] uppercase">{session.title}</Text><Text className="font-body text-white/40 text-[11px]">{session.host_name ? `Host: ${session.host_name}` : 'Host TBD'}{session.starts_at ? ` · ${new Date(session.starts_at).toLocaleString()}` : ''}</Text>{session.summary ? <Text className="font-body text-white/60 text-[13px] leading-[19px] mt-xs">{session.summary}</Text> : null}</View>)}</View>}
+        {liveSessionsLoading ? <View className="gap-sm"><View className="h-[54px] border-y border-border bg-white/[0.02]" /><View className="h-[54px] border-b border-border bg-white/[0.02]" /></View> : liveSessionsError ? <View className="gap-sm"><Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{liveSessionsError}</Text><Pressable onPress={() => void loadLiveSessions()} accessibilityRole="button"><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable></View> : liveSessions.length === 0 ? <Text className="font-body text-muted-text text-[13px]">No live sessions are scheduled yet.</Text> : <View>{liveSessions.map((session) => <View key={session.id} className="border-b border-border py-md gap-xs"><Text className="font-heading-bold text-lime text-[14px] uppercase">{session.title}</Text><Text className="font-body text-tertiary-text text-[11px]">{session.host_name ? `Host: ${session.host_name}` : 'Host TBD'}{session.starts_at ? ` · ${new Date(session.starts_at).toLocaleString()}` : ''}</Text>{session.summary ? <Text className="font-body text-tertiary-text text-[13px] leading-[19px] mt-xs">{session.summary}</Text> : null}</View>)}</View>}
         <Pressable onPress={() => navigation.navigate('Tabs', { screen: 'Home' })} accessibilityRole="button" className="self-start min-h-[40px] justify-center mt-md border-b border-lime"><Text className="font-heading-bold text-lime text-[11px] uppercase">View Pro</Text></Pressable>
       </FadeInView>
 
       <FadeInView delay={210}>
         <SectionHeader title="Trending" className="mb-md" />
-        {trendingLoading ? <View className="gap-sm"><View className="h-[42px] border-y border-border bg-white/[0.02]" /><View className="h-[42px] border-b border-border bg-white/[0.02]" /></View> : trendingError ? <View className="gap-sm"><Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{trendingError}</Text><Pressable onPress={() => void loadTrending()} accessibilityRole="button"><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable></View> : trendingTags.length === 0 ? <Text className="font-body text-white/45 text-[13px]">No trending tags yet.</Text> : <View>{trendingTags.map((trend) => <View key={trend.tag} className="min-h-[42px] flex-row items-center justify-between border-b border-border"><Text className="font-heading-bold text-lime text-[14px]">{trend.tag}</Text><Text className="font-heading-bold text-white/30 text-[11px]">{trend.count}</Text></View>)}</View>}
+        {trendingLoading ? <View className="gap-sm"><View className="h-[42px] border-y border-border bg-white/[0.02]" /><View className="h-[42px] border-b border-border bg-white/[0.02]" /></View> : trendingError ? <View className="gap-sm"><Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{trendingError}</Text><Pressable onPress={() => void loadTrending()} accessibilityRole="button"><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable></View> : trendingTags.length === 0 ? <Text className="font-body text-muted-text text-[13px]">No trending tags yet.</Text> : <View>{trendingTags.map((trend) => <View key={trend.tag} className="min-h-[42px] flex-row items-center justify-between border-b border-border"><Text className="font-heading-bold text-lime text-[14px]">{trend.tag}</Text><Text className="font-heading-bold text-tertiary-text text-[11px]">{trend.count}</Text></View>)}</View>}
       </FadeInView>
     </PillarScreen>
   );
