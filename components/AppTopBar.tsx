@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import AccountButton from './AccountButton';
 import AccountSheet, { type DashboardSection } from './AccountSheet';
 import AppMenuButton from './AppMenuButton';
+import BrandWordmark from './BrandWordmark';
 
 type AppTopBarProps = {
   showNavigation?: boolean;
@@ -11,6 +12,7 @@ type AppTopBarProps = {
   onSelectSection?: (section: DashboardSection) => void;
   leftAccessory?: React.ReactNode;
   rightAccessory?: React.ReactNode;
+  showBrand?: boolean;
 };
 
 export default function AppTopBar({
@@ -19,6 +21,7 @@ export default function AppTopBar({
   onSelectSection,
   leftAccessory,
   rightAccessory,
+  showBrand = false,
 }: AppTopBarProps) {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -27,7 +30,12 @@ export default function AppTopBar({
 
   return (
     <>
-      <View className="flex-row items-center justify-between" accessibilityRole="header">
+      <View className="relative min-h-[44px] flex-row items-center justify-between" accessibilityRole="header">
+        {showBrand ? (
+          <View pointerEvents="none" className="absolute inset-x-0 items-center justify-center">
+            <BrandWordmark />
+          </View>
+        ) : null}
         {showNavigation ? (
           <AppMenuButton onPress={() => setNavigationOpen(true)} />
         ) : (

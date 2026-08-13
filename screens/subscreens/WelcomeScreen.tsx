@@ -1,10 +1,11 @@
 import React from 'react';
-import { Image, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import FadeInView from '../../components/FadeInView';
+import BrandWordmark from '../../components/BrandWordmark';
 import LimeButton from '../../components/LimeButton';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -18,12 +19,9 @@ export default function WelcomeScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.dark }}>
       <View className="flex-1 px-lg pt-xl pb-xl justify-between">
         <FadeInView>
-          <Image
-            source={require('../../assets/LOGO.png')}
-            resizeMode="contain"
-            accessibilityLabel="Dad Health"
-            className="w-full h-[156px]"
-          />
+          <View className="items-center">
+            <BrandWordmark width={240} height={156} />
+          </View>
         </FadeInView>
 
         <FadeInView delay={120}>

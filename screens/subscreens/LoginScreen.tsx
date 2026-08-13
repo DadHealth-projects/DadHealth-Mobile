@@ -22,6 +22,7 @@ import {
 import { isAppleAuthAvailable, signInWithApple, signInWithGoogle } from '../../lib/oauth';
 import { colors } from '../../theme';
 import { useNavigation } from '@react-navigation/native';
+import BrandWordmark from '../../components/BrandWordmark';
 
 type LoadingKind =
   | 'in'
@@ -302,9 +303,7 @@ export default function LoginScreen() {
               </Text>
             </View>
 
-            <Text className="font-heading text-white text-[46px] leading-[48px] uppercase">
-              Dad Health
-            </Text>
+            <BrandWordmark width={190} height={72} />
 
             <Text className="font-body text-muted-text text-[15px] leading-[24px] mt-md">
               Continue your health journey.

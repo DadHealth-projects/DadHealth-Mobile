@@ -50,6 +50,7 @@ export default function PillarScreen({
       >
         <AppTopBar
           showNavigation={Boolean(dashboardSection)}
+          showBrand={!dashboardSection}
           activeSection={dashboardSection}
           onSelectSection={onSelectDashboardSection}
         />

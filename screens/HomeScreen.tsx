@@ -56,7 +56,7 @@ export default function HomeScreen() {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
         <View className="px-lg pt-lg">
-          <AppTopBar />
+          <AppTopBar showBrand />
         </View>
         <PublicHomeSkeleton />
       </SafeAreaView>
@@ -72,19 +72,7 @@ export default function HomeScreen() {
           <RefreshControl refreshing={loading} onRefresh={() => void refresh()} tintColor={colors.lime} />
         }
       >
-        <AppTopBar />
-
-        <View className="items-start">
-          <View className="flex-row items-baseline">
-            <Text className="font-heading text-lime text-[26px] uppercase">
-              Dad
-            </Text>
-
-            <Text className="font-heading text-white text-[26px] uppercase">
-              {' '}Health
-            </Text>
-          </View>
-        </View>
+        <AppTopBar showBrand />
 
         <FadeInView>
           <ScreenHero

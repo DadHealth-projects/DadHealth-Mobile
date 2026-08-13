@@ -207,6 +207,7 @@ export function DashboardScreenContent({
         <View className="px-lg pt-lg">
           <AppTopBar
             showNavigation
+            showBrand
             activeSection={activeSection}
             onSelectSection={onSelectSection}
           />
@@ -229,6 +230,7 @@ export function DashboardScreenContent({
         >
           <AppTopBar
             showNavigation
+            showBrand
             activeSection={activeSection}
             onSelectSection={onSelectSection}
           />
