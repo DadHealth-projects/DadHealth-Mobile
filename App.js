@@ -4,7 +4,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import {
   Barlow_400Regular,
@@ -20,6 +20,11 @@ import {
 import { AuthProvider } from './contexts/AuthContext';
 import RootNavigator from './contexts/RootNavigator';
 import { colors } from './theme';
+import OneSignalManager from './components/OneSignalManager';
+import PushPrePermissionPrompt from './components/PushPrePermissionPrompt';
+import { attachPushNavigation } from './lib/pushNotifications';
+
+const navigationRef = createNavigationContainerRef();
 
 // Force the dark background through React Navigation's own theme so there's
 // no white flash between screens.
@@ -54,9 +59,11 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer theme={navTheme} linking={{ prefixes: ['dadhealth://'], config: { screens: { SharedCalendar: 'shared-calendar' } } }}>
+        <NavigationContainer ref={navigationRef} onReady={() => attachPushNavigation(navigationRef)} theme={navTheme} linking={{ prefixes: ['dadhealth://'], config: { screens: { SharedCalendar: 'shared-calendar', CommunityPostThread: 'community/:postId' } } }}>
           <StatusBar style="light" />
+          <OneSignalManager />
           <RootNavigator />
+          <PushPrePermissionPrompt />
         </NavigationContainer>
       </AuthProvider>
     </SafeAreaProvider>
