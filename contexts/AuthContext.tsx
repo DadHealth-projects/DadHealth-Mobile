@@ -15,6 +15,7 @@ import {
   saveBiometricSession,
 } from '../lib/biometric';
 import { isOnboardingComplete } from '../lib/onboarding';
+import { logoutPushUser } from '../lib/pushNotifications';
 
 type AuthResult = { error: string | null };
 
@@ -190,6 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
   setPendingEnrollment(null);
+  logoutPushUser();
   await supabase.auth.signOut();
 }, []);
 
