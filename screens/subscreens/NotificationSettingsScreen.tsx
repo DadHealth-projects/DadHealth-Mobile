@@ -11,23 +11,23 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNotificationSettings, type NotificationType } from '../../hooks/useNotificationSettings';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
+import { requestPushPermission } from '../../lib/pushNotifications';
 
 const TYPES: Array<{ type: NotificationType; title: string; description: string; linkLabel: string; needsTime?: boolean; timeHint?: string }> = [
   { type: 'morning_checkin', title: 'Morning check-in', description: '07:30 daily - Good morning. How are you feeling today?', linkLabel: 'Home' },
   { type: 'bedtime_story', title: 'Bedtime story reminder', description: '30 minutes before your set bedtime - Bedtime in 30 minutes. Story time?', linkLabel: 'Bond', needsTime: true, timeHint: 'Bedtime' },
   { type: 'workout_window', title: 'Workout window', description: 'At your set time - Your workout window is now. 20 minutes is enough.', linkLabel: 'Fitness', needsTime: true, timeHint: 'Workout time' },
-  { type: 'weekly_score', title: 'Weekly score', description: 'Sunday 18:00 - Your Dad Health Score this week: [score]', linkLabel: 'Progress' },
+  { type: 'weekly_score', title: 'Weekly report ready', description: 'Monday 08:00 - Your Dad Health Score this week: [score]', linkLabel: 'Progress' },
   { type: 'streak_at_risk', title: 'Streak at risk', description: '21:00 if you have not checked in - Your [n]-day streak ends at midnight.', linkLabel: 'Home' },
   { type: 'weekly_challenge', title: 'Weekly challenge', description: 'Monday 08:00 - Weekly challenge title + description', linkLabel: 'Home' },
   { type: 'journal_prompt', title: 'Journal prompt', description: 'At your set evening time - rotating prompt', linkLabel: 'Mind', needsTime: true, timeHint: 'Evening time' },
   { type: 'milestone_anniversary', title: 'Milestone anniversary', description: 'Date-matched - One year ago: [milestone text]', linkLabel: 'Bond' },
+  { type: 'community_reply', title: 'Community replies', description: 'When someone replies to your community post or comment.', linkLabel: 'Squad' },
+  { type: 'co_parent_event_added', title: 'Co-parent events', description: 'When a co-parent adds an event to your shared calendar.', linkLabel: 'Bond' },
+  { type: 'present_dad_mode_complete', title: 'Present Dad Mode complete', description: 'After you complete a full 60-minute session.', linkLabel: 'Bond' },
 ];
 
 const DEFAULT_TIMES: Partial<Record<NotificationType, string>> = { bedtime_story: '20:00:00', workout_window: '12:00:00', journal_prompt: '20:30:00' };
-
-async function requestPushPermission() {
-  return { granted: false, configured: false };
-}
 
 export default function NotificationSettingsScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();

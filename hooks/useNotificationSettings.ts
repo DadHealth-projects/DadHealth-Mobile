@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { supabase } from '../lib/supabase';
 
-export type NotificationType = 'morning_checkin' | 'bedtime_story' | 'workout_window' | 'weekly_score' | 'streak_at_risk' | 'weekly_challenge' | 'journal_prompt' | 'milestone_anniversary';
+export type NotificationType = 'morning_checkin' | 'bedtime_story' | 'workout_window' | 'weekly_score' | 'streak_at_risk' | 'weekly_challenge' | 'journal_prompt' | 'milestone_anniversary' | 'community_reply' | 'co_parent_event_added' | 'present_dad_mode_complete';
 export type NotificationPreference = { notification_type: NotificationType; enabled: boolean; send_time: string | null };
 
 export function useNotificationSettings(userId?: string) {
