@@ -16,6 +16,7 @@ import SectionHeader from '../components/dashboard/SectionHeader';
 import ToggleRow from '../components/mockup/ToggleRow';
 import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '../hooks/useDashboard';
+import { usePresentDadMode } from '../hooks/usePresentDadMode';
 import { dashboardIcon } from '../lib/dashboardIcons';
 import { trackEvent } from '../lib/analytics';
 import { supabase } from '../lib/supabase';
@@ -38,8 +39,7 @@ export default function BondScreen({
   const { user } = useAuth();
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { data, loading, error, refresh } = useDashboard(user?.id);
-  // Web keeps Present Dad Mode in local state too (app/bond/BondPageContent.tsx).
-  const [presentMode, setPresentMode] = useState(false);
+  const presentDadMode = usePresentDadMode(user?.id);
   const [dateFilter, setDateFilter] = useState('all');
   const [dadDatesOpen, setDadDatesOpen] = useState(false);
   const [startersOpen, setStartersOpen] = useState(false);
@@ -49,11 +49,10 @@ export default function BondScreen({
 
   const hasUser = Boolean(user?.id);
   const onRefresh = useCallback(() => void refresh(), [refresh]);
-  const togglePresentMode = useCallback(() => {
-    const enabled = !presentMode;
-    setPresentMode(enabled);
-    trackEvent('present_dad_mode_toggled', { enabled }, user?.id);
-  }, [presentMode, user?.id]);
+  const togglePresentMode = useCallback(async () => {
+    const enabled = await presentDadMode.toggle();
+    if (enabled != null) trackEvent('present_dad_mode_toggled', { enabled }, user?.id);
+  }, [presentDadMode.toggle, user?.id]);
 
   const loadConversationStarters = useCallback(async () => {
     if (!user?.id) {
@@ -199,8 +198,8 @@ export default function BondScreen({
         <ToggleRow
           title="Present Dad Mode"
           subtitle="Block distractions for 60 minutes"
-          value={presentMode}
-          onToggle={togglePresentMode}
+          value={presentDadMode.enabled}
+          onToggle={() => void togglePresentMode()}
         />
       </FadeInView>
 
