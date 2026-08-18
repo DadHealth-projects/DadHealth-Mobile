@@ -13,7 +13,7 @@ import AppTopBar from '../components/AppTopBar';
 import type { DashboardSection } from '../components/AccountSheet';
 import ChallengeCard from '../components/dashboard/ChallengeCard';
 import CheckInPanel from '../components/dashboard/CheckInPanel';
-import DashboardErrorCard from '../components/dashboard/DashboardErrorCard';
+import LoadErrorState from '../components/LoadErrorState';
 import DadScoreCard from '../components/dashboard/DadScoreCard';
 import FadeInView from '../components/FadeInView';
 import GreetingHeader from '../components/dashboard/GreetingHeader';
@@ -236,7 +236,11 @@ export function DashboardScreenContent({
           />
 
           {dashboardError && !data ? (
-            <DashboardErrorCard message={dashboardError} onRetry={handleRefresh} />
+            <LoadErrorState
+              title="Home didn't load"
+              message="We couldn't bring in today's check-in, score and plan. Try again in a moment."
+              onRetry={handleRefresh}
+            />
           ) : null}
 
           {data ? (

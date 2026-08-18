@@ -104,6 +104,8 @@ export default function BondScreen({
       refreshing={loading}
       onRefresh={hasUser ? onRefresh : undefined}
       error={data ? null : error}
+      errorTitle="Bond didn't load"
+      errorMessage="We couldn't bring in your parenting tools, Dad Dates and family activity. Try again in a moment."
       onRetry={onRefresh}
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}
