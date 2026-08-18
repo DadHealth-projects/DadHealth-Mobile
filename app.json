@@ -22,7 +22,7 @@
         ]
       },
       "entitlements": {
-        "aps-environment": "development",
+        "aps-environment": "production",
         "com.apple.security.application-groups": [
           "group.co.uk.dadhealth.onesignal"
         ]
@@ -46,7 +46,7 @@
       [
         "onesignal-expo-plugin",
         {
-          "mode": "development"
+          "mode": "production"
         }
       ],
       [

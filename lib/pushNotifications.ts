@@ -69,6 +69,22 @@ function navigateFromData(data: NotificationData): boolean {
     navigationRef.navigate('Tabs', { screen: 'Home' });
     return true;
   }
+  if (data.type === 'bedtime_story' || data.type === 'milestone_anniversary' || data.link === '/bond') {
+    navigationRef.navigate('Tabs', { screen: 'Bond' });
+    return true;
+  }
+  if (data.type === 'workout_window' || data.link === '/fitness') {
+    navigationRef.navigate('Tabs', { screen: 'Fit' });
+    return true;
+  }
+  if (data.type === 'journal_prompt' || data.link === '/mind') {
+    navigationRef.navigate('Tabs', { screen: 'Mind' });
+    return true;
+  }
+  if (data.type === 'community_reply' || data.link === '/community') {
+    navigationRef.navigate('Tabs', { screen: 'Squad' });
+    return true;
+  }
   return false;
 }
 
