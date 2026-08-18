@@ -2,6 +2,21 @@
 
 # Project Rules
 
+## Production Error Copy
+
+- Every user-facing error must name the affected feature or action and give the
+  user a useful next step.
+- Never show implementation or development details in the client, including
+  internal provider names such as Supabase or OneSignal, storage mechanisms,
+  native modules, API/schema/database details, tokens, environment variables,
+  build instructions, Expo Go, stack traces or raw caught error messages.
+- Technical diagnostics belong in development logs only. Map failures to stable,
+  production-ready copy before rendering them.
+- Screen-level load errors must name the current screen or content. Do not reuse
+  Dashboard wording on Body, Mind, Bond, Squad, Progress or settings screens.
+- Do not use placeholder error copy such as "Something went wrong" or "An error
+  occurred." State what failed and what the user can do next.
+
 ## Source of Truth
 
 ### Web App = WHAT to build
