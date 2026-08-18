@@ -3,7 +3,6 @@ import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
-import Constants, { ExecutionEnvironment } from 'expo-constants';
 
 import AppTopBar from '../../components/AppTopBar';
 import LimeButton from '../../components/LimeButton';
@@ -25,12 +24,11 @@ export default function HealthPermissionsScreen() {
   const { user } = useAuth();
   const health = useAppleHealth(user?.id);
   const [message, setMessage] = useState<string | null>(null);
-  const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
   const connect = useCallback(async () => {
     setMessage(null);
     const result = await health.connect();
-    if (result) setMessage('Apple Health connected. Dad Health synced the data you chose to share.');
+    if (result) setMessage('Apple Health connected.');
   }, [health.connect]);
 
   const sync = useCallback(async () => {
@@ -69,14 +67,6 @@ export default function HealthPermissionsScreen() {
         <View className="gap-md border-y border-border py-lg">
           {!user ? (
             <LimeButton label="Log in to connect" onPress={() => navigation.navigate('Login')} />
-          ) : health.capability === 'unsupported' ? (
-            <Text className="font-body text-muted-text text-[13px] leading-[20px]">Apple Health is available on supported iPhone devices only.</Text>
-          ) : health.capability === 'native_build_required' ? (
-            <Text className="font-body text-muted-text text-[13px] leading-[20px]">
-              {isExpoGo
-                ? 'Apple Health is available in the Dad Health iPhone app. Install Dad Health from TestFlight or the App Store to connect.'
-                : 'Apple Health is not available in this version of Dad Health. Update the app, then return here to connect.'}
-            </Text>
           ) : health.loading ? (
             <View className="h-[48px] bg-white/5" />
           ) : health.integration && health.authorization === 'ready' ? (
@@ -84,7 +74,8 @@ export default function HealthPermissionsScreen() {
               <View className="flex-row items-center justify-between gap-md">
                 <View className="flex-1">
                   <Text className="font-heading-bold text-lime text-[12px] uppercase">Apple Health connected</Text>
-                  <Text className="font-body text-muted-text text-[11px] mt-xs">{formatLastSync(health.integration.last_sync_at)}</Text>
+                  <Text className="font-body text-muted-text text-[11px] leading-[17px] mt-xs">You can change what Dad Health can access anytime in Apple Health or iPhone Settings.</Text>
+                  <Text className="font-body text-tertiary-text text-[11px] mt-xs">{formatLastSync(health.integration.last_sync_at)}</Text>
                 </View>
                 <Feather name="check-circle" size={20} color={colors.lime} />
               </View>
@@ -95,17 +86,20 @@ export default function HealthPermissionsScreen() {
             </>
           ) : (
             <>
-              <Text className="font-body text-muted-text text-[12px] leading-[19px]">
-                {health.integration
-                  ? 'Connect Apple Health on this iPhone before syncing. Dad Health will only request access after you tap below.'
-                  : 'Dad Health only reads the four data types shown above. It does not write data back to Apple Health.'}
-              </Text>
-              <LimeButton label={health.saving ? 'Connecting...' : 'Connect Apple Health'} onPress={() => void connect()} disabled={health.saving} />
+              <Text className="font-heading-bold text-white text-[13px] uppercase">Connect Apple Health</Text>
+              <Text className="font-body text-muted-text text-[12px] leading-[19px]">Allow Dad Health to read your health data so your Fitness and Progress screens stay up to date automatically.</Text>
+              <LimeButton
+                label={health.saving ? 'Connecting...' : 'Connect Apple Health'}
+                onPress={() => void connect()}
+                disabled={health.saving || health.capability !== 'available'}
+              />
+              {health.capability !== 'available' ? (
+                <Text className="font-body text-muted-text text-[12px] leading-[19px]">Apple Health isn’t available on this device.</Text>
+              ) : null}
             </>
           )}
         </View>
 
-        <Text className="font-body text-tertiary-text text-[11px] leading-[17px]">You choose what Dad Health can read. Change access anytime in the Apple Health app or iPhone Settings.</Text>
         {health.error ? <Text accessibilityRole="alert" className="font-body text-red-300 text-[12px] leading-[18px]">{health.error}</Text> : null}
         {message ? <Text accessibilityRole="alert" className="font-body text-lime text-[12px] leading-[18px]">{message}</Text> : null}
       </ScrollView>
