@@ -178,7 +178,7 @@ export default function LoginScreen() {
       const result = await biometricLogin();
 
       if (!result.success) {
-        setError('Biometric login failed. Sign in with your password and try again.');
+        setError(result.error ?? 'Biometric login failed.');
         return;
       }
 
