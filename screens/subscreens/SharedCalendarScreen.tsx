@@ -69,7 +69,7 @@ export default function SharedCalendarScreen() {
       const body = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(body.error ?? 'Unable to accept invite.');
       setMessage("You're connected to the co-parenting calendar."); await load();
-    } catch (acceptError) { setMessage(acceptError instanceof Error ? acceptError.message : 'Unable to accept invite.'); }
+    } catch { setMessage("This calendar invite could not be accepted. Check that you're signed in with the invited email, then try again."); }
     finally { setSaving(false); }
   }, [load, session?.access_token]);
 
@@ -123,7 +123,7 @@ export default function SharedCalendarScreen() {
       const body = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(body.error ?? 'Unable to send invite.');
       setInviteEmail(''); setMessage('Invite sent.'); await load();
-    } catch (inviteError) { setMessage(inviteError instanceof Error ? inviteError.message : 'Unable to send invite.'); }
+    } catch { setMessage('The co-parent invite was not sent. Check the email address, then try again.'); }
     finally { setSaving(false); }
   }, [inviteEmail, load, session?.access_token]);
 

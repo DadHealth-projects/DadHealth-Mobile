@@ -27,7 +27,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon-public-key>
 ```
 
 The app throws on startup if either is missing. `EXPO_PUBLIC_WEB_URL` is optional
-(defaults to `https://dadhealth.co.uk`).
+(defaults to `https://www.dadhealth.co.uk`).
 
 > `EXPO_PUBLIC_`-prefixed vars are inlined into the JS bundle at build time. The
 > Supabase anon key is a public client key, so this is expected — but keys still
