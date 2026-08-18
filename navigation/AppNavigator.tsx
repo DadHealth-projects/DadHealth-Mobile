@@ -27,6 +27,7 @@ import CommunityFeedScreen from '../screens/subscreens/CommunityFeedScreen';
 import NotificationSettingsScreen from '../screens/subscreens/NotificationSettingsScreen';
 import PrivacySecurityScreen from '../screens/subscreens/PrivacySecurityScreen';
 import TermsPrivacyScreen from '../screens/subscreens/TermsPrivacyScreen';
+import HealthPermissionsScreen from '../screens/subscreens/HealthPermissionsScreen';
 import { colors } from '../theme';
 
 export type AppStackParamList = {
@@ -55,6 +56,7 @@ export type AppStackParamList = {
   NotificationSettings: undefined;
   PrivacySecurity: undefined;
   TermsPrivacy: undefined;
+  HealthPermissions: undefined;
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -178,6 +180,11 @@ export default function AppNavigator({
         <Stack.Screen
           name="TermsPrivacy"
           component={TermsPrivacyScreen}
+          options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
+        />
+        <Stack.Screen
+          name="HealthPermissions"
+          component={HealthPermissionsScreen}
           options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
         />
       {/* Main application */}

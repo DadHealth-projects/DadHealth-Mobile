@@ -21,6 +21,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import RootNavigator from './contexts/RootNavigator';
 import { colors } from './theme';
 import OneSignalManager from './components/OneSignalManager';
+import AppleHealthManager from './components/AppleHealthManager';
 import PushPrePermissionPrompt from './components/PushPrePermissionPrompt';
 import { attachPushNavigation } from './lib/pushNotifications';
 
@@ -62,6 +63,7 @@ export default function App() {
         <NavigationContainer ref={navigationRef} onReady={() => attachPushNavigation(navigationRef)} theme={navTheme} linking={{ prefixes: ['dadhealth://'], config: { screens: { SharedCalendar: 'shared-calendar', CommunityPostThread: 'community/:postId' } } }}>
           <StatusBar style="light" />
           <OneSignalManager />
+          <AppleHealthManager />
           <RootNavigator />
           <PushPrePermissionPrompt />
         </NavigationContainer>
