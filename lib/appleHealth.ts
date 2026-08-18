@@ -7,6 +7,16 @@ type HealthKitModule = typeof import('@kingstinct/react-native-healthkit');
 export type AppleHealthCapability = 'available' | 'unsupported' | 'native_build_required';
 export type AppleHealthAuthorization = 'ready' | 'request_required' | 'unknown';
 
+export class AppleHealthError extends Error {
+  constructor(
+    public readonly code: 'unavailable' | 'permission_denied',
+    message: string,
+  ) {
+    super(message);
+    this.name = 'AppleHealthError';
+  }
+}
+
 export type AppleHealthIntegration = {
   id: string;
   provider: 'apple_health';
@@ -46,7 +56,8 @@ function loadHealthKit(): HealthKitModule | null {
       return null;
     }
     healthKitModule = require('@kingstinct/react-native-healthkit') as HealthKitModule;
-  } catch {
+  } catch (error) {
+    console.warn('[AppleHealth] The native integration could not be loaded.', error);
     healthKitModule = null;
   }
 
@@ -85,12 +96,12 @@ export async function getAppleHealthIntegration(userId: string): Promise<AppleHe
 export async function connectAppleHealth(userId: string): Promise<AppleHealthSyncResult> {
   const healthKit = loadHealthKit();
   if (!healthKit || !healthKit.isHealthDataAvailable()) {
-    throw new Error('Apple Health is not available in this app build.');
+    throw new AppleHealthError('unavailable', 'Apple Health is unavailable.');
   }
 
   const requestCompleted = await healthKit.requestAuthorization({ toRead: READ_TYPES });
   if (!requestCompleted) {
-    throw new Error('Apple Health access was not completed.');
+    throw new AppleHealthError('permission_denied', 'Apple Health authorization was not completed.');
   }
 
   const { error } = await supabase.from('user_integrations').upsert(
@@ -142,12 +153,12 @@ export async function syncAppleHealthIfConnected(
 async function performAppleHealthSync(userId: string, days: number): Promise<AppleHealthSyncResult> {
   const healthKit = loadHealthKit();
   if (!healthKit || !healthKit.isHealthDataAvailable()) {
-    throw new Error('Apple Health is not available in this app build.');
+    throw new AppleHealthError('unavailable', 'Apple Health is unavailable.');
   }
 
   const authorization = await getAppleHealthAuthorization();
   if (authorization !== 'ready') {
-    throw new Error('Apple Health permission is required on this device.');
+    throw new AppleHealthError('permission_denied', 'Apple Health authorization is not ready.');
   }
 
   const endDate = new Date();

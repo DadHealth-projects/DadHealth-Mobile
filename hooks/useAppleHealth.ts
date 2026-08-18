@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import {
+  AppleHealthError,
   connectAppleHealth,
   getAppleHealthAuthorization,
   getAppleHealthCapability,
@@ -40,8 +41,9 @@ export function useAppleHealth(userId?: string) {
       setIntegration(nextIntegration);
       setAuthorization(nextAuthorization);
       setError(null);
-    } catch {
-      setError('We could not load your Apple Health connection. Please try again.');
+    } catch (caughtError) {
+      console.warn('[AppleHealth] Could not load the connection state.', caughtError);
+      setError('We couldn’t load your Apple Health connection. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -59,8 +61,9 @@ export function useAppleHealth(userId?: string) {
       const result = await connectAppleHealth(userId);
       await refresh();
       return result;
-    } catch {
-      setError('Apple Health could not be connected. Check your permissions and try again.');
+    } catch (caughtError) {
+      console.warn('[AppleHealth] Connection failed.', caughtError);
+      setError(getAppleHealthConnectionError(caughtError));
       return null;
     } finally {
       setSaving(false);
@@ -75,8 +78,13 @@ export function useAppleHealth(userId?: string) {
       const result = await syncAppleHealth(userId, 7);
       await refresh();
       return result;
-    } catch {
-      setError('Apple Health could not be synced. Check your permissions and try again.');
+    } catch (caughtError) {
+      console.warn('[AppleHealth] Sync failed.', caughtError);
+      setError(
+        caughtError instanceof AppleHealthError && caughtError.code === 'permission_denied'
+          ? 'Apple Health access wasn’t enabled. You can change this anytime in iPhone Settings.'
+          : 'We couldn’t sync with Apple Health. Please try again.',
+      );
       return null;
     } finally {
       setSaving(false);
@@ -84,4 +92,15 @@ export function useAppleHealth(userId?: string) {
   }, [refresh, userId]);
 
   return { capability, authorization, integration, loading, saving, error, refresh, connect, sync };
+}
+
+function getAppleHealthConnectionError(error: unknown) {
+  if (error instanceof AppleHealthError) {
+    if (error.code === 'unavailable') return 'Apple Health isn’t available on this device.';
+    if (error.code === 'permission_denied') {
+      return 'Apple Health access wasn’t enabled. You can change this anytime in iPhone Settings.';
+    }
+  }
+
+  return 'We couldn’t connect to Apple Health. Please try again.';
 }
