@@ -20,6 +20,7 @@ import { useProgressBadges } from '../../hooks/useProgressBadges';
 import { useProgressSleep } from '../../hooks/useProgressSleep';
 import { colors } from '../../theme';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
+import { syncAppleHealthIfConnected } from '../../lib/appleHealth';
 
 /**
  * Progress — the web dashboard PROGRESS screen's features
@@ -43,7 +44,16 @@ export default function ProgressScreen({
   const [reportMessage, setReportMessage] = useState<string | null>(null);
 
   const refreshing = progressScore.loading || progressReport.loading || progressBadges.loading || progressSleep.loading;
-  const onRefresh = useCallback(() => { void Promise.all([progressScore.refresh(), progressReport.refresh(), progressBadges.refresh(), progressSleep.refresh()]); }, [progressBadges.refresh, progressReport.refresh, progressScore.refresh, progressSleep.refresh]);
+  const onRefresh = useCallback(() => {
+    void (async () => {
+      if (user?.id) {
+        try {
+          await syncAppleHealthIfConnected(user.id, { force: true, days: 7 });
+        } catch {}
+      }
+      await Promise.all([progressScore.refresh(), progressReport.refresh(), progressBadges.refresh(), progressSleep.refresh()]);
+    })();
+  }, [progressBadges.refresh, progressReport.refresh, progressScore.refresh, progressSleep.refresh, user?.id]);
   const onClose = useCallback(() => navigation.goBack(), [navigation]);
 
   const scoreItems = useMemo(() => {
@@ -297,7 +307,13 @@ function formatSyncStatus(integration: { provider: string | null; last_sync_at: 
     : date.toDateString() === yesterday.toDateString()
       ? 'yesterday'
       : date.toLocaleDateString();
-  const provider = integration.provider === 'fitbit' ? 'Fitbit' : integration.provider === 'garmin' ? 'Garmin' : 'wearable';
+  const provider = integration.provider === 'fitbit'
+    ? 'Fitbit'
+    : integration.provider === 'garmin'
+      ? 'Garmin'
+      : integration.provider === 'apple_health'
+        ? 'Apple Health'
+        : 'wearable';
   return `Last synced: ${day} ${date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} via ${provider}`;
 }
 

@@ -20,6 +20,7 @@ import { useFitnessSummary } from '../hooks/useFitnessSummary';
 import { MOOD_WEEK_LABELS } from '../lib/dashboard.utils';
 import { DAD_STRENGTH_MOVES } from '../lib/homeContent';
 import type { AppStackParamList } from '../navigation/AppNavigator';
+import { syncAppleHealthIfConnected } from '../lib/appleHealth';
 
 const EMPTY_BODY_WEEK = [0, 0, 0, 0, 0, 0, 0];
 
@@ -83,12 +84,16 @@ export default function FitnessScreen({
   );
   const openMealPlanner = useCallback(() => navigation.navigate('MealPlanner'), [navigation]);
   const onRefresh = useCallback(() => {
-    void refresh();
-    if (standalone) {
-      void refreshSummary();
-      void refreshLibrary();
-    }
-  }, [refresh, refreshLibrary, refreshSummary, standalone]);
+    void (async () => {
+      if (user?.id) {
+        try {
+          await syncAppleHealthIfConnected(user.id, { force: true, days: 7 });
+        } catch {}
+      }
+      await refresh();
+      if (standalone) await Promise.all([refreshSummary(), refreshLibrary()]);
+    })();
+  }, [refresh, refreshLibrary, refreshSummary, standalone, user?.id]);
 
   useFocusEffect(useCallback(() => {
     if (standalone) onRefresh();
@@ -127,6 +132,8 @@ export default function FitnessScreen({
       refreshing={loading}
       onRefresh={hasUser ? onRefresh : undefined}
       error={data ? null : error}
+      errorTitle="Body didn't load"
+      errorMessage="We couldn't bring in your fitness, activity and nutrition data. Try again in a moment."
       onRetry={onRefresh}
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}
