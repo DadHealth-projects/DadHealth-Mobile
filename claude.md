@@ -137,7 +137,7 @@ The codebase security and organization audit is also complete:
 - Native tab screens live directly in `screens/`.
 - Stack, detail, authentication, onboarding and settings screens live in `screens/subscreens/`.
 - Known npm dependency vulnerabilities were remediated without forcing an Expo major upgrade.
-- Biometric login stores a revocable Supabase refresh token, never a password.
+- Biometric login stores a revocable per-device credential, never a password or copied Supabase refresh token.
 - Google OAuth uses PKCE.
 - Confirmed dead screen and component code was removed.
 
