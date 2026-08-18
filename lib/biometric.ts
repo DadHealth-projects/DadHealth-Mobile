@@ -7,7 +7,7 @@ import { supabase } from './supabase';
 const LEGACY_CREDENTIALS_KEY = 'dadhealth.biometric.credentials';
 const LEGACY_SESSION_KEY = 'dadhealth.biometric.session.v2';
 const DEVICE_ID_KEY = 'dadhealth.biometric.device.v3.id';
-const CREDENTIAL_KEY = 'dadhealth.biometric.device.v3.credential';
+const CREDENTIAL_KEY = 'dadhealth.biometric.device.v4.credential';
 const ENABLED_KEY = 'dadhealth.biometric.device.v3.enabled';
 
 const CONFIGURED_WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? 'https://www.dadhealth.co.uk';
@@ -19,12 +19,6 @@ export type BiometricResult = { success: boolean; error?: string; code?: string 
 
 const secureStoreOptions: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-};
-
-const biometricStoreOptions: SecureStore.SecureStoreOptions = {
-  ...secureStoreOptions,
-  requireAuthentication: true,
-  authenticationPrompt: 'Log in to Dad Health',
 };
 
 function bytesToHex(bytes: Uint8Array): string {
@@ -42,7 +36,7 @@ async function clearCurrentDeviceCredential(): Promise<void> {
   await Promise.all([
     SecureStore.deleteItemAsync(ENABLED_KEY, secureStoreOptions),
     SecureStore.deleteItemAsync(DEVICE_ID_KEY, secureStoreOptions),
-    SecureStore.deleteItemAsync(CREDENTIAL_KEY, biometricStoreOptions),
+    SecureStore.deleteItemAsync(CREDENTIAL_KEY, secureStoreOptions),
   ]);
 }
 
@@ -62,11 +56,6 @@ function mapLocalAuthenticationFailure(
       ? 'Too many attempts. Please sign in with your password.'
       : 'Face ID could not confirm your identity. Please try again.';
   return { success: false, error, code: code ?? undefined };
-}
-
-function isCancellationError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
-  return message.includes('cancel') || message.includes('user interaction is not allowed');
 }
 
 function mapExchangeError(status: number, code?: string): BiometricResult {
@@ -118,11 +107,12 @@ export async function getBiometricLabel(): Promise<string> {
 export async function hasBiometricCredentials(): Promise<boolean> {
   try {
     await removeLegacyCredentials();
-    const [enabled, deviceId] = await Promise.all([
+    const [enabled, deviceId, credential] = await Promise.all([
       SecureStore.getItemAsync(ENABLED_KEY, secureStoreOptions),
       readDeviceId(),
+      SecureStore.getItemAsync(CREDENTIAL_KEY, secureStoreOptions),
     ]);
-    return enabled === 'true' && Boolean(deviceId);
+    return enabled === 'true' && Boolean(deviceId) && Boolean(credential);
   } catch {
     return false;
   }
@@ -133,19 +123,13 @@ export async function enrollBiometricCredential(accessToken: string): Promise<Bi
     return { success: false, error: 'Biometric login is not set up on this device.' };
   }
 
-  const authentication = await LocalAuthentication.authenticateAsync({
-    promptMessage: 'Log in to Dad Health',
-    fallbackLabel: 'Use password',
-    cancelLabel: 'Cancel',
-  });
-  const authenticationResult = mapLocalAuthenticationFailure(authentication);
-  if (!authenticationResult.success) return authenticationResult;
-
   const credential = bytesToHex(await Crypto.getRandomBytesAsync(32));
+  const previousDeviceId = await readDeviceId().catch(() => null);
   let deviceId: string | null = null;
+  let response: Response;
 
   try {
-    const response = await fetch(`${WEB_URL}/api/auth/biometric/device`, {
+    response = await fetch(`${WEB_URL}/api/auth/biometric/device`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -153,29 +137,37 @@ export async function enrollBiometricCredential(accessToken: string): Promise<Bi
       },
       body: JSON.stringify({ credential }),
     });
-    const body = await response.json().catch(() => ({})) as { deviceId?: string; code?: string };
+  } catch {
+    return {
+      success: false,
+      error: 'Dad Health could not reach secure sign-in to enable Face ID. Check your connection and try again.',
+      code: 'network_unavailable',
+    };
+  }
 
-    if (!response.ok || typeof body.deviceId !== 'string') {
-      if (response.status === 401) {
-        return {
-          success: false,
-          error: 'Your sign-in session ended before Face ID could be enabled. Sign in again and retry.',
-          code: body.code ?? 'auth_required',
-        };
-      }
+  const body = await response.json().catch(() => ({})) as { deviceId?: string; code?: string };
+
+  if (!response.ok || typeof body.deviceId !== 'string') {
+    if (response.status === 401) {
       return {
         success: false,
-        error: 'Face ID could not be enabled right now. Check your connection and try again.',
-        code: body.code ?? 'enrollment_unavailable',
+        error: 'Your sign-in session ended before Face ID could be enabled. Sign in again and retry.',
+        code: body.code ?? 'auth_required',
       };
     }
+    return {
+      success: false,
+      error: 'Face ID could not be enabled because secure sign-in did not accept the request. Please try again.',
+      code: body.code ?? 'enrollment_unavailable',
+    };
+  }
 
-    deviceId = body.deviceId;
-    await SecureStore.setItemAsync(CREDENTIAL_KEY, credential, biometricStoreOptions);
+  deviceId = body.deviceId;
+  try {
+    await SecureStore.setItemAsync(CREDENTIAL_KEY, credential, secureStoreOptions);
     await SecureStore.setItemAsync(DEVICE_ID_KEY, deviceId, secureStoreOptions);
     await SecureStore.setItemAsync(ENABLED_KEY, 'true', secureStoreOptions);
     await removeLegacyCredentials();
-    return { success: true };
   } catch {
     await clearCurrentDeviceCredential().catch(() => {});
     if (deviceId) await revokeServerDevice(accessToken, deviceId).catch(() => null);
@@ -185,6 +177,12 @@ export async function enrollBiometricCredential(accessToken: string): Promise<Bi
       code: 'secure_storage_failed',
     };
   }
+
+  if (previousDeviceId && previousDeviceId !== deviceId) {
+    await revokeServerDevice(accessToken, previousDeviceId).catch(() => null);
+  }
+
+  return { success: true };
 }
 
 export async function clearBiometricCredentials(): Promise<void> {
@@ -242,16 +240,21 @@ async function performBiometricLogin(): Promise<BiometricResult> {
     return { success: false, error: 'Sign in with your password once to enable biometric login.' };
   }
 
+  const authentication = await LocalAuthentication.authenticateAsync({
+    promptMessage: 'Log in to Dad Health',
+    fallbackLabel: 'Use password',
+    cancelLabel: 'Cancel',
+  });
+  const authenticationResult = mapLocalAuthenticationFailure(authentication);
+  if (!authenticationResult.success) return authenticationResult;
+
   let credential: string | null;
   try {
-    credential = await SecureStore.getItemAsync(CREDENTIAL_KEY, biometricStoreOptions);
-  } catch (error) {
-    if (isCancellationError(error)) {
-      return { success: false, error: 'Authentication cancelled.', code: 'user_cancel' };
-    }
+    credential = await SecureStore.getItemAsync(CREDENTIAL_KEY, secureStoreOptions);
+  } catch {
     return {
       success: false,
-      error: 'Face ID could not access your saved sign-in on this device. Sign in with your password to enable it again.',
+      error: 'Dad Health could not read the saved Face ID sign-in from secure storage. Sign in with your password to enable it again.',
       code: 'credential_unavailable',
     };
   }
