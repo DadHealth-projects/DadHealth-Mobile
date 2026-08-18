@@ -56,6 +56,8 @@ export default function MindScreen({
       refreshing={loading}
       onRefresh={hasUser ? onRefresh : undefined}
       error={data ? null : error}
+      errorTitle="Mind didn't load"
+      errorMessage="We couldn't bring in your mood, journal and mental health tools. Try again in a moment."
       onRetry={onRefresh}
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}

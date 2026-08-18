@@ -133,6 +133,8 @@ export default function CommunityScreen({
       refreshing={loading}
       onRefresh={hasUser ? onRefresh : undefined}
       error={data ? null : error}
+      errorTitle="Squad didn't load"
+      errorMessage="We couldn't bring in your community feed and dad connections. Try again in a moment."
       onRetry={onRefresh}
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}
