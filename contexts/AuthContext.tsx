@@ -10,9 +10,9 @@ import type { Session, User } from '@supabase/supabase-js';
 
 import { supabase } from '../lib/supabase';
 import {
+  enrollBiometricCredential,
   isBiometricAvailable,
   hasBiometricCredentials,
-  saveBiometricSession,
 } from '../lib/biometric';
 import { isOnboardingComplete } from '../lib/onboarding';
 import { logoutPushUser } from '../lib/pushNotifications';
@@ -21,7 +21,9 @@ type AuthResult = { error: string | null };
 
 // Where the emailed password-reset link should land. Mirrors the web
 // (`/auth/callback?next=/auth/reset-password`) so mobile reuses the web reset UI.
-const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? 'https://dadhealth.co.uk';
+const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL ?? 'https://www.dadhealth.co.uk')
+  .replace(/^https:\/\/dadhealth\.co\.uk(?=\/|$)/, 'https://www.dadhealth.co.uk')
+  .replace(/\/$/, '');
 
 interface AuthContextType {
   user: User | null;
@@ -47,10 +49,10 @@ interface AuthContextType {
    */
   pendingBiometricEnrollment: { email: string } | null;
   /**
-   * Resolve the enrollment prompt. `enable` saves the current revocable refresh
-   * token to the device keychain; either way the pending prompt is cleared.
+   * Resolve the existing enrollment prompt. `enable` registers a separately
+   * revocable per-device credential; no password or copied session is stored.
    */
-  completeBiometricEnrollment: (enable: boolean) => Promise<void>;
+  completeBiometricEnrollment: (enable: boolean) => Promise<AuthResult>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -64,7 +66,7 @@ const AuthContext = createContext<AuthContextType>({
   resetPassword: async () => ({ error: null }),
   signOut: async () => {},
   pendingBiometricEnrollment: null,
-  completeBiometricEnrollment: async () => {},
+  completeBiometricEnrollment: async () => ({ error: null }),
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -74,17 +76,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
-  // The revocable refresh token from the latest password sign-in is held only in
-  // memory until the user opts into biometric login. Raw passwords are never stored.
+  // The enrollment prompt keeps only the email needed by the existing UI.
+  // Device credentials are generated locally only after the user opts in.
   const [pendingEnrollment, setPendingEnrollment] = useState<{
     email: string;
-    refreshToken: string;
   } | null>(null);
 
  useEffect(() => {
   const {
     data: { subscription },
-  } = supabase.auth.onAuthStateChange((event, nextSession) => {
+  } = supabase.auth.onAuthStateChange((_event, nextSession) => {
     setSession(nextSession);
     setUser(nextSession?.user ?? null);
 
@@ -147,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async (email: string, password: string): Promise<AuthResult> => {
     const trimmed = email.trim();
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email: trimmed,
       password,
     });
@@ -161,8 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const enrolled = await hasBiometricCredentials();
 
       if (biometricAvailable && !enrolled) {
-        const refreshToken = data.session?.refresh_token;
-        if (refreshToken) setPendingEnrollment({ email: trimmed, refreshToken });
+        setPendingEnrollment({ email: trimmed });
       }
     } catch {}
 
@@ -181,9 +181,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const completeBiometricEnrollment = useCallback(
     async (enable: boolean) => {
       const creds = pendingEnrollment;
-      setPendingEnrollment(null);
-      if (enable && creds) {
-        await saveBiometricSession(creds.refreshToken);
+
+      if (!enable || !creds) {
+        setPendingEnrollment(null);
+        return { error: null };
+      }
+
+      try {
+        const { data } = await supabase.auth.getSession();
+        const accessToken = data.session?.access_token;
+        if (!accessToken) {
+          return { error: 'Your sign-in session ended before biometric login could be enabled. Sign in again and retry.' };
+        }
+
+        const result = await enrollBiometricCredential(accessToken);
+        if (!result.success) {
+          return { error: result.error ?? 'Biometric login could not be enabled. Please try again.' };
+        }
+
+        setPendingEnrollment(null);
+        return { error: null };
+      } catch {
+        return { error: 'Biometric login could not be enabled right now. Please try again.' };
       }
     },
     [pendingEnrollment]
