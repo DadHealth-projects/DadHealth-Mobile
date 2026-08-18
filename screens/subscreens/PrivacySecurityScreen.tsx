@@ -7,13 +7,13 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import AppTopBar from '../../components/AppTopBar';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
-import { clearBiometricCredentials, getBiometricLabel, hasBiometricCredentials, isBiometricAvailable } from '../../lib/biometric';
+import { disableBiometricLogin, getBiometricLabel, hasBiometricCredentials, isBiometricAvailable } from '../../lib/biometric';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
 
 export default function PrivacySecurityScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
-  const { user, resetPassword } = useAuth();
+  const { session, user, resetPassword } = useAuth();
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [biometricLabel, setBiometricLabel] = useState('Biometrics');
@@ -35,9 +35,25 @@ export default function PrivacySecurityScreen() {
   const disableBiometric = useCallback(() => {
     Alert.alert(`Turn off ${biometricLabel}?`, 'You will need your password the next time you log in.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Turn off', style: 'destructive', onPress: () => void clearBiometricCredentials().then(() => { setBiometricEnabled(false); setMessage(`${biometricLabel} login turned off.`); }) },
+      { text: 'Turn off', style: 'destructive', onPress: () => void (async () => {
+        if (!session?.access_token) {
+          setMessage(`Your session ended before ${biometricLabel} login could be turned off. Sign in again and retry.`);
+          return;
+        }
+        try {
+          const result = await disableBiometricLogin(session.access_token);
+          if (result.success) {
+            setBiometricEnabled(false);
+            setMessage(`${biometricLabel} login turned off.`);
+          } else {
+            setMessage(result.error ?? `${biometricLabel} login could not be turned off. Please try again.`);
+          }
+        } catch {
+          setMessage(`${biometricLabel} login could not be turned off. Please try again.`);
+        }
+      })() },
     ]);
-  }, [biometricLabel]);
+  }, [biometricLabel, session?.access_token]);
 
   const sendReset = useCallback(() => {
     if (!user?.email) { setMessage('Your account email is unavailable.'); return; }

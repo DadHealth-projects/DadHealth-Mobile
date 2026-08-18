@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { Alert, Modal, View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -35,7 +35,10 @@ export default function BiometricEnrollmentModal() {
   setBusy(true);
 
   try {
-    await completeBiometricEnrollment(enable);
+    const result = await completeBiometricEnrollment(enable);
+    if (result.error) Alert.alert(`${label} login`, result.error);
+  } catch {
+    Alert.alert(`${label} login`, `${label} login could not be enabled. Please try again.`);
   } finally {
     setBusy(false);
   }
