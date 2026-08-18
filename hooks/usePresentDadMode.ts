@@ -8,8 +8,7 @@ export function usePresentDadMode(userId?: string) {
   const [session, setSession] = useState<ActiveSession | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const complete = useCallback(async (active: ActiveSession) => {
-    await supabase.from('present_dad_sessions').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', active.id).eq('status', 'active');
+  const expireLocally = useCallback((active: ActiveSession) => {
     setSession((current) => current?.id === active.id ? null : current);
   }, []);
 
@@ -18,18 +17,18 @@ export function usePresentDadMode(userId?: string) {
     const result = await supabase.from('present_dad_sessions').select('id,ends_at').eq('user_id', userId).eq('status', 'active').maybeSingle();
     if (result.error || !result.data) { setSession(null); return; }
     const active = result.data as ActiveSession;
-    if (new Date(active.ends_at).getTime() <= Date.now()) await complete(active);
+    if (new Date(active.ends_at).getTime() <= Date.now()) expireLocally(active);
     else setSession(active);
-  }, [complete, userId]);
+  }, [expireLocally, userId]);
 
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
     if (!session) return;
     const remaining = new Date(session.ends_at).getTime() - Date.now();
-    if (remaining <= 0) { void complete(session); return; }
-    const timer = setTimeout(() => void complete(session), remaining);
+    if (remaining <= 0) { expireLocally(session); return; }
+    const timer = setTimeout(() => expireLocally(session), remaining);
     return () => clearTimeout(timer);
-  }, [complete, session]);
+  }, [expireLocally, session]);
 
   const toggle = useCallback(async () => {
     if (!userId || busy) return null;
