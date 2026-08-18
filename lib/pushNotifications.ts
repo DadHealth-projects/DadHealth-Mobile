@@ -1,5 +1,6 @@
 import type { NavigationContainerRef } from '@react-navigation/native';
-import { OneSignal, type NotificationClickEvent } from 'react-native-onesignal';
+import { NativeModules, TurboModuleRegistry } from 'react-native';
+import type { NotificationClickEvent, OneSignal as OneSignalSdk } from 'react-native-onesignal';
 
 import type { AppStackParamList } from '../navigation/AppNavigator';
 
@@ -12,8 +13,32 @@ type NotificationData = {
 };
 
 let initialized = false;
+let oneSignal: typeof OneSignalSdk | null | undefined;
+let unavailableWarningShown = false;
 let navigationRef: NavigationContainerRef<AppStackParamList> | null = null;
 let pendingData: NotificationData | null = null;
+
+function getOneSignal(): typeof OneSignalSdk | null {
+  if (oneSignal !== undefined) return oneSignal;
+
+  const nativeModule = TurboModuleRegistry.get('OneSignal') ?? NativeModules.OneSignal;
+  if (!nativeModule) {
+    oneSignal = null;
+    if (!unavailableWarningShown) {
+      unavailableWarningShown = true;
+      console.warn('[OneSignal] Native module unavailable. Use a fresh EAS development build; push is not supported in Expo Go.');
+    }
+    return null;
+  }
+
+  try {
+    oneSignal = require('react-native-onesignal').OneSignal as typeof OneSignalSdk;
+  } catch (error) {
+    oneSignal = null;
+    console.warn('[OneSignal] Native module could not be loaded.', error);
+  }
+  return oneSignal;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -54,13 +79,15 @@ function onNotificationClick(event: NotificationClickEvent) {
 
 export function initializePushNotifications() {
   if (initialized) return true;
+  const sdk = getOneSignal();
+  if (!sdk) return false;
   const appId = process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID?.trim();
   if (!appId) {
     console.warn('[OneSignal] EXPO_PUBLIC_ONESIGNAL_APP_ID is not configured.');
     return false;
   }
-  OneSignal.initialize(appId);
-  OneSignal.Notifications.addEventListener('click', onNotificationClick);
+  sdk.initialize(appId);
+  sdk.Notifications.addEventListener('click', onNotificationClick);
   initialized = true;
   return true;
 }
@@ -75,15 +102,19 @@ export function attachPushNavigation(ref: NavigationContainerRef<AppStackParamLi
 }
 
 export function loginPushUser(userId: string) {
-  if (initializePushNotifications()) OneSignal.login(userId);
+  const sdk = getOneSignal();
+  if (sdk && initializePushNotifications()) sdk.login(userId);
 }
 
 export function logoutPushUser() {
-  if (initialized) OneSignal.logout();
+  const sdk = getOneSignal();
+  if (sdk && initialized) sdk.logout();
 }
 
 export async function requestPushPermission() {
   if (!initializePushNotifications()) return { configured: false, granted: false };
-  const granted = await OneSignal.Notifications.requestPermission(true);
+  const sdk = getOneSignal();
+  if (!sdk) return { configured: false, granted: false };
+  const granted = await sdk.Notifications.requestPermission(true);
   return { configured: true, granted };
 }

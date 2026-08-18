@@ -11,6 +11,10 @@ import LimeButton from './LimeButton';
 
 const PRE_PERMISSION_KEY = 'dadhealth_push_pre_permission_v1';
 
+function prePermissionKey(userId: string) {
+  return `${PRE_PERMISSION_KEY}.${userId}`;
+}
+
 export default function PushPrePermissionPrompt() {
   const { user, onboardingComplete } = useAuth();
   const [visible, setVisible] = useState(false);
@@ -22,14 +26,14 @@ export default function PushPrePermissionPrompt() {
       setVisible(false);
       return () => { active = false; };
     }
-    void SecureStore.getItemAsync(`${PRE_PERMISSION_KEY}:${user.id}`).then((state) => {
+    void SecureStore.getItemAsync(prePermissionKey(user.id)).then((state) => {
       if (active) setVisible(state == null);
     });
     return () => { active = false; };
   }, [onboardingComplete, user?.id]);
 
   const decline = async () => {
-    if (user?.id) await SecureStore.setItemAsync(`${PRE_PERMISSION_KEY}:${user.id}`, 'declined');
+    if (user?.id) await SecureStore.setItemAsync(prePermissionKey(user.id), 'declined');
     setVisible(false);
   };
 
@@ -37,7 +41,7 @@ export default function PushPrePermissionPrompt() {
     if (!user?.id || busy) return;
     setBusy(true);
     const result = await requestPushPermission();
-    await SecureStore.setItemAsync(`${PRE_PERMISSION_KEY}:${user.id}`, result.granted ? 'accepted' : 'declined');
+    await SecureStore.setItemAsync(prePermissionKey(user.id), result.granted ? 'accepted' : 'declined');
     if (result.granted) {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
       await supabase.from('user_profile').update({ push_notifications_enabled: true, timezone }).eq('user_id', user.id);
