@@ -42,7 +42,7 @@ export default function SettingsScreen() {
             <SettingsRow icon="user" label="Account" onPress={() => navigation.navigate('Profile')} />
             <SettingsRow icon="bell" label="Push notifications" onPress={() => navigation.navigate('NotificationSettings')} />
             <SettingsRow icon="lock" label="Privacy & security" onPress={() => navigation.navigate('PrivacySecurity')} />
-            <SettingsRow icon="heart" label="Health permissions" future />
+            <SettingsRow icon="heart" label="Health permissions" onPress={() => navigation.navigate('HealthPermissions')} />
             <SettingsRow icon="moon" label="Appearance" future />
             <SettingsRow icon="file-text" label="Terms & privacy" onPress={() => navigation.navigate('TermsPrivacy')} />
           </View>

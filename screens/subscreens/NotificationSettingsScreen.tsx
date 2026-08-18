@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Platform, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -57,8 +57,8 @@ export default function NotificationSettingsScreen() {
     const updateError = await settings.updateMaster(enabled, deviceTimezone);
     if (updateError) setMessage(updateError);
     else if (!enabled) setMessage('Push notifications disabled.');
-    else if (!permissionConfigured) setMessage('Preferences saved. Device notifications will activate after the app is rebuilt.');
-    else if (!permissionGranted) setMessage('Notifications are enabled, but device permission was not granted.');
+    else if (!permissionConfigured) setMessage('Your notification choices were saved, but push alerts are unavailable in this version of Dad Health. Update the app, then try again.');
+    else if (!permissionGranted) setMessage('Your notification choices were saved. Allow notifications in your device settings to receive alerts.');
     else setMessage('Push notifications enabled.');
   }, [deviceTimezone, settings.updateMaster]);
 
@@ -107,7 +107,7 @@ export default function NotificationSettingsScreen() {
             {TYPES.map((definition) => {
               const preference = preferenceFor(definition.type);
               const disabled = !settings.masterEnabled || settings.savingKey === definition.type;
-              return <View key={definition.type} className="border-b border-border py-md gap-sm"><View className="flex-row items-start gap-md"><View className="flex-1"><Text className="font-heading-bold text-white text-[13px] uppercase">{definition.title}</Text><Text className="font-body text-muted-text text-[11px] leading-[17px] mt-xs">{definition.description}</Text><Text className="font-heading-bold text-lime/60 text-[9px] uppercase mt-xs">Opens: {definition.linkLabel}</Text></View><Switch value={Boolean(preference?.enabled)} onValueChange={(value) => void togglePreference(definition.type, value)} disabled={disabled} trackColor={{ false: '#252525', true: colors.lime }} thumbColor={preference?.enabled ? colors.dark : '#8A8A8A'} /></View>{definition.needsTime ? <Pressable onPress={() => openTimePicker(definition.type)} disabled={disabled} className="min-h-[40px] flex-row items-center justify-between border-t border-border pt-sm"><Text className="font-heading-bold text-tertiary-text text-[10px] uppercase">{definition.timeHint}</Text><View className="flex-row items-center gap-sm"><Text className="font-heading-bold text-lime text-[11px]">{formatTime(preference?.send_time ?? DEFAULT_TIMES[definition.type] ?? null)}</Text><Feather name="clock" size={15} color={colors.lime} /></View></Pressable> : null}</View>;
+              return <View key={definition.type} className="border-b border-border py-md gap-sm"><View className="flex-row items-start gap-md"><View className="flex-1"><Text className="font-heading-bold text-white text-[13px] uppercase">{definition.title}</Text><Text className="font-body text-muted-text text-[11px] leading-[17px] mt-xs">{definition.description}</Text><Text className="font-heading-bold text-lime/60 text-[9px] uppercase mt-xs">Opens: {definition.linkLabel}</Text></View><NotificationSwitch value={Boolean(preference?.enabled)} onChange={(value) => void togglePreference(definition.type, value)} disabled={disabled} /></View>{definition.needsTime ? <Pressable onPress={() => openTimePicker(definition.type)} disabled={disabled} className="min-h-[40px] flex-row items-center justify-between border-t border-border pt-sm"><Text className="font-heading-bold text-tertiary-text text-[10px] uppercase">{definition.timeHint}</Text><View className="flex-row items-center gap-sm"><Text className="font-heading-bold text-lime text-[11px]">{formatTime(preference?.send_time ?? DEFAULT_TIMES[definition.type] ?? null)}</Text><Feather name="clock" size={15} color={colors.lime} /></View></Pressable> : null}</View>;
             })}
           </View>
         </>}
@@ -120,7 +120,36 @@ export default function NotificationSettingsScreen() {
 }
 
 function SettingToggleRow({ title, description, value, disabled, onChange }: { title: string; description: string; value: boolean; disabled: boolean; onChange: (value: boolean) => void }) {
-  return <View className="min-h-[68px] flex-row items-center gap-md border-b border-border py-sm"><View className="flex-1"><Text className="font-heading-bold text-white text-[13px] uppercase">{title}</Text><Text className="font-body text-muted-text text-[11px] mt-xs">{description}</Text></View><Switch value={value} onValueChange={onChange} disabled={disabled} trackColor={{ false: '#252525', true: colors.lime }} thumbColor={value ? colors.dark : '#8A8A8A'} /></View>;
+  return <View className="min-h-[68px] flex-row items-center gap-md border-b border-border py-sm"><View className="flex-1"><Text className="font-heading-bold text-white text-[13px] uppercase">{title}</Text><Text className="font-body text-muted-text text-[11px] mt-xs">{description}</Text></View><NotificationSwitch value={value} onChange={onChange} disabled={disabled} /></View>;
+}
+
+function NotificationSwitch({ value, disabled, onChange }: { value: boolean; disabled: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value, disabled }}
+      disabled={disabled}
+      onPress={() => onChange(!value)}
+      style={{
+        width: 51,
+        height: 31,
+        padding: 2,
+        borderRadius: 16,
+        backgroundColor: value ? colors.lime : '#252525',
+        alignItems: value ? 'flex-end' : 'flex-start',
+        justifyContent: 'center',
+      }}
+    >
+      <View
+        style={{
+          width: 27,
+          height: 27,
+          borderRadius: 14,
+          backgroundColor: value ? colors.dark : '#8A8A8A',
+        }}
+      />
+    </Pressable>
+  );
 }
 
 function timeToDate(value: string) { const match = /^(\d{2}):(\d{2})/.exec(value); const date = new Date(); date.setHours(Number(match?.[1] ?? 12), Number(match?.[2] ?? 0), 0, 0); return date; }
