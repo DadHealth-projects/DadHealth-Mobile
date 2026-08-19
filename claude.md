@@ -10,8 +10,9 @@
   internal provider names such as Supabase or OneSignal, storage mechanisms,
   native modules, API/schema/database details, tokens, environment variables,
   build instructions, Expo Go, stack traces or raw caught error messages.
-- Technical diagnostics belong in development logs only. Map failures to stable,
-  production-ready copy before rendering them.
+- Map failures to stable, production-ready copy before rendering them. Do not
+  ship temporary console diagnostics, diagnostic panels or implementation-state
+  labels in production builds.
 - Screen-level load errors must name the current screen or content. Do not reuse
   Dashboard wording on Body, Mind, Bond, Squad, Progress or settings screens.
 - Do not use placeholder error copy such as "Something went wrong" or "An error
@@ -125,6 +126,20 @@ Never assume UI, product behavior or data.
 ---
 
 # Current Status
+
+## Milestone 3 — Native Integrations
+
+In progress.
+
+- M3.1 Push Notifications is implemented with OneSignal, authenticated user
+  linking, notification preferences, native tap routing, concurrency-safe daily
+  limits and event-specific idempotency. Community reply and co-parent event
+  delivery have been verified end to end; scheduled and completion notification
+  QA uses the production dispatcher and claim system.
+- M3.2 Apple HealthKit is implemented as a read-only integration for Steps,
+  Active Minutes, Resting Heart Rate and Sleep, using the existing wearable,
+  Fitness, Progress and score architecture.
+- M3.3 Google Health Connect is the next integration for review.
 
 ## Screen Migration Milestone
 
@@ -241,7 +256,7 @@ These are intentionally outside the migration scope.
 These items may be considered during Final Polish, but only one at a time after review and explicit approval.
 
 ---
-# Next Milestone
+# Current Milestone
 
 ## Milestone 3 — Native Integrations
 
@@ -278,17 +293,13 @@ Return to review mode before continuing.
 
 ---
 
-## Planned Order
+## Remaining Order
 
-1. Push Notifications (OneSignal)
-2. Apple HealthKit (iOS)
-3. Google Health Connect (Android)
-4. Native Stripe Payment Sheet
-5. Apple Pay
-6. Google Pay
-7. Offline Mode
-8. Deep Links
-9. Final iOS / Android testing
+1. Google Health Connect (Android)
+2. Stripe native payments
+3. Offline mode
+4. Deep links
+5. Final iOS / Android testing
 
 ---
 
