@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNotificationSettings, type NotificationType } from '../../hooks/useNotificationSettings';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
+import { getOneSignalDebugState, subscribeOneSignalDebug } from '../../lib/oneSignalDebug';
 import { requestPushPermission } from '../../lib/pushNotifications';
 
 const TYPES: Array<{ type: NotificationType; title: string; description: string; linkLabel: string; needsTime?: boolean; timeHint?: string }> = [
@@ -37,6 +38,11 @@ export default function NotificationSettingsScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [pickerType, setPickerType] = useState<NotificationType | null>(null);
   const [pickerValue, setPickerValue] = useState(new Date());
+  const oneSignalDebug = useSyncExternalStore(
+    subscribeOneSignalDebug,
+    getOneSignalDebugState,
+    getOneSignalDebugState,
+  );
 
   const preferenceFor = useCallback((type: NotificationType) => settings.preferences.find((preference) => preference.notification_type === type), [settings.preferences]);
 
@@ -97,6 +103,25 @@ export default function NotificationSettingsScreen() {
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Close push notifications" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
         <ScreenHero eyebrow="Settings" headline={'Push\nnotifications'} sub="All notifications are opt-in. Times are based on your dad timezone." />
 
+        {/* TEMPORARY ONESIGNAL DIAGNOSTICS: remove this block and lib/oneSignalDebug.ts after TestFlight testing. */}
+        <View className="border-y border-lime/30 py-md">
+          <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase mb-sm">
+            Push diagnostics
+          </Text>
+          <DebugStateRow label="SDK initialized" value={oneSignalDebug.sdkInitialized} />
+          <DebugStateRow label="Native module available" value={oneSignalDebug.nativeModuleAvailable} />
+          <DebugStateRow label="Permission granted" value={oneSignalDebug.permissionGranted} />
+          <DebugStateRow label="Subscription opted in" value={oneSignalDebug.subscriptionOptedIn} />
+          <DebugStateRow label="Subscription ID exists" value={oneSignalDebug.hasSubscriptionId} />
+          <DebugStateRow label="External user linked" value={oneSignalDebug.externalUserLinked} />
+          <View className="border-t border-border pt-sm mt-sm">
+            <Text className="font-heading-bold text-tertiary-text text-[10px] uppercase">Latest error</Text>
+            <Text className="font-body text-muted-text text-[11px] leading-[17px] mt-xs">
+              {oneSignalDebug.latestError ?? 'None'}
+            </Text>
+          </View>
+        </View>
+
         {!user ? <Pressable onPress={() => navigation.navigate('Login')} className="min-h-[48px] justify-center border-y border-border"><Text className="font-heading-bold text-lime text-[12px] uppercase">Log in to edit settings</Text></Pressable> : settings.loading ? <View className="gap-sm">{[0,1,2,3].map((item) => <View key={item} className="h-[72px] bg-white/5" />)}</View> : settings.error ? <View className="gap-sm border-y border-red-400/30 py-lg"><Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{settings.error}</Text><Pressable onPress={() => void settings.refresh()}><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable></View> : <>
           <View className="border-t border-border">
             <SettingToggleRow title="Enable push notifications" description="Required for all notification types." value={settings.masterEnabled} disabled={settings.savingKey === 'master'} onChange={(value) => void toggleMaster(value)} />
@@ -116,6 +141,17 @@ export default function NotificationSettingsScreen() {
         {message ? <Text accessibilityRole="alert" className="font-body text-tertiary-text text-[12px]">{message}</Text> : null}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function DebugStateRow({ label, value }: { label: string; value: boolean }) {
+  return (
+    <View className="min-h-[30px] flex-row items-center justify-between gap-md">
+      <Text className="font-body text-muted-text text-[11px]">{label}</Text>
+      <Text className={`font-heading-bold text-[10px] uppercase ${value ? 'text-lime' : 'text-red-300'}`}>
+        {value ? 'Yes' : 'No'}
+      </Text>
+    </View>
   );
 }
 
