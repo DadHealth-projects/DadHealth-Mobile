@@ -1,8 +1,9 @@
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 /**
- * Supabase session storage backed entirely by expo-secure-store (hardware-backed
- * keychain / keystore) — no localStorage / AsyncStorage.
+ * Supabase session storage backed by expo-secure-store on native devices and
+ * localStorage in the Expo web runtime, where SecureStore is unavailable.
  *
  * SecureStore rejects values larger than ~2048 bytes, and a Supabase session
  * (JWT access token + refresh token + user) routinely exceeds that. So values
@@ -21,6 +22,46 @@ const secureStoreOptions: SecureStore.SecureStoreOptions = {
 
 const countKey = (key: string) => `${key}.__count`;
 const chunkKey = (key: string, i: number) => `${key}.${i}`;
+
+// expo-secure-store has no browser implementation. Supabase reads its session
+// back through this adapter before each authenticated REST request, so silently
+// discarding web writes makes those requests fall back to the anon API key.
+// Use the browser's standard persistent storage for Expo web while retaining
+// hardware-backed SecureStore on iOS and Android.
+const webMemoryFallback = new Map<string, string>();
+
+function getWebStorage(): Storage | null {
+  if (typeof globalThis.localStorage === 'undefined') return null;
+  return globalThis.localStorage;
+}
+
+function getWebItem(key: string): string | null {
+  try {
+    return getWebStorage()?.getItem(key) ?? webMemoryFallback.get(key) ?? null;
+  } catch {
+    return webMemoryFallback.get(key) ?? null;
+  }
+}
+
+function setWebItem(key: string, value: string): void {
+  // Keep an in-memory copy so the current authenticated session still works if
+  // browser storage is unavailable or blocked for this origin.
+  webMemoryFallback.set(key, value);
+  try {
+    getWebStorage()?.setItem(key, value);
+  } catch {
+    // The in-memory fallback above remains available for this page lifecycle.
+  }
+}
+
+function removeWebItem(key: string): void {
+  webMemoryFallback.delete(key);
+  try {
+    getWebStorage()?.removeItem(key);
+  } catch {
+    // The in-memory value has still been removed.
+  }
+}
 
 async function getChunkCount(key: string): Promise<number> {
   try {
@@ -48,6 +89,8 @@ async function removeAllChunks(key: string): Promise<void> {
 
 export const SecureStoreAdapter = {
   async getItem(key: string): Promise<string | null> {
+    if (Platform.OS === 'web') return getWebItem(key);
+
     try {
       const count = await getChunkCount(key);
       if (count === 0) return null;
@@ -67,6 +110,11 @@ export const SecureStoreAdapter = {
   },
 
   async setItem(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      setWebItem(key, value);
+      return;
+    }
+
     try {
       // Clear any previous (possibly longer) value first to avoid orphan chunks.
       await removeAllChunks(key);
@@ -85,6 +133,11 @@ export const SecureStoreAdapter = {
   },
 
   async removeItem(key: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      removeWebItem(key);
+      return;
+    }
+
     try {
       await removeAllChunks(key);
     } catch {
