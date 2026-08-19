@@ -10,6 +10,9 @@ type FitnessSummary = {
   activeDisplay: string;
 };
 
+type WorkoutRow = { performed_at: string };
+type MetricRow = { metric_type: string; value: number; recorded_at: string; source?: string | null };
+
 const EMPTY_SUMMARY: FitnessSummary = {
   latestLoggedDate: null,
   monthWorkouts: 0,
@@ -42,14 +45,17 @@ export function useFitnessSummary(userId?: string) {
         .order('performed_at', { ascending: false }),
       supabase
         .from('body_metrics')
-        .select('metric_type,value,recorded_at')
+        .select('metric_type,value,recorded_at,source')
         .eq('user_id', userId)
         .gte('recorded_at', start.toISOString().slice(0, 10))
         .order('recorded_at', { ascending: false }),
     ]);
 
-    const workouts = workoutsResult.error ? [] : (workoutsResult.data ?? []);
-    const metrics = metricsResult.error ? [] : (metricsResult.data ?? []);
+    if (workoutsResult.error) console.warn('[FitnessSummary] Workout query failed.', workoutsResult.error);
+    if (metricsResult.error) console.warn('[FitnessSummary] Body metrics query failed.', metricsResult.error);
+
+    const workouts = (workoutsResult.error ? [] : (workoutsResult.data ?? [])) as WorkoutRow[];
+    const metrics = (metricsResult.error ? [] : (metricsResult.data ?? [])) as MetricRow[];
     const now = new Date();
     const monthWorkouts = workouts.filter((workout) => {
       const performedAt = new Date(workout.performed_at);
@@ -60,10 +66,27 @@ export function useFitnessSummary(userId?: string) {
     const weights = metrics.filter((metric) => metric.metric_type === 'weight');
     const latestWeight = weights[0]?.value;
     const previousWeight = weights[1]?.value;
+    const today = localDateKey(new Date());
     const steps = metrics.find((metric) => metric.metric_type === 'steps')?.value;
-    const activeMinutes = metrics.find((metric) => metric.metric_type === 'active_mins')?.value;
+    const activeMinutes = metrics.find(
+      (metric) => metric.metric_type === 'active_mins' && metric.recorded_at.slice(0, 10) === today,
+    )?.value;
+    const latestLoggedAt = [workouts[0]?.performed_at, metrics[0]?.recorded_at]
+      .filter((value): value is string => Boolean(value))
+      .reduce<string | null>((latest, value) => {
+        if (!latest) return value;
+        return new Date(value).getTime() > new Date(latest).getTime() ? value : latest;
+      }, null);
+
+    console.info('[FitnessSummary] Refreshed.', {
+      workoutRows: workouts.length,
+      metricRows: metrics.length,
+      latestLoggedDate: latestLoggedAt?.slice(0, 10) ?? null,
+      latestStepsSource: metrics.find((metric) => metric.metric_type === 'steps')?.source ?? null,
+      hasActiveMinutesToday: activeMinutes != null,
+    });
     setData({
-      latestLoggedDate: workouts[0]?.performed_at?.slice(0, 10) ?? null,
+      latestLoggedDate: latestLoggedAt?.slice(0, 10) ?? null,
       monthWorkouts,
       weightDisplay: previousWeight != null && latestWeight != null
         ? `${previousWeight}→${latestWeight}kg`
@@ -79,4 +102,11 @@ export function useFitnessSummary(userId?: string) {
   }, [refresh]);
 
   return { data, loading, refresh };
+}
+
+function localDateKey(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
