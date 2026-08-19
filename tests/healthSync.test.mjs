@@ -17,13 +17,13 @@ test('Active Today only uses a metric recorded today', async () => {
   assert.match(hook, /metric\.metric_type === 'active_mins' && metric\.recorded_at\.slice\(0, 10\) === today/);
 });
 
-test('Apple Health sync and foreground failures have internal diagnostics', async () => {
+test('Apple Health and fitness production paths contain no console diagnostics', async () => {
   const integration = await readFile(new URL('lib/appleHealth.ts', root), 'utf8');
   const manager = await readFile(new URL('components/AppleHealthManager.tsx', root), 'utf8');
   const fitness = await readFile(new URL('screens/FitnessScreen.tsx', root), 'utf8');
+  const summary = await readFile(new URL('hooks/useFitnessSummary.ts', root), 'utf8');
 
-  assert.ok(integration.includes("logAppleHealth('Health data read completed.'"));
-  assert.ok(integration.includes('stepDays: steps.length'));
-  assert.ok(manager.includes("console.warn('[AppleHealth] Foreground sync failed.'"));
-  assert.ok(fitness.includes("console.warn('[AppleHealth] Body screen refresh failed.'"));
+  for (const source of [integration, manager, fitness, summary]) {
+    assert.doesNotMatch(source, /console\.(?:log|info|debug|warn|error)\s*\(/);
+  }
 });

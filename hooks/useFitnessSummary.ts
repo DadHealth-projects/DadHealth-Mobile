@@ -51,9 +51,6 @@ export function useFitnessSummary(userId?: string) {
         .order('recorded_at', { ascending: false }),
     ]);
 
-    if (workoutsResult.error) console.warn('[FitnessSummary] Workout query failed.', workoutsResult.error);
-    if (metricsResult.error) console.warn('[FitnessSummary] Body metrics query failed.', metricsResult.error);
-
     const workouts = (workoutsResult.error ? [] : (workoutsResult.data ?? [])) as WorkoutRow[];
     const metrics = (metricsResult.error ? [] : (metricsResult.data ?? [])) as MetricRow[];
     const now = new Date();
@@ -78,13 +75,6 @@ export function useFitnessSummary(userId?: string) {
         return new Date(value).getTime() > new Date(latest).getTime() ? value : latest;
       }, null);
 
-    console.info('[FitnessSummary] Refreshed.', {
-      workoutRows: workouts.length,
-      metricRows: metrics.length,
-      latestLoggedDate: latestLoggedAt?.slice(0, 10) ?? null,
-      latestStepsSource: metrics.find((metric) => metric.metric_type === 'steps')?.source ?? null,
-      hasActiveMinutesToday: activeMinutes != null,
-    });
     setData({
       latestLoggedDate: latestLoggedAt?.slice(0, 10) ?? null,
       monthWorkouts,
