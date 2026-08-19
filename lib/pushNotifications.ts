@@ -90,7 +90,13 @@ function navigateFromData(data: NotificationData): boolean {
 
 function onNotificationClick(event: NotificationClickEvent) {
   const additionalData = event.notification.additionalData;
-  if (isRecord(additionalData)) navigateFromData(additionalData);
+  if (isRecord(additionalData)) {
+    console.info('[OneSignal] Notification opened.', {
+      type: typeof additionalData.type === 'string' ? additionalData.type : 'unknown',
+      hasPostId: typeof additionalData.post_id === 'string',
+    });
+    navigateFromData(additionalData);
+  }
 }
 
 export function initializePushNotifications() {
@@ -105,6 +111,7 @@ export function initializePushNotifications() {
   sdk.initialize(appId);
   sdk.Notifications.addEventListener('click', onNotificationClick);
   initialized = true;
+  console.info('[OneSignal] Native push initialized.');
   return true;
 }
 
@@ -119,12 +126,18 @@ export function attachPushNavigation(ref: NavigationContainerRef<AppStackParamLi
 
 export function loginPushUser(userId: string) {
   const sdk = getOneSignal();
-  if (sdk && initializePushNotifications()) sdk.login(userId);
+  if (sdk && initializePushNotifications()) {
+    sdk.login(userId);
+    console.info('[OneSignal] Supabase user linked.', { user: userId.slice(0, 8) });
+  }
 }
 
 export function logoutPushUser() {
   const sdk = getOneSignal();
-  if (sdk && initialized) sdk.logout();
+  if (sdk && initialized) {
+    sdk.logout();
+    console.info('[OneSignal] User link cleared.');
+  }
 }
 
 export async function requestPushPermission() {
@@ -132,5 +145,6 @@ export async function requestPushPermission() {
   const sdk = getOneSignal();
   if (!sdk) return { configured: false, granted: false };
   const granted = await sdk.Notifications.requestPermission(true);
+  console.info('[OneSignal] Permission request completed.', { granted });
   return { configured: true, granted };
 }
