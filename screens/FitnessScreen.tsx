@@ -87,11 +87,8 @@ export default function FitnessScreen({
     void (async () => {
       if (user?.id) {
         try {
-          const result = await syncAppleHealthIfConnected(user.id, { force: true, days: 7 });
-          if (result) console.info('[AppleHealth] Body screen refresh completed.', result);
-        } catch (syncError) {
-          console.warn('[AppleHealth] Body screen refresh failed.', syncError);
-        }
+          await syncAppleHealthIfConnected(user.id, { force: true, days: 7 });
+        } catch {}
       }
       await refresh();
       if (standalone) await Promise.all([refreshSummary(), refreshLibrary()]);

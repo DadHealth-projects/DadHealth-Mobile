@@ -41,8 +41,7 @@ export function useAppleHealth(userId?: string) {
       setIntegration(nextIntegration);
       setAuthorization(nextAuthorization);
       setError(null);
-    } catch (caughtError) {
-      console.warn('[AppleHealth] Could not load the connection state.', caughtError);
+    } catch {
       setError('We couldn’t load your Apple Health connection. Please try again.');
     } finally {
       setLoading(false);
@@ -62,7 +61,6 @@ export function useAppleHealth(userId?: string) {
       await refresh();
       return result;
     } catch (caughtError) {
-      console.warn('[AppleHealth] Connection failed.', caughtError);
       setError(getAppleHealthConnectionError(caughtError));
       return null;
     } finally {
@@ -79,7 +77,6 @@ export function useAppleHealth(userId?: string) {
       await refresh();
       return result;
     } catch (caughtError) {
-      console.warn('[AppleHealth] Sync failed.', caughtError);
       setError(
         caughtError instanceof AppleHealthError && caughtError.code === 'permission_denied'
           ? 'Apple Health access wasn’t enabled. You can change this anytime in iPhone Settings.'
