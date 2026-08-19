@@ -36,3 +36,17 @@ test('Present Dad completion is no longer written by the mobile client', async (
   assert.doesNotMatch(hook, /completed_at/);
   assert.match(hook, /ends_at/);
 });
+
+test('Present Dad waits for server completion without allowing a duplicate session', async () => {
+  const [hook, screen, toggle] = await Promise.all([
+    readFile(new URL('hooks/usePresentDadMode.ts', root), 'utf8'),
+    readFile(new URL('screens/BondScreen.tsx', root), 'utf8'),
+    readFile(new URL('components/mockup/ToggleRow.tsx', root), 'utf8'),
+  ]);
+
+  assert.match(hook, /busy \|\| finishing/);
+  assert.match(hook, /if \(!userId \|\| busy \|\| finishing\) return null/);
+  assert.doesNotMatch(hook, /expireLocally/);
+  assert.match(screen, /disabled=\{presentDadMode\.busy\}/);
+  assert.match(toggle, /disabled=\{disabled\}/);
+});
