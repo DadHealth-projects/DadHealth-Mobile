@@ -202,6 +202,7 @@ export default function BondScreen({
           subtitle="Block distractions for 60 minutes"
           value={presentDadMode.enabled}
           onToggle={() => void togglePresentMode()}
+          disabled={presentDadMode.busy}
         />
       </FadeInView>
 
