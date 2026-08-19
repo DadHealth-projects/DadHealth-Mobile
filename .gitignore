@@ -13,3 +13,20 @@ web-build/
 .env
 .env.local
 .env.*.local
+# Local iOS signing credentials
+credentials.json
+asc-api-key.json
+*.p12
+*.mobileprovision
+*.certSigningRequest
+*.cer
+*-cert.pem
+
+# Temporary signing helpers
+create_p12*.py
+create_p12*.rb
+download_apple_cert.py
+verify_signing_pair.py
+
+# Generated output
+dist/
