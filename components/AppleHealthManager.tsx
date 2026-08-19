@@ -10,9 +10,7 @@ export default function AppleHealthManager() {
 
   const sync = useCallback(() => {
     if (!userId || !onboardingComplete) return;
-    void syncAppleHealthIfConnected(userId).catch((error) => {
-      console.warn('[AppleHealth] Foreground sync failed.', error);
-    });
+    void syncAppleHealthIfConnected(userId).catch(() => undefined);
   }, [onboardingComplete, userId]);
 
   useEffect(() => {

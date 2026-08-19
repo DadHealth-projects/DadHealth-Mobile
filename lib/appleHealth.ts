@@ -43,14 +43,6 @@ const AUTO_SYNC_INTERVAL_MS = 15 * 60 * 1000;
 let healthKitModule: HealthKitModule | null | undefined;
 const activeSyncs = new Map<string, Promise<AppleHealthSyncResult>>();
 
-function logAppleHealth(event: string, details?: Record<string, unknown>) {
-  if (details) {
-    console.info(`[AppleHealth] ${event}`, details);
-    return;
-  }
-  console.info(`[AppleHealth] ${event}`);
-}
-
 function loadHealthKit(): HealthKitModule | null {
   if (Platform.OS !== 'ios') return null;
   if (healthKitModule !== undefined) return healthKitModule;
@@ -64,9 +56,7 @@ function loadHealthKit(): HealthKitModule | null {
       return null;
     }
     healthKitModule = require('@kingstinct/react-native-healthkit') as HealthKitModule;
-    logAppleHealth('Native module loaded.');
-  } catch (error) {
-    console.warn('[AppleHealth] The native integration could not be loaded.', error);
+  } catch {
     healthKitModule = null;
   }
 
@@ -108,13 +98,10 @@ export async function connectAppleHealth(userId: string): Promise<AppleHealthSyn
     throw new AppleHealthError('unavailable', 'Apple Health is unavailable.');
   }
 
-  logAppleHealth('Requesting read authorization.');
   const requestCompleted = await healthKit.requestAuthorization({ toRead: READ_TYPES });
   if (!requestCompleted) {
     throw new AppleHealthError('permission_denied', 'Apple Health authorization was not completed.');
   }
-  logAppleHealth('Authorization request completed.');
-
   const { error } = await supabase.from('user_integrations').upsert(
     {
       user_id: userId,
@@ -128,7 +115,6 @@ export async function connectAppleHealth(userId: string): Promise<AppleHealthSyn
   );
 
   if (error) throw error;
-  logAppleHealth('Connection saved; starting initial sync.');
   return syncAppleHealth(userId, 31);
 }
 
@@ -149,25 +135,14 @@ export async function syncAppleHealthIfConnected(
   userId: string,
   options: { force?: boolean; days?: number } = {},
 ): Promise<AppleHealthSyncResult | null> {
-  if (getAppleHealthCapability() !== 'available') {
-    logAppleHealth('Automatic sync skipped because Apple Health is unavailable.');
-    return null;
-  }
+  if (getAppleHealthCapability() !== 'available') return null;
 
   const integration = await getAppleHealthIntegration(userId);
-  if (!integration) {
-    logAppleHealth('Automatic sync skipped because Apple Health is not connected.');
-    return null;
-  }
+  if (!integration) return null;
 
   if (!options.force && integration.last_sync_at) {
     const elapsed = Date.now() - new Date(integration.last_sync_at).getTime();
-    if (Number.isFinite(elapsed) && elapsed >= 0 && elapsed < AUTO_SYNC_INTERVAL_MS) {
-      logAppleHealth('Automatic sync skipped because the latest sync is still current.', {
-        secondsSinceLastSync: Math.round(elapsed / 1000),
-      });
-      return null;
-    }
+    if (Number.isFinite(elapsed) && elapsed >= 0 && elapsed < AUTO_SYNC_INTERVAL_MS) return null;
   }
 
   return syncAppleHealth(userId, options.days ?? 7);
@@ -183,8 +158,6 @@ async function performAppleHealthSync(userId: string, days: number): Promise<App
   if (authorization !== 'ready') {
     throw new AppleHealthError('permission_denied', 'Apple Health authorization is not ready.');
   }
-
-  logAppleHealth('Sync started.', { days });
 
   const endDate = new Date();
   const startDate = startOfLocalDay(endDate);
@@ -221,13 +194,6 @@ async function performAppleHealthSync(userId: string, days: number): Promise<App
     queryDailySleep(healthKit, startDate, endDate),
   ]);
 
-  logAppleHealth('Health data read completed.', {
-    stepDays: steps.length,
-    activeMinuteDays: activeMinutes.length,
-    restingHeartRateDays: restingHeartRate.length,
-    sleepDays: sleep.length,
-  });
-
   const metrics = [...steps, ...activeMinutes, ...restingHeartRate];
   const { data, error } = await supabase.rpc('upsert_apple_health_daily_data', {
     p_metrics: metrics,
@@ -244,13 +210,11 @@ async function performAppleHealthSync(userId: string, days: number): Promise<App
   if (integrationError) throw integrationError;
 
   const counts = (data ?? {}) as { metrics_written?: number; sleep_written?: number };
-  const result = {
+  return {
     metricsWritten: Number(counts.metrics_written ?? 0),
     sleepWritten: Number(counts.sleep_written ?? 0),
     syncedAt,
   };
-  logAppleHealth('Sync completed.', result);
-  return result;
 }
 
 async function queryDailyQuantity(
