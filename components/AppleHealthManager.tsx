@@ -10,9 +10,8 @@ export default function AppleHealthManager() {
 
   const sync = useCallback(() => {
     if (!userId || !onboardingComplete) return;
-    void syncAppleHealthIfConnected(userId).catch(() => {
-      // Foreground sync is opportunistic. The Health permissions screen gives
-      // the user an explicit retry path and surfaces actionable errors.
+    void syncAppleHealthIfConnected(userId).catch((error) => {
+      console.warn('[AppleHealth] Foreground sync failed.', error);
     });
   }, [onboardingComplete, userId]);
 
