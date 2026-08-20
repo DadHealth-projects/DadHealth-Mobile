@@ -36,7 +36,11 @@
       "package": "co.uk.dadhealth",
       "permissions": [
         "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_EXERCISE",
+        "android.permission.health.READ_RESTING_HEART_RATE",
+        "android.permission.health.READ_SLEEP"
       ]
     },
     "web": {
@@ -57,6 +61,8 @@
           "background": false
         }
       ],
+      "./plugins/withHealthConnectPrivacy",
+      "react-native-health-connect",
       "expo-font",
       "expo-secure-store",
       [
@@ -74,7 +80,15 @@
           "locationWhenInUsePermission": "Allow Dad Health to use your location to find nearby Dad Days."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {
