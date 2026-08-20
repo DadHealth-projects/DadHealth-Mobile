@@ -60,7 +60,7 @@ export default function AIWorkoutScreen() {
   const close = useCallback(() => navigation.goBack(), [navigation]);
   const openLogin = useCallback(() => navigation.navigate('Login'), [navigation]);
   const openPro = useCallback(
-    () => navigation.navigate('Tabs', { screen: 'Home' }),
+    () => navigation.navigate('ProSubscription'),
     [navigation],
   );
   const openWorkout = useCallback(() => {

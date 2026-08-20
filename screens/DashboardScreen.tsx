@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { User } from '@supabase/supabase-js';
+import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../components/AppTopBar';
 import type { DashboardSection } from '../components/AccountSheet';
@@ -42,6 +43,7 @@ import CommunityScreen from './CommunityScreen';
 import FitnessScreen from './FitnessScreen';
 import MindScreen from './MindScreen';
 import ProgressScreen from './subscreens/ProgressScreen';
+import type { AppStackParamList } from '../navigation/AppNavigator';
 
 /** Signed-in dashboard screen, kept separate from the public Home experience. */
 export default function DashboardScreen() {
@@ -88,6 +90,7 @@ export function DashboardScreenContent({
   onSelectSection?: (section: DashboardSection) => void;
   onGoProgress?: () => void;
 }) {
+  const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { data, loading, error: dashboardError, checkingIn, refresh, saveCheckIn } = useDashboard(user.id);
   // Web pre-selects mood 3 ("Good") and 7 hours of sleep.
   const [moodKey, setMoodKey] = useState<MoodKey>('good');
@@ -274,7 +277,7 @@ export function DashboardScreenContent({
 
               {!data.isPro ? (
                 <FadeInView delay={150}>
-                  <UpgradeProCard />
+                  <UpgradeProCard onPress={() => navigation.navigate('ProSubscription')} />
                 </FadeInView>
               ) : null}
 

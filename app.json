@@ -68,6 +68,7 @@
       ],
       "./plugins/withHealthConnectPrivacy",
       "react-native-health-connect",
+      "react-native-iap",
       "expo-font",
       "expo-secure-store",
       [

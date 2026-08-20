@@ -54,7 +54,7 @@ export default function MealPlannerScreen() {
   const grocerySections = useMemo(() => normalizeGroceryList(generatedPlan?.grocery_list), [generatedPlan]);
   const close = useCallback(() => navigation.goBack(), [navigation]);
   const openLogin = useCallback(() => navigation.navigate('Login'), [navigation]);
-  const openPro = useCallback(() => navigation.navigate('Tabs', { screen: 'Home' }), [navigation]);
+  const openPro = useCallback(() => navigation.navigate('ProSubscription'), [navigation]);
 
   const generate = useCallback(async () => {
     setError(null);

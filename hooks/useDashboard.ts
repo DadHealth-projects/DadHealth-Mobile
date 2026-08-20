@@ -485,6 +485,10 @@ function loadDashboard(userId: string, force: boolean): Promise<void> {
   return request;
 }
 
+export function refreshDashboardForUser(userId: string): Promise<void> {
+  return loadDashboard(userId, true);
+}
+
 export function useDashboard(userId: string | undefined) {
   const [snapshot, setSnapshot] = useState<StoreState>(store);
   const [checkingIn, setCheckingIn] = useState(false);

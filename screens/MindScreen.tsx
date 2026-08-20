@@ -90,7 +90,7 @@ export default function MindScreen({
             title="Mood this week"
             description="Seven-day mood trends are included with Dad Health Pro."
             actionLabel="View Dad Health Pro"
-            onPress={() => navigation.navigate('Tabs', { screen: 'Home' })}
+            onPress={() => navigation.navigate('ProSubscription')}
           />
         ) : (
           <MoodWeekCard values={moodWeek} labels={MOOD_WEEK_LABELS} summary={moodSummary} />

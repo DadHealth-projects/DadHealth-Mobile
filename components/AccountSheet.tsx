@@ -21,7 +21,6 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { colors } from '../theme';
 import type { AppStackParamList } from '../navigation/AppNavigator';
-import type { BottomTabsParamList } from '../navigation/BottomTabNavigator';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 /** Slide + backdrop-fade duration (ms). */
@@ -135,9 +134,6 @@ export default function AccountSheet({
     if (action) setTimeout(action, ANIM_MS);
   };
 
-  const goTab = (screen: keyof BottomTabsParamList) =>
-    closeThen(() => navigation.navigate('Tabs', { screen }));
-
   const dashboardRows: Array<{ icon: keyof typeof Feather.glyphMap; title: string; section: DashboardSection }> = [
     { icon: 'home', title: 'Home', section: 'HOME' },
     { icon: 'activity', title: 'Fitness', section: 'FITNESS' },
@@ -157,7 +153,7 @@ export default function AccountSheet({
     {
       icon: 'award',
       title: 'Dad Health Pro',
-      onPress: () => goTab('Home'),
+      onPress: () => closeThen(() => navigation.navigate('ProSubscription')),
     },
   ];
 
@@ -172,7 +168,7 @@ export default function AccountSheet({
         {
           icon: 'award',
           title: 'Dad Health Pro',
-          onPress: () => goTab('Home'),
+          onPress: () => closeThen(() => navigation.navigate('ProSubscription')),
         },
         {
           icon: 'settings',
@@ -190,7 +186,7 @@ export default function AccountSheet({
         {
           icon: 'award',
           title: 'Dad Health Pro',
-          onPress: () => goTab('Home'),
+          onPress: () => closeThen(() => navigation.navigate('ProSubscription')),
         },
         {
           icon: 'settings',

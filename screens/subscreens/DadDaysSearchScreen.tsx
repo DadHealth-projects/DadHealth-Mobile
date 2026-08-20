@@ -126,7 +126,7 @@ export default function DadDaysSearchScreen() {
   const search = useCallback(async () => {
     if (!user || !session?.access_token) { navigation.navigate('Login'); return; }
     if (!coords) { setError('Use your location or enter a postcode first.'); return; }
-    if (limitReached) { navigation.navigate('Tabs', { screen: 'Home' }); return; }
+    if (limitReached) { navigation.navigate('ProSubscription'); return; }
     setSearching(true); setError(null); setResults([]);
     try {
       const response = await fetch(`${WEB_URL}/api/dad_days_searches`, {
@@ -188,7 +188,7 @@ export default function DadDaysSearchScreen() {
               {openFilter === 'age' ? <DropdownOptions options={AGES} value={childAge} onChange={(value) => { setChildAge(value); setOpenFilter(null); }} /> : null}
             </View>
             {error ? <View accessibilityRole="alert" className="rounded-button border border-red-400/40 bg-red-400/10 p-md"><Text className="font-body text-red-300 text-[13px] leading-[19px]">{error}</Text></View> : null}
-            {limitReached ? <View className="gap-md border-y border-border py-lg"><Text className="font-heading-bold text-white text-[17px] uppercase">3 free searches used</Text><Text className="font-body text-muted-text text-[13px]">Your allowance resets on the first of next month.</Text><LimeButton label="View Dad Health Pro" onPress={() => navigation.navigate('Tabs', { screen: 'Home' })} /></View> : <><LimeButton label="Search for Dad Days" onPress={() => void search()} loading={searching} />{!isPro ? <Text className="font-body text-tertiary-text text-[12px] text-center">{remaining} of {FREE_LIMIT} free searches remaining</Text> : null}</>}
+            {limitReached ? <View className="gap-md border-y border-border py-lg"><Text className="font-heading-bold text-white text-[17px] uppercase">3 free searches used</Text><Text className="font-body text-muted-text text-[13px]">Your allowance resets on the first of next month.</Text><LimeButton label="View Dad Health Pro" onPress={() => navigation.navigate('ProSubscription')} /></View> : <><LimeButton label="Search for Dad Days" onPress={() => void search()} loading={searching} />{!isPro ? <Text className="font-body text-tertiary-text text-[12px] text-center">{remaining} of {FREE_LIMIT} free searches remaining</Text> : null}</>}
           </View>
         )}
 

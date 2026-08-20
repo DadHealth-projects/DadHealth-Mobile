@@ -21,7 +21,7 @@ export default function TherapistDirectoryScreen() {
   const [bookingError, setBookingError] = useState<string | null>(null);
   const close = useCallback(() => navigation.goBack(), [navigation]);
   const openLogin = useCallback(() => navigation.navigate('Login'), [navigation]);
-  const openPro = useCallback(() => navigation.navigate('Tabs', { screen: 'Home' }), [navigation]);
+  const openPro = useCallback(() => navigation.navigate('ProSubscription'), [navigation]);
   const openBooking = useCallback(() => {
     setBookingError(null);
     void Linking.openURL(`${WEB_URL}/pricing`).catch(() => {

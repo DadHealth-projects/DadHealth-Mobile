@@ -164,7 +164,7 @@ export default function ProgressScreen({
                     title=""
                   />
                   {!progressScore.data.isPro ? (
-                    <Pressable onPress={() => navigation.navigate('Tabs', { screen: 'Home' })} accessibilityRole="button" className="min-h-[44px] self-start justify-center border-b border-lime">
+                    <Pressable onPress={() => navigation.navigate('ProSubscription')} accessibilityRole="button" className="min-h-[44px] self-start justify-center border-b border-lime">
                       <Text className="font-heading-bold text-lime text-[11px] uppercase">View Dad Health Pro</Text>
                     </Pressable>
                   ) : null}
@@ -228,7 +228,7 @@ export default function ProgressScreen({
                   <Feather name="lock" size={20} color={colors.lime} />
                   <Text className="font-heading-bold text-white text-[16px] uppercase">Sleep tracker</Text>
                   <Text className="font-body text-muted-text text-[13px] leading-[19px]">Your sleep is connected to your mood, your patience and your energy. This shows you exactly how.</Text>
-                  <Pressable onPress={() => navigation.navigate('Tabs', { screen: 'Home' })} accessibilityRole="button" className="min-h-[42px] self-start justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[11px] uppercase">View Dad Health Pro</Text></Pressable>
+                  <Pressable onPress={() => navigation.navigate('ProSubscription')} accessibilityRole="button" className="min-h-[42px] self-start justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[11px] uppercase">View Dad Health Pro</Text></Pressable>
                 </View>
               ) : progressSleep.loading ? (
                 <View className="h-[132px] bg-white/5" />
