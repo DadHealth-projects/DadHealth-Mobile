@@ -47,3 +47,22 @@ test('Health Permissions keeps the four approved data rows', async () => {
     assert.ok(screen.includes(row), `Missing health data row: ${row}`);
   }
 });
+
+test('Health Permissions uses production Health Connect copy on Android', async () => {
+  const [screen, hook] = await Promise.all([
+    readFile(new URL('screens/subscreens/HealthPermissionsScreen.tsx', root), 'utf8'),
+    readFile(new URL('hooks/useHealthConnect.ts', root), 'utf8'),
+  ]);
+  const clientCopy = `${screen}\n${hook}`;
+
+  for (const expected of [
+    'Connect Health Connect',
+    'Health Connect connected',
+    'Manage Health Connect access',
+    'Health Connect isn’t available on this device.',
+    'Health Connect access wasn’t enabled. You can change this anytime in Health Connect settings.',
+    'We couldn’t connect to Health Connect. Please try again.',
+  ]) {
+    assert.ok(clientCopy.includes(expected), `Missing Health Connect copy: ${expected}`);
+  }
+});
