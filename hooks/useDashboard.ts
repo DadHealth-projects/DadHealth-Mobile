@@ -541,7 +541,8 @@ export function useDashboard(userId: string | undefined) {
         .maybeSingle();
       const wearableSleep = existingSleep?.source === 'garmin'
         || existingSleep?.source === 'fitbit'
-        || existingSleep?.source === 'apple_health';
+        || existingSleep?.source === 'apple_health'
+        || existingSleep?.source === 'health_connect';
 
       const [moodResult, sleepResult] = await Promise.all([
         supabase.from('mood_logs').upsert({ user_id: userId, date: today, mood_value: moodValue }, { onConflict: 'user_id,date' }),

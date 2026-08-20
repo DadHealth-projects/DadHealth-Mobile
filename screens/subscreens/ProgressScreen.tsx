@@ -313,7 +313,9 @@ function formatSyncStatus(integration: { provider: string | null; last_sync_at: 
       ? 'Garmin'
       : integration.provider === 'apple_health'
         ? 'Apple Health'
-        : 'wearable';
+        : integration.provider === 'health_connect'
+          ? 'Health Connect'
+          : 'wearable';
   return `Last synced: ${day} ${date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} via ${provider}`;
 }
 
