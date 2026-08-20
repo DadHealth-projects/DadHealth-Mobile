@@ -11,7 +11,6 @@ import MoodCheckInRow, { type MoodKey } from '../components/mockup/MoodCheckInRo
 import PillarCard from '../components/mockup/PillarCard';
 import ScreenHero from '../components/mockup/ScreenHero';
 import StatTile from '../components/mockup/StatTile';
-import PublicHomeSkeleton from '../components/skeleton/PublicHomeSkeleton';
 import { usePublicHome } from '../hooks/usePublicHome';
 import { STATS_EXTENDED, PILLARS, type PillarTab } from '../lib/homeContent';
 import type { AppStackParamList } from '../navigation/AppNavigator';
@@ -51,17 +50,6 @@ export default function HomeScreen() {
     (tab: PillarTab) => navigation.navigate(tab as keyof BottomTabsParamList),
     [navigation],
   );
-
-  if (loading) {
-    return (
-      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
-        <View className="px-lg pt-lg">
-          <AppTopBar showBrand />
-        </View>
-        <PublicHomeSkeleton />
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>

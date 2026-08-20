@@ -1,7 +1,6 @@
 import './global.css';
 
 import React from 'react';
-import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from '@react-navigation/native';
@@ -24,6 +23,7 @@ import OneSignalManager from './components/OneSignalManager';
 import AppleHealthManager from './components/AppleHealthManager';
 import HealthConnectManager from './components/HealthConnectManager';
 import PushPrePermissionPrompt from './components/PushPrePermissionPrompt';
+import Splash from './components/Splash';
 import { attachPushNavigation } from './lib/pushNotifications';
 
 const navigationRef = createNavigationContainerRef();
@@ -53,9 +53,9 @@ export default function App() {
     'BarlowCondensed-ExtraBold': BarlowCondensed_800ExtraBold,
   });
 
-  // Hold on a dark splash until fonts are ready to avoid a flash of fallback type.
+  // Keep the branded loading surface visible until fonts are ready.
   if (!fontsLoaded) {
-    return <View style={{ flex: 1, backgroundColor: colors.dark }} />;
+    return <Splash />;
   }
 
   return (
