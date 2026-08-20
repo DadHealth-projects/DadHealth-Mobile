@@ -41,37 +41,44 @@ export function usePublicHome() {
     workoutTitle: null,
     moves: DAD_STRENGTH_MOVES,
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    const [countResult, workoutResult] = await Promise.all([
-      supabase.from('user_profile').select('id', { count: 'exact', head: true }),
-      supabase
-        .from('workouts')
-        .select('title,exercises')
-        .eq('source', 'admin')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
+  const load = useCallback(async (showRefreshIndicator: boolean) => {
+    if (showRefreshIndicator) setLoading(true);
+    try {
+      const [countResult, workoutResult] = await Promise.all([
+        supabase.from('user_profile').select('id', { count: 'exact', head: true }),
+        supabase
+          .from('workouts')
+          .select('title,exercises')
+          .eq('source', 'admin')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
 
-    const workout = workoutResult.error ? null : workoutResult.data;
-    const exercises = Array.isArray(workout?.exercises) ? (workout.exercises as WorkoutExercise[]) : [];
+      const workout = workoutResult.error ? null : workoutResult.data;
+      const exercises = Array.isArray(workout?.exercises) ? (workout.exercises as WorkoutExercise[]) : [];
 
-    setData({
-      dadsCount: countResult.error ? 0 : (countResult.count ?? 0),
-      workoutTitle: typeof workout?.title === 'string' && workout.title.trim().length > 0
-        ? workout.title.trim()
-        : null,
-      moves: exercises.length > 0 ? exercises.map(mapExerciseToMove) : DAD_STRENGTH_MOVES,
-    });
-    setLoading(false);
+      setData({
+        dadsCount: countResult.error ? 0 : (countResult.count ?? 0),
+        workoutTitle: typeof workout?.title === 'string' && workout.title.trim().length > 0
+          ? workout.title.trim()
+          : null,
+        moves: exercises.length > 0 ? exercises.map(mapExerciseToMove) : DAD_STRENGTH_MOVES,
+      });
+    } catch {
+      // The public Home already has complete fallback content.
+    } finally {
+      if (showRefreshIndicator) setLoading(false);
+    }
   }, []);
 
+  const refresh = useCallback(() => load(true), [load]);
+
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void load(false);
+  }, [load]);
 
   return { data, loading, refresh };
 }
