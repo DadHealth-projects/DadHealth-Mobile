@@ -22,6 +22,7 @@ import RootNavigator from './contexts/RootNavigator';
 import { colors } from './theme';
 import OneSignalManager from './components/OneSignalManager';
 import AppleHealthManager from './components/AppleHealthManager';
+import HealthConnectManager from './components/HealthConnectManager';
 import PushPrePermissionPrompt from './components/PushPrePermissionPrompt';
 import { attachPushNavigation } from './lib/pushNotifications';
 
@@ -64,6 +65,7 @@ export default function App() {
           <StatusBar style="light" />
           <OneSignalManager />
           <AppleHealthManager />
+          <HealthConnectManager />
           <RootNavigator />
           <PushPrePermissionPrompt />
         </NavigationContainer>
