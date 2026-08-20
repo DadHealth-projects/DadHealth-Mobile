@@ -6,6 +6,11 @@
     "scheme": "dadhealth",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/DH LOGO_LimeWhite_DarkBG.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0A"
+    },
     "userInterfaceStyle": "light",
     "backgroundColor": "#0A0A0A",
     "assetBundlePatterns": [

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Image } from 'react-native';
 
 import { colors } from '../theme';
 
@@ -14,7 +14,13 @@ export default function Splash() {
         justifyContent: 'center',
       }}
     >
-      <ActivityIndicator color={colors.lime} />
+      <Image
+        source={require('../assets/DH LOGO_LimeWhite_DarkBG.png')}
+        resizeMode="contain"
+        accessibilityLabel="Dad Health"
+        style={{ width: 180, height: 154 }}
+      />
+      <ActivityIndicator color={colors.lime} style={{ marginTop: 24 }} />
     </View>
   );
 }
