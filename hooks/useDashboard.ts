@@ -67,7 +67,12 @@ export type DashboardData = {
   moodLogs: Array<{ date: string; mood_value: number }>;
   checkedInToday: boolean;
   reminders: Reminder[];
-  challenge: { title: string; participants_count: number | null } | null;
+  challenge: {
+    id: string;
+    title: string;
+    description: string | null;
+    participants_count: number;
+  } | null;
   dadsCount: number;
   /** `user_streaks.streak_count` — the web sidebar's "N-day streak". */
   streak: number | null;
@@ -235,7 +240,13 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     supabase.from('user_profile').select('display_name,goals,is_pro,subscription_status').eq('user_id', userId).maybeSingle(),
     supabase.from('dad_score_view').select('mind_score,body_score,bond_score').eq('user_id', userId).maybeSingle(),
     supabase.from('mood_logs').select('date,mood_value').eq('user_id', userId).gte('date', weekStart).order('date'),
-    supabase.from('weekly_challenges').select('title,participants_count').eq('active', true).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    supabase
+      .from('weekly_challenges')
+      .select('id,title,description,participants_count')
+      .eq('active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
     supabase.from('user_profile').select('id', { count: 'exact', head: true }),
     supabase.from('dashboard_view').select('*').eq('user_id', userId).maybeSingle(),
     supabase.from('user_streaks').select('streak_count').eq('user_id', userId).maybeSingle(),
@@ -416,7 +427,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     moodLogs,
     checkedInToday: moodLogs.some((log) => log.date === today),
     reminders,
-    challenge: challengeResult.data ?? null,
+    challenge: challengeResult.error ? null : challengeResult.data ?? null,
     dadsCount: countResult.count ?? 0,
     streak: typeof streakResult.data?.streak_count === 'number' ? streakResult.data.streak_count : null,
     isPro: isProfilePro(profile),
