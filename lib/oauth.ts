@@ -27,6 +27,97 @@ WebBrowser.maybeCompleteAuthSession();
 
 export type OAuthResult = { error: string | null };
 
+const APPLE_CANCELLED_ERROR = 'Apple Sign In was cancelled.';
+const APPLE_CONNECTION_ERROR =
+  "We couldn't complete Apple Sign In because of a connection problem. Check your connection and try again.";
+const APPLE_SESSION_ERROR =
+  "Apple Sign In succeeded, but we couldn't finish signing you in. Please try again.";
+const APPLE_UNKNOWN_ERROR = "We couldn't complete Apple Sign In. Please try again.";
+
+type SessionMarker = {
+  lastSignInAt: string | null;
+  userId: string;
+};
+
+type SessionRecoveryResult = 'valid' | 'incomplete' | 'connection' | 'none';
+
+function errorField(error: unknown, field: 'code' | 'message' | 'name'): string {
+  if (!error || typeof error !== 'object' || !(field in error)) return '';
+  const value = error[field as keyof typeof error];
+  return typeof value === 'string' ? value : '';
+}
+
+function isAppleCancellation(error: unknown): boolean {
+  return errorField(error, 'code') === 'ERR_REQUEST_CANCELED';
+}
+
+function isConnectionIssue(error: unknown): boolean {
+  const details = [
+    errorField(error, 'code'),
+    errorField(error, 'name'),
+    errorField(error, 'message'),
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  return /(?:network request failed|failed to fetch|network error|connection|offline|timed?\s*out|econnreset|enotfound|authretryablefetcherror)/.test(
+    details,
+  );
+}
+
+function sessionMarker(session: {
+  user?: { id?: string; last_sign_in_at?: string };
+} | null): SessionMarker | null {
+  if (!session?.user?.id) return null;
+  return {
+    lastSignInAt: session.user.last_sign_in_at ?? null,
+    userId: session.user.id,
+  };
+}
+
+async function readSessionMarker(): Promise<SessionMarker | null | undefined> {
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) return undefined;
+    return sessionMarker(data.session);
+  } catch {
+    // An unavailable baseline must never make an older session look newly created.
+    return undefined;
+  }
+}
+
+async function recoverNewAppleSession(
+  previousSession: SessionMarker | null | undefined,
+): Promise<SessionRecoveryResult> {
+  if (previousSession === undefined) return 'none';
+
+  try {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      return isConnectionIssue(sessionError) ? 'connection' : 'incomplete';
+    }
+
+    const currentSession = sessionMarker(sessionData.session);
+    if (!currentSession) return 'none';
+
+    const isNewSession =
+      previousSession === null ||
+      currentSession.userId !== previousSession.userId ||
+      (currentSession.lastSignInAt !== null &&
+        currentSession.lastSignInAt !== previousSession.lastSignInAt);
+    if (!isNewSession) return 'none';
+
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      return isConnectionIssue(userError) ? 'connection' : 'incomplete';
+    }
+
+    return userData.user?.id === currentSession.userId ? 'valid' : 'incomplete';
+  } catch (error) {
+    return isConnectionIssue(error) ? 'connection' : 'incomplete';
+  }
+}
+
 /** Turn the provider redirect URL back into a Supabase session. */
 async function completeSessionFromUrl(url: string): Promise<OAuthResult> {
   // PKCE flow: the redirect carries `?code=...`.
@@ -85,15 +176,30 @@ export async function signInWithApple(): Promise<OAuthResult> {
     });
 
     const token = credential.identityToken;
-    if (!token) return { error: 'Apple did not return an identity token.' };
+    if (!token) return { error: APPLE_SESSION_ERROR };
 
-    const { error } = await supabase.auth.signInWithIdToken({ provider: 'apple', token });
-    return { error: error ? 'Apple sign-in could not be completed. Please try again.' : null };
-  } catch (error) {
-    // The user tapping "Cancel" on the native sheet is not a real error.
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'ERR_REQUEST_CANCELED') {
-      return { error: null };
+    const previousSession = await readSessionMarker();
+
+    try {
+      const { data, error } = await supabase.auth.signInWithIdToken({ provider: 'apple', token });
+
+      if (error) {
+        return { error: isConnectionIssue(error) ? APPLE_CONNECTION_ERROR : APPLE_UNKNOWN_ERROR };
+      }
+
+      return { error: data.session ? null : APPLE_SESSION_ERROR };
+    } catch (error) {
+      const recovery = await recoverNewAppleSession(previousSession);
+      if (recovery === 'valid') return { error: null };
+      if (recovery === 'connection' || isConnectionIssue(error)) {
+        return { error: APPLE_CONNECTION_ERROR };
+      }
+      if (recovery === 'incomplete') return { error: APPLE_SESSION_ERROR };
+
+      return { error: APPLE_UNKNOWN_ERROR };
     }
-    return { error: 'Apple sign-in failed. Please try again.' };
+  } catch (error) {
+    if (isAppleCancellation(error)) return { error: APPLE_CANCELLED_ERROR };
+    return { error: isConnectionIssue(error) ? APPLE_CONNECTION_ERROR : APPLE_UNKNOWN_ERROR };
   }
 }

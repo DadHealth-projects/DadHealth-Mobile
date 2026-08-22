@@ -196,7 +196,7 @@ export default function LoginScreen() {
       const { error } = await signInWithApple();
 
       if (error) {
-        setError('Apple sign-in could not be completed. Please try again.');
+        setError(error);
         return;
       }
 
