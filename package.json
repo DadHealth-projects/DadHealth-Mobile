@@ -6,7 +6,7 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "test": "node --no-warnings --test tests/biometricFlow.test.mjs tests/healthPermissionsCopy.test.mjs tests/healthSync.test.mjs tests/healthConnect.test.mjs tests/startupLoading.test.mjs tests/productionCopy.test.mjs tests/pushProduction.test.mjs tests/nativeSubscriptions.test.mjs",
+    "test": "node --no-warnings --test tests/biometricFlow.test.mjs tests/healthPermissionsCopy.test.mjs tests/healthSync.test.mjs tests/healthConnect.test.mjs tests/startupLoading.test.mjs tests/productionCopy.test.mjs tests/pushProduction.test.mjs tests/nativeSubscriptions.test.mjs tests/weeklyChallenge.test.mjs tests/appleSignIn.test.mjs",
     "test:production-copy": "node --no-warnings --test tests/productionCopy.test.mjs",
     "web": "expo start --web"
   },
