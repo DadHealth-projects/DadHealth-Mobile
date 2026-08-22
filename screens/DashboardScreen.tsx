@@ -68,7 +68,6 @@ export default function DashboardScreen() {
       user={user}
       activeSection={activeSection}
       onSelectSection={setActiveSection}
-      onGoProgress={() => setActiveSection('PROGRESS')}
     />
   );
 }
@@ -83,12 +82,10 @@ export function DashboardScreenContent({
   user,
   activeSection = 'HOME',
   onSelectSection,
-  onGoProgress,
 }: {
   user: User;
   activeSection?: DashboardSection;
   onSelectSection?: (section: DashboardSection) => void;
-  onGoProgress?: () => void;
 }) {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { data, loading, error: dashboardError, checkingIn, refresh, saveCheckIn } = useDashboard(user.id);
@@ -294,7 +291,12 @@ export function DashboardScreenContent({
               </FadeInView>
 
               <FadeInView delay={340}>
-                <ChallengeCard challenge={data.challenge} onTakeAction={onGoProgress} />
+                <ChallengeCard
+                  challenge={data.challenge}
+                  onOpenChallenge={data.challenge
+                    ? () => navigation.navigate('WeeklyChallenge', { challengeId: data.challenge!.id })
+                    : undefined}
+                />
               </FadeInView>
             </>
           ) : null}
