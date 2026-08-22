@@ -29,6 +29,7 @@ import PrivacySecurityScreen from '../screens/subscreens/PrivacySecurityScreen';
 import TermsPrivacyScreen from '../screens/subscreens/TermsPrivacyScreen';
 import HealthPermissionsScreen from '../screens/subscreens/HealthPermissionsScreen';
 import ProSubscriptionScreen from '../screens/subscreens/ProSubscriptionScreen';
+import WeeklyChallengeScreen from '../screens/subscreens/WeeklyChallengeScreen';
 import { colors } from '../theme';
 
 export type AppStackParamList = {
@@ -59,6 +60,7 @@ export type AppStackParamList = {
   TermsPrivacy: undefined;
   HealthPermissions: undefined;
   ProSubscription: undefined;
+  WeeklyChallenge: { challengeId: string };
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -192,6 +194,11 @@ export default function AppNavigator({
         <Stack.Screen
           name="ProSubscription"
           component={ProSubscriptionScreen}
+          options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
+        />
+        <Stack.Screen
+          name="WeeklyChallenge"
+          component={WeeklyChallengeScreen}
           options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
         />
       {/* Main application */}
