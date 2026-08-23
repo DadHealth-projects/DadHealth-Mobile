@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useNetworkStatus } from '../contexts/NetworkContext';
 import { supabase } from '../lib/supabase';
 import { DAD_STRENGTH_MOVES, type DadStrengthMove } from '../lib/homeContent';
 
@@ -36,6 +37,7 @@ function mapExerciseToMove(exercise: WorkoutExercise): DadStrengthMove {
  * the section falls back to the same defaults the web uses.
  */
 export function usePublicHome() {
+  const { isOffline } = useNetworkStatus();
   const [data, setData] = useState<PublicHomeData>({
     dadsCount: 0,
     workoutTitle: null,
@@ -44,6 +46,10 @@ export function usePublicHome() {
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async (showRefreshIndicator: boolean) => {
+    if (isOffline) {
+      if (showRefreshIndicator) setLoading(false);
+      return;
+    }
     if (showRefreshIndicator) setLoading(true);
     try {
       const [countResult, workoutResult] = await Promise.all([
@@ -72,7 +78,7 @@ export function usePublicHome() {
     } finally {
       if (showRefreshIndicator) setLoading(false);
     }
-  }, []);
+  }, [isOffline]);
 
   const refresh = useCallback(() => load(true), [load]);
 

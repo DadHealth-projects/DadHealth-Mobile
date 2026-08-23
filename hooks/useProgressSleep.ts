@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useNetworkStatus } from '../contexts/NetworkContext';
 import { supabase } from '../lib/supabase';
 
 export type ProgressSleepDay = { key: string; label: string; hours: number | null; mood: number | null };
 
 export function useProgressSleep(userId?: string) {
+  const { isOffline } = useNetworkStatus();
   const [days, setDays] = useState<ProgressSleepDay[]>([]);
   const [pattern, setPattern] = useState('Log more mood and sleep check-ins to unlock pattern insights.');
   const [loading, setLoading] = useState(true);
@@ -12,6 +14,7 @@ export function useProgressSleep(userId?: string) {
 
   const refresh = useCallback(async () => {
     if (!userId) { setDays([]); setLoading(false); return; }
+    if (isOffline) { setLoading(false); setError(null); return; }
     setLoading(true);
     setError(null);
     const today = new Date();
@@ -44,7 +47,7 @@ export function useProgressSleep(userId?: string) {
       : 'Log more mood and sleep check-ins to unlock pattern insights.');
     setDays(nextDays);
     setLoading(false);
-  }, [userId]);
+  }, [isOffline, userId]);
 
   useEffect(() => { void refresh(); }, [refresh]);
   return { days, pattern, loading, error, refresh };
