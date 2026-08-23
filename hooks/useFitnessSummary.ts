@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useNetworkStatus } from '../contexts/NetworkContext';
 import { supabase } from '../lib/supabase';
 
 type FitnessSummary = {
@@ -22,12 +23,17 @@ const EMPTY_SUMMARY: FitnessSummary = {
 };
 
 export function useFitnessSummary(userId?: string) {
+  const { isOffline } = useNetworkStatus();
   const [data, setData] = useState<FitnessSummary>(EMPTY_SUMMARY);
   const [loading, setLoading] = useState(Boolean(userId));
 
   const refresh = useCallback(async () => {
     if (!userId) {
       setData(EMPTY_SUMMARY);
+      setLoading(false);
+      return;
+    }
+    if (isOffline) {
       setLoading(false);
       return;
     }
@@ -85,7 +91,7 @@ export function useFitnessSummary(userId?: string) {
       activeDisplay: activeMinutes != null ? `${Math.round(Number(activeMinutes))} min` : '0 min',
     });
     setLoading(false);
-  }, [userId]);
+  }, [isOffline, userId]);
 
   useEffect(() => {
     void refresh();

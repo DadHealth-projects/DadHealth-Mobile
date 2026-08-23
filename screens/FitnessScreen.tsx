@@ -5,6 +5,7 @@ import { useFocusEffect, useNavigation, type NavigationProp } from '@react-navig
 import Card from '../components/Card';
 import type { DashboardSection } from '../components/AccountSheet';
 import FadeInView from '../components/FadeInView';
+import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
 import LimeButton from '../components/LimeButton';
 import MiniBarChart from '../components/dashboard/MiniBarChart';
 import PillarScreen from '../components/PillarScreen';
@@ -132,12 +133,12 @@ export default function FitnessScreen({
       refreshing={loading}
       onRefresh={hasUser ? onRefresh : undefined}
       error={data ? null : error}
-      errorTitle="Body didn't load"
       errorMessage="We couldn't bring in your fitness, activity and nutrition data. Try again in a moment."
-      onRetry={onRefresh}
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}
     >
+      <GlobalErrorToastReporter message={fitnessLibrary.error} />
+      <GlobalErrorToastReporter message={fitnessLibrary.proError} />
       <FadeInView>
         {standalone ? (
           <View>
@@ -229,7 +230,7 @@ export default function FitnessScreen({
             <Card className="gap-md">
               <View className="flex-row items-center justify-between gap-sm">
                 <Text className="font-heading-bold text-muted-text text-[11px] tracking-[1px] uppercase">
-                  {fitnessLibrary.proError ? 'Workout access unavailable' : fitnessLibrary.isPro ? 'All available workouts' : 'Free workouts (8 max)'}
+                  {fitnessLibrary.isPro ? 'All available workouts' : 'Free workouts (8 max)'}
                 </Text>
                 <TagPill label={`${fitnessLibrary.workouts.length} shown`} tone="outline" />
               </View>
@@ -237,11 +238,6 @@ export default function FitnessScreen({
               {fitnessLibrary.loading ? (
                 <View className="gap-sm py-sm">
                   {[0, 1, 2].map((item) => <View key={item} className="h-[64px] rounded-button bg-white/5" />)}
-                </View>
-              ) : fitnessLibrary.error ? (
-                <View accessibilityRole="alert" className="gap-md py-sm">
-                  <Text className="font-body text-red-300 text-[13px] leading-[19px]">{fitnessLibrary.error}</Text>
-                  <LimeButton label="Retry workouts" onPress={() => void fitnessLibrary.refresh()} />
                 </View>
               ) : fitnessLibrary.workouts.length === 0 ? (
                 <View className="py-md">
@@ -273,12 +269,6 @@ export default function FitnessScreen({
                   })}
                 </View>
               )}
-              {fitnessLibrary.proError ? (
-                <View accessibilityRole="alert" className="gap-md border-t border-border pt-md">
-                  <Text className="font-body text-red-300 text-[13px] leading-[19px]">{fitnessLibrary.proError}</Text>
-                  <LimeButton label="Retry access" onPress={() => void fitnessLibrary.refresh()} />
-                </View>
-              ) : null}
             </Card>
           </View>
         </FadeInView>
@@ -299,7 +289,7 @@ export default function FitnessScreen({
                   Choose your time, equipment and focus. Generate a workout you can start immediately.
                 </Text>
               </View>
-              <TagPill label={fitnessLibrary.proError ? 'Unavailable' : fitnessLibrary.isPro ? 'Pro' : 'Free'} />
+              <TagPill label={fitnessLibrary.isPro ? 'Pro' : 'Free'} />
             </View>
             <LimeButton
               label={generatedWorkout ? 'View workout' : 'Generate workout'}
@@ -318,7 +308,7 @@ export default function FitnessScreen({
                 <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">Fuel your whole week</Text>
                 <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">Generate a personalised 5-day plan with recipes, macros and a shopping list.</Text>
               </View>
-              <TagPill label={fitnessLibrary.proError ? 'Unavailable' : fitnessLibrary.isPro ? 'Pro' : 'Preview'} />
+              <TagPill label={fitnessLibrary.isPro ? 'Pro' : 'Preview'} />
             </View>
             <LimeButton label="Open meal planner" onPress={openMealPlanner} />
           </Card>
