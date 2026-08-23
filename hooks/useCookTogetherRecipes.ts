@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useNetworkStatus } from '../contexts/NetworkContext';
 import { trackEvent } from '../lib/analytics';
 import { supabase } from '../lib/supabase';
 
@@ -39,6 +40,7 @@ function steps(value: unknown): RecipeStep[] {
 }
 
 export function useCookTogetherRecipes(userId?: string) {
+  const { isOffline } = useNetworkStatus();
   const [allRecipes, setAllRecipes] = useState<CookTogetherRecipe[]>([]);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
@@ -49,6 +51,11 @@ export function useCookTogetherRecipes(userId?: string) {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    if (isOffline) {
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     const [recipeResult, savedResult, scoreResult, completedResult] = await Promise.all([
@@ -76,7 +83,7 @@ export function useCookTogetherRecipes(userId?: string) {
       setBondScore(typeof scoreResult.data?.bond_score === 'number' ? scoreResult.data.bond_score : null);
     }
     setLoading(false);
-  }, [userId]);
+  }, [isOffline, userId]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
