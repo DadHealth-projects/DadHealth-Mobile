@@ -6,11 +6,13 @@ import { useFocusEffect, useNavigation, type NavigationProp } from '@react-navig
 import CircleCard from '../components/mockup/CircleCard';
 import type { DashboardSection } from '../components/AccountSheet';
 import FadeInView from '../components/FadeInView';
+import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
 import PillarScreen from '../components/PillarScreen';
 import PillarSkeleton from '../components/skeleton/PillarSkeleton';
 import ScreenHero from '../components/mockup/ScreenHero';
 import SectionHeader from '../components/dashboard/SectionHeader';
 import { useAuth } from '../contexts/AuthContext';
+import { useNetworkStatus } from '../contexts/NetworkContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { dashboardIcon } from '../lib/dashboardIcons';
 import { supabase } from '../lib/supabase';
@@ -32,6 +34,7 @@ export default function CommunityScreen({
   onSelectDashboardSection?: (section: DashboardSection) => void;
 } = {}) {
   const { user } = useAuth();
+  const { isOffline, showOfflineAction } = useNetworkStatus();
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { data, loading, error, refresh } = useDashboard(user?.id);
   const feed = useCommunityFeed(user?.id);
@@ -51,6 +54,10 @@ export default function CommunityScreen({
   const loadCircles = useCallback(async (silent = false) => {
     if (!silent) setCirclesLoading(true);
     setCircleError(null);
+    if (isOffline) {
+      if (!silent) setCirclesLoading(false);
+      return;
+    }
     const [circleResult, membershipResult] = await Promise.all([
       supabase.from('circles').select('id,icon,name,members_count'),
       user?.id ? supabase.from('user_circles').select('circle_id').eq('user_id', user.id) : Promise.resolve({ data: [], error: null }),
@@ -61,11 +68,15 @@ export default function CommunityScreen({
       setCommunityCircles((circleResult.data ?? []).map((circle) => ({ id: String(circle.id), icon: typeof circle.icon === 'string' ? circle.icon : null, name: String(circle.name), members_count: typeof circle.members_count === 'number' ? circle.members_count : null, joined: joinedIds.has(String(circle.id)) })));
     }
     if (!silent) setCirclesLoading(false);
-  }, [user?.id]);
+  }, [isOffline, user?.id]);
 
   const loadLiveSessions = useCallback(async () => {
     setLiveSessionsLoading(true);
     setLiveSessionsError(null);
+    if (isOffline) {
+      setLiveSessionsLoading(false);
+      return;
+    }
     const { data: sessions, error: sessionsError } = await supabase
       .from('live_sessions')
       .select('id,title,starts_at,host_name,summary')
@@ -79,11 +90,18 @@ export default function CommunityScreen({
       setLiveSessions((sessions ?? []).map((session) => ({ id: String(session.id), title: String(session.title), starts_at: typeof session.starts_at === 'string' ? session.starts_at : null, host_name: typeof session.host_name === 'string' ? session.host_name : null, summary: typeof session.summary === 'string' ? session.summary : null })));
     }
     setLiveSessionsLoading(false);
-  }, []);
+  }, [isOffline]);
 
   const loadTrending = useCallback(async () => {
     setTrendingLoading(true);
     setTrendingError(null);
+    if (isOffline) {
+      const counts = new Map<string, number>();
+      feed.posts.forEach((post) => { if (post.tag) { const tag = `#${post.tag.replace(/^#/, '')}`; counts.set(tag, (counts.get(tag) ?? 0) + 1); } });
+      setTrendingTags([...counts.entries()].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count).slice(0, 5));
+      setTrendingLoading(false);
+      return;
+    }
     const { data: trends, error: trendError } = await supabase.rpc('trending_post_tags', { limit_n: 5 });
     if (!trendError && Array.isArray(trends) && trends.length > 0) {
       setTrendingTags(trends.slice(0, 5).map((trend: { tag: unknown; count: unknown }) => ({ tag: `#${String(trend.tag).replace(/^#/, '')}`, count: Number(trend.count) || 0 })));
@@ -95,11 +113,12 @@ export default function CommunityScreen({
       setTrendingTags([...counts.entries()].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count).slice(0, 5));
     }
     setTrendingLoading(false);
-  }, [feed.error, feed.posts]);
+  }, [feed.error, feed.posts, isOffline]);
 
   const onRefresh = useCallback(() => { void Promise.all([refresh(), loadCircles(), feed.refresh(), loadLiveSessions(), loadTrending()]); }, [feed.refresh, loadCircles, loadLiveSessions, loadTrending, refresh]);
   const onToggleCircle = useCallback(async (circleId: string, joined: boolean) => {
     if (!user?.id || busyCircleId) return;
+    if (isOffline) { showOfflineAction('community_update'); return; }
     setBusyCircleId(circleId); setCircleError(null);
     const result = joined
       ? await supabase.from('user_circles').delete().eq('user_id', user.id).eq('circle_id', circleId)
@@ -107,16 +126,17 @@ export default function CommunityScreen({
     if (result.error) setCircleError(`We could not ${joined ? 'leave' : 'join'} this circle. Please try again.`);
     else { if (!joined) trackEvent('circle_joined', { circle_id: circleId }, user.id); await loadCircles(true); }
     setBusyCircleId(null);
-  }, [busyCircleId, loadCircles, user?.id]);
+  }, [busyCircleId, isOffline, loadCircles, showOfflineAction, user?.id]);
 
   useEffect(() => {
+    if (isOffline) return;
     let active = true;
     void supabase
       .from('user_profile')
       .select('id', { count: 'exact', head: true })
       .then(({ count }) => { if (active) setMembersCount(count ?? 0); });
     return () => { active = false; };
-  }, []);
+  }, [isOffline]);
 
   useEffect(() => { void loadTrending(); }, [loadTrending]);
 
@@ -128,17 +148,19 @@ export default function CommunityScreen({
 
   return (
     <PillarScreen
-      loading={loading && !data}
+      loading={loading && !data && !isOffline && feed.posts.length === 0}
       skeleton={<PillarSkeleton cards={3} />}
       refreshing={loading}
       onRefresh={hasUser ? onRefresh : undefined}
-      error={data ? null : error}
-      errorTitle="Squad didn't load"
+      error={data || isOffline || feed.posts.length > 0 ? null : error}
       errorMessage="We couldn't bring in your community feed and dad connections. Try again in a moment."
-      onRetry={onRefresh}
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}
     >
+      <GlobalErrorToastReporter message={circleError} />
+      <GlobalErrorToastReporter message={feed.error} />
+      <GlobalErrorToastReporter message={liveSessionsError} />
+      <GlobalErrorToastReporter message={trendingError} />
       <FadeInView>
         <ScreenHero
           eyebrow="Dad Health Community"
@@ -153,12 +175,7 @@ export default function CommunityScreen({
       </FadeInView>
 
       <FadeInView delay={90}>
-        {circleError ? (
-          <View className="gap-sm">
-            <Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{circleError}</Text>
-            <Pressable onPress={() => void loadCircles()}><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable>
-          </View>
-        ) : circlesLoading ? (
+        {circlesLoading ? (
           <View className="flex-row flex-wrap gap-sm">{[0, 1, 2, 3].map((item) => <View key={item} className="h-[132px] w-[48%] rounded-card bg-white/5" />)}</View>
         ) : communityCircles.length === 0 ? (
           <Text className="font-body text-muted-text text-[14px]">No circles yet</Text>
@@ -191,13 +208,6 @@ export default function CommunityScreen({
         <SectionHeader title="Recent posts" className="mb-md" />
         {feed.loading ? (
           <View className="h-[76px] rounded-button bg-white/5" />
-        ) : feed.error ? (
-          <View className="gap-sm">
-            <Text className="font-body text-red-300 text-[13px]">Posts are unavailable.</Text>
-            <Pressable onPress={() => void feed.refresh()} accessibilityRole="button">
-              <Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text>
-            </Pressable>
-          </View>
         ) : (
           <Pressable
             onPress={() => navigation.navigate('CommunityFeed')}
@@ -223,13 +233,13 @@ export default function CommunityScreen({
 
       <FadeInView delay={180}>
         <SectionHeader title="Live sessions" className="mb-md" />
-        {liveSessionsLoading ? <View className="gap-sm"><View className="h-[54px] border-y border-border bg-white/[0.02]" /><View className="h-[54px] border-b border-border bg-white/[0.02]" /></View> : liveSessionsError ? <View className="gap-sm"><Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{liveSessionsError}</Text><Pressable onPress={() => void loadLiveSessions()} accessibilityRole="button"><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable></View> : liveSessions.length === 0 ? <Text className="font-body text-muted-text text-[13px]">No live sessions are scheduled yet.</Text> : <View>{liveSessions.map((session) => <View key={session.id} className="border-b border-border py-md gap-xs"><Text className="font-heading-bold text-lime text-[14px] uppercase">{session.title}</Text><Text className="font-body text-tertiary-text text-[11px]">{session.host_name ? `Host: ${session.host_name}` : 'Host TBD'}{session.starts_at ? ` · ${new Date(session.starts_at).toLocaleString()}` : ''}</Text>{session.summary ? <Text className="font-body text-tertiary-text text-[13px] leading-[19px] mt-xs">{session.summary}</Text> : null}</View>)}</View>}
+        {liveSessionsLoading ? <View className="gap-sm"><View className="h-[54px] border-y border-border bg-white/[0.02]" /><View className="h-[54px] border-b border-border bg-white/[0.02]" /></View> : liveSessions.length === 0 ? <Text className="font-body text-muted-text text-[13px]">No live sessions are scheduled yet.</Text> : <View>{liveSessions.map((session) => <View key={session.id} className="border-b border-border py-md gap-xs"><Text className="font-heading-bold text-lime text-[14px] uppercase">{session.title}</Text><Text className="font-body text-tertiary-text text-[11px]">{session.host_name ? `Host: ${session.host_name}` : 'Host TBD'}{session.starts_at ? ` · ${new Date(session.starts_at).toLocaleString()}` : ''}</Text>{session.summary ? <Text className="font-body text-tertiary-text text-[13px] leading-[19px] mt-xs">{session.summary}</Text> : null}</View>)}</View>}
         <Pressable onPress={() => navigation.navigate('ProSubscription')} accessibilityRole="button" className="self-start min-h-[40px] justify-center mt-md border-b border-lime"><Text className="font-heading-bold text-lime text-[11px] uppercase">View Pro</Text></Pressable>
       </FadeInView>
 
       <FadeInView delay={210}>
         <SectionHeader title="Trending" className="mb-md" />
-        {trendingLoading ? <View className="gap-sm"><View className="h-[42px] border-y border-border bg-white/[0.02]" /><View className="h-[42px] border-b border-border bg-white/[0.02]" /></View> : trendingError ? <View className="gap-sm"><Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{trendingError}</Text><Pressable onPress={() => void loadTrending()} accessibilityRole="button"><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable></View> : trendingTags.length === 0 ? <Text className="font-body text-muted-text text-[13px]">No trending tags yet.</Text> : <View>{trendingTags.map((trend) => <View key={trend.tag} className="min-h-[42px] flex-row items-center justify-between border-b border-border"><Text className="font-heading-bold text-lime text-[14px]">{trend.tag}</Text><Text className="font-heading-bold text-tertiary-text text-[11px]">{trend.count}</Text></View>)}</View>}
+        {trendingLoading ? <View className="gap-sm"><View className="h-[42px] border-y border-border bg-white/[0.02]" /><View className="h-[42px] border-b border-border bg-white/[0.02]" /></View> : trendingTags.length === 0 ? <Text className="font-body text-muted-text text-[13px]">No trending tags yet.</Text> : <View>{trendingTags.map((trend) => <View key={trend.tag} className="min-h-[42px] flex-row items-center justify-between border-b border-border"><Text className="font-heading-bold text-lime text-[14px]">{trend.tag}</Text><Text className="font-heading-bold text-tertiary-text text-[11px]">{trend.count}</Text></View>)}</View>}
       </FadeInView>
     </PillarScreen>
   );
