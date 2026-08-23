@@ -53,9 +53,9 @@ test('Health Connect uses the approved aggregation and sync cadence', async () =
 });
 
 test('Health Connect writes only normalized metrics and preserves manual sleep handling', async () => {
-  const [integration, dashboard, progress] = await Promise.all([
+  const [integration, offlineSync, progress] = await Promise.all([
     source('lib/healthConnect.ts'),
-    source('hooks/useDashboard.ts'),
+    source('lib/offlineSync.ts'),
     source('screens/subscreens/ProgressScreen.tsx'),
   ]);
 
@@ -63,7 +63,9 @@ test('Health Connect writes only normalized metrics and preserves manual sleep h
     assert.ok(integration.includes(metric), `Missing normalized metric ${metric}`);
   }
   assert.match(integration, /upsert_health_connect_daily_data/);
-  assert.match(dashboard, /existingSleep\?\.source === 'health_connect'/);
+  assert.match(offlineSync, /WEARABLE_SLEEP_SOURCES\.has/);
+  assert.ok(offlineSync.includes("'health_connect'"));
+  assert.match(offlineSync, /\.eq\('source', 'manual'\)/);
   assert.match(progress, /integration\.provider === 'health_connect'/);
   assert.doesNotMatch(integration, /workout_sessions|\.from\('workouts'\)|insertRecords|deleteRecords/);
 });
