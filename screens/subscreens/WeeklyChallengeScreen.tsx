@@ -11,9 +11,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from '../../components/AppTopBar';
+import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
 import LimeButton from '../../components/LimeButton';
 import { useAuth } from '../../contexts/AuthContext';
-import { refreshDashboardForUser } from '../../hooks/useDashboard';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
+import { refreshDashboardForUser, type DashboardData } from '../../hooks/useDashboard';
+import { readDashboardCache } from '../../lib/offlineStorage';
 import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -24,10 +27,18 @@ type WeeklyChallenge = {
   description: string | null;
 };
 
-type ParticipationState = 'not_joined' | 'joined' | 'started' | 'completed' | 'unavailable';
+type ParticipationState = 'not_joined' | 'joined' | 'started' | 'completed';
 
 function startedKey(userId: string, challengeId: string) {
   return `dadhealth.weekly-challenge.started.${userId}.${challengeId}`;
+}
+
+function participationKey(userId: string, challengeId: string) {
+  return `dadhealth.weekly-challenge.participation.${userId}.${challengeId}`;
+}
+
+function isCachedParticipationState(value: string | null): value is Exclude<ParticipationState, 'started'> {
+  return value === 'not_joined' || value === 'joined' || value === 'completed';
 }
 
 function completionErrorMessage(message?: string) {
@@ -40,12 +51,40 @@ export default function WeeklyChallengeScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const route = useRoute<RouteProp<AppStackParamList, 'WeeklyChallenge'>>();
   const { user } = useAuth();
+  const { isOffline, showOfflineAction } = useNetworkStatus();
   const [challenge, setChallenge] = useState<WeeklyChallenge | null>(null);
-  const [participationState, setParticipationState] = useState<ParticipationState>('unavailable');
+  const [participationState, setParticipationState] = useState<ParticipationState>('not_joined');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  const loadCachedState = useCallback(async () => {
+    if (!user?.id) return false;
+    const challengeId = route.params.challengeId;
+    const [dashboard, locallyStarted, cachedParticipation] = await Promise.all([
+      readDashboardCache<DashboardData>(user.id).catch(() => null),
+      SecureStore.getItemAsync(startedKey(user.id, challengeId)).catch(() => null),
+      SecureStore.getItemAsync(participationKey(user.id, challengeId)).catch(() => null),
+    ]);
+    const cachedChallenge = dashboard?.challenge?.id === challengeId ? dashboard.challenge : null;
+    if (cachedChallenge) {
+      setChallenge({
+        id: cachedChallenge.id,
+        title: cachedChallenge.title,
+        description: cachedChallenge.description,
+      });
+    }
+    const serverState = isCachedParticipationState(cachedParticipation) ? cachedParticipation : 'not_joined';
+    setParticipationState(
+      serverState === 'completed'
+        ? 'completed'
+        : serverState === 'joined' && locallyStarted === 'true'
+          ? 'started'
+          : serverState,
+    );
+    return Boolean(cachedChallenge);
+  }, [route.params.challengeId, user?.id]);
 
   const load = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
@@ -53,8 +92,14 @@ export default function WeeklyChallengeScreen() {
 
     if (!user?.id) {
       setChallenge(null);
-      setParticipationState('unavailable');
+      setParticipationState('not_joined');
       setLoadError('Sign in to view and join this Weekly Challenge.');
+      setLoading(false);
+      return;
+    }
+
+    if (isOffline) {
+      await loadCachedState();
       setLoading(false);
       return;
     }
@@ -78,37 +123,40 @@ export default function WeeklyChallengeScreen() {
       ]);
 
       if (challengeResult.error) {
-        setChallenge(null);
-        setParticipationState('unavailable');
+        const restored = await loadCachedState();
+        if (!restored) setChallenge(null);
         setLoadError("We couldn't load this Weekly Challenge. Check your connection and try again.");
       } else if (!challengeResult.data) {
         setChallenge(null);
-        setParticipationState('unavailable');
+        setParticipationState('not_joined');
         setLoadError('This Weekly Challenge is no longer available. Return to Home to see the latest challenge.');
       } else if (participationResult.error) {
         setChallenge(challengeResult.data);
-        setParticipationState('unavailable');
+        await loadCachedState();
         setLoadError("We couldn't check your challenge status. Please try again.");
       } else {
         setChallenge(challengeResult.data);
         if (participationResult.data?.completed_at) {
           setParticipationState('completed');
+          await SecureStore.setItemAsync(participationKey(user.id, route.params.challengeId), 'completed');
           void SecureStore.deleteItemAsync(localStartedKey).catch(() => undefined);
         } else if (participationResult.data) {
           setParticipationState(locallyStarted === 'true' ? 'started' : 'joined');
+          await SecureStore.setItemAsync(participationKey(user.id, route.params.challengeId), 'joined');
         } else {
           setParticipationState('not_joined');
+          await SecureStore.setItemAsync(participationKey(user.id, route.params.challengeId), 'not_joined');
           void SecureStore.deleteItemAsync(localStartedKey).catch(() => undefined);
         }
       }
     } catch {
-      setChallenge(null);
-      setParticipationState('unavailable');
+      const restored = await loadCachedState();
+      if (!restored) setChallenge(null);
       setLoadError("We couldn't load this Weekly Challenge. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
-  }, [route.params.challengeId, user?.id]);
+  }, [isOffline, loadCachedState, route.params.challengeId, user?.id]);
 
   useEffect(() => {
     void load();
@@ -118,6 +166,10 @@ export default function WeeklyChallengeScreen() {
     if (!user?.id || !challenge || busy) return;
     if (join && participationState !== 'not_joined') return;
     if (!join && participationState !== 'joined') return;
+    if (isOffline) {
+      showOfflineAction('weekly_challenge');
+      return;
+    }
 
     setBusy(true);
     setActionError(null);
@@ -144,11 +196,15 @@ export default function WeeklyChallengeScreen() {
       if (!join) {
         await SecureStore.deleteItemAsync(startedKey(user.id, challenge.id)).catch(() => undefined);
       }
+      await SecureStore.setItemAsync(
+        participationKey(user.id, challenge.id),
+        join ? 'joined' : 'not_joined',
+      );
       await load(false);
       void refreshDashboardForUser(user.id);
     }
     setBusy(false);
-  }, [busy, challenge, load, participationState, user?.id]);
+  }, [busy, challenge, isOffline, load, participationState, showOfflineAction, user?.id]);
 
   const startChallenge = useCallback(async () => {
     if (!user?.id || !challenge || busy || participationState !== 'joined') return;
@@ -167,6 +223,10 @@ export default function WeeklyChallengeScreen() {
 
   const completeChallenge = useCallback(async () => {
     if (!user?.id || !challenge || busy || participationState !== 'started') return;
+    if (isOffline) {
+      showOfflineAction('weekly_challenge');
+      return;
+    }
 
     setBusy(true);
     setActionError(null);
@@ -178,11 +238,12 @@ export default function WeeklyChallengeScreen() {
       setActionError(completionErrorMessage(error.message));
     } else {
       await SecureStore.deleteItemAsync(startedKey(user.id, challenge.id)).catch(() => undefined);
+      await SecureStore.setItemAsync(participationKey(user.id, challenge.id), 'completed');
       setParticipationState('completed');
       void refreshDashboardForUser(user.id);
     }
     setBusy(false);
-  }, [busy, challenge, participationState, user?.id]);
+  }, [busy, challenge, isOffline, participationState, showOfflineAction, user?.id]);
 
   const experienceCopy = participationState === 'completed'
     ? {
@@ -223,22 +284,13 @@ export default function WeeklyChallengeScreen() {
             </Pressable>
           )}
         />
+        <GlobalErrorToastReporter message={loadError ?? actionError} />
 
         {loading ? (
           <View className="gap-lg" accessibilityLabel="Loading Weekly Challenge">
             <View className="h-[12px] w-[150px] rounded-full bg-white/10" />
             <View className="h-[94px] rounded-button bg-white/5" />
             <View className="h-[180px] rounded-button bg-white/5" />
-          </View>
-        ) : loadError && !challenge ? (
-          <View className="gap-lg border-y border-border py-xl">
-            <Text className="font-heading-bold text-lime text-[12px] tracking-[3px] uppercase">
-              This week&apos;s challenge
-            </Text>
-            <Text accessibilityRole="alert" className="font-body text-muted-text text-[15px] leading-[24px]">
-              {loadError}
-            </Text>
-            <LimeButton label="Try again" onPress={() => void load()} />
           </View>
         ) : challenge ? (
           <>
@@ -255,14 +307,7 @@ export default function WeeklyChallengeScreen() {
             </View>
 
             <View className="gap-lg">
-              {participationState === 'unavailable' ? (
-                <View className="gap-md">
-                  <Text accessibilityRole="alert" className="font-body text-red-300 text-[14px] leading-[22px]">
-                    {loadError ?? "We couldn't check your challenge status. Please try again."}
-                  </Text>
-                  <LimeButton label="Try again" onPress={() => void load(false)} />
-                </View>
-              ) : participationState === 'not_joined' ? (
+              {participationState === 'not_joined' ? (
                 <View className="gap-md">
                   <Text className="font-heading-bold text-lime text-[13px] tracking-[2px] uppercase">
                     This week&apos;s mission
@@ -335,12 +380,6 @@ export default function WeeklyChallengeScreen() {
                   </Pressable>
                 </View>
               )}
-
-              {actionError ? (
-                <Text accessibilityRole="alert" className="font-body text-red-300 text-[13px] leading-[20px]">
-                  {actionError}
-                </Text>
-              ) : null}
             </View>
           </>
         ) : null}
