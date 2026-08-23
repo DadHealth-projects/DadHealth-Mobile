@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
+import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
 import LimeButton from '../../components/LimeButton';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import TagPill from '../../components/dashboard/TagPill';
@@ -109,6 +110,7 @@ export default function MealPlannerScreen() {
       >
         <AppTopBar leftAccessory={<Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close meal planner" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
         <ScreenHero eyebrow="Meal planner" headline={'Fuel your\nwhole week'} sub="Set your needs. Get five days of meals and one shopping list." />
+        <GlobalErrorToastReporter message={error ?? library.error ?? library.proError} />
 
         <View className="gap-md">
           <View>
@@ -131,8 +133,7 @@ export default function MealPlannerScreen() {
           </View>
         </View>
 
-        {!user ? <LimeButton label="Log in to generate" onPress={openLogin} /> : library.loading ? <LimeButton label="Loading meal planner" loading /> : library.proError ? <LimeButton label="Retry access" onPress={() => void library.refresh()} /> : !library.isPro ? <LimeButton label="View Dad Health Pro" onPress={openPro} /> : <LimeButton label={generatedPlan ? 'Regenerate meal plan' : 'Generate meal plan'} onPress={() => void generate()} loading={generating} />}
-        {error || library.error || library.proError ? <View accessibilityRole="alert" className="rounded-button border border-red-400/40 bg-red-400/10 p-md"><Text className="font-body text-red-300 text-[13px] leading-[19px]">{error ?? library.error ?? library.proError}</Text></View> : null}
+        {!user ? <LimeButton label="Log in to generate" onPress={openLogin} /> : library.loading ? <LimeButton label="Loading meal planner" loading /> : !library.isPro ? <LimeButton label="View Dad Health Pro" onPress={openPro} /> : <LimeButton label={generatedPlan ? 'Regenerate meal plan' : 'Generate meal plan'} onPress={() => void generate()} loading={generating} />}
 
         {generatedPlan && displayedDay ? (
           <View className="gap-lg border-t border-border pt-lg">

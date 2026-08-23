@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
+import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
 import LimeButton from '../../components/LimeButton';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import {
@@ -61,6 +62,7 @@ export default function TDEECalculatorScreen() {
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" contentContainerClassName="px-lg pt-lg pb-xl gap-xl">
           <AppTopBar leftAccessory={<Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close TDEE calculator" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
           <ScreenHero eyebrow="TDEE calculator" headline={'Know your\ndaily fuel'} sub="Calculate calories for your body, activity and goal." />
+          <GlobalErrorToastReporter message={error} />
 
           <View className="gap-lg">
             <SegmentedControl options={[{ value: 'metric', label: 'Metric' }, { value: 'imperial', label: 'Imperial' }]} value={units} onChange={(value) => { setUnits(value); setResult(null); setError(null); }} />
@@ -79,7 +81,6 @@ export default function TDEECalculatorScreen() {
             {activityOpen ? <DropdownOptions options={ACTIVITIES} value={activityLevel} onChange={(value) => { setActivityLevel(value); setActivityOpen(false); }} /> : null}
           </View>
 
-          {error ? <View accessibilityRole="alert" className="rounded-button border border-red-400/40 bg-red-400/10 p-md"><Text className="font-body text-red-300 text-[13px] leading-[19px]">{error}</Text></View> : null}
           <View className="gap-sm"><LimeButton label="Calculate TDEE" onPress={calculate} />{result ? <Pressable onPress={reset} accessibilityRole="button" className="min-h-[44px] items-center justify-center"><Text className="font-heading-bold text-muted-text text-[12px] uppercase">Reset</Text></Pressable> : null}</View>
 
           {result ? (
