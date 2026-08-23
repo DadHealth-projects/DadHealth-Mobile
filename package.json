@@ -6,7 +6,7 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "test": "node --no-warnings --test tests/biometricFlow.test.mjs tests/healthPermissionsCopy.test.mjs tests/healthSync.test.mjs tests/healthConnect.test.mjs tests/startupLoading.test.mjs tests/productionCopy.test.mjs tests/pushProduction.test.mjs tests/nativeSubscriptions.test.mjs tests/weeklyChallenge.test.mjs tests/appleSignIn.test.mjs",
+    "test": "node --no-warnings --test tests/biometricFlow.test.mjs tests/healthPermissionsCopy.test.mjs tests/healthSync.test.mjs tests/healthConnect.test.mjs tests/startupLoading.test.mjs tests/productionCopy.test.mjs tests/pushProduction.test.mjs tests/nativeSubscriptions.test.mjs tests/weeklyChallenge.test.mjs tests/appleSignIn.test.mjs tests/offlineMode.test.mjs",
     "test:production-copy": "node --no-warnings --test tests/productionCopy.test.mjs",
     "web": "expo start --web"
   },
@@ -16,7 +16,9 @@
     "@expo/metro-runtime": "~6.1.2",
     "@expo/vector-icons": "^15.0.3",
     "@kingstinct/react-native-healthkit": "13.4.0",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",
+    "@react-native-community/netinfo": "11.4.1",
     "@react-navigation/bottom-tabs": "^7.18.11",
     "@react-navigation/native": "^7.3.11",
     "@react-navigation/native-stack": "^7.18.3",
