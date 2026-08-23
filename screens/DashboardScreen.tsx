@@ -4,6 +4,7 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
+  Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,7 +15,7 @@ import AppTopBar from '../components/AppTopBar';
 import type { DashboardSection } from '../components/AccountSheet';
 import ChallengeCard from '../components/dashboard/ChallengeCard';
 import CheckInPanel from '../components/dashboard/CheckInPanel';
-import LoadErrorState from '../components/LoadErrorState';
+import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
 import DadScoreCard from '../components/dashboard/DadScoreCard';
 import FadeInView from '../components/FadeInView';
 import GreetingHeader from '../components/dashboard/GreetingHeader';
@@ -26,6 +27,7 @@ import UpgradeProCard from '../components/dashboard/UpgradeProCard';
 import type { MoodKey } from '../components/mockup/MoodCheckInRow';
 import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '../hooks/useDashboard';
+import { useNetworkStatus } from '../contexts/NetworkContext';
 import { CAPS } from '../lib/dashboardCaps';
 import {
   MOOD_WEEK_LABELS,
@@ -88,12 +90,14 @@ export function DashboardScreenContent({
   onSelectSection?: (section: DashboardSection) => void;
 }) {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
-  const { data, loading, error: dashboardError, checkingIn, refresh, saveCheckIn } = useDashboard(user.id);
+  const { data, loading, error: dashboardError, syncError, checkingIn, refresh, saveCheckIn } = useDashboard(user.id);
+  const { isOffline } = useNetworkStatus();
   // Web pre-selects mood 3 ("Good") and 7 hours of sleep.
   const [moodKey, setMoodKey] = useState<MoodKey>('good');
   const [moodValue, setMoodValue] = useState(3);
   const [sleep, setSleep] = useState('7');
   const [checkInError, setCheckInError] = useState<string | null>(null);
+  const [checkInMessage, setCheckInMessage] = useState<string | null>(null);
   const [goalStatuses, setGoalStatuses] = useState<Record<string, DashboardGoalStatus>>({});
   const [showRefreshSkeleton, setShowRefreshSkeleton] = useState(false);
 
@@ -174,15 +178,18 @@ export function DashboardScreenContent({
     setMoodKey(key);
     setMoodValue(value);
     setCheckInError(null);
+    setCheckInMessage(null);
   }, []);
 
   const handleChangeSleep = useCallback((value: string) => {
     setSleep(value);
     setCheckInError(null);
+    setCheckInMessage(null);
   }, []);
 
   const handleCheckIn = useCallback(async () => {
     setCheckInError(null);
+    setCheckInMessage(null);
     const sleepHours = Number(sleep);
     if (!sleep.trim() || !Number.isFinite(sleepHours)) {
       setCheckInError('Enter the hours you slept last night.');
@@ -190,6 +197,7 @@ export function DashboardScreenContent({
     }
     const result = await saveCheckIn(moodValue, sleepHours);
     if (result.error) setCheckInError(result.error);
+    else if (result.queued) setCheckInMessage("Saved — will sync when you're back online");
   }, [moodValue, saveCheckIn, sleep]);
 
   const handleRefresh = useCallback(async () => {
@@ -234,13 +242,32 @@ export function DashboardScreenContent({
             activeSection={activeSection}
             onSelectSection={onSelectSection}
           />
+          <GlobalErrorToastReporter message={dashboardError && !data && !isOffline ? "We couldn't bring in today's check-in, score and plan. Try again in a moment." : null} />
+          <GlobalErrorToastReporter message={syncError} />
 
-          {dashboardError && !data ? (
-            <LoadErrorState
-              title="Home didn't load"
-              message="We couldn't bring in today's check-in, score and plan. Try again in a moment."
-              onRetry={handleRefresh}
-            />
+          {!data ? (
+            <View className="gap-md">
+              {checkInMessage ? (
+                <Text accessibilityLiveRegion="polite" className="font-body text-lime text-[13px] leading-[19px]">{checkInMessage}</Text>
+              ) : (
+                <DadScoreCard
+                  score={null}
+                  items={[{ label: 'Mind', value: null }, { label: 'Body', value: null }, { label: 'Bond', value: null }]}
+                  missingScore="—"
+                  missingItemValue="—"
+                >
+                  <CheckInPanel
+                    selectedKey={moodKey}
+                    onSelectMood={handleSelectMood}
+                    sleep={sleep}
+                    onChangeSleep={handleChangeSleep}
+                    onSave={() => void handleCheckIn()}
+                    saving={checkingIn}
+                    error={checkInError}
+                  />
+                </DadScoreCard>
+              )}
+            </View>
           ) : null}
 
           {data ? (
@@ -270,6 +297,7 @@ export function DashboardScreenContent({
                     />
                   ) : null}
                 </DadScoreCard>
+                {checkInMessage ? <Text accessibilityLiveRegion="polite" className="font-body text-lime text-[13px] leading-[19px] mt-sm">{checkInMessage}</Text> : null}
               </FadeInView>
 
               {!data.isPro ? (

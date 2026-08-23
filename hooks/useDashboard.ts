@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
+import * as Crypto from 'expo-crypto';
 
+import { useNetworkStatus } from '../contexts/NetworkContext';
+import {
+  enqueueOfflineWrite,
+  readDashboardCache,
+  subscribeOfflineSync,
+  writeDashboardCache,
+  type OfflineDailyCheckInItem,
+} from '../lib/offlineStorage';
+import { isRetryableOfflineError, persistDailyCheckIn } from '../lib/offlineSync';
 import { supabase } from '../lib/supabase';
 import { isProfilePro } from '../lib/proStatus';
 
@@ -150,28 +160,6 @@ function remindersFrom(value: unknown): Reminder[] {
 
 function textOrNull(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
-}
-
-async function updateStreak(userId: string): Promise<void> {
-  const today = todayKey();
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayKey = yesterday.toISOString().slice(0, 10);
-  const { data: existing, error: readError } = await supabase
-    .from('user_streaks')
-    .select('streak_count,last_activity_date')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (readError) throw readError;
-  if (existing?.last_activity_date === today) return;
-
-  const streakCount = existing?.last_activity_date === yesterdayKey
-    ? (existing.streak_count ?? 0) + 1
-    : 1;
-  const { error: writeError } = await supabase
-    .from('user_streaks')
-    .upsert({ user_id: userId, streak_count: streakCount, last_activity_date: today }, { onConflict: 'user_id' });
-  if (writeError) throw writeError;
 }
 
 async function withTimeout<T>(promise: Promise<T>, ms = 12000): Promise<T> {
@@ -465,11 +453,12 @@ type StoreState = {
   data: DashboardData | null;
   loading: boolean;
   error: string | null;
+  syncError: string | null;
 };
 
-let store: StoreState = { userId: null, data: null, loading: false, error: null };
+let store: StoreState = { userId: null, data: null, loading: false, error: null, syncError: null };
 const listeners = new Set<() => void>();
-let inFlight: Promise<void> | null = null;
+const inFlightByUser = new Map<string, Promise<void>>();
 
 function setStore(next: Partial<StoreState>): void {
   store = { ...store, ...next };
@@ -478,29 +467,102 @@ function setStore(next: Partial<StoreState>): void {
 
 async function runFetch(userId: string): Promise<void> {
   try {
-    setStore({ data: await withTimeout(fetchDashboard(userId)), error: null });
+    const data = await withTimeout(fetchDashboard(userId));
+    if (store.userId !== userId) return;
+    setStore({ data, error: null });
+    try {
+      await writeDashboardCache(userId, data);
+    } catch {
+      // A cache write must never turn a successful online dashboard load into
+      // a client-facing failure.
+    }
   } catch (fetchError) {
-    setStore({ error: messageFor(fetchError) });
+    if (store.userId !== userId) return;
+    try {
+      const cached = await readDashboardCache<DashboardData>(userId);
+      if (cached && typeof cached === 'object') {
+        const moodLogs = Array.isArray(cached.moodLogs) ? cached.moodLogs : [];
+        setStore({
+          data: {
+            ...cached,
+            moodLogs,
+            checkedInToday: moodLogs.some((log) => log.date === todayKey()),
+          },
+          error: null,
+        });
+      } else {
+        setStore({ error: messageFor(fetchError) });
+      }
+    } catch {
+      setStore({ error: messageFor(fetchError) });
+    }
   } finally {
-    setStore({ loading: false });
+    if (store.userId === userId) setStore({ loading: false });
   }
 }
 
-function loadDashboard(userId: string, force: boolean): Promise<void> {
-  if (inFlight && !force) return inFlight;
-  setStore({ userId, loading: true, error: null });
-  const request = runFetch(userId).finally(() => {
-    if (inFlight === request) inFlight = null;
+async function hydrateDashboardCache(userId: string, clearWhenMissing: boolean): Promise<boolean> {
+  try {
+    const cached = await readDashboardCache<DashboardData>(userId);
+    if (store.userId !== userId) return false;
+    if (cached && typeof cached === 'object') {
+      const moodLogs = Array.isArray(cached.moodLogs) ? cached.moodLogs : [];
+      setStore({
+        data: {
+          ...cached,
+          moodLogs,
+          checkedInToday: moodLogs.some((log) => log.date === todayKey()),
+        },
+        error: null,
+      });
+      return true;
+    }
+    if (clearWhenMissing) setStore({ data: null, error: null });
+  } catch {
+    if (clearWhenMissing && store.userId === userId) setStore({ data: null, error: null });
+  }
+  return false;
+}
+
+async function loadDashboardCacheOnly(userId: string): Promise<void> {
+  setStore({
+    userId,
+    data: store.userId === userId ? store.data : null,
+    loading: true,
+    error: null,
+    syncError: store.userId === userId ? store.syncError : null,
   });
-  inFlight = request;
+  await hydrateDashboardCache(userId, true);
+  if (store.userId === userId) setStore({ loading: false });
+}
+
+function loadDashboard(userId: string): Promise<void> {
+  const existingRequest = inFlightByUser.get(userId);
+  if (existingRequest) return existingRequest;
+  const hasCurrentData = store.userId === userId && Boolean(store.data);
+  setStore({
+    userId,
+    data: store.userId === userId ? store.data : null,
+    loading: true,
+    error: null,
+    syncError: store.userId === userId ? store.syncError : null,
+  });
+  const request = (async () => {
+    if (!hasCurrentData) await hydrateDashboardCache(userId, false);
+    await runFetch(userId);
+  })().finally(() => {
+    if (inFlightByUser.get(userId) === request) inFlightByUser.delete(userId);
+  });
+  inFlightByUser.set(userId, request);
   return request;
 }
 
 export function refreshDashboardForUser(userId: string): Promise<void> {
-  return loadDashboard(userId, true);
+  return loadDashboard(userId);
 }
 
 export function useDashboard(userId: string | undefined) {
+  const { isOffline } = useNetworkStatus();
   const [snapshot, setSnapshot] = useState<StoreState>(store);
   const [checkingIn, setCheckingIn] = useState(false);
 
@@ -517,65 +579,95 @@ export function useDashboard(userId: string | undefined) {
     if (!userId) {
       // Signed out: drop the cached member data so nothing leaks between users.
       if (store.userId !== null || store.data) {
-        setStore({ userId: null, data: null, loading: false, error: null });
+        setStore({ userId: null, data: null, loading: false, error: null, syncError: null });
+      }
+      return;
+    }
+    if (isOffline) {
+      if (store.userId !== userId || (!store.data && !store.loading)) {
+        void loadDashboardCacheOnly(userId);
       }
       return;
     }
     if (store.userId !== userId) {
-      void loadDashboard(userId, true);
+      void loadDashboard(userId);
       return;
     }
-    if (!store.data && !store.loading && !store.error) void loadDashboard(userId, false);
-  }, [userId]);
+    if (!store.data && !store.loading) void loadDashboard(userId);
+  }, [isOffline, userId]);
+
+  useEffect(() => subscribeOfflineSync((event) => {
+    if (event.userId !== userId || event.kind !== 'daily_checkin') return;
+    if (event.status === 'failed') setStore({ syncError: event.message ?? 'Your saved check-in could not be synced.' });
+    if (event.status === 'synced') {
+      setStore({ syncError: null });
+      if (userId) void loadDashboard(userId);
+    }
+  }), [userId]);
 
   // Never hand a screen another account's cached rows.
   const data = snapshot.userId === userId ? snapshot.data : null;
   const loading = snapshot.userId === userId ? snapshot.loading : Boolean(userId);
   const error = snapshot.userId === userId ? snapshot.error : null;
+  const syncError = snapshot.userId === userId ? snapshot.syncError : null;
 
   const refresh = useCallback(async () => {
     if (!userId) return;
-    await loadDashboard(userId, true);
-  }, [userId]);
+    if (isOffline) await loadDashboardCacheOnly(userId);
+    else await loadDashboard(userId);
+  }, [isOffline, userId]);
 
-  const saveCheckIn = useCallback(async (moodValue: number, sleepHours: number): Promise<{ error: string | null }> => {
+  const saveCheckIn = useCallback(async (moodValue: number, sleepHours: number): Promise<{ error: string | null; queued?: boolean }> => {
     if (!userId) return { error: "You're not signed in. Please sign in again to save your check-in." };
     if (!Number.isInteger(moodValue) || moodValue < 1 || moodValue > 4) return { error: 'Choose a mood from 1 to 4.' };
     if (!Number.isFinite(sleepHours) || sleepHours < 0 || sleepHours > 12) return { error: 'Enter sleep between 0 and 12 hours.' };
 
     setCheckingIn(true);
-    try {
-      const today = todayKey();
-      // Same rule as web: never overwrite a wearable-synced sleep row with a
-      // manual entry (src/hooks/useDashboard.ts checkIn mutation).
-      const { data: existingSleep } = await supabase
-        .from('sleep_logs')
-        .select('source')
-        .eq('user_id', userId)
-        .eq('date', today)
-        .maybeSingle();
-      const wearableSleep = existingSleep?.source === 'garmin'
-        || existingSleep?.source === 'fitbit'
-        || existingSleep?.source === 'apple_health'
-        || existingSleep?.source === 'health_connect';
+    const date = todayKey();
+    const item: OfflineDailyCheckInItem = {
+      id: Crypto.randomUUID(),
+      userId,
+      kind: 'daily_checkin',
+      createdAt: new Date().toISOString(),
+      payload: { date, moodValue, sleepHours },
+    };
 
-      const [moodResult, sleepResult] = await Promise.all([
-        supabase.from('mood_logs').upsert({ user_id: userId, date: today, mood_value: moodValue }, { onConflict: 'user_id,date' }),
-        wearableSleep
-          ? Promise.resolve({ error: null })
-          : supabase.from('sleep_logs').upsert({ user_id: userId, date: today, hours: sleepHours, source: 'manual' }, { onConflict: 'user_id,date' }),
-      ]);
-      if (moodResult.error) throw moodResult.error;
-      if (sleepResult.error) throw sleepResult.error;
-      await updateStreak(userId);
+    const applyLocalCheckIn = async () => {
+      if (!store.data || store.userId !== userId) return;
+      const nextMoodLogs = [
+        ...store.data.moodLogs.filter((log) => log.date !== date),
+        { date, mood_value: moodValue },
+      ].sort((a, b) => a.date.localeCompare(b.date));
+      const nextData = { ...store.data, moodLogs: nextMoodLogs, checkedInToday: date === todayKey() };
+      setStore({ data: nextData, error: null, syncError: null });
+      await writeDashboardCache(userId, nextData);
+    };
+
+    try {
+      if (isOffline) {
+        await enqueueOfflineWrite(item);
+        await applyLocalCheckIn();
+        return { error: null, queued: true };
+      }
+
+      await persistDailyCheckIn(item);
       await refresh();
       return { error: null };
     } catch (saveError) {
+      if (isRetryableOfflineError(saveError)) {
+        try {
+          await enqueueOfflineWrite(item);
+          await applyLocalCheckIn();
+          return { error: null, queued: true };
+        } catch {
+          return { error: "We couldn't save your check-in on this device. Reconnect and try again." };
+        }
+      }
       return { error: messageFor(saveError).replace('load your dashboard', 'save your check-in') };
     } finally {
       setCheckingIn(false);
     }
-  }, [refresh, userId]);
+  }, [isOffline, refresh, userId]);
 
   /** Join / leave a circle (web `useCommunity` toggles `user_circles`). */
   const toggleCircle = useCallback(async (circleId: string, joined: boolean): Promise<void> => {
@@ -599,5 +691,5 @@ export function useDashboard(userId: string | undefined) {
     }
   }, [refresh, userId]);
 
-  return { data, loading, error, checkingIn, refresh, saveCheckIn, toggleCircle };
+  return { data, loading, error, syncError, checkingIn, refresh, saveCheckIn, toggleCircle };
 }
