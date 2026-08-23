@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
 import MoodCheckInRow, { type MoodKey } from '../mockup/MoodCheckInRow';
+import GlobalErrorToastReporter from '../GlobalErrorToastReporter';
 import { colors } from '../../theme';
 
 type CheckInPanelProps = {
@@ -30,6 +31,7 @@ function CheckInPanel({
 }: CheckInPanelProps) {
   return (
     <View>
+      <GlobalErrorToastReporter message={error} />
       <MoodCheckInRow selectedKey={selectedKey} onSelect={onSelectMood} disabled={saving} />
 
       <View className="flex-row items-end gap-sm mt-md">
@@ -68,10 +70,6 @@ function CheckInPanel({
           )}
         </Pressable>
       </View>
-
-      {error ? (
-        <Text className="font-body text-[#7A1010] text-[12px] leading-[17px] mt-sm">{error}</Text>
-      ) : null}
     </View>
   );
 }
