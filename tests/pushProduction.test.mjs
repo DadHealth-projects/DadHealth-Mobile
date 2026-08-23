@@ -29,6 +29,15 @@ test('notification taps route every supported destination natively', async () =>
   }
 });
 
+test('Expo web never initializes the native OneSignal bridge', async () => {
+  const router = await readFile(new URL('lib/pushNotifications.ts', root), 'utf8');
+
+  assert.match(router, /Platform\.OS === 'web'/);
+  assert.ok(
+    router.indexOf("Platform.OS === 'web'") < router.indexOf("TurboModuleRegistry.get('OneSignal')"),
+  );
+});
+
 test('Present Dad completion is no longer written by the mobile client', async () => {
   const hook = await readFile(new URL('hooks/usePresentDadMode.ts', root), 'utf8');
 

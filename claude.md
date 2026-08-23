@@ -143,11 +143,13 @@ In progress.
   will run near the end of M3.
 - M3.4 Native Subscriptions is implemented. Apple and Google external store
   configuration will be completed separately as access becomes available.
-- M3.5 Offline Mode is the current implementation unit.
-- M3.6 Deep Links follows Offline Mode and completes the original M3
-  co-parenting and notification-routing requirement. Universal Links and
-  Android App Links are not requirements of the original brief. Once verified,
-  do not reopen Deep Links during refinements unless an actual bug is found.
+- M3.5 Offline Mode is implemented with user-scoped caches, queued Home and
+  Journal writes, reconnect sync and one centralized connectivity experience.
+- M3.6 Deep Links is implemented for secure co-parent invite continuation,
+  community threads and auth-safe notification routing. Signed iOS and Android
+  lifecycle QA remains. Universal Links and Android App Links are not
+  requirements of the original brief. Once verified, do not reopen Deep Links
+  during refinements unless an actual bug is found.
 
 ## Screen Migration Milestone
 
@@ -302,9 +304,8 @@ Return to review mode before continuing.
 
 ## Remaining Order
 
-1. Offline Mode
-2. Deep Links
-3. Android Health Connect and full iOS / Android production QA
+1. Deep Links signed iOS / Android lifecycle QA
+2. Android Health Connect and full iOS / Android production QA
 
 Native subscription external Apple and Google configuration proceeds separately
 as store access and configuration become available.
