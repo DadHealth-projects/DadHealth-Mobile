@@ -7,6 +7,7 @@ import ActivityCard from '../components/mockup/ActivityCard';
 import BondScoreCard from '../components/bond/BondScoreCard';
 import type { DashboardSection } from '../components/AccountSheet';
 import FadeInView from '../components/FadeInView';
+import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
 import PillarCard from '../components/mockup/PillarCard';
 import PillarScreen from '../components/PillarScreen';
 import PillarSkeleton from '../components/skeleton/PillarSkeleton';
@@ -104,12 +105,11 @@ export default function BondScreen({
       refreshing={loading}
       onRefresh={hasUser ? onRefresh : undefined}
       error={data ? null : error}
-      errorTitle="Bond didn't load"
       errorMessage="We couldn't bring in your parenting tools, Dad Dates and family activity. Try again in a moment."
-      onRetry={onRefresh}
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}
     >
+      <GlobalErrorToastReporter message={startersError ? 'Conversation starters are unavailable.' : null} />
       <FadeInView>
         <ScreenHero
           eyebrow="The Bond"
@@ -211,7 +211,7 @@ export default function BondScreen({
           <Text className="font-heading-bold text-white text-[22px] leading-[24px] uppercase">Conversation starters</Text>
           <Feather name={startersOpen ? 'chevron-down' : 'chevron-right'} size={22} color={colors.lime} />
         </Pressable>
-        {startersOpen ? <View className="mt-md gap-sm">{startersLoading ? <View className="h-[56px] bg-white/5" /> : startersError ? <View className="gap-md border-l-[3px] border-l-red-300 pl-md"><Text className="font-body text-muted-text text-[13px]">Conversation starters are unavailable.</Text><Pressable onPress={() => void loadConversationStarters()}><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable></View> : conversationStarters.length === 0 ? <Text className="font-body text-muted-text text-[14px]">No conversation starters yet.</Text> : conversationStarters.map((prompt) => <View key={prompt} className="border-b border-border border-l-[3px] border-l-lime py-md pl-md"><Text className="font-body text-tertiary-text text-[14px] leading-[20px] italic">"{prompt}"</Text></View>)}</View> : null}
+        {startersOpen ? <View className="mt-md gap-sm">{startersLoading ? <View className="h-[56px] bg-white/5" /> : conversationStarters.length === 0 ? <Text className="font-body text-muted-text text-[14px]">No conversation starters yet.</Text> : conversationStarters.map((prompt) => <View key={prompt} className="border-b border-border border-l-[3px] border-l-lime py-md pl-md"><Text className="font-body text-tertiary-text text-[14px] leading-[20px] italic">"{prompt}"</Text></View>)}</View> : null}
       </FadeInView>
     </PillarScreen>
   );

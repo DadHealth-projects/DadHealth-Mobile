@@ -1,23 +1,26 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useNetworkStatus } from '../contexts/NetworkContext';
 import { supabase } from '../lib/supabase';
 
 type ActiveSession = { id: string; ends_at: string };
 
 export function usePresentDadMode(userId?: string) {
+  const { isOffline, showOfflineAction } = useNetworkStatus();
   const [session, setSession] = useState<ActiveSession | null>(null);
   const [busy, setBusy] = useState(false);
   const [finishing, setFinishing] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!userId) { setSession(null); setFinishing(false); return; }
+    if (isOffline) return;
     const result = await supabase.from('present_dad_sessions').select('id,ends_at').eq('user_id', userId).eq('status', 'active').maybeSingle();
     if (result.error) return;
     if (!result.data) { setSession(null); setFinishing(false); return; }
     const active = result.data as ActiveSession;
     setSession(active);
     setFinishing(new Date(active.ends_at).getTime() <= Date.now());
-  }, [userId]);
+  }, [isOffline, userId]);
 
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
@@ -33,6 +36,10 @@ export function usePresentDadMode(userId?: string) {
 
   const toggle = useCallback(async () => {
     if (!userId || busy || finishing) return null;
+    if (isOffline) {
+      showOfflineAction('present_dad');
+      return null;
+    }
     setBusy(true);
     try {
       if (session) {
@@ -48,7 +55,7 @@ export function usePresentDadMode(userId?: string) {
     } finally {
       setBusy(false);
     }
-  }, [busy, finishing, session, userId]);
+  }, [busy, finishing, isOffline, session, showOfflineAction, userId]);
 
   return { enabled: Boolean(session), busy: busy || finishing, toggle };
 }
