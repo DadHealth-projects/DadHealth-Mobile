@@ -1,11 +1,17 @@
 import React from 'react';
+import type { NavigationContainerRef } from '@react-navigation/native';
 
 import { useAuth } from './AuthContext';
-import AppNavigator from '../navigation/AppNavigator';
+import AppNavigator, { type AppStackParamList } from '../navigation/AppNavigator';
 import BiometricEnrollmentModal from '../components/BiometricEnrollmentModal';
+import DeepLinkManager from '../components/DeepLinkManager';
 import Splash from '../components/Splash';
 
-export default function RootNavigator() {
+export default function RootNavigator({
+  navigationRef,
+}: {
+  navigationRef: NavigationContainerRef<AppStackParamList>;
+}) {
   const { loading, session, onboardingComplete, pendingBiometricEnrollment } = useAuth();
 
   if (loading || (session && onboardingComplete === null)) {
@@ -13,7 +19,12 @@ export default function RootNavigator() {
   }
 
   if (!session) {
-    return <AppNavigator key="tabs" initialRouteName="Tabs" />;
+    return (
+      <>
+        <AppNavigator key="tabs" initialRouteName="Tabs" />
+        <DeepLinkManager navigationRef={navigationRef} />
+      </>
+    );
   }
 
   const isOnboarding = !onboardingComplete;
@@ -24,6 +35,7 @@ export default function RootNavigator() {
         key={isOnboarding ? 'onboarding' : 'tabs'}
         initialRouteName={isOnboarding ? 'Welcome' : 'Tabs'}
       />
+      <DeepLinkManager navigationRef={navigationRef} />
 
       {pendingBiometricEnrollment && (
         <BiometricEnrollmentModal />
