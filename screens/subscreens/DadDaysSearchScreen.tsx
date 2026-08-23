@@ -7,9 +7,11 @@ import * as Location from 'expo-location';
 import * as SecureStore from 'expo-secure-store';
 
 import AppTopBar from '../../components/AppTopBar';
+import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
 import LimeButton from '../../components/LimeButton';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { useDashboard } from '../../hooks/useDashboard';
 import { trackEvent } from '../../lib/analytics';
 import { isProfilePro } from '../../lib/proStatus';
@@ -31,6 +33,7 @@ const RADII = [{ value: '5', label: '5 mi' }, { value: '10', label: '10 mi' }, {
 export default function DadDaysSearchScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { user, session } = useAuth();
+  const { isOffline, showOfflineAction } = useNetworkStatus();
   const { refresh: refreshDashboard } = useDashboard(user?.id);
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [postcodeInput, setPostcodeInput] = useState('');
@@ -54,7 +57,7 @@ export default function DadDaysSearchScreen() {
   }, []);
 
   const loadAccess = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id || isOffline) return;
     const monthStart = new Date();
     monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
     const [profileResult, countResult] = await Promise.all([
@@ -68,7 +71,7 @@ export default function DadDaysSearchScreen() {
     const profile = profileResult.data;
     setIsPro(isProfilePro(profile));
     setSearchesUsed(countResult.count ?? 0);
-  }, [user?.id]);
+  }, [isOffline, user?.id]);
 
   useEffect(() => { void loadAccess(); }, [loadAccess]);
 
@@ -108,6 +111,7 @@ export default function DadDaysSearchScreen() {
   }, []);
 
   const usePostcode = useCallback(async () => {
+    if (isOffline) { showOfflineAction('dad_days_search'); return; }
     if (!postcodeInput.trim()) { setError('Enter a UK postcode.'); return; }
     setLocating(true); setError(null);
     try {
@@ -119,12 +123,13 @@ export default function DadDaysSearchScreen() {
     } catch {
       setError("We couldn't find that postcode. Check it and try again.");
     } finally { setLocating(false); }
-  }, [postcodeInput]);
+  }, [isOffline, postcodeInput, showOfflineAction]);
 
   const remaining = Math.max(0, FREE_LIMIT - searchesUsed);
   const limitReached = !isPro && remaining === 0;
   const search = useCallback(async () => {
     if (!user || !session?.access_token) { navigation.navigate('Login'); return; }
+    if (isOffline) { showOfflineAction('dad_days_search'); return; }
     if (!coords) { setError('Use your location or enter a postcode first.'); return; }
     if (limitReached) { navigation.navigate('ProSubscription'); return; }
     setSearching(true); setError(null); setResults([]);
@@ -145,10 +150,11 @@ export default function DadDaysSearchScreen() {
       trackEvent('dad_days_search_completed', { budget, radius: Number(radius), childAge, resultCount: nextResults.length, isPro }, user.id);
     } catch { setError('We could not search for Dad Days. Check your connection and try again.'); }
     finally { setSearching(false); }
-  }, [budget, childAge, coords, isPro, limitReached, navigation, postcode, radius, searchesUsed, session?.access_token, user]);
+  }, [budget, childAge, coords, isOffline, isPro, limitReached, navigation, postcode, radius, searchesUsed, session?.access_token, showOfflineAction, user]);
 
   const save = useCallback(async (result: SearchResult) => {
     if (!user?.id) return;
+    if (isOffline) { showOfflineAction('dad_days_save'); return; }
     setSavingName(result.name); setError(null);
     const saveResult = await supabase.from('dad_dates').insert({ user_id: user.id, icon: 'map-pin', name: result.name, age_range: result.ageRange, budget: result.estimatedCost, duration_minutes: 120, time_of_day: 'Any time', source: 'ai_search', booking_url: result.websiteUrl, address: result.address, requires_booking: result.requiresBooking });
     if (saveResult.error) setError('We could not save this activity. Please try again.');
@@ -158,7 +164,7 @@ export default function DadDaysSearchScreen() {
       Alert.alert('Saved', 'This activity was added to your Dad Date Ideas.');
     }
     setSavingName(null);
-  }, [budget, refreshDashboard, user?.id]);
+  }, [budget, isOffline, refreshDashboard, showOfflineAction, user?.id]);
 
   const locationLabel = coords ? (postcode ? postcode : 'Current location') : 'No location set';
 
@@ -167,6 +173,7 @@ export default function DadDaysSearchScreen() {
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerClassName="px-lg pt-lg pb-xl gap-xl">
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Close Dad Days search" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
         <ScreenHero eyebrow="Dad Days" headline={'Find your\nnext day out'} sub="Search nearby activities by age, budget and distance." />
+        <GlobalErrorToastReporter message={error} />
 
         {!user ? <LimeButton label="Log in to search" onPress={() => navigation.navigate('Login')} /> : (
           <View className="gap-xl">
@@ -187,7 +194,6 @@ export default function DadDaysSearchScreen() {
               {openFilter === 'radius' ? <DropdownOptions options={RADII} value={radius} onChange={(value) => { setRadius(value); setOpenFilter(null); void SecureStore.setItemAsync(RADIUS_KEY, value); }} /> : null}
               {openFilter === 'age' ? <DropdownOptions options={AGES} value={childAge} onChange={(value) => { setChildAge(value); setOpenFilter(null); }} /> : null}
             </View>
-            {error ? <View accessibilityRole="alert" className="rounded-button border border-red-400/40 bg-red-400/10 p-md"><Text className="font-body text-red-300 text-[13px] leading-[19px]">{error}</Text></View> : null}
             {limitReached ? <View className="gap-md border-y border-border py-lg"><Text className="font-heading-bold text-white text-[17px] uppercase">3 free searches used</Text><Text className="font-body text-muted-text text-[13px]">Your allowance resets on the first of next month.</Text><LimeButton label="View Dad Health Pro" onPress={() => navigation.navigate('ProSubscription')} /></View> : <><LimeButton label="Search for Dad Days" onPress={() => void search()} loading={searching} />{!isPro ? <Text className="font-body text-tertiary-text text-[12px] text-center">{remaining} of {FREE_LIMIT} free searches remaining</Text> : null}</>}
           </View>
         )}
