@@ -10,6 +10,7 @@ import type { DashboardSection } from '../../components/AccountSheet';
 import AppTopBar from '../../components/AppTopBar';
 import DadScoreCard from '../../components/dashboard/DadScoreCard';
 import FadeInView from '../../components/FadeInView';
+import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import SectionHeader from '../../components/dashboard/SectionHeader';
 import StatCard from '../../components/dashboard/StatCard';
@@ -42,6 +43,7 @@ export default function ProgressScreen({
   const progressBadges = useProgressBadges(user?.id);
   const progressSleep = useProgressSleep(user?.id);
   const [reportMessage, setReportMessage] = useState<string | null>(null);
+  const globalError = progressScore.error ?? progressReport.error ?? progressBadges.error ?? progressSleep.error;
 
   const refreshing = progressScore.loading || progressReport.loading || progressBadges.loading || progressSleep.loading;
   const onRefresh = useCallback(() => {
@@ -142,15 +144,9 @@ export default function ProgressScreen({
               <ScreenHero eyebrow="Progress" headline={'Your Dad\nHealth score'} />
             </FadeInView>
 
+            <GlobalErrorToastReporter message={globalError} />
             <FadeInView delay={90}>
-              {progressScore.error ? (
-                <View className="gap-sm border-y border-red-400/30 py-lg">
-                  <Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{progressScore.error}</Text>
-                  <Pressable onPress={() => void progressScore.refresh()} accessibilityRole="button">
-                    <Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text>
-                  </Pressable>
-                </View>
-              ) : progressScore.loading ? (
+              {progressScore.loading ? (
                 <View className="h-[174px] bg-white/5" />
               ) : (
                 <>
@@ -181,8 +177,6 @@ export default function ProgressScreen({
               <SectionHeader title={`${monthLabel} report`} className="mb-md" />
               {progressReport.loading ? (
                 <View className="flex-row flex-wrap gap-sm">{[0, 1, 2, 3, 4, 5].map((item) => <View key={item} className="h-[92px] basis-[48%] grow-0 bg-white/5" />)}</View>
-              ) : progressReport.error ? (
-                <View className="gap-sm border-y border-red-400/30 py-lg"><Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{progressReport.error}</Text><Pressable onPress={() => void progressReport.refresh()} accessibilityRole="button"><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable></View>
               ) : (
                 <>
                   <View className="flex-row flex-wrap gap-sm">
@@ -201,8 +195,6 @@ export default function ProgressScreen({
               <SectionHeader title="Badges" className="mb-md" />
               {progressBadges.loading ? (
                 <View className="flex-row flex-wrap gap-sm">{[0, 1, 2, 3, 4, 5].map((item) => <View key={item} className="h-[94px] basis-[31%] grow-0 bg-white/5" />)}</View>
-              ) : progressBadges.error ? (
-                <View className="gap-sm border-y border-red-400/30 py-lg"><Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{progressBadges.error}</Text><Pressable onPress={() => void progressBadges.refresh()} accessibilityRole="button"><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable></View>
               ) : progressBadges.badges.length === 0 ? (
                 <Text className="font-body text-muted-text text-[13px] leading-[19px]">No badges earned yet.</Text>
               ) : (
@@ -223,7 +215,7 @@ export default function ProgressScreen({
 
             <FadeInView delay={230}>
               <SectionHeader title="Sleep quality this week" className="mb-md" />
-              {progressScore.error ? null : !progressScore.data.isPro ? (
+              {!progressScore.data.isPro ? (
                 <View className="gap-md border-y border-border py-lg">
                   <Feather name="lock" size={20} color={colors.lime} />
                   <Text className="font-heading-bold text-white text-[16px] uppercase">Sleep tracker</Text>
@@ -232,8 +224,6 @@ export default function ProgressScreen({
                 </View>
               ) : progressSleep.loading ? (
                 <View className="h-[132px] bg-white/5" />
-              ) : progressSleep.error ? (
-                <View className="gap-sm border-y border-red-400/30 py-lg"><Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{progressSleep.error}</Text><Pressable onPress={() => void progressSleep.refresh()} accessibilityRole="button"><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable></View>
               ) : (
                 <>
                   <View className="h-[78px] flex-row border-y border-border">
@@ -254,7 +244,7 @@ export default function ProgressScreen({
               <SectionHeader title="Mood correlation" className="mb-md" />
               {progressSleep.loading ? (
                 <View className="h-[132px] bg-white/5" />
-              ) : progressSleep.error ? null : (
+              ) : (
                 <View className="border-t border-border">
                   <View className="flex-row items-center gap-lg py-sm border-b border-border">
                     <View className="flex-row items-center gap-xs"><View className="h-[3px] w-[18px] bg-lime" /><Text className="font-heading-bold text-muted-text text-[9px] uppercase">Sleep</Text></View>

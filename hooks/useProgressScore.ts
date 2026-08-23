@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useNetworkStatus } from '../contexts/NetworkContext';
+import type { DashboardData } from './useDashboard';
+import { readDashboardCache } from '../lib/offlineStorage';
 import { isProfilePro } from '../lib/proStatus';
 import { supabase } from '../lib/supabase';
 
@@ -25,12 +28,27 @@ const EMPTY: ProgressScoreData = {
 };
 
 export function useProgressScore(userId?: string) {
+  const { isOffline } = useNetworkStatus();
   const [data, setData] = useState<ProgressScoreData>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!userId) { setData(EMPTY); setLoading(false); return; }
+    if (isOffline) {
+      const cached = await readDashboardCache<DashboardData>(userId).catch(() => null);
+      if (cached) {
+        setData((current) => ({
+          ...current,
+          score: cached.totalScore,
+          breakdown: { mind: cached.mindScore, body: cached.bodyScore, bond: cached.bondScore },
+          isPro: cached.isPro,
+        }));
+      }
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     const now = new Date();
@@ -78,7 +96,7 @@ export function useProgressScore(userId?: string) {
       integration: ((integrationsRes.data ?? [])[0] as Integration | undefined) ?? null,
     });
     setLoading(false);
-  }, [userId]);
+  }, [isOffline, userId]);
 
   useEffect(() => { void refresh(); }, [refresh]);
   return { data, loading, error, refresh };
