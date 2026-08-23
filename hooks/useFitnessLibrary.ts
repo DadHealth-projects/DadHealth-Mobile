@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useNetworkStatus } from '../contexts/NetworkContext';
 import { isProfilePro } from '../lib/proStatus';
 import { supabase } from '../lib/supabase';
 
@@ -23,6 +24,7 @@ export type FitnessWorkout = {
 };
 
 export function useFitnessLibrary(userId?: string, enabled = true) {
+  const { isOffline } = useNetworkStatus();
   const [workouts, setWorkouts] = useState<FitnessWorkout[]>([]);
   const [isPro, setIsPro] = useState(false);
   const [loading, setLoading] = useState(enabled);
@@ -32,6 +34,12 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
   const refresh = useCallback(async () => {
     if (!enabled) {
       setLoading(false);
+      return;
+    }
+    if (isOffline) {
+      setLoading(false);
+      setError(null);
+      setProError(null);
       return;
     }
 
@@ -88,7 +96,7 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
     setIsPro(profileResult.error ? false : pro);
     setWorkouts(!profileResult.error && pro ? [...generatedWorkouts, ...adminWorkouts] : adminWorkouts);
     setLoading(false);
-  }, [enabled, userId]);
+  }, [enabled, isOffline, userId]);
 
   useEffect(() => {
     void refresh();

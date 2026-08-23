@@ -10,6 +10,7 @@ import {
 } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
+import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
 import LimeButton from '../../components/LimeButton';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import TagPill from '../../components/dashboard/TagPill';
@@ -215,8 +216,6 @@ export default function AIWorkoutScreen() {
           <LimeButton label="Log in to generate" onPress={openLogin} />
         ) : library.loading ? (
           <LimeButton label="Loading workouts" loading />
-        ) : library.proError ? (
-          <LimeButton label="Retry access" onPress={() => void library.refresh()} />
         ) : !library.isPro ? (
           <LimeButton label="View Dad Health Pro" onPress={openPro} />
         ) : (
@@ -227,13 +226,7 @@ export default function AIWorkoutScreen() {
           />
         )}
 
-        {error || library.error || library.proError ? (
-          <View accessibilityRole="alert" className="rounded-button border border-red-400/40 bg-red-400/10 p-md">
-            <Text className="font-body text-red-300 text-[13px] leading-[19px]">
-              {error ?? library.error ?? library.proError}
-            </Text>
-          </View>
-        ) : null}
+        <GlobalErrorToastReporter message={error ?? library.error ?? library.proError} />
 
         {displayedWorkout ? (
           <View className="gap-md border-t border-border pt-lg">
