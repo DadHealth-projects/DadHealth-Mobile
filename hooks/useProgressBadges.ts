@@ -1,16 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useNetworkStatus } from '../contexts/NetworkContext';
+import type { DashboardData } from './useDashboard';
+import { readDashboardCache } from '../lib/offlineStorage';
 import { supabase } from '../lib/supabase';
 
 export type ProgressBadge = { icon: string; name: string };
 
 export function useProgressBadges(userId?: string) {
+  const { isOffline } = useNetworkStatus();
   const [badges, setBadges] = useState<ProgressBadge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!userId) { setBadges([]); setLoading(false); return; }
+    if (isOffline) {
+      const cached = await readDashboardCache<DashboardData>(userId).catch(() => null);
+      if (cached) setBadges(cached.badges);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     const [catalogueResult, earnedResult] = await Promise.all([
@@ -29,7 +40,7 @@ export function useProgressBadges(userId?: string) {
       .filter((badge): badge is ProgressBadge => typeof badge.icon === 'string' && typeof badge.name === 'string');
     setBadges(earned.length > 0 ? earned : catalogue);
     setLoading(false);
-  }, [userId]);
+  }, [isOffline, userId]);
 
   useEffect(() => { void refresh(); }, [refresh]);
   return { badges, loading, error, refresh };

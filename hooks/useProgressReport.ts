@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useNetworkStatus } from '../contexts/NetworkContext';
+import type { DashboardData } from './useDashboard';
+import { readDashboardCache } from '../lib/offlineStorage';
 import { supabase } from '../lib/supabase';
 
 export type ProgressReport = {
@@ -12,12 +15,29 @@ export type ProgressReport = {
 };
 
 export function useProgressReport(userId?: string) {
+  const { isOffline } = useNetworkStatus();
   const [report, setReport] = useState<ProgressReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!userId) { setReport(null); setLoading(false); return; }
+    if (isOffline) {
+      const cached = await readDashboardCache<DashboardData>(userId).catch(() => null);
+      if (cached) {
+        setReport({
+          workouts: cached.reportStats.workouts,
+          journal: cached.reportStats.journal,
+          dadDates: cached.reportStats.dadDates,
+          avgSleep: null,
+          streak: cached.streak ?? 0,
+          avgMood: null,
+        });
+      }
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     const now = new Date();
@@ -49,7 +69,7 @@ export function useProgressReport(userId?: string) {
       avgMood: moodAverage == null ? null : moodAverage >= 3.5 ? 'Good' : moodAverage >= 2.5 ? 'Okay' : 'Low',
     });
     setLoading(false);
-  }, [userId]);
+  }, [isOffline, userId]);
 
   useEffect(() => { void refresh(); }, [refresh]);
   return { report, loading, error, refresh };
