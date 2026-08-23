@@ -17,6 +17,7 @@ import {
 } from '@expo-google-fonts/barlow-condensed';
 
 import { AuthProvider } from './contexts/AuthContext';
+import { NetworkProvider } from './contexts/NetworkContext';
 import RootNavigator from './contexts/RootNavigator';
 import { colors } from './theme';
 import OneSignalManager from './components/OneSignalManager';
@@ -24,6 +25,8 @@ import AppleHealthManager from './components/AppleHealthManager';
 import HealthConnectManager from './components/HealthConnectManager';
 import PushPrePermissionPrompt from './components/PushPrePermissionPrompt';
 import Splash from './components/Splash';
+import OfflineSyncManager from './components/OfflineSyncManager';
+import GlobalConnectivityToast from './components/GlobalConnectivityToast';
 import { attachPushNavigation } from './lib/pushNotifications';
 
 const navigationRef = createNavigationContainerRef();
@@ -60,16 +63,20 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <NavigationContainer ref={navigationRef} onReady={() => attachPushNavigation(navigationRef)} theme={navTheme} linking={{ prefixes: ['dadhealth://'], config: { screens: { SharedCalendar: 'shared-calendar', CommunityPostThread: 'community/:postId' } } }}>
-          <StatusBar style="light" />
-          <OneSignalManager />
-          <AppleHealthManager />
-          <HealthConnectManager />
-          <RootNavigator />
-          <PushPrePermissionPrompt />
-        </NavigationContainer>
-      </AuthProvider>
+      <NetworkProvider>
+        <AuthProvider>
+          <OfflineSyncManager />
+          <NavigationContainer ref={navigationRef} onReady={() => attachPushNavigation(navigationRef)} theme={navTheme} linking={{ prefixes: ['dadhealth://'], config: { screens: { SharedCalendar: 'shared-calendar', CommunityPostThread: 'community/:postId' } } }}>
+            <StatusBar style="light" />
+            <OneSignalManager />
+            <AppleHealthManager />
+            <HealthConnectManager />
+            <RootNavigator />
+            <PushPrePermissionPrompt />
+          </NavigationContainer>
+          <GlobalConnectivityToast />
+        </AuthProvider>
+      </NetworkProvider>
     </SafeAreaProvider>
   );
 }
