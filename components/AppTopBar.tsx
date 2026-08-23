@@ -46,7 +46,6 @@ export default function AppTopBar({
           {rightAccessory}
         </View>
       </View>
-
       {showNavigation ? (
         <AccountSheet
           variant="navigation"

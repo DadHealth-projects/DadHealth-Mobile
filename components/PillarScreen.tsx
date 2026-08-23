@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from './AppTopBar';
 import type { DashboardSection } from './AccountSheet';
-import LoadErrorState from './LoadErrorState';
+import GlobalErrorToastReporter from './GlobalErrorToastReporter';
 import { colors } from '../theme';
 
 type PillarScreenProps = {
@@ -14,9 +14,7 @@ type PillarScreenProps = {
   refreshing?: boolean;
   onRefresh?: () => void;
   error?: string | null;
-  errorTitle: string;
   errorMessage: string;
-  onRetry?: () => void;
   dashboardSection?: DashboardSection;
   onSelectDashboardSection?: (section: DashboardSection) => void;
   children: React.ReactNode;
@@ -33,9 +31,7 @@ export default function PillarScreen({
   refreshing = false,
   onRefresh,
   error = null,
-  errorTitle,
   errorMessage,
-  onRetry,
   dashboardSection,
   onSelectDashboardSection,
   children,
@@ -59,13 +55,9 @@ export default function PillarScreen({
           onSelectSection={onSelectDashboardSection}
         />
 
-        {loading && skeleton ? (
-          skeleton
-        ) : error && onRetry ? (
-          <LoadErrorState title={errorTitle} message={errorMessage} onRetry={onRetry} />
-        ) : (
-          children
-        )}
+        <GlobalErrorToastReporter message={error ? errorMessage : null} />
+
+        {loading && skeleton ? skeleton : children}
       </ScrollView>
 
     </SafeAreaView>
