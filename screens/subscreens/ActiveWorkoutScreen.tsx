@@ -11,6 +11,7 @@ import {
 
 import AppTopBar from '../../components/AppTopBar';
 import ActiveWorkout from '../../components/fitness/ActiveWorkout';
+import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
 import LimeButton from '../../components/LimeButton';
 import PillarSkeleton from '../../components/skeleton/PillarSkeleton';
 import { useAuth } from '../../contexts/AuthContext';
@@ -51,19 +52,10 @@ export default function ActiveWorkoutScreen() {
             </Pressable>
           }
         />
+        <GlobalErrorToastReporter message={library.error ?? library.proError} />
 
         {library.loading ? (
           <PillarSkeleton cards={3} />
-        ) : library.error ? (
-          <View accessibilityRole="alert" className="gap-md rounded-button border border-red-400/40 bg-red-400/10 p-md">
-            <Text className="font-body text-red-300 text-[13px] leading-[19px]">{library.error}</Text>
-            <LimeButton label="Retry workout" onPress={() => void library.refresh()} />
-          </View>
-        ) : !workout && library.proError ? (
-          <View accessibilityRole="alert" className="gap-md rounded-button border border-red-400/40 bg-red-400/10 p-md">
-            <Text className="font-body text-red-300 text-[13px] leading-[19px]">{library.proError}</Text>
-            <LimeButton label="Retry access" onPress={() => void library.refresh()} />
-          </View>
         ) : !workout ? (
           <View className="gap-md border-y border-border py-lg">
             <Text className="font-body text-muted-text text-[13px] leading-[19px]">No workout is available to start.</Text>

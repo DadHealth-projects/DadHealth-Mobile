@@ -6,6 +6,7 @@ import type { FitnessWorkout, FitnessWorkoutExercise } from '../../hooks/useFitn
 import { DAD_STRENGTH_MOVES } from '../../lib/homeContent';
 import { supabase } from '../../lib/supabase';
 import LimeButton from '../LimeButton';
+import GlobalErrorToastReporter from '../GlobalErrorToastReporter';
 import SectionHeader from '../dashboard/SectionHeader';
 import TagPill from '../dashboard/TagPill';
 
@@ -203,18 +204,13 @@ export default function ActiveWorkout({
             </Pressable>
           </View>
         </View>
-        {message ? (
+        <GlobalErrorToastReporter message={messageTone === 'error' ? message : null} />
+        {message && messageTone === 'success' ? (
           <View
             accessibilityRole="alert"
-            className={`rounded-button border p-md mt-md ${
-              messageTone === 'success' ? 'border-lime/40 bg-lime/10' : 'border-red-400/40 bg-red-400/10'
-            }`}
+            className="rounded-button border border-lime/40 bg-lime/10 p-md mt-md"
           >
-            <Text
-              className={`font-heading-bold text-[13px] tracking-[0.5px] uppercase ${
-                messageTone === 'success' ? 'text-lime' : 'text-red-300'
-              }`}
-            >
+            <Text className="font-heading-bold text-lime text-[13px] tracking-[0.5px] uppercase">
               {message}
             </Text>
           </View>
