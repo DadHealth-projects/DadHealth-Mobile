@@ -5,6 +5,7 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from '../../components/AppTopBar';
+import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
 import LimeButton from '../../components/LimeButton';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
@@ -45,12 +46,7 @@ export default function TherapistDirectoryScreen() {
           headline={'Find someone\nwho gets it'}
           sub="Dad-friendly sessions, including evening and weekend availability."
         />
-
-        {bookingError ? (
-          <View accessibilityRole="alert" className="rounded-button border border-red-400/40 bg-red-400/10 p-md">
-            <Text className="font-body text-red-300 text-[13px] leading-[19px]">{bookingError}</Text>
-          </View>
-        ) : null}
+        <GlobalErrorToastReporter message={bookingError ?? directory.error} />
 
         {!user ? (
           <View className="gap-md border-y border-border py-xl">
@@ -62,11 +58,6 @@ export default function TherapistDirectoryScreen() {
         ) : directory.loading ? (
           <View className="gap-sm">
             {[0, 1, 2].map((item) => <View key={item} className="h-[112px] rounded-button bg-white/5" />)}
-          </View>
-        ) : directory.error ? (
-          <View accessibilityRole="alert" className="gap-md rounded-button border border-red-400/40 bg-red-400/10 p-md">
-            <Text className="font-body text-red-300 text-[13px] leading-[19px]">{directory.error}</Text>
-            <LimeButton label="Try again" onPress={() => void directory.refresh()} />
           </View>
         ) : !directory.isPro ? (
           <View className="gap-md border-y border-border py-xl">

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useNetworkStatus } from '../contexts/NetworkContext';
 import { isProfilePro } from '../lib/proStatus';
 import { supabase } from '../lib/supabase';
 
@@ -12,6 +13,7 @@ export type Therapist = {
 };
 
 export function useTherapists(userId?: string) {
+  const { isOffline } = useNetworkStatus();
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [isPro, setIsPro] = useState(false);
   const [loading, setLoading] = useState(Boolean(userId));
@@ -21,6 +23,11 @@ export function useTherapists(userId?: string) {
     if (!userId) {
       setTherapists([]);
       setIsPro(false);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    if (isOffline) {
       setLoading(false);
       setError(null);
       return;
@@ -53,7 +60,7 @@ export function useTherapists(userId?: string) {
       setIsPro(isProfilePro(profileResult.data));
     }
     setLoading(false);
-  }, [userId]);
+  }, [isOffline, userId]);
 
   useEffect(() => {
     void refresh();
