@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
+import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
 import LimeButton from '../../components/LimeButton';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
@@ -146,7 +147,7 @@ export default function HealthPermissionsScreen() {
           )}
         </View>
 
-        {health.error ? <Text accessibilityRole="alert" className="font-body text-red-300 text-[12px] leading-[18px]">{health.error}</Text> : null}
+        <GlobalErrorToastReporter message={health.error} />
         {message ? <Text accessibilityRole="alert" className="font-body text-lime text-[12px] leading-[18px]">{message}</Text> : null}
       </ScrollView>
     </SafeAreaView>
