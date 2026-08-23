@@ -23,6 +23,16 @@ import LimeButton from "../../components/LimeButton";
 import ScreenHero from "../../components/mockup/ScreenHero";
 import { useAuth } from "../../contexts/AuthContext";
 import { useNetworkStatus } from "../../contexts/NetworkContext";
+import {
+  INVALID_CO_PARENT_INVITE,
+  INVALID_CO_PARENT_INVITE_MESSAGE,
+  beginCoParentInviteAttempt,
+  blockPendingCoParentInviteForUser,
+  clearPendingCoParentInvite,
+  finishCoParentInviteAttempt,
+  isValidCoParentInviteToken,
+  persistPendingCoParentInvite,
+} from "../../lib/deepLinks";
 import { supabase } from "../../lib/supabase";
 import type { AppStackParamList } from "../../navigation/AppNavigator";
 import { colors } from "../../theme";
@@ -53,7 +63,7 @@ const WEB_URL = (
 export default function SharedCalendarScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const route = useRoute<RouteProp<AppStackParamList, "SharedCalendar">>();
-  const { user, session } = useAuth();
+  const { user, session, onboardingComplete } = useAuth();
   const { isOffline } = useNetworkStatus();
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [sharedSchedule, setSharedSchedule] = useState<Schedule | null>(null);
@@ -147,13 +157,20 @@ export default function SharedCalendarScreen() {
 
   const acceptInvite = useCallback(
     async (token: string) => {
-      if (!session?.access_token) {
-        setMessage("Log in with the invited email to accept this calendar.");
-        return;
-      }
+      if (!session?.access_token || !user?.id || onboardingComplete !== true) return;
+      if (!beginCoParentInviteAttempt(token)) return;
+
       setSaving(true);
       setMessage(null);
+      let handled = false;
       try {
+        if (isOffline) {
+          setError(
+            "Reconnect to accept this calendar invite.",
+          );
+          return;
+        }
+
         const response = await fetch(`${WEB_URL}/api/co-parenting/accept`, {
           method: "POST",
           headers: {
@@ -162,27 +179,85 @@ export default function SharedCalendarScreen() {
           },
           body: JSON.stringify({ token }),
         });
-        const body = (await response.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        if (!response.ok)
-          throw new Error(body.error ?? "Unable to accept invite.");
-        setMessage("You're connected to the co-parenting calendar.");
-        await load();
+
+        if (response.ok) {
+          handled = true;
+          await clearPendingCoParentInvite(token);
+          setMessage("You're connected to the co-parenting calendar.");
+          await load();
+          return;
+        }
+
+        if (response.status === 400) {
+          handled = true;
+          await clearPendingCoParentInvite(token);
+          setError(INVALID_CO_PARENT_INVITE_MESSAGE);
+          return;
+        }
+
+        if (response.status === 403) {
+          await blockPendingCoParentInviteForUser(token, user.id);
+          setError(
+            "This calendar invite was sent to a different account. Sign out, then sign in with the invited email.",
+          );
+          return;
+        }
+
+        if (response.status === 401) {
+          setError(
+            "Your sign-in needs to be refreshed before this calendar invite can be accepted. Sign in again and retry.",
+          );
+          return;
+        }
+
+        setError(
+          "We could not accept this calendar invite right now. Check your connection and try again.",
+        );
       } catch {
         setError(
-          "This calendar invite could not be accepted. Check that you're signed in with the invited email, then try again.",
+          "We could not accept this calendar invite right now. Check your connection and try again.",
         );
       } finally {
+        finishCoParentInviteAttempt(token, handled);
         setSaving(false);
       }
     },
-    [load, session?.access_token],
+    [isOffline, load, onboardingComplete, session?.access_token, user?.id],
   );
 
   useEffect(() => {
-    if (route.params?.token) void acceptInvite(route.params.token);
-  }, [acceptInvite, route.params?.token]);
+    const token = route.params?.token;
+    if (!token) return;
+
+    navigation.setParams({ token: undefined });
+
+    if (
+      token === INVALID_CO_PARENT_INVITE
+      || !isValidCoParentInviteToken(token)
+    ) {
+      setError(INVALID_CO_PARENT_INVITE_MESSAGE);
+      return;
+    }
+
+    void (async () => {
+      try {
+        await persistPendingCoParentInvite(token);
+      } catch {
+        setError(
+          "Dad Health could not keep this calendar invite. Open the invite again after signing in.",
+        );
+        if (!session?.access_token) return;
+      }
+
+      if (!session?.access_token) {
+        setMessage("Log in with the invited email to accept this calendar.");
+        return;
+      }
+
+      if (onboardingComplete !== true) return;
+      await acceptInvite(token);
+    })();
+  }, [acceptInvite, navigation, onboardingComplete, route.params?.token, session?.access_token]);
 
   const ensureSchedule = useCallback(async () => {
     if (schedule) return schedule.id;

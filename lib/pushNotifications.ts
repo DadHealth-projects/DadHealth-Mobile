@@ -1,8 +1,9 @@
 import type { NavigationContainerRef } from '@react-navigation/native';
-import { NativeModules, TurboModuleRegistry } from 'react-native';
+import { NativeModules, Platform, TurboModuleRegistry } from 'react-native';
 import type { NotificationClickEvent, OneSignal as OneSignalSdk } from 'react-native-onesignal';
 
 import type { AppStackParamList } from '../navigation/AppNavigator';
+import { isValidCommunityPostId } from './deepLinks';
 
 type NotificationData = {
   type?: unknown;
@@ -16,9 +17,16 @@ let initialized = false;
 let oneSignal: typeof OneSignalSdk | null | undefined;
 let navigationRef: NavigationContainerRef<AppStackParamList> | null = null;
 let pendingData: NotificationData | null = null;
+let navigationLifecycleReady = false;
+let authenticatedDestinationReady = false;
+let pendingShownWhileSignedOut = false;
 
 function getOneSignal(): typeof OneSignalSdk | null {
   if (oneSignal !== undefined) return oneSignal;
+  if (Platform.OS === 'web') {
+    oneSignal = null;
+    return null;
+  }
 
   const nativeModule = TurboModuleRegistry.get('OneSignal') ?? NativeModules.OneSignal;
   if (!nativeModule) {
@@ -39,11 +47,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function navigateFromData(data: NotificationData): boolean {
-  if (!navigationRef?.isReady()) {
-    pendingData = data;
-    return false;
-  }
-  if (data.type === 'community_reply' && typeof data.post_id === 'string') {
+  if (!navigationRef?.isReady() || !navigationLifecycleReady) return false;
+  if (data.type === 'community_reply' && isValidCommunityPostId(data.post_id)) {
     navigationRef.navigate('CommunityPostThread', { postId: data.post_id });
     return true;
   }
@@ -82,9 +87,35 @@ function navigateFromData(data: NotificationData): boolean {
   return false;
 }
 
+function flushPendingNavigation(): boolean {
+  if (!pendingData || !navigationLifecycleReady || !navigationRef?.isReady()) return false;
+  if (!authenticatedDestinationReady && pendingShownWhileSignedOut) return false;
+
+  const navigated = navigateFromData(pendingData);
+  if (!navigated) {
+    // Unsupported or malformed notification destinations are safely discarded.
+    pendingData = null;
+    pendingShownWhileSignedOut = false;
+    return false;
+  }
+
+  if (authenticatedDestinationReady) {
+    pendingData = null;
+    pendingShownWhileSignedOut = false;
+  } else {
+    // Preserve the destination through the signed-out navigator and replay it
+    // after authentication/onboarding replaces that navigation tree.
+    pendingShownWhileSignedOut = true;
+  }
+  return true;
+}
+
 function onNotificationClick(event: NotificationClickEvent) {
   const additionalData = event.notification.additionalData;
-  if (isRecord(additionalData)) navigateFromData(additionalData);
+  if (!isRecord(additionalData)) return;
+  pendingData = additionalData;
+  pendingShownWhileSignedOut = false;
+  flushPendingNavigation();
 }
 
 export function initializePushNotifications() {
@@ -101,11 +132,16 @@ export function initializePushNotifications() {
 
 export function attachPushNavigation(ref: NavigationContainerRef<AppStackParamList>) {
   navigationRef = ref;
-  if (pendingData) {
-    const data = pendingData;
-    pendingData = null;
-    navigateFromData(data);
-  }
+  flushPendingNavigation();
+}
+
+export function setPushNavigationLifecycleReady(
+  ready: boolean,
+  authenticated: boolean,
+) {
+  navigationLifecycleReady = ready;
+  authenticatedDestinationReady = authenticated;
+  if (ready) flushPendingNavigation();
 }
 
 export function loginPushUser(userId: string) {
