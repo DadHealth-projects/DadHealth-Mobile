@@ -28,6 +28,7 @@ import Splash from './components/Splash';
 import OfflineSyncManager from './components/OfflineSyncManager';
 import GlobalConnectivityToast from './components/GlobalConnectivityToast';
 import { attachPushNavigation } from './lib/pushNotifications';
+import { deepLinkingOptions } from './lib/deepLinks';
 
 const navigationRef = createNavigationContainerRef();
 
@@ -66,12 +67,17 @@ export default function App() {
       <NetworkProvider>
         <AuthProvider>
           <OfflineSyncManager />
-          <NavigationContainer ref={navigationRef} onReady={() => attachPushNavigation(navigationRef)} theme={navTheme} linking={{ prefixes: ['dadhealth://'], config: { screens: { SharedCalendar: 'shared-calendar', CommunityPostThread: 'community/:postId' } } }}>
+          <NavigationContainer
+            ref={navigationRef}
+            onReady={() => attachPushNavigation(navigationRef)}
+            theme={navTheme}
+            linking={deepLinkingOptions}
+          >
             <StatusBar style="light" />
             <OneSignalManager />
             <AppleHealthManager />
             <HealthConnectManager />
-            <RootNavigator />
+            <RootNavigator navigationRef={navigationRef} />
             <PushPrePermissionPrompt />
           </NavigationContainer>
           <GlobalConnectivityToast />
