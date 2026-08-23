@@ -139,7 +139,15 @@ In progress.
 - M3.2 Apple HealthKit is implemented as a read-only integration for Steps,
   Active Minutes, Resting Heart Rate and Sleep, using the existing wearable,
   Fitness, Progress and score architecture.
-- M3.3 Google Health Connect is the next integration for review.
+- M3.3 Google Health Connect is implemented. Signed Android and production QA
+  will run near the end of M3.
+- M3.4 Native Subscriptions is implemented. Apple and Google external store
+  configuration will be completed separately as access becomes available.
+- M3.5 Offline Mode is the current implementation unit.
+- M3.6 Deep Links follows Offline Mode and completes the original M3
+  co-parenting and notification-routing requirement. Universal Links and
+  Android App Links are not requirements of the original brief. Once verified,
+  do not reopen Deep Links during refinements unless an actual bug is found.
 
 ## Screen Migration Milestone
 
@@ -248,7 +256,6 @@ These are intentionally outside the migration scope.
 
 - Today's Plan onboarding mismatch
 - Mood Week weekday labels
-- Native subscription flow before App Store submission
 - TDEE calculation history and body-value logging
 - Non-contact Days card and its wording versus reduced non-custody Bond Score weighting
 - Progress badge catalogue fallback is labelled as earned when no earned badges exist
@@ -295,11 +302,18 @@ Return to review mode before continuing.
 
 ## Remaining Order
 
-1. Google Health Connect (Android)
-2. Stripe native payments
-3. Offline mode
-4. Deep links
-5. Final iOS / Android testing
+1. Offline Mode
+2. Deep Links
+3. Android Health Connect and full iOS / Android production QA
+
+Native subscription external Apple and Google configuration proceeds separately
+as store access and configuration become available.
+
+After the remaining M3 implementation is complete:
+
+- Handle Jamie's small refinements as a separate pass.
+- Prepare major customer-journey changes as a separate document and batch for
+  Jamie's approval.
 
 ---
 

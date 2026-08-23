@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -16,6 +17,7 @@ import {
 } from '../lib/biometric';
 import { isOnboardingComplete } from '../lib/onboarding';
 import { logoutPushUser } from '../lib/pushNotifications';
+import { pauseAndClearOfflineUser } from '../lib/offlineSync';
 
 type AuthResult = { error: string | null };
 
@@ -75,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastAuthenticatedUserId = useRef<string | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   // The enrollment prompt keeps only the email needed by the existing UI.
   // Device credentials are generated locally only after the user opts in.
@@ -86,10 +89,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const {
     data: { subscription },
   } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const previousUserId = lastAuthenticatedUserId.current;
     setSession(nextSession);
     setUser(nextSession?.user ?? null);
 
-    if (!nextSession) {
+    if (nextSession?.user.id) {
+      lastAuthenticatedUserId.current = nextSession.user.id;
+    } else {
+      lastAuthenticatedUserId.current = null;
+      if (previousUserId) void pauseAndClearOfflineUser(previousUserId).catch(() => undefined);
       setPendingEnrollment(null);
       setOnboardingComplete(null);
     }
@@ -209,10 +217,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
-  setPendingEnrollment(null);
-  logoutPushUser();
-  await supabase.auth.signOut();
-}, []);
+    const signedOutUserId = user?.id;
+    lastAuthenticatedUserId.current = null;
+    setPendingEnrollment(null);
+
+    // Stop and drain the current user's worker before ending the Supabase
+    // session. Private caches and queued writes are removed before another
+    // account can become active on this device.
+    if (signedOutUserId) await pauseAndClearOfflineUser(signedOutUserId);
+
+    logoutPushUser();
+    await supabase.auth.signOut();
+  }, [user?.id]);
 
 const value: AuthContextType = {
   user,
