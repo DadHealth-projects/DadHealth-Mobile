@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useNetworkStatus } from '../contexts/NetworkContext';
 import { supabase } from '../lib/supabase';
 
 export type NotificationType = 'morning_checkin' | 'bedtime_story' | 'workout_window' | 'weekly_score' | 'streak_at_risk' | 'weekly_challenge' | 'journal_prompt' | 'milestone_anniversary' | 'community_reply' | 'co_parent_event_added' | 'present_dad_mode_complete';
 export type NotificationPreference = { notification_type: NotificationType; enabled: boolean; send_time: string | null };
 
 export function useNotificationSettings(userId?: string) {
+  const { isOffline } = useNetworkStatus();
   const [masterEnabled, setMasterEnabled] = useState(false);
   const [timezone, setTimezone] = useState('');
   const [preferences, setPreferences] = useState<NotificationPreference[]>([]);
@@ -15,6 +17,7 @@ export function useNotificationSettings(userId?: string) {
 
   const refresh = useCallback(async () => {
     if (!userId) { setLoading(false); return; }
+    if (isOffline) { setLoading(false); setError(null); return; }
     setLoading(true);
     setError(null);
     const [profileResult, preferencesResult] = await Promise.all([
@@ -29,7 +32,7 @@ export function useNotificationSettings(userId?: string) {
       setPreferences((preferencesResult.data ?? []) as NotificationPreference[]);
     }
     setLoading(false);
-  }, [userId]);
+  }, [isOffline, userId]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 

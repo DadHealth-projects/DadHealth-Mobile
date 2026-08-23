@@ -6,6 +6,7 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
+import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotificationSettings, type NotificationType } from '../../hooks/useNotificationSettings';
@@ -95,8 +96,9 @@ export default function NotificationSettingsScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-lg pt-lg pb-[120px] gap-xl">
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Close push notifications" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
         <ScreenHero eyebrow="Settings" headline={'Push\nnotifications'} sub="All notifications are opt-in. Times are based on your dad timezone." />
+        <GlobalErrorToastReporter message={settings.error} />
 
-        {!user ? <Pressable onPress={() => navigation.navigate('Login')} className="min-h-[48px] justify-center border-y border-border"><Text className="font-heading-bold text-lime text-[12px] uppercase">Log in to edit settings</Text></Pressable> : settings.loading ? <View className="gap-sm">{[0,1,2,3].map((item) => <View key={item} className="h-[72px] bg-white/5" />)}</View> : settings.error ? <View className="gap-sm border-y border-red-400/30 py-lg"><Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{settings.error}</Text><Pressable onPress={() => void settings.refresh()}><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable></View> : <>
+        {!user ? <Pressable onPress={() => navigation.navigate('Login')} className="min-h-[48px] justify-center border-y border-border"><Text className="font-heading-bold text-lime text-[12px] uppercase">Log in to edit settings</Text></Pressable> : settings.loading ? <View className="gap-sm">{[0,1,2,3].map((item) => <View key={item} className="h-[72px] bg-white/5" />)}</View> : <>
           <View className="border-t border-border">
             <SettingToggleRow title="Enable push notifications" description="Required for all notification types." value={settings.masterEnabled} disabled={settings.savingKey === 'master'} onChange={(value) => void toggleMaster(value)} />
             <View className="min-h-[62px] flex-row items-center gap-md border-b border-border py-sm"><View className="flex-1"><Text className="font-heading-bold text-white text-[13px] uppercase">Timezone</Text><Text className="font-body text-tertiary-text text-[11px] mt-xs">{settings.timezone || 'Not set'}</Text></View><Pressable onPress={() => void settings.saveTimezone(deviceTimezone).then(setMessage)} disabled={settings.savingKey === 'timezone'} className="min-h-[40px] justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[10px] uppercase">Use device timezone</Text></Pressable></View>
