@@ -66,8 +66,28 @@ test('the approved mobile Pro entry points route to one native subscription scre
   assert.match(dashboard, /UpgradeProCard onPress=\{\(\) => navigation\.navigate\('ProSubscription'\)\}/);
   assert.match(screen, /£6\.99/);
   assert.match(screen, /£49\.99/);
-  assert.match(screen, /Start 7-day free trial/);
+  assert.match(screen, /Start my 7-day free trial/);
   assert.match(screen, /Restore purchases/);
   assert.match(screen, /Manage subscription/);
   assert.doesNotMatch(screen, /\/pricing|Stripe|PaymentSheet/);
+});
+
+test('native paywall leads with annual value and restrained personalisation copy', async () => {
+  const [screen, prompt] = await Promise.all([
+    source('screens/subscreens/ProSubscriptionScreen.tsx'),
+    source('components/dashboard/UpgradeProCard.tsx'),
+  ]);
+
+  assert.match(screen, /Make Dad Health\\npersonal/);
+  assert.match(screen, /The version of you your kids deserve/);
+  assert.match(screen, /per year · about £4\.17 a month/);
+  assert.match(screen, /7-day free trial for eligible new subscribers\. Cancel anytime\./);
+  assert.ok(screen.indexOf('title="Annual"') < screen.indexOf('title="Monthly"'));
+  assert.match(screen, /const THIS_WEEK_FEATURES = \[/);
+  const featureBlock = /const THIS_WEEK_FEATURES = \[([\s\S]*?)\] as const;/.exec(screen)?.[1] ?? '';
+  assert.equal((featureBlock.match(/^  '/gm) ?? []).length, 3);
+  assert.match(screen, /What Pro can do this week/);
+  assert.match(prompt, /Make Dad Health personal/);
+  assert.match(prompt, /See what Pro can do/);
+  assert.doesNotMatch(prompt, /Upgrade to Pro/);
 });
