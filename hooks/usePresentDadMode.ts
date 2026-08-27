@@ -57,5 +57,5 @@ export function usePresentDadMode(userId?: string) {
     }
   }, [busy, finishing, isOffline, session, showOfflineAction, userId]);
 
-  return { enabled: Boolean(session), busy: busy || finishing, toggle };
+  return { enabled: Boolean(session), busy: busy || finishing, toggle, refresh };
 }

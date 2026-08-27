@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Share, Text, View } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -14,6 +14,7 @@ import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter'
 import ScreenHero from '../../components/mockup/ScreenHero';
 import SectionHeader from '../../components/dashboard/SectionHeader';
 import StatCard from '../../components/dashboard/StatCard';
+import ProgressSkeleton from '../../components/skeleton/ProgressSkeleton';
 import { useAuth } from '../../contexts/AuthContext';
 import { useProgressScore } from '../../hooks/useProgressScore';
 import { useProgressReport } from '../../hooks/useProgressReport';
@@ -43,18 +44,25 @@ export default function ProgressScreen({
   const progressBadges = useProgressBadges(user?.id);
   const progressSleep = useProgressSleep(user?.id);
   const [reportMessage, setReportMessage] = useState<string | null>(null);
+  const refreshInFlight = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
   const globalError = progressScore.error ?? progressReport.error ?? progressBadges.error ?? progressSleep.error;
 
-  const refreshing = progressScore.loading || progressReport.loading || progressBadges.loading || progressSleep.loading;
-  const onRefresh = useCallback(() => {
-    void (async () => {
+  const onRefresh = useCallback(async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
+    try {
       if (user?.id) {
         try {
           await syncAppleHealthIfConnected(user.id, { force: true, days: 7 });
         } catch {}
       }
       await Promise.all([progressScore.refresh(), progressReport.refresh(), progressBadges.refresh(), progressSleep.refresh()]);
-    })();
+    } finally {
+      refreshInFlight.current = false;
+      setRefreshing(false);
+    }
   }, [progressBadges.refresh, progressReport.refresh, progressScore.refresh, progressSleep.refresh, user?.id]);
   const onClose = useCallback(() => navigation.goBack(), [navigation]);
 
@@ -128,7 +136,9 @@ export default function ProgressScreen({
           )}
         />
 
-        {!user?.id ? (
+        {refreshing ? (
+          <ProgressSkeleton />
+        ) : !user?.id ? (
           <>
             <FadeInView><ScreenHero eyebrow="Progress" headline={'Your Dad\nHealth score'} /></FadeInView>
             <View className="gap-md border-y border-border py-xl">
