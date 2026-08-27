@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -22,6 +22,7 @@ import GreetingHeader from '../components/dashboard/GreetingHeader';
 import HomeSkeleton from '../components/skeleton/HomeSkeleton';
 import MoodWeekCard from '../components/dashboard/MoodWeekCard';
 import RemindersList from '../components/dashboard/RemindersList';
+import ScreenTransition from '../components/ScreenTransition';
 import TodaysPlan from '../components/dashboard/TodaysPlan';
 import UpgradeProCard from '../components/dashboard/UpgradeProCard';
 import type { MoodKey } from '../components/mockup/MoodCheckInRow';
@@ -59,19 +60,21 @@ export default function DashboardScreen() {
     onSelectDashboardSection: setActiveSection,
   };
 
-  if (activeSection === 'FITNESS') return <FitnessScreen {...sectionProps} />;
-  if (activeSection === 'MIND') return <MindScreen {...sectionProps} />;
-  if (activeSection === 'BOND') return <BondScreen {...sectionProps} />;
-  if (activeSection === 'COMMUNITY') return <CommunityScreen {...sectionProps} />;
-  if (activeSection === 'PROGRESS') return <ProgressScreen {...sectionProps} />;
-
-  return (
+  let screen: React.ReactNode;
+  if (activeSection === 'FITNESS') screen = <FitnessScreen {...sectionProps} />;
+  else if (activeSection === 'MIND') screen = <MindScreen {...sectionProps} />;
+  else if (activeSection === 'BOND') screen = <BondScreen {...sectionProps} />;
+  else if (activeSection === 'COMMUNITY') screen = <CommunityScreen {...sectionProps} />;
+  else if (activeSection === 'PROGRESS') screen = <ProgressScreen {...sectionProps} />;
+  else screen = (
     <DashboardScreenContent
       user={user}
       activeSection={activeSection}
       onSelectSection={setActiveSection}
     />
   );
+
+  return <ScreenTransition key={activeSection}>{screen}</ScreenTransition>;
 }
 
 /**
@@ -99,7 +102,8 @@ export function DashboardScreenContent({
   const [checkInError, setCheckInError] = useState<string | null>(null);
   const [checkInMessage, setCheckInMessage] = useState<string | null>(null);
   const [goalStatuses, setGoalStatuses] = useState<Record<string, DashboardGoalStatus>>({});
-  const [showRefreshSkeleton, setShowRefreshSkeleton] = useState(false);
+  const refreshInFlight = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const now = useMemo(() => new Date(), []);
   const dateLabel = useMemo(
@@ -197,19 +201,26 @@ export function DashboardScreenContent({
     }
     const result = await saveCheckIn(moodValue, sleepHours);
     if (result.error) setCheckInError(result.error);
-    else if (result.queued) setCheckInMessage("Saved — will sync when you're back online");
+    else if (result.queued) {
+      setCheckInMessage("Saved — will sync when you're back online. Once synced, this check-in contributes to your Mind score.");
+    } else {
+      setCheckInMessage('Check-in saved. This check-in contributes to your Mind score.');
+    }
   }, [moodValue, saveCheckIn, sleep]);
 
   const handleRefresh = useCallback(async () => {
-    setShowRefreshSkeleton(true);
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
     try {
       await refresh();
     } finally {
-      setShowRefreshSkeleton(false);
+      refreshInFlight.current = false;
+      setRefreshing(false);
     }
   }, [refresh]);
 
-  if ((!data && !dashboardError) || showRefreshSkeleton) {
+  if ((!data && !dashboardError) || refreshing) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
         <View className="px-lg pt-lg">
@@ -233,7 +244,7 @@ export function DashboardScreenContent({
           keyboardShouldPersistTaps="handled"
           contentContainerClassName="px-lg pt-lg pb-[120px] gap-xl"
           refreshControl={
-            <RefreshControl refreshing={loading} onRefresh={() => void handleRefresh()} tintColor={colors.lime} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => void handleRefresh()} tintColor={colors.lime} />
           }
         >
           <AppTopBar
