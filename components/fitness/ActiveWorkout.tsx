@@ -32,6 +32,10 @@ function formatTime(seconds: number): string {
   return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
 }
 
+function formatMoveCount(count: number): string {
+  return `${count} ${count === 1 ? 'move' : 'moves'}`;
+}
+
 type ActiveWorkoutProps = {
   userId?: string;
   workout: FitnessWorkout | null;
@@ -64,6 +68,12 @@ export default function ActiveWorkout({
     setCurrentExerciseIndex(0);
     setMessage(null);
   }, [workout?.id]);
+
+  useEffect(() => {
+    if (!message || messageTone !== 'success') return undefined;
+    const timeout = setTimeout(() => setMessage(null), 3000);
+    return () => clearTimeout(timeout);
+  }, [message, messageTone]);
 
   useEffect(() => {
     let active = true;
@@ -164,7 +174,9 @@ export default function ActiveWorkout({
     const nextIndex = (currentExerciseIndex + 1) % moves.length;
     const nextMove = moves[nextIndex];
     setMessageTone('success');
-    setMessage(nextMove ? `Session logged. Next: ${nextMove.title}.` : 'Session logged.');
+    setMessage(nextMove
+      ? `Session logged. This workout contributes to your Body score. Next: ${nextMove.title}.`
+      : 'Session logged. This workout contributes to your Body score.');
     setCurrentExerciseIndex(nextIndex);
     setSaving(false);
   }, [currentExerciseIndex, currentMove, elapsedSeconds, moves, onRequireAuth, userId, workout?.id]);
@@ -176,7 +188,7 @@ export default function ActiveWorkout({
           {formatTime(elapsedSeconds)}
         </Text>
         <Text className="font-heading-semibold text-tertiary-text text-[11px] tracking-[1px] uppercase mt-xs">
-          Workout timer · {moves.length} moves
+          Workout timer · {formatMoveCount(moves.length)}
         </Text>
         <View className="gap-sm mt-md">
           <LimeButton label={`${running ? 'Pause' : 'Start'} →`} onPress={handleToggleTimer} />
