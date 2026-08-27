@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
@@ -39,9 +39,21 @@ export default function MindScreen({
   const { user } = useAuth();
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { data, loading, error, refresh } = useDashboard(user?.id);
+  const refreshInFlight = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const hasUser = Boolean(user?.id);
-  const onRefresh = useCallback(() => void refresh(), [refresh]);
+  const onRefresh = useCallback(async () => {
+    if (!hasUser || refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      refreshInFlight.current = false;
+      setRefreshing(false);
+    }
+  }, [hasUser, refresh]);
 
   const moodWeek = useMemo(
     () => getMoodWeek(data?.moodLogs ?? [], getLastSevenDayKeys()),
@@ -53,7 +65,7 @@ export default function MindScreen({
     <PillarScreen
       loading={loading && !data}
       skeleton={<PillarSkeleton cards={3} />}
-      refreshing={loading}
+      refreshing={refreshing}
       onRefresh={hasUser ? onRefresh : undefined}
       error={data ? null : error}
       errorMessage="We couldn't bring in your mood, journal and mental health tools. Try again in a moment."

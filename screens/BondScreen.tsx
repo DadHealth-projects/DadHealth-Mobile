@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
@@ -47,9 +47,10 @@ export default function BondScreen({
   const [conversationStarters, setConversationStarters] = useState<string[]>([]);
   const [startersLoading, setStartersLoading] = useState(Boolean(user?.id));
   const [startersError, setStartersError] = useState(false);
+  const refreshInFlight = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const hasUser = Boolean(user?.id);
-  const onRefresh = useCallback(() => void refresh(), [refresh]);
   const togglePresentMode = useCallback(async () => {
     const enabled = await presentDadMode.toggle();
     if (enabled != null) trackEvent('present_dad_mode_toggled', { enabled }, user?.id);
@@ -73,7 +74,25 @@ export default function BondScreen({
     setStartersLoading(false);
   }, [user?.id]);
 
-  useEffect(() => { void loadConversationStarters(); }, [loadConversationStarters]);
+  const onRefresh = useCallback(async () => {
+    if (!hasUser || refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        refresh(),
+        loadConversationStarters(),
+        presentDadMode.refresh(),
+      ]);
+    } finally {
+      refreshInFlight.current = false;
+      setRefreshing(false);
+    }
+  }, [hasUser, loadConversationStarters, presentDadMode.refresh, refresh]);
+
+  useEffect(() => {
+    void loadConversationStarters();
+  }, [loadConversationStarters]);
 
   const bondScore = useMemo(
     () => (typeof data?.bondScore === 'number' ? Math.round(data.bondScore) : null),
@@ -102,7 +121,7 @@ export default function BondScreen({
     <PillarScreen
       loading={loading && !data}
       skeleton={<PillarSkeleton score cards={3} />}
-      refreshing={loading}
+      refreshing={refreshing}
       onRefresh={hasUser ? onRefresh : undefined}
       error={data ? null : error}
       errorMessage="We couldn't bring in your parenting tools, Dad Dates and family activity. Try again in a moment."
