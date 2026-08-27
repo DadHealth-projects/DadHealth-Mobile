@@ -1,7 +1,7 @@
-import React, { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from '../../components/AppTopBar';
@@ -20,8 +20,20 @@ export default function CommunityFeedScreen() {
   const { showOfflineAction } = useNetworkStatus();
   const feed = useCommunityFeed(user?.id);
   const [message, setMessage] = useState<string | null>(null);
+  const refreshInFlight = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useFocusEffect(useCallback(() => { void feed.refresh(true); }, [feed.refresh]));
+  const onRefresh = useCallback(async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
+    try {
+      await feed.refresh();
+    } finally {
+      refreshInFlight.current = false;
+      setRefreshing(false);
+    }
+  }, [feed.refresh]);
 
   const openComposer = () => {
     if (feed.isOffline) { showOfflineAction('community_post'); return; }
@@ -40,7 +52,11 @@ export default function CommunityFeedScreen() {
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-dark">
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-lg pt-lg pb-xl">
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerClassName="px-lg pt-lg pb-xl"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.lime} />}
+      >
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityLabel="Close recent posts" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
         <View className="mt-xl"><ScreenHero eyebrow="Dad Health Community" headline="Recent Posts" /></View>
         <GlobalErrorToastReporter message={message ?? (feed.posts.length === 0 ? feed.error : null)} />
@@ -50,7 +66,7 @@ export default function CommunityFeedScreen() {
           <Feather name="chevron-right" size={18} color={colors.lime} />
         </Pressable>
         <View className="mt-lg">
-          {feed.loading ? [0, 1, 2].map((item) => <View key={item} className="h-[170px] border-b border-border bg-white/[0.02]" />)
+          {feed.loading || refreshing ? [0, 1, 2].map((item) => <View key={item} className="h-[170px] border-b border-border bg-white/[0.02]" />)
             : feed.posts.length === 0 ? <Text className="font-body text-muted-text text-[14px]">No posts yet. Be the first to share.</Text>
               : feed.posts.map((post) => <InteractiveFeedPost key={post.id} post={post} liked={feed.likedIds.has(post.id)} saved={feed.savedIds.has(post.id)} owner={Boolean(user?.id && (post.user_id === user.id || feed.anonymousOwnedIds.has(post.id)))} busy={feed.busyId === post.id} onLike={() => runUpdate(() => feed.toggleLike(post.id))} onSave={() => runUpdate(() => feed.toggleSave(post.id))} onThread={() => openThread(post.id)} onDelete={() => runUpdate(() => feed.deletePost(post.id))} />)}
         </View>

@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import CircleCard from '../components/mockup/CircleCard';
 import type { DashboardSection } from '../components/AccountSheet';
@@ -49,6 +49,8 @@ export default function CommunityScreen({
   const [trendingTags, setTrendingTags] = useState<Array<{ tag: string; count: number }>>([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [trendingError, setTrendingError] = useState<string | null>(null);
+  const refreshInFlight = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const hasUser = Boolean(user?.id);
   const loadCircles = useCallback(async (silent = false) => {
@@ -115,7 +117,17 @@ export default function CommunityScreen({
     setTrendingLoading(false);
   }, [feed.error, feed.posts, isOffline]);
 
-  const onRefresh = useCallback(() => { void Promise.all([refresh(), loadCircles(), feed.refresh(), loadLiveSessions(), loadTrending()]); }, [feed.refresh, loadCircles, loadLiveSessions, loadTrending, refresh]);
+  const onRefresh = useCallback(async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
+    try {
+      await Promise.all([refresh(), loadCircles(), feed.refresh(), loadLiveSessions(), loadTrending()]);
+    } finally {
+      refreshInFlight.current = false;
+      setRefreshing(false);
+    }
+  }, [feed.refresh, loadCircles, loadLiveSessions, loadTrending, refresh]);
   const onToggleCircle = useCallback(async (circleId: string, joined: boolean) => {
     if (!user?.id || busyCircleId) return;
     if (isOffline) { showOfflineAction('community_update'); return; }
@@ -144,13 +156,11 @@ export default function CommunityScreen({
 
   useEffect(() => { void loadLiveSessions(); }, [loadLiveSessions]);
 
-  useFocusEffect(useCallback(() => { void Promise.all([refresh(), feed.refresh(true)]); }, [feed.refresh, refresh]));
-
   return (
     <PillarScreen
       loading={loading && !data && !isOffline && feed.posts.length === 0}
       skeleton={<PillarSkeleton cards={3} />}
-      refreshing={loading}
+      refreshing={refreshing}
       onRefresh={hasUser ? onRefresh : undefined}
       error={data || isOffline || feed.posts.length > 0 ? null : error}
       errorMessage="We couldn't bring in your community feed and dad connections. Try again in a moment."
@@ -175,6 +185,10 @@ export default function CommunityScreen({
       </FadeInView>
 
       <FadeInView delay={90}>
+        <SectionHeader title="Your Dad Circles" className="mb-xs" />
+        <Text className="mb-md font-body text-muted-text text-[14px] leading-[20px]">
+          Find dads going through the same chapter as you.
+        </Text>
         {circlesLoading ? (
           <View className="flex-row flex-wrap gap-sm">{[0, 1, 2, 3].map((item) => <View key={item} className="h-[132px] w-[48%] rounded-card bg-white/5" />)}</View>
         ) : communityCircles.length === 0 ? (
@@ -223,7 +237,7 @@ export default function CommunityScreen({
                 {feed.posts.length === 0 ? 'No posts yet' : `${feed.posts.length} ${feed.posts.length === 1 ? 'post' : 'posts'} available`}
               </Text>
               <Text className="font-body text-muted-text text-[12px] mt-[2px]">
-                {feed.posts.length === 0 ? 'Be the first to share with the squad.' : 'View them now'}
+                {feed.posts.length === 0 ? 'Be the first to share with the community.' : 'View them now'}
               </Text>
             </View>
             <Feather name="chevron-right" size={20} color={colors.lime} />
