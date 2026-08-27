@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Image, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useNavigation, type NavigationProp } from "@react-navigation/native";
@@ -39,6 +39,16 @@ export default function CookTogetherScreen() {
     null,
   );
   const [message, setMessage] = useState<string | null>(null);
+  const [completion, setCompletion] = useState<{
+    title: string;
+    activeMinutes: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!completion) return;
+    const timer = setTimeout(() => setCompletion(null), 30_000);
+    return () => clearTimeout(timer);
+  }, [completion]);
 
   const chooseDifficulty = (value: "all" | "easy" | "medium") => {
     recipeData.setFilters((current) => ({ ...current, difficulty: value }));
@@ -86,6 +96,27 @@ export default function CookTogetherScreen() {
             {recipeData.bondScore ?? "0"}
           </Text>
         </View>
+        {completion ? (
+          <View
+            accessibilityLiveRegion="polite"
+            className="flex-row items-start gap-md rounded-button border border-lime/25 bg-lime/5 p-md"
+          >
+            <Feather name="check-circle" size={20} color={colors.lime} />
+            <View className="flex-1">
+              <Text className="font-heading-bold text-lime text-[13px] uppercase">
+                Recipe complete
+              </Text>
+              <Text className="font-body text-white text-[13px] leading-[19px] mt-xs">
+                {completion.title} was added to your Bond activity. {completion.activeMinutes} active minutes logged.
+              </Text>
+              {recipeData.bondScore != null ? (
+                <Text className="font-heading-bold text-white text-[12px] uppercase mt-sm">
+                  Your Bond score is now {recipeData.bondScore}.
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
         <View className="flex-row gap-lg">
           <Filter
             label="Difficulty"
@@ -203,6 +234,7 @@ export default function CookTogetherScreen() {
                       label={completed ? "Cook again" : "Start recipe"}
                       onPress={() => {
                         setMessage(null);
+                        setCompletion(null);
                         setActive(recipe);
                       }}
                     />
@@ -304,15 +336,18 @@ export default function CookTogetherScreen() {
                     : "Mark complete"
                 }
                 loading={recipeData.busyId === active.id}
-                onPress={() =>
-                  void recipeData.complete(active).then(async (result) => {
+                onPress={() => {
+                  const recipe = active;
+                  if (!recipe) return;
+                  void recipeData.complete(recipe).then((result) => {
                     setMessage(result.error);
                     if (!result.error) {
-                      await refreshDashboard();
+                      setCompletion({ title: recipe.title, activeMinutes: recipe.prep_mins });
                       setActive(null);
+                      void refreshDashboard();
                     }
-                  })
-                }
+                  });
+                }}
               />
             ) : null}
           </ScrollView>
