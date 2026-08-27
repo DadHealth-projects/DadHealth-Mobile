@@ -345,15 +345,19 @@ Deployment, production configuration and App Store submission remain separate ta
 
 # Navigation
 
-Keep the current native navigation.
+Keep the approved native navigation structure.
 
 Bottom Tabs
 
-- Body
+- Body (`Fit` route)
 - Mind
-- Home
+- Today (`Home` route; raised lime tab)
 - Bond
-- Squad
+- Community (`Squad` route)
+
+Keep the internal `Home`, `Fit` and `Squad` route names for notification and
+navigation compatibility. Progress remains a standalone dashboard/stack
+destination and is not part of the bottom navigation.
 
 Secondary screens remain inside the Account/Profile menu.
 

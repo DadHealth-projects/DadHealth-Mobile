@@ -13,7 +13,7 @@
     },
     "production": {
       "autoIncrement": true,
-      "credentialsSource": "remote"
+      "credentialsSource": "local"
     }
   },
   "submit": {
