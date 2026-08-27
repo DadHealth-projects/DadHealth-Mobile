@@ -7,27 +7,23 @@ type UpgradeProCardProps = {
   onPress?: () => void;
 };
 
-/**
- * Web "UPGRADE TO PRO" card, shown to non-Pro members on the dashboard Home
- * (`dashboardPreview/HomeScreen.tsx`). Copy is verbatim.
- */
 function UpgradeProCard({ onPress }: UpgradeProCardProps) {
   return (
     <Card className="border-lime/30 gap-sm">
       <Text className="font-heading-bold text-lime text-[13px] tracking-label uppercase">
-        Upgrade to Pro
+        Make Dad Health personal
       </Text>
       <Text className="font-body text-muted-text text-[14px] leading-[20px]">
-        Unlock full score, graphs & more
+        See what is shaping your score, with insights built around your week.
       </Text>
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel="Start 7-day free trial"
+        accessibilityLabel="See what Dad Health Pro can do"
         className="mt-sm rounded-button bg-lime py-md items-center active:opacity-90"
       >
         <Text className="font-heading-bold text-dark text-[14px] tracking-[1px] uppercase">
-          7-day free trial
+          See what Pro can do
         </Text>
       </Pressable>
     </Card>

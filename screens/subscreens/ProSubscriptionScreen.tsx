@@ -15,13 +15,10 @@ import type { SubscriptionPlan } from '../../lib/nativeSubscriptions';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
 
-const PRO_FEATURES = [
-  'Full workout library and live workout timer',
-  'Meal planner and shopping list',
-  'Mood, sleep and Dad Health Score trends',
-  'Therapist and counsellor directory',
-  'Badges, report cards and milestone photos',
-  'Unlimited Dad Days searches',
+const THIS_WEEK_FEATURES = [
+  'Understand what is shaping your Mind, Body and Bond scores',
+  'See your weekly trends and personalised insights',
+  'Get workouts, Dad Days and plans built around your life',
 ] as const;
 
 export default function ProSubscriptionScreen() {
@@ -44,7 +41,7 @@ export default function ProSubscriptionScreen() {
     },
     annual: {
       price: subscriptions.products.find((item) => item.plan === 'annual')?.displayPrice ?? '£49.99',
-      suffix: 'per year',
+      suffix: 'per year · about £4.17 a month',
       badge: 'Best value',
     },
   }), [subscriptions.products]);
@@ -90,18 +87,11 @@ export default function ProSubscriptionScreen() {
           <>
             <ScreenHero
               eyebrow="Dad Health Pro"
-              headline={'Kill the old\nversion of you.'}
-              sub="Unlock every tool we've built to help you be a stronger dad."
+              headline={'Make Dad Health\npersonal'}
+              sub="The version of you your kids deserve — supported by insights built around your life."
             />
 
             <View className="gap-sm">
-              <PlanRow
-                title="Monthly"
-                price={planCopy.monthly.price}
-                suffix={planCopy.monthly.suffix}
-                selected={selectedPlan === 'monthly'}
-                onPress={() => setSelectedPlan('monthly')}
-              />
               <PlanRow
                 title="Annual"
                 price={planCopy.annual.price}
@@ -110,10 +100,20 @@ export default function ProSubscriptionScreen() {
                 selected={selectedPlan === 'annual'}
                 onPress={() => setSelectedPlan('annual')}
               />
+              <PlanRow
+                title="Monthly"
+                price={planCopy.monthly.price}
+                suffix={planCopy.monthly.suffix}
+                selected={selectedPlan === 'monthly'}
+                onPress={() => setSelectedPlan('monthly')}
+              />
             </View>
 
             <View className="border-y border-border py-lg gap-md">
-              {PRO_FEATURES.map((feature) => (
+              <Text className="font-heading-bold text-white text-[15px] uppercase">
+                What Pro can do this week
+              </Text>
+              {THIS_WEEK_FEATURES.map((feature) => (
                 <View key={feature} className="flex-row items-start gap-sm">
                   <Feather name="check" size={17} color={colors.lime} />
                   <Text className="font-body text-muted-text text-[13px] leading-[19px] flex-1">{feature}</Text>
@@ -125,7 +125,7 @@ export default function ProSubscriptionScreen() {
               <LimeButton label="Log in to continue" onPress={() => navigation.navigate('Login')} />
             ) : (
               <LimeButton
-                label={trialAvailable ? 'Start 7-day free trial' : 'Continue'}
+                label={trialAvailable ? 'Start my 7-day free trial' : 'Continue'}
                 onPress={() => void subscriptions.purchase(selectedPlan)}
                 loading={subscriptions.purchasing}
                 disabled={subscriptions.loading || !subscriptions.storeAvailable || !selectedProduct}
@@ -164,7 +164,7 @@ export default function ProSubscriptionScreen() {
 
         {!subscriptions.status?.isPro ? (
           <Text className="font-body text-tertiary-text text-[10px] leading-[16px] text-center">
-            {trialAvailable ? 'Seven-day free trial for eligible new subscribers. ' : ''}
+            {trialAvailable ? '7-day free trial for eligible new subscribers. Cancel anytime. ' : ''}
             Subscription renews automatically unless cancelled. You can manage or cancel it in your {Platform.OS === 'ios' ? 'App Store' : 'Google Play'} account.
           </Text>
         ) : null}
