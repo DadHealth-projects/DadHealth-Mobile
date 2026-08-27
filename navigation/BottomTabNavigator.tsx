@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, useWindowDimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import {
   createBottomTabNavigator,
@@ -40,7 +40,7 @@ const TAB_META: Record<keyof BottomTabsParamList, TabMeta> = {
     icon: 'wind',
   },
   Home: {
-    label: 'Home',
+    label: 'Today',
     icon: 'home',
     center: true,
   },
@@ -49,7 +49,7 @@ const TAB_META: Record<keyof BottomTabsParamList, TabMeta> = {
     icon: 'heart',
   },
   Squad: {
-    label: 'Squad',
+    label: 'Community',
     icon: 'users',
   },
 };
@@ -58,6 +58,13 @@ const INACTIVE = 'rgba(200,245,90,0.68)';
 
 function MockupTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const compact = width < 360;
+  const spacious = width >= 390;
+  const iconSize = compact ? 21 : spacious ? 24 : 22;
+  const labelFontSize = compact ? 8 : spacious ? 10 : 9;
+  const labelLetterSpacing = compact ? 0.25 : spacious ? 0.9 : 0.55;
+  const centerButtonSize = compact ? 52 : 56;
 
   return (
     <View
@@ -102,9 +109,9 @@ function MockupTabBar({ state, navigation }: BottomTabBarProps) {
               }}
             >
               <View
-                style={{
-                  width: 52,
-                  height: 52,
+              style={{
+                  width: centerButtonSize,
+                  height: centerButtonSize,
                   marginTop: -14,
                   borderRadius: 16,
                   backgroundColor: colors.lime,
@@ -119,7 +126,7 @@ function MockupTabBar({ state, navigation }: BottomTabBarProps) {
               >
                 <Feather
                   name={meta.icon}
-                  size={24}
+                  size={compact ? 25 : 27}
                   color={colors.dark}
                 />
               </View>
@@ -137,20 +144,26 @@ function MockupTabBar({ state, navigation }: BottomTabBarProps) {
             style={{
               flex: 1,
               alignItems: 'center',
-              gap: 4,
+              gap: compact ? 3 : 5,
             }}
           >
             <Feather
               name={meta.icon}
-              size={20}
+              size={iconSize}
               color={focused ? colors.lime : INACTIVE}
             />
 
             <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
               style={{
+                width: '100%',
+                paddingHorizontal: 2,
+                textAlign: 'center',
                 fontFamily: fonts.bodySemiBold,
-                fontSize: 9,
-                letterSpacing: 1.5,
+                fontSize: labelFontSize,
+                letterSpacing: labelLetterSpacing,
                 textTransform: 'uppercase',
                 color: focused ? colors.lime : INACTIVE,
               }}
@@ -171,6 +184,8 @@ export default function BottomTabNavigator() {
       screenOptions={{
         headerShown: false,
         lazy: false,
+        animation: 'fade',
+        sceneStyle: { backgroundColor: colors.dark },
       }}
       tabBar={(props) => <MockupTabBar {...props} />}
     >
