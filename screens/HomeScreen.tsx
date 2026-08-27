@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
@@ -11,6 +11,7 @@ import MoodCheckInRow, { type MoodKey } from '../components/mockup/MoodCheckInRo
 import PillarCard from '../components/mockup/PillarCard';
 import ScreenHero from '../components/mockup/ScreenHero';
 import StatTile from '../components/mockup/StatTile';
+import PublicHomeSkeleton from '../components/skeleton/PublicHomeSkeleton';
 import { usePublicHome } from '../hooks/usePublicHome';
 import { STATS_EXTENDED, PILLARS, type PillarTab } from '../lib/homeContent';
 import type { AppStackParamList } from '../navigation/AppNavigator';
@@ -41,7 +42,9 @@ const EMPTY_SCORE_ITEMS = [
  */
 export default function HomeScreen() {
   const navigation = useNavigation<HomeNavigation>();
-  const { data, loading, refresh } = usePublicHome();
+  const { data, refresh } = usePublicHome();
+  const refreshInFlight = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
   // Logged-out preview — the row is disabled and leads to sign-in.
   const [moodKey, setMoodKey] = useState<MoodKey>('good');
 
@@ -50,16 +53,30 @@ export default function HomeScreen() {
     (tab: PillarTab) => navigation.navigate(tab as keyof BottomTabsParamList),
     [navigation],
   );
+  const onRefresh = useCallback(async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      refreshInFlight.current = false;
+      setRefreshing(false);
+    }
+  }, [refresh]);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerClassName="px-lg pt-lg pb-[120px] gap-xl"
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={() => void refresh()} tintColor={colors.lime} />
-        }
-      >
+      {refreshing ? (
+        <PublicHomeSkeleton />
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerClassName="px-lg pt-lg pb-[120px] gap-xl"
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.lime} />
+          }
+        >
         <AppTopBar showBrand />
 
         <FadeInView>
@@ -141,7 +158,8 @@ export default function HomeScreen() {
             ))}
           </View>
         </FadeInView>
-      </ScrollView>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }

@@ -23,13 +23,13 @@ test('startup uses the DH logo before JavaScript content is ready', async () => 
   assert.doesNotMatch(splash, /BrandWordmark/);
 });
 
-test('public Home renders fallback content immediately while data refreshes quietly', async () => {
+test('public Home renders fallback content immediately and reserves its skeleton for manual refresh', async () => {
   const [home, hook] = await Promise.all([
     source('screens/HomeScreen.tsx'),
     source('hooks/usePublicHome.ts'),
   ]);
 
-  assert.doesNotMatch(home, /PublicHomeSkeleton/);
+  assert.match(home, /refreshing \? \([\s\S]*?<PublicHomeSkeleton \/>/);
   assert.doesNotMatch(home, /if \(loading\)/);
   assert.match(hook, /useState\(false\)/);
   assert.match(hook, /void load\(false\)/);
