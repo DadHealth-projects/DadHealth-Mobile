@@ -1,6 +1,6 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { useFocusEffect, useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import Card from '../components/Card';
 import type { DashboardSection } from '../components/AccountSheet';
@@ -38,6 +38,10 @@ const FOCUS_LABEL = {
   core: 'Core',
 } as const;
 
+function formatMoveCount(count: number): string {
+  return `${count} ${count === 1 ? 'move' : 'moves'}`;
+}
+
 /**
  * Fit tab — every feature of the web dashboard FITNESS screen
  * (`dashboardPreview/FitnessScreen.tsx`): the four stat cards, the featured
@@ -60,6 +64,8 @@ export default function FitnessScreen({
   );
   const fitnessLibrary = useFitnessLibrary(user?.id, standalone);
   const refreshLibrary = fitnessLibrary.refresh;
+  const refreshInFlight = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
   const selectedWorkout = useMemo(
     () => fitnessLibrary.workouts.find((workout) => workout.id === selectedWorkoutId)
@@ -67,7 +73,15 @@ export default function FitnessScreen({
       ?? null,
     [fitnessLibrary.workouts, selectedWorkoutId],
   );
-  const moveCount = selectedWorkout?.exercises.length || DAD_STRENGTH_MOVES.length;
+  const moveCount = selectedWorkout?.exercises?.length || DAD_STRENGTH_MOVES.length;
+  const moveCountLabel = formatMoveCount(moveCount);
+  const workoutName = selectedWorkout?.title.trim() || 'Dad Strength';
+  const workoutSummary = selectedWorkout
+    ? `${workoutName} · ${moveCountLabel} · ${selectedWorkout.duration_mins} min`
+    : `${workoutName} · ${moveCountLabel}`;
+  const workoutMeta = selectedWorkout
+    ? `${moveCountLabel} · ${selectedWorkout.duration_mins} min · ${EQUIPMENT_LABEL[selectedWorkout.equipment]}`
+    : moveCountLabel;
 
   const hasUser = Boolean(user?.id);
   const requireAuth = useCallback(() => navigation.navigate('Login'), [navigation]);
@@ -84,8 +98,11 @@ export default function FitnessScreen({
     [generatedWorkout, navigation],
   );
   const openMealPlanner = useCallback(() => navigation.navigate('MealPlanner'), [navigation]);
-  const onRefresh = useCallback(() => {
-    void (async () => {
+  const onRefresh = useCallback(async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
+    try {
       if (user?.id) {
         try {
           await syncAppleHealthIfConnected(user.id, { force: true, days: 7 });
@@ -93,12 +110,11 @@ export default function FitnessScreen({
       }
       await refresh();
       if (standalone) await Promise.all([refreshSummary(), refreshLibrary()]);
-    })();
+    } finally {
+      refreshInFlight.current = false;
+      setRefreshing(false);
+    }
   }, [refresh, refreshLibrary, refreshSummary, standalone, user?.id]);
-
-  useFocusEffect(useCallback(() => {
-    if (standalone) onRefresh();
-  }, [onRefresh, standalone]));
   const openTdee = useCallback(() => {
     navigation.navigate('TDEECalculator');
   }, [navigation]);
@@ -106,21 +122,21 @@ export default function FitnessScreen({
   const stats = useMemo(
     () => standalone
       ? [
-          { label: 'WORKOUTS', value: hasUser ? String(fitnessSummary.monthWorkouts) : '0' },
-          { label: 'WEIGHT', value: hasUser ? fitnessSummary.weightDisplay : '0' },
-          { label: 'STEPS', value: hasUser ? fitnessSummary.stepsDisplay : '0' },
+          { label: 'WORKOUTS', value: hasUser && fitnessSummary.monthWorkouts > 0 ? String(fitnessSummary.monthWorkouts) : 'Start one' },
+          { label: 'WEIGHT', value: hasUser ? fitnessSummary.weightDisplay ?? 'Log yours' : 'Log yours' },
+          { label: 'STEPS', value: hasUser ? fitnessSummary.stepsDisplay ?? 'Connect' : 'Connect' },
           {
             label: 'ACTIVE TODAY',
-            value: hasUser ? fitnessSummary.activeDisplay : '0 min',
+            value: hasUser ? fitnessSummary.activeDisplay ?? 'Get moving' : 'Get moving',
           },
         ]
       : [
-          { label: 'WORKOUTS', value: hasUser && data ? String(data.monthWorkouts) : '0' },
-          { label: 'WEIGHT', value: data?.weightDisplay ?? '0' },
-          { label: 'LAST SESSION', value: data?.featuredWorkoutMeta ?? '0' },
+          { label: 'WORKOUTS', value: hasUser && data && data.monthWorkouts > 0 ? String(data.monthWorkouts) : 'Start one' },
+          { label: 'WEIGHT', value: data?.weightDisplay ?? 'Log yours' },
+          { label: 'LAST SESSION', value: data?.featuredWorkoutMeta ?? 'Log one' },
           {
             label: 'ACTIVE',
-            value: hasUser && (data?.activeTodayMin ?? 0) > 0 ? `${data?.activeTodayMin} min` : '0',
+            value: hasUser && (data?.activeTodayMin ?? 0) > 0 ? `${data?.activeTodayMin} min` : 'Get moving',
           },
         ],
     [data, fitnessSummary, hasUser, standalone],
@@ -130,7 +146,7 @@ export default function FitnessScreen({
     <PillarScreen
       loading={(loading && !data) || (standalone && summaryLoading)}
       skeleton={<PillarSkeleton cards={3} />}
-      refreshing={loading}
+      refreshing={refreshing}
       onRefresh={hasUser ? onRefresh : undefined}
       error={data ? null : error}
       errorMessage="We couldn't bring in your fitness, activity and nutrition data. Try again in a moment."
@@ -145,7 +161,7 @@ export default function FitnessScreen({
             <ScreenHero
               eyebrow="Today's workout"
               headline={'Fitness\nand nutrition'}
-              sub={`${moveCount} moves · workout + meal planner hub`}
+              sub={workoutSummary}
             />
             {fitnessSummary.latestLoggedDate ? (
               <Text className="font-heading-semibold text-tertiary-text text-[11px] tracking-[1px] uppercase mt-sm">
@@ -180,11 +196,10 @@ export default function FitnessScreen({
                   Active workout
                 </Text>
                 <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">
-                  {selectedWorkout?.title ?? 'Dad Strength'}
+                  {workoutName}
                 </Text>
                 <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
-                  {moveCount} moves
-                  {selectedWorkout ? ` · ${selectedWorkout.duration_mins} min · ${EQUIPMENT_LABEL[selectedWorkout.equipment]}` : ''}
+                  {workoutMeta}
                 </Text>
               </View>
               <TagPill label={selectedWorkout ? FOCUS_LABEL[selectedWorkout.focus] : 'Full body'} />

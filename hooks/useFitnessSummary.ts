@@ -6,9 +6,9 @@ import { supabase } from '../lib/supabase';
 type FitnessSummary = {
   latestLoggedDate: string | null;
   monthWorkouts: number;
-  weightDisplay: string;
-  stepsDisplay: string;
-  activeDisplay: string;
+  weightDisplay: string | null;
+  stepsDisplay: string | null;
+  activeDisplay: string | null;
 };
 
 type WorkoutRow = { performed_at: string };
@@ -17,9 +17,9 @@ type MetricRow = { metric_type: string; value: number; recorded_at: string; sour
 const EMPTY_SUMMARY: FitnessSummary = {
   latestLoggedDate: null,
   monthWorkouts: 0,
-  weightDisplay: '0',
-  stepsDisplay: '0',
-  activeDisplay: '0 min',
+  weightDisplay: null,
+  stepsDisplay: null,
+  activeDisplay: null,
 };
 
 export function useFitnessSummary(userId?: string) {
@@ -86,9 +86,11 @@ export function useFitnessSummary(userId?: string) {
       monthWorkouts,
       weightDisplay: previousWeight != null && latestWeight != null
         ? `${previousWeight}→${latestWeight}kg`
-        : '0',
-      stepsDisplay: steps != null ? Number(steps).toLocaleString() : '0',
-      activeDisplay: activeMinutes != null ? `${Math.round(Number(activeMinutes))} min` : '0 min',
+        : latestWeight != null
+          ? `${latestWeight}kg`
+          : null,
+      stepsDisplay: steps != null ? Number(steps).toLocaleString() : null,
+      activeDisplay: activeMinutes != null ? `${Math.round(Number(activeMinutes))} min` : null,
     });
     setLoading(false);
   }, [isOffline, userId]);
