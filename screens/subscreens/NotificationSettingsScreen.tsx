@@ -23,7 +23,7 @@ const TYPES: Array<{ type: NotificationType; title: string; description: string;
   { type: 'weekly_challenge', title: 'Weekly challenge', description: 'Monday 08:00 - Weekly challenge title + description', linkLabel: 'Home' },
   { type: 'journal_prompt', title: 'Journal prompt', description: 'At your set evening time - rotating prompt', linkLabel: 'Mind', needsTime: true, timeHint: 'Evening time' },
   { type: 'milestone_anniversary', title: 'Milestone anniversary', description: 'Date-matched - One year ago: [milestone text]', linkLabel: 'Bond' },
-  { type: 'community_reply', title: 'Community replies', description: 'When someone replies to your community post or comment.', linkLabel: 'Squad' },
+  { type: 'community_reply', title: 'Community replies', description: 'When someone replies to your community post or comment.', linkLabel: 'Community' },
   { type: 'co_parent_event_added', title: 'Co-parent events', description: 'When a co-parent adds an event to your shared calendar.', linkLabel: 'Bond' },
   { type: 'present_dad_mode_complete', title: 'Present Dad Mode complete', description: 'After you complete a full 60-minute session.', linkLabel: 'Bond' },
 ];
