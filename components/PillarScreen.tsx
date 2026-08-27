@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -6,6 +6,8 @@ import AppTopBar from './AppTopBar';
 import type { DashboardSection } from './AccountSheet';
 import GlobalErrorToastReporter from './GlobalErrorToastReporter';
 import { colors } from '../theme';
+
+const REFRESH_SKELETON_MAX_MS = 900;
 
 type PillarScreenProps = {
   /** Rendered instead of `children` on the first load (skeleton standard). */
@@ -36,6 +38,20 @@ export default function PillarScreen({
   onSelectDashboardSection,
   children,
 }: PillarScreenProps) {
+  const [refreshSkeletonExpired, setRefreshSkeletonExpired] = useState(false);
+
+  useEffect(() => {
+    if (!refreshing) {
+      setRefreshSkeletonExpired(false);
+      return;
+    }
+
+    const timer = setTimeout(() => setRefreshSkeletonExpired(true), REFRESH_SKELETON_MAX_MS);
+    return () => clearTimeout(timer);
+  }, [refreshing]);
+
+  const showSkeleton = loading || (refreshing && !refreshSkeletonExpired);
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
       <ScrollView
@@ -57,7 +73,7 @@ export default function PillarScreen({
 
         <GlobalErrorToastReporter message={error ? errorMessage : null} />
 
-        {loading && skeleton ? skeleton : children}
+        {showSkeleton && skeleton ? skeleton : children}
       </ScrollView>
 
     </SafeAreaView>
