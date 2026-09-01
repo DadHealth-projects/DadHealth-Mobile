@@ -14,7 +14,6 @@ test('Mind is action-first and keeps statistics below the existing actions', asy
   const therapist = source.indexOf('title="Find a therapist"');
   const community = source.indexOf('title="Community"');
   const mood = source.indexOf('title="Login required"');
-  const statistics = source.indexOf('<StatTile value="1 in 8"');
 
   assert.ok(feeling >= 0);
   assert.ok(feeling < crisis);
@@ -23,7 +22,9 @@ test('Mind is action-first and keeps statistics below the existing actions', asy
   assert.ok(journal < therapist);
   assert.ok(therapist < community);
   assert.ok(community < mood);
-  assert.ok(mood < statistics);
+  // The screen finishes on support and the member's own information. The paired
+  // statistic-card block was removed and must not come back as filler.
+  assert.equal(source.includes('<StatTile'), false);
 });
 
 test('Mind reuses real routes without presenting missing products', async () => {
@@ -36,11 +37,23 @@ test('Mind reuses real routes without presenting missing products', async () => 
   assert.doesNotMatch(source, /Reset Exercise|Guided Reflection|personalised plan/i);
 });
 
-test('free users retain the locked mood-trend preview', async () => {
-  const source = await readFile(new URL('screens/MindScreen.tsx', root), 'utf8');
+test('free users get a locked mood-trend preview rather than a bare lock', async () => {
+  const [source, card, chart] = await Promise.all([
+    readFile(new URL('screens/MindScreen.tsx', root), 'utf8'),
+    readFile(new URL('components/dashboard/MoodWeekCard.tsx', root), 'utf8'),
+    readFile(new URL('components/dashboard/MiniBarChart.tsx', root), 'utf8'),
+  ]);
 
+  // Entitlement is unchanged — the trend still belongs to Pro.
   assert.match(source, /!data\?\.isPro/);
-  assert.match(source, /Seven-day mood trends are included with Dad Health Pro\./);
   assert.match(source, /navigation\.navigate\('ProSubscription'\)/);
-  assert.match(source, /<MoodWeekCard[\s\S]*?flat/);
+  // The chart is previewed in place instead of being replaced by a lock panel.
+  assert.match(source, /<MoodWeekCard[\s\S]*?flat locked/);
+  assert.match(source, /See your seven-day trend/);
+  // The preview draws empty tracks — never a value that reads as the member's own.
+  assert.match(card, /lockedAccessibilityLabel="Seven-day mood trend, locked"/);
+  assert.match(card, /Avg mood:[\s\S]*?locked \?[\s\S]*?Locked/);
+  const preview = /if \(locked\) \{([\s\S]*?)\n  \}/.exec(chart)?.[1] ?? '';
+  assert.ok(preview.length > 0);
+  assert.doesNotMatch(preview, /values|maxValue|barHeight/);
 });

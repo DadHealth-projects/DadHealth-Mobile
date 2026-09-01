@@ -148,22 +148,41 @@ test('Dad Days remains visible and guards search only when invoked while breathi
   assert.equal(storage.includes('bond_check'), false);
 });
 
-test('feature errors use the same global temporary toast instead of red screen banners', async () => {
-  const [network, reporter, topBar, fitness, therapist] = await Promise.all([
+test('the top toast is connectivity only and feature errors render in the screen at the bottom', async () => {
+  const [network, notice, banner, connectivity, app, topBar, fitness, therapist] = await Promise.all([
     source('contexts/NetworkContext.tsx'),
-    source('components/GlobalErrorToastReporter.tsx'),
+    source('components/ScreenErrorNotice.tsx'),
+    source('components/ScreenErrorBanner.tsx'),
+    source('components/GlobalConnectivityToast.tsx'),
+    source('App.js'),
     source('components/AppTopBar.tsx'),
     source('screens/FitnessScreen.tsx'),
     source('screens/subscreens/TherapistDirectoryScreen.tsx'),
   ]);
 
-  assert.ok(network.includes('showErrorNotice'));
-  assert.ok(network.includes("showToast(message, 'neutral')"));
-  assert.ok(reporter.includes('showErrorNotice(message)'));
+  // Screen errors go to their own channel, never to the connectivity toast.
+  assert.ok(notice.includes('reportScreenError(id, message ?? null)'));
+  assert.equal(notice.includes('showErrorNotice'), false);
+  assert.ok(network.includes('reportScreenError'));
+
+  // The connectivity toast stays pinned to the top; the error banner to the bottom.
+  assert.ok(connectivity.includes('top: insets.top + 12'));
+  assert.ok(banner.includes('bottom: insets.bottom + TAB_BAR_CLEARANCE'));
+  assert.equal(banner.includes('insets.top'), false);
+  assert.ok(app.includes('<ScreenErrorBanner />'));
+
+  // Errors clear themselves rather than sitting on screen until navigation.
+  assert.ok(network.includes('const SCREEN_ERROR_MS = 5000'));
+  assert.ok(network.includes('current.filter((entry) => entry.seq !== activeScreenErrorSeq)'));
+  assert.ok(network.includes('}, SCREEN_ERROR_MS)'));
+  // Re-reporting identical text must not restart the timer.
+  assert.ok(network.includes('entry.id === id && entry.message === message)) return current'));
+
+  // Screens report through the notice, and no screen paints its own red banner.
+  assert.ok(fitness.includes('<ScreenErrorNotice message={fitnessLibrary.error} />'));
+  assert.ok(therapist.includes('<ScreenErrorNotice message={bookingError ?? directory.error} />'));
   assert.equal(topBar.includes('text-red'), false);
-  assert.ok(fitness.includes('<GlobalErrorToastReporter message={fitnessLibrary.error} />'));
   assert.equal(fitness.includes('text-red'), false);
-  assert.ok(therapist.includes('<GlobalErrorToastReporter message={bookingError ?? directory.error} />'));
   assert.equal(therapist.includes('text-red'), false);
 });
 
