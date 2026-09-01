@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
-import Card from '../components/Card';
 import type { DashboardSection } from '../components/AccountSheet';
 import FadeInView from '../components/FadeInView';
 import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
@@ -40,6 +39,10 @@ const FOCUS_LABEL = {
 
 function formatMoveCount(count: number): string {
   return `${count} ${count === 1 ? 'move' : 'moves'}`;
+}
+
+function FlatSection({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <View className={`border-b border-border pb-lg ${className}`}>{children}</View>;
 }
 
 /**
@@ -149,7 +152,7 @@ export default function FitnessScreen({
       refreshing={refreshing}
       onRefresh={hasUser ? onRefresh : undefined}
       error={data ? null : error}
-      errorMessage="We couldn't bring in your fitness, activity and nutrition data. Try again in a moment."
+      errorMessage="We couldn't bring in your body, activity and nutrition data. Try again in a moment."
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}
     >
@@ -160,21 +163,40 @@ export default function FitnessScreen({
           <View>
             <ScreenHero
               eyebrow="Today's workout"
-              headline={'Fitness\nand nutrition'}
-              sub={workoutSummary}
+              headline={'Body\nand nutrition'}
             />
-            {fitnessSummary.latestLoggedDate ? (
-              <Text className="font-heading-semibold text-tertiary-text text-[11px] tracking-[1px] uppercase mt-sm">
-                Last logged {fitnessSummary.latestLoggedDate}
-              </Text>
-            ) : null}
           </View>
         ) : (
-          <ScreenHero eyebrow="Fitness" headline={"Today's\nworkout"} />
+          <ScreenHero eyebrow="Body" headline={"Today's\nworkout"} />
         )}
       </FadeInView>
 
       <FadeInView delay={90}>
+        <SectionHeader title="Body this week" className="mb-md" />
+        <FlatSection>
+          <MiniBarChart
+            values={data?.bodyWeekSeries ?? EMPTY_BODY_WEEK}
+            labels={MOOD_WEEK_LABELS}
+            maxValue={4}
+            height={72}
+          />
+        </FlatSection>
+      </FadeInView>
+
+      {standalone ? (
+        <FadeInView delay={100}>
+          <Text className="font-body text-muted-text text-[14px] leading-[20px]">
+            {workoutSummary}
+          </Text>
+          {fitnessSummary.latestLoggedDate ? (
+            <Text className="font-heading-semibold text-tertiary-text text-[11px] tracking-[1px] uppercase mt-sm">
+              Last logged {fitnessSummary.latestLoggedDate}
+            </Text>
+          ) : null}
+        </FadeInView>
+      ) : null}
+
+      <FadeInView delay={110}>
         <View className="gap-sm">
           <View className="flex-row gap-sm">
             <StatCard value={stats[0].value} label={stats[0].label} />
@@ -189,7 +211,7 @@ export default function FitnessScreen({
 
       <FadeInView delay={120}>
         {standalone ? (
-          <Card className="gap-md border-lime/25">
+          <FlatSection className="gap-md">
             <View className="flex-row items-start justify-between gap-md">
               <View className="flex-1">
                 <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
@@ -205,44 +227,30 @@ export default function FitnessScreen({
               <TagPill label={selectedWorkout ? FOCUS_LABEL[selectedWorkout.focus] : 'Full body'} />
             </View>
             <LimeButton label="Start workout →" onPress={hasUser ? openActiveWorkout : requireAuth} />
-          </Card>
+          </FlatSection>
         ) : data?.featuredWorkoutTitle ? (
-          <Card className="border-lime/25 gap-sm">
+          <FlatSection className="gap-sm">
             <Text className="font-heading-bold text-white text-[18px] tracking-[0.5px] uppercase">
               {data.featuredWorkoutTitle}
             </Text>
             <Text className="font-body text-muted-text text-[12px] leading-[18px]">
               {data.featuredWorkoutMeta ?? 'Latest logged session'}
             </Text>
-          </Card>
+          </FlatSection>
         ) : (
-          <Card className="border-lime/25">
+          <FlatSection>
             <Text className="font-body text-muted-text text-[13px] leading-[19px]">
               Log your first workout to populate this card.
             </Text>
-          </Card>
+          </FlatSection>
         )}
       </FadeInView>
-
-      {standalone ? (
-        <FadeInView delay={140}>
-          <SectionHeader title="Body this week" className="mb-md" />
-          <Card>
-            <MiniBarChart
-              values={data?.bodyWeekSeries ?? EMPTY_BODY_WEEK}
-              labels={MOOD_WEEK_LABELS}
-              maxValue={4}
-              height={72}
-            />
-          </Card>
-        </FadeInView>
-      ) : null}
 
       {standalone ? (
         <FadeInView delay={165}>
           <View>
             <SectionHeader title="Workout library" className="mb-md" />
-            <Card className="gap-md">
+            <FlatSection className="gap-md">
               <View className="flex-row items-center justify-between gap-sm">
                 <Text className="font-heading-bold text-muted-text text-[11px] tracking-[1px] uppercase">
                   {fitnessLibrary.isPro ? 'All available workouts' : 'Free workouts (8 max)'}
@@ -284,14 +292,14 @@ export default function FitnessScreen({
                   })}
                 </View>
               )}
-            </Card>
+            </FlatSection>
           </View>
         </FadeInView>
       ) : null}
 
       {standalone ? (
         <FadeInView delay={190}>
-          <Card className="gap-md border-lime/25">
+          <FlatSection className="gap-md">
             <View className="flex-row items-start justify-between gap-md">
               <View className="flex-1">
                 <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
@@ -310,13 +318,13 @@ export default function FitnessScreen({
               label={generatedWorkout ? 'View workout' : 'Generate workout'}
               onPress={openAIWorkout}
             />
-          </Card>
+          </FlatSection>
         </FadeInView>
       ) : null}
 
       {standalone ? (
         <FadeInView delay={215}>
-          <Card className="gap-md border-lime/25">
+          <FlatSection className="gap-md">
             <View className="flex-row items-start justify-between gap-md">
               <View className="flex-1">
                 <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Meal planner</Text>
@@ -326,12 +334,12 @@ export default function FitnessScreen({
               <TagPill label={fitnessLibrary.isPro ? 'Pro' : 'Preview'} />
             </View>
             <LimeButton label="Open meal planner" onPress={openMealPlanner} />
-          </Card>
+          </FlatSection>
         </FadeInView>
       ) : null}
 
       <FadeInView delay={240}>
-        <Card className="border-lime/25 gap-sm">
+        <FlatSection className="gap-sm">
           <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
             {standalone ? 'Do you know your calories?' : 'Know your daily calories'}
           </Text>
@@ -350,22 +358,8 @@ export default function FitnessScreen({
               {standalone ? 'Calculate' : 'Calculate TDEE →'}
             </Text>
           </Pressable>
-        </Card>
+        </FlatSection>
       </FadeInView>
-
-      {!standalone ? (
-        <FadeInView delay={240}>
-          <SectionHeader title="Body this week" className="mb-md" />
-          <Card>
-            <MiniBarChart
-              values={data?.bodyWeekSeries ?? EMPTY_BODY_WEEK}
-              labels={MOOD_WEEK_LABELS}
-              maxValue={4}
-              height={72}
-            />
-          </Card>
-        </FadeInView>
-      ) : null}
 
     </PillarScreen>
   );

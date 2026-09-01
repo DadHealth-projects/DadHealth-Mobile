@@ -65,6 +65,14 @@ export type MealPlanSummary = {
   loggedDate: string | null;
 };
 
+export type SuggestedWorkout = {
+  id: string;
+  title: string;
+  durationMins: number;
+  moveCount: number;
+  equipment: 'none' | 'dumbbells' | 'full_gym';
+};
+
 export type DashboardData = {
   displayName: string | null;
   goals: string[];
@@ -73,6 +81,9 @@ export type DashboardData = {
   mindScore: number | null;
   bodyScore: number | null;
   bondScore: number | null;
+  mindWeekChange: number | null;
+  bodyWeekChange: number | null;
+  bondWeekChange: number | null;
   totalScore: number | null;
   moodLogs: Array<{ date: string; mood_value: number }>;
   checkedInToday: boolean;
@@ -97,6 +108,7 @@ export type DashboardData = {
   bodyWeekSeries: number[];
   featuredWorkoutTitle: string | null;
   featuredWorkoutMeta: string | null;
+  suggestedWorkout: SuggestedWorkout | null;
 
   // ── Bond (web dashboardPreview/BondScreen.tsx) ──
   dadDates: DadDateItem[];
@@ -219,6 +231,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     todayWorkoutsResult,
     bodyWeekResult,
     latestWorkoutResult,
+    suggestedWorkoutResult,
     mealPlansResult,
     circlesResult,
     userCirclesResult,
@@ -226,7 +239,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     postsResult,
   ] = await Promise.all([
     supabase.from('user_profile').select('display_name,goals,is_pro,subscription_status').eq('user_id', userId).maybeSingle(),
-    supabase.from('dad_score_view').select('mind_score,body_score,bond_score').eq('user_id', userId).maybeSingle(),
+    supabase.from('dad_score_view').select('mind_score,body_score,bond_score,mind_week_change,body_week_change,bond_week_change').eq('user_id', userId).maybeSingle(),
     supabase.from('mood_logs').select('date,mood_value').eq('user_id', userId).gte('date', weekStart).order('date'),
     supabase
       .from('weekly_challenges')
@@ -249,6 +262,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     supabase.from('workout_sessions').select('duration_minutes').eq('user_id', userId).gte('performed_at', todayStart.toISOString()).lte('performed_at', todayEnd.toISOString()),
     supabase.from('workout_sessions').select('performed_at,duration_minutes').eq('user_id', userId).gte('performed_at', sevenDaysAgo.toISOString()),
     supabase.from('workout_sessions').select('exercise_name,duration_minutes,calories,performed_at').eq('user_id', userId).order('performed_at', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('workouts').select('id,title,duration_mins,equipment,exercises').eq('source', 'admin').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('meal_plans').select('id,plan,created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(1),
     supabase.from('circles').select('id,icon,name,members_count').order('members_count', { ascending: false }).limit(6),
     supabase.from('user_circles').select('circle_id').eq('user_id', userId),
@@ -308,6 +322,20 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
   const featuredWorkoutMeta = featuredWorkoutMetaParts.length > 0
     ? featuredWorkoutMetaParts.join(' · ')
     : null;
+  const suggestedRow = suggestedWorkoutResult.error ? null : suggestedWorkoutResult.data;
+  const suggestedWorkout: SuggestedWorkout | null = suggestedRow
+    && typeof suggestedRow.id === 'string'
+    && typeof suggestedRow.title === 'string'
+    && typeof suggestedRow.duration_mins === 'number'
+    && ['none', 'dumbbells', 'full_gym'].includes(String(suggestedRow.equipment))
+      ? {
+          id: suggestedRow.id,
+          title: suggestedRow.title.trim() || 'Suggested workout',
+          durationMins: suggestedRow.duration_mins,
+          moveCount: Array.isArray(suggestedRow.exercises) ? suggestedRow.exercises.length : 0,
+          equipment: suggestedRow.equipment as SuggestedWorkout['equipment'],
+        }
+      : null;
 
   // Bond ─────────────────────────────────────────────────────────────────────
   const dadDates = ((dadDatesResult.error ? [] : (dadDatesResult.data ?? [])) as Array<Record<string, unknown>>)
@@ -411,6 +439,9 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     mindScore: nullableScore(scoresResult.data?.mind_score),
     bodyScore: nullableScore(scoresResult.data?.body_score),
     bondScore: nullableScore(scoresResult.data?.bond_score),
+    mindWeekChange: nullableScore(scoresResult.data?.mind_week_change),
+    bodyWeekChange: nullableScore(scoresResult.data?.body_week_change),
+    bondWeekChange: nullableScore(scoresResult.data?.bond_week_change),
     totalScore: nullableScore(dashboard?.total_score),
     moodLogs,
     checkedInToday: moodLogs.some((log) => log.date === today),
@@ -426,6 +457,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     bodyWeekSeries,
     featuredWorkoutTitle,
     featuredWorkoutMeta,
+    suggestedWorkout,
 
     dadDates,
     milestones,
@@ -617,9 +649,10 @@ export function useDashboard(userId: string | undefined) {
     else await loadDashboard(userId);
   }, [isOffline, userId]);
 
-  const saveCheckIn = useCallback(async (moodValue: number, sleepHours: number): Promise<{ error: string | null; queued?: boolean }> => {
+  const saveCheckIn = useCallback(async (moodValue: number, stressLevel: number, sleepHours: number): Promise<{ error: string | null; queued?: boolean; mindScore?: number | null }> => {
     if (!userId) return { error: "You're not signed in. Please sign in again to save your check-in." };
     if (!Number.isInteger(moodValue) || moodValue < 1 || moodValue > 4) return { error: 'Choose a mood from 1 to 4.' };
+    if (!Number.isInteger(stressLevel) || stressLevel < 1 || stressLevel > 5) return { error: 'Choose how stressed you feel today.' };
     if (!Number.isFinite(sleepHours) || sleepHours < 0 || sleepHours > 12) return { error: 'Enter sleep between 0 and 12 hours.' };
 
     setCheckingIn(true);
@@ -629,7 +662,7 @@ export function useDashboard(userId: string | undefined) {
       userId,
       kind: 'daily_checkin',
       createdAt: new Date().toISOString(),
-      payload: { date, moodValue, sleepHours },
+      payload: { date, moodValue, stressLevel, sleepHours },
     };
 
     const applyLocalCheckIn = async () => {
@@ -652,7 +685,7 @@ export function useDashboard(userId: string | undefined) {
 
       await persistDailyCheckIn(item);
       await refresh();
-      return { error: null };
+      return { error: null, mindScore: store.userId === userId ? store.data?.mindScore ?? null : null };
     } catch (saveError) {
       if (isRetryableOfflineError(saveError)) {
         try {

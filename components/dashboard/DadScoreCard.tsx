@@ -5,6 +5,9 @@ import { Feather } from '@expo/vector-icons';
 export type ScoreItem = {
   label: string;
   value: number | null;
+  trend?: number | null;
+  highlighted?: boolean;
+  warning?: boolean;
 };
 
 type DadScoreCardProps = {
@@ -70,8 +73,14 @@ function DadScoreCard({
             </Text>
           ) : null}
 
-          {items.map((item) => (
-            <View key={item.label} className="mb-sm">
+          {items.map((item) => {
+            const roundedTrend = item.trend == null ? null : Math.round(item.trend);
+            return (
+            <View
+              key={item.label}
+              className={`mb-sm rounded-[7px] ${item.warning ? 'px-sm py-xs' : item.highlighted ? 'bg-dark/10 px-sm py-xs' : ''}`}
+              style={item.warning ? { backgroundColor: 'rgba(184, 74, 66, 0.2)' } : undefined}
+            >
               <View className="flex-row justify-between mb-[3px]">
                 <Text className="font-heading-bold text-dark/60 text-[10px] uppercase tracking-[0.5px]">
                   {item.label}
@@ -84,9 +93,16 @@ function DadScoreCard({
                     <View className="h-[6px] w-[6px] rounded-full bg-dark/50" />
                   )
                 ) : (
-                  <Text className="font-heading-bold text-dark/60 text-[10px]">
-                    {item.value}%
-                  </Text>
+                  <View className="flex-row items-center gap-xs">
+                    {roundedTrend !== null && roundedTrend !== 0 ? (
+                      <Text className="font-heading-bold text-dark text-[10px]">
+                        {roundedTrend > 0 ? '↑' : '↓'} {Math.abs(roundedTrend)}
+                      </Text>
+                    ) : null}
+                    <Text className="font-heading-bold text-dark/60 text-[10px]">
+                      {item.value}%
+                    </Text>
+                  </View>
                 )}
               </View>
 
@@ -101,7 +117,7 @@ function DadScoreCard({
                 ) : null}
               </View>
             </View>
-          ))}
+          );})}
             </>
           )}
         </View>

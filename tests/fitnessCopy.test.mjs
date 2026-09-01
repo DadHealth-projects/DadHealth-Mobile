@@ -10,7 +10,8 @@ test('Fitness uses the selected workout name, move count, duration and equipment
   assert.match(source, /const workoutName = selectedWorkout\?\.title\.trim\(\) \|\| 'Dad Strength'/);
   assert.match(source, /`\$\{workoutName\} · \$\{moveCountLabel\} · \$\{selectedWorkout\.duration_mins\} min`/);
   assert.match(source, /EQUIPMENT_LABEL\[selectedWorkout\.equipment\]/);
-  assert.match(source, /sub=\{workoutSummary\}/);
+  assert.match(source, /<Text className="font-body text-muted-text[^>]*>[\s\S]*\{workoutSummary\}[\s\S]*<\/Text>/);
+  assert.doesNotMatch(source, /sub=\{workoutSummary\}/);
   assert.match(source, /\{workoutName\}/);
   assert.match(source, /\{workoutMeta\}/);
   assert.doesNotMatch(source, /workout \+ meal planner hub/i);

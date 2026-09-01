@@ -39,6 +39,8 @@ export type OfflineDailyCheckInItem = QueueItemBase & {
   payload: {
     date: string;
     moodValue: number;
+    /** Optional only for queues created before the stress question shipped. */
+    stressLevel?: number;
     sleepHours: number;
   };
 };

@@ -5,16 +5,17 @@ import Card from '../Card';
 
 type UpgradeProCardProps = {
   onPress?: () => void;
+  insight?: string | null;
 };
 
-function UpgradeProCard({ onPress }: UpgradeProCardProps) {
+function UpgradeProCard({ onPress, insight }: UpgradeProCardProps) {
   return (
     <Card className="border-lime/30 gap-sm">
       <Text className="font-heading-bold text-lime text-[13px] tracking-label uppercase">
         Make Dad Health personal
       </Text>
       <Text className="font-body text-muted-text text-[14px] leading-[20px]">
-        See what is shaping your score, with insights built around your week.
+        {insight ?? 'See what is shaping your score, with insights built around your week.'}
       </Text>
       <Pressable
         onPress={onPress}

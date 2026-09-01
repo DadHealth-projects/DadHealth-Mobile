@@ -1,7 +1,5 @@
 import React, { memo } from 'react';
-import { Pressable, Text } from 'react-native';
-
-import Card from '../Card';
+import { Pressable, Text, View } from 'react-native';
 
 type ChallengeCardProps = {
   challenge: { title: string; participants_count: number } | null;
@@ -13,7 +11,7 @@ function ChallengeCard({ challenge, onOpenChallenge }: ChallengeCardProps) {
   const participantCount = challenge?.participants_count ?? 0;
 
   return (
-    <Card className="border-lime/30">
+    <View className="border-b border-border pb-lg">
       <Text className="font-heading-bold text-lime text-[13px] tracking-label uppercase">
         This week's challenge
       </Text>
@@ -35,7 +33,7 @@ function ChallengeCard({ challenge, onOpenChallenge }: ChallengeCardProps) {
           Take action →
         </Text>
       </Pressable>
-    </Card>
+    </View>
   );
 }
 

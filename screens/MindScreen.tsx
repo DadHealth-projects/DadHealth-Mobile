@@ -75,19 +75,54 @@ export default function MindScreen({
       <FadeInView>
         <ScreenHero
           eyebrow="Mental health"
-          headline={"It's okay to\nnot be okay."}
+          headline={"How are you feeling\nright now?"}
           sub="Opening up about feelings and seeking help is not a sign of weakness, but of strength."
         />
       </FadeInView>
 
       <FadeInView delay={90}>
-        <View className="flex-row gap-sm">
-          <StatTile value="1 in 8" label="UK men experiencing mental health symptoms" />
-          <StatTile value="4 in 10" label="won't tell a single person" />
-        </View>
+        <CrisisSupportRow />
       </FadeInView>
 
       <FadeInView delay={140}>
+        <View className="gap-sm">
+          <MindFeatureRow
+            icon="wind"
+            eyebrow="2 minutes"
+            title="4-4-4 Breathing"
+            description="Inhale 4. Hold 4. Exhale 4."
+            onPress={() => navigation.navigate('BreathingSession')}
+            accessibilityLabel="Open 4-4-4 breathing session"
+            featured
+          />
+          <MindFeatureRow
+            icon="edit-3"
+            eyebrow="Private journal"
+            title="Journal"
+            description="Daily prompts. Private entries. Just for you."
+            onPress={() => navigation.navigate('Journal')}
+            accessibilityLabel="Open private journal"
+          />
+          <MindFeatureRow
+            icon="heart"
+            eyebrow="Talk to someone"
+            title="Find a therapist"
+            description="Filtered for dads. Evening and weekend slots. People who get it."
+            onPress={() => navigation.navigate('TherapistDirectory')}
+            accessibilityLabel="Open therapist directory"
+          />
+          <MindFeatureRow
+            icon="users"
+            eyebrow="I just need to talk"
+            title="Community"
+            description="Connect with dads going through the same chapter as you."
+            onPress={() => navigation.navigate('CommunityFeed')}
+            accessibilityLabel="Open Dad Health Community"
+          />
+        </View>
+      </FadeInView>
+
+      <FadeInView delay={210}>
         {!user ? (
           <MoodAccessPanel
             title="Login required"
@@ -103,39 +138,15 @@ export default function MindScreen({
             onPress={() => navigation.navigate('ProSubscription')}
           />
         ) : (
-          <MoodWeekCard values={moodWeek} labels={MOOD_WEEK_LABELS} summary={moodSummary} />
+          <MoodWeekCard values={moodWeek} labels={MOOD_WEEK_LABELS} summary={moodSummary} flat />
         )}
       </FadeInView>
 
-      <FadeInView delay={190}>
-        <View className="gap-sm">
-          <MindFeatureRow
-            icon="wind"
-            title="4-4-4 Breathing"
-            description="Inhale 4. Hold 4. Exhale 4."
-            onPress={() => navigation.navigate('BreathingSession')}
-            accessibilityLabel="Open 4-4-4 breathing session"
-            featured
-          />
-          <MindFeatureRow
-            icon="edit-3"
-            title="Journal"
-            description="Daily prompts. Private entries. Just for you."
-            onPress={() => navigation.navigate('Journal')}
-            accessibilityLabel="Open private journal"
-          />
-          <MindFeatureRow
-            icon="heart"
-            title="Find a therapist"
-            description="Filtered for dads. Evening and weekend slots. People who get it."
-            onPress={() => navigation.navigate('TherapistDirectory')}
-            accessibilityLabel="Open therapist directory"
-          />
+      <FadeInView delay={260}>
+        <View className="flex-row gap-sm">
+          <StatTile value="1 in 8" label="UK men experiencing mental health symptoms" />
+          <StatTile value="4 in 10" label="won't tell a single person" />
         </View>
-      </FadeInView>
-
-      <FadeInView delay={290}>
-        <CrisisSupportRow />
       </FadeInView>
     </PillarScreen>
   );
@@ -153,7 +164,7 @@ function MoodAccessPanel({
   onPress: () => void;
 }) {
   return (
-    <View className="gap-md rounded-button border border-border bg-card p-md">
+    <View className="gap-md border-b border-border pb-md">
       <View className="flex-row items-start gap-md">
         <View className="h-[40px] w-[40px] rounded-full bg-lime/10 items-center justify-center">
           <Feather name="bar-chart-2" size={18} color={colors.lime} />
@@ -171,6 +182,7 @@ function MoodAccessPanel({
 
 function MindFeatureRow({
   icon,
+  eyebrow,
   title,
   description,
   featured = false,
@@ -178,6 +190,7 @@ function MindFeatureRow({
   accessibilityLabel,
 }: {
   icon: keyof typeof Feather.glyphMap;
+  eyebrow?: string;
   title: string;
   description: string;
   featured?: boolean;
@@ -190,6 +203,11 @@ function MindFeatureRow({
         <Feather name={icon} size={19} color={featured ? colors.dark : colors.lime} />
       </View>
       <View className="flex-1 min-w-0">
+        {eyebrow ? (
+          <Text className="font-body-semibold text-lime text-[10px] tracking-[1.4px] uppercase mb-xs">
+            {eyebrow}
+          </Text>
+        ) : null}
         <Text className="font-heading-bold text-white text-[17px] uppercase">{title}</Text>
         <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">{description}</Text>
       </View>

@@ -136,7 +136,7 @@ export default function AccountSheet({
 
   const dashboardRows: Array<{ icon: keyof typeof Feather.glyphMap; title: string; section: DashboardSection }> = [
     { icon: 'home', title: 'Home', section: 'HOME' },
-    { icon: 'activity', title: 'Fitness', section: 'FITNESS' },
+    { icon: 'activity', title: 'Body', section: 'FITNESS' },
     { icon: 'wind', title: 'Mind', section: 'MIND' },
     { icon: 'heart', title: 'Bond', section: 'BOND' },
     { icon: 'users', title: 'Community', section: 'COMMUNITY' },

@@ -37,9 +37,10 @@ export function isRetryableOfflineError(error: unknown) {
 }
 
 function assertDailyCheckIn(item: OfflineDailyCheckInItem) {
-  const { date, moodValue, sleepHours } = item.payload;
+  const { date, moodValue, stressLevel, sleepHours } = item.payload;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('invalid_checkin_date');
   if (!Number.isInteger(moodValue) || moodValue < 1 || moodValue > 4) throw new Error('invalid_mood');
+  if (stressLevel != null && (!Number.isInteger(stressLevel) || stressLevel < 1 || stressLevel > 5)) throw new Error('invalid_stress');
   if (!Number.isFinite(sleepHours) || sleepHours < 0 || sleepHours > 12) throw new Error('invalid_sleep');
 }
 
@@ -125,10 +126,16 @@ async function recomputeStreak(userId: string) {
 
 export async function persistDailyCheckIn(item: OfflineDailyCheckInItem) {
   assertDailyCheckIn(item);
-  const { date, moodValue, sleepHours } = item.payload;
+  const { date, moodValue, stressLevel, sleepHours } = item.payload;
+  const moodPayload = {
+    user_id: item.userId,
+    date,
+    mood_value: moodValue,
+    ...(stressLevel == null ? {} : { stress_level: stressLevel }),
+  };
   const mood = await supabase
     .from('mood_logs')
-    .upsert({ user_id: item.userId, date, mood_value: moodValue }, { onConflict: 'user_id,date' });
+    .upsert(moodPayload, { onConflict: 'user_id,date' });
   if (mood.error) throw mood.error;
   await saveManualSleep(item.userId, date, sleepHours);
   await recomputeStreak(item.userId);
