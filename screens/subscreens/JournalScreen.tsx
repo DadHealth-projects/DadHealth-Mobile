@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import ScreenErrorNotice from '../../components/ScreenErrorNotice';
 import LimeButton from '../../components/LimeButton';
 import { useAuth } from '../../contexts/AuthContext';
 import { type JournalEntry, useJournalEntries } from '../../hooks/useJournalEntries';
@@ -101,7 +101,7 @@ export default function JournalScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" contentContainerClassName="px-lg pt-lg pb-xl gap-xl">
           <AppTopBar leftAccessory={<Pressable onPress={() => editorOpen ? closeEditor() : navigation.goBack()} accessibilityRole="button" accessibilityLabel={editorOpen ? 'Back to journal entries' : 'Close journal'} hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"><Feather name={editorOpen ? 'chevron-left' : 'x'} size={20} color={colors.text} /></Pressable>} />
-          <GlobalErrorToastReporter message={error ?? journal.syncError ?? journal.error} />
+          <ScreenErrorNotice message={error ?? journal.syncError ?? journal.error} />
           {!editorOpen ? (
             <View>
               <Text className="font-heading text-white uppercase text-[42px] leading-[44px]">
