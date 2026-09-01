@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
@@ -7,7 +7,7 @@ import * as Location from 'expo-location';
 import * as SecureStore from 'expo-secure-store';
 
 import AppTopBar from '../../components/AppTopBar';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import ScreenErrorNotice from '../../components/ScreenErrorNotice';
 import LimeButton from '../../components/LimeButton';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
@@ -173,7 +173,7 @@ export default function DadDaysSearchScreen() {
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerClassName="px-lg pt-lg pb-xl gap-xl">
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Close Dad Days search" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
         <ScreenHero eyebrow="Dad Days" headline={'Find your\nnext day out'} sub="Search nearby activities by age, budget and distance." />
-        <GlobalErrorToastReporter message={error} />
+        <ScreenErrorNotice message={error} />
 
         {!user ? <LimeButton label="Log in to search" onPress={() => navigation.navigate('Login')} /> : (
           <View className="gap-xl">
@@ -194,7 +194,28 @@ export default function DadDaysSearchScreen() {
               {openFilter === 'radius' ? <DropdownOptions options={RADII} value={radius} onChange={(value) => { setRadius(value); setOpenFilter(null); void SecureStore.setItemAsync(RADIUS_KEY, value); }} /> : null}
               {openFilter === 'age' ? <DropdownOptions options={AGES} value={childAge} onChange={(value) => { setChildAge(value); setOpenFilter(null); }} /> : null}
             </View>
-            {limitReached ? <View className="gap-md border-y border-border py-lg"><Text className="font-heading-bold text-white text-[17px] uppercase">3 free searches used</Text><Text className="font-body text-muted-text text-[13px]">Your allowance resets on the first of next month.</Text><LimeButton label="View Dad Health Pro" onPress={() => navigation.navigate('ProSubscription')} /></View> : <><LimeButton label="Search for Dad Days" onPress={() => void search()} loading={searching} />{!isPro ? <Text className="font-body text-tertiary-text text-[12px] text-center">{remaining} of {FREE_LIMIT} free searches remaining</Text> : null}</>}
+            {/* Pro moments 4 and 7 — the search filters above stay free for
+                everyone. The only thing Pro changes today is the monthly
+                allowance, so that is the only thing claimed here. */}
+            {limitReached ? (
+              <View className="gap-md border-y border-border py-lg">
+                <Text className="font-heading-bold text-white text-[17px] uppercase">{FREE_LIMIT} of {FREE_LIMIT} free searches used</Text>
+                <Text className="font-body text-muted-text text-[13px] leading-[19px]">Your free allowance resets on the first of next month. Pro members get unlimited Dad Days searches.</Text>
+                <LimeButton label="Get unlimited searches" onPress={() => navigation.navigate('ProSubscription')} />
+              </View>
+            ) : (
+              <>
+                <LimeButton label="Search for Dad Days" onPress={() => void search()} loading={searching} />
+                {!isPro ? (
+                  <View className="gap-sm">
+                    <Text className="font-body text-tertiary-text text-[12px] text-center">{searchesUsed} of {FREE_LIMIT} free Dad Days searches used this month</Text>
+                    <Pressable onPress={() => navigation.navigate('ProSubscription')} accessibilityRole="button" className="min-h-[44px] self-center justify-center active:opacity-70">
+                      <Text className="font-heading-bold text-lime text-[11px] uppercase">Pro members get unlimited searches</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+              </>
+            )}
           </View>
         )}
 

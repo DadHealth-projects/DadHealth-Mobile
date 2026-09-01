@@ -10,7 +10,7 @@ import {
 } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import ScreenErrorNotice from '../../components/ScreenErrorNotice';
 import LimeButton from '../../components/LimeButton';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import TagPill from '../../components/dashboard/TagPill';
@@ -212,12 +212,27 @@ export default function AIWorkoutScreen() {
           ) : null}
         </View>
 
+        {/* Pro moment 3 — the filters above stay usable for everyone, so the
+            value is previewed before the lock. Only the three inputs that
+            actually exist are described. */}
+        {user && !library.loading && !library.isPro ? (
+          <View className="gap-md border-y border-border py-lg">
+            <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
+              With Dad Health Pro
+            </Text>
+            <Text className="font-body text-muted-text text-[13px] leading-[19px]">
+              Tell us how long you have, what equipment you can reach and what you want to work.
+              We build the workout around you, and it is saved to your library.
+            </Text>
+          </View>
+        ) : null}
+
         {!user ? (
           <LimeButton label="Log in to generate" onPress={openLogin} />
         ) : library.loading ? (
           <LimeButton label="Loading workouts" loading />
         ) : !library.isPro ? (
-          <LimeButton label="View Dad Health Pro" onPress={openPro} />
+          <LimeButton label="Unlock AI workouts" onPress={openPro} />
         ) : (
           <LimeButton
             label={generatedWorkout ? 'Regenerate workout' : 'Generate workout'}
@@ -226,7 +241,7 @@ export default function AIWorkoutScreen() {
           />
         )}
 
-        <GlobalErrorToastReporter message={error ?? library.error ?? library.proError} />
+        <ScreenErrorNotice message={error ?? library.error ?? library.proError} />
 
         {displayedWorkout ? (
           <View className="gap-md border-t border-border pt-lg">
