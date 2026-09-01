@@ -5,7 +5,7 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from '../../components/AppTopBar';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import ScreenErrorNotice from '../../components/ScreenErrorNotice';
 import LimeButton from '../../components/LimeButton';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
@@ -52,7 +52,7 @@ export default function CreateCommunityPostScreen() {
       <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" automaticallyAdjustKeyboardInsets contentContainerClassName="px-lg pt-lg pb-xl gap-xl">
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Close create post" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
         <ScreenHero eyebrow="Dad Health Community" headline={'Share it\nwith the community'} />
-        <GlobalErrorToastReporter message={error} />
+        <ScreenErrorNotice message={error} />
         <>
           <TextInput value={body} onChangeText={setBody} autoFocus multiline textAlignVertical="top" placeholder="Share something with the community…" placeholderTextColor={colors.tertiaryText} className="min-h-[220px] rounded-button border border-border bg-card p-md font-body text-white text-[16px] leading-[24px]" />
           <View className="gap-sm">

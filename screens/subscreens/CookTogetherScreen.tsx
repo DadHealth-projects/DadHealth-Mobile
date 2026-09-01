@@ -5,7 +5,7 @@ import { useNavigation, type NavigationProp } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppTopBar from "../../components/AppTopBar";
-import GlobalErrorToastReporter from "../../components/GlobalErrorToastReporter";
+import ScreenErrorNotice from "../../components/ScreenErrorNotice";
 import LimeButton from "../../components/LimeButton";
 import ScreenHero from "../../components/mockup/ScreenHero";
 import { useAuth } from "../../contexts/AuthContext";
@@ -151,7 +151,7 @@ export default function CookTogetherScreen() {
             onSelect={chooseTime}
           />
         ) : null}
-        <GlobalErrorToastReporter message={message ?? recipeData.error} />
+        <ScreenErrorNotice message={message ?? recipeData.error} />
         {recipeData.loading ? (
           <View className="gap-sm">
             {[0, 1, 2].map((item) => (
@@ -269,7 +269,7 @@ export default function CookTogetherScreen() {
                 {active?.title}
               </Text>
               <Text className="font-body text-muted-text text-[13px] mt-xs">
-                {active?.prep_mins} minutes · age {active?.age_min}+ ·{" "}
+                {active?.prep_mins} minutes Â· age {active?.age_min}+ Â·{" "}
                 {active?.difficulty}
               </Text>
             </View>
