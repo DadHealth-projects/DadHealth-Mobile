@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from './AppTopBar';
 import type { DashboardSection } from './AccountSheet';
-import GlobalErrorToastReporter from './GlobalErrorToastReporter';
+import ScreenErrorNotice from './ScreenErrorNotice';
 import { colors } from '../theme';
 
 const REFRESH_SKELETON_MAX_MS = 900;
@@ -23,7 +23,7 @@ type PillarScreenProps = {
 };
 
 /**
- * Shared shell for the pillar tabs (Fit · Mind · Bond · Squad): safe area,
+ * Shared shell for the pillar tabs (Fit Â· Mind Â· Bond Â· Squad): safe area,
  * account button, pull-to-refresh, skeleton-first loading and the mockups'
  * 24px gutters / 32px section rhythm. Screens supply only their content.
  */
@@ -71,7 +71,7 @@ export default function PillarScreen({
           onSelectSection={onSelectDashboardSection}
         />
 
-        <GlobalErrorToastReporter message={error ? errorMessage : null} />
+        <ScreenErrorNotice message={error ? errorMessage : null} />
 
         {showSkeleton && skeleton ? skeleton : children}
       </ScrollView>
