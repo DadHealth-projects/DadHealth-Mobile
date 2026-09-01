@@ -6,7 +6,7 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import ScreenErrorNotice from '../../components/ScreenErrorNotice';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotificationSettings, type NotificationType } from '../../hooks/useNotificationSettings';
@@ -18,7 +18,7 @@ const TYPES: Array<{ type: NotificationType; title: string; description: string;
   { type: 'morning_checkin', title: 'Morning check-in', description: '07:30 daily - Good morning. How are you feeling today?', linkLabel: 'Home' },
   { type: 'bedtime_story', title: 'Bedtime story reminder', description: '30 minutes before your set bedtime - Bedtime in 30 minutes. Story time?', linkLabel: 'Bond', needsTime: true, timeHint: 'Bedtime' },
   { type: 'workout_window', title: 'Workout window', description: 'At your set time - Your workout window is now. 20 minutes is enough.', linkLabel: 'Fitness', needsTime: true, timeHint: 'Workout time' },
-  { type: 'weekly_score', title: 'Weekly report ready', description: 'Monday 08:00 - Your Dad Health Score this week: [score]', linkLabel: 'Progress' },
+  { type: 'weekly_score', title: 'Weekly report ready', description: 'Sunday 08:00 - Your Dad Health Score this week: [score]', linkLabel: 'Progress' },
   { type: 'streak_at_risk', title: 'Streak at risk', description: '21:00 if you have not checked in - Your [n]-day streak ends at midnight.', linkLabel: 'Home' },
   { type: 'weekly_challenge', title: 'Weekly challenge', description: 'Monday 08:00 - Weekly challenge title + description', linkLabel: 'Home' },
   { type: 'journal_prompt', title: 'Journal prompt', description: 'At your set evening time - rotating prompt', linkLabel: 'Mind', needsTime: true, timeHint: 'Evening time' },
@@ -96,7 +96,7 @@ export default function NotificationSettingsScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-lg pt-lg pb-[120px] gap-xl">
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Close push notifications" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
         <ScreenHero eyebrow="Settings" headline={'Push\nnotifications'} sub="All notifications are opt-in. Times are based on your dad timezone." />
-        <GlobalErrorToastReporter message={settings.error} />
+        <ScreenErrorNotice message={settings.error} />
 
         {!user ? <Pressable onPress={() => navigation.navigate('Login')} className="min-h-[48px] justify-center border-y border-border"><Text className="font-heading-bold text-lime text-[12px] uppercase">Log in to edit settings</Text></Pressable> : settings.loading ? <View className="gap-sm">{[0,1,2,3].map((item) => <View key={item} className="h-[72px] bg-white/5" />)}</View> : <>
           <View className="border-t border-border">

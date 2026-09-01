@@ -18,7 +18,7 @@ import { Calendar } from "react-native-calendars";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppTopBar from "../../components/AppTopBar";
-import GlobalErrorToastReporter from "../../components/GlobalErrorToastReporter";
+import ScreenErrorNotice from "../../components/ScreenErrorNotice";
 import LimeButton from "../../components/LimeButton";
 import ScreenHero from "../../components/mockup/ScreenHero";
 import { useAuth } from "../../contexts/AuthContext";
@@ -466,7 +466,7 @@ export default function SharedCalendarScreen() {
               : "Mark custody days and keep handovers and school events in one place."
           }
         />
-        <GlobalErrorToastReporter message={error} />
+        <ScreenErrorNotice message={error} />
         {!user ? (
           <LimeButton
             label="Log in to continue"
@@ -714,7 +714,7 @@ export default function SharedCalendarScreen() {
                       className="border-b border-border py-md"
                     >
                       <Text className="font-heading-bold text-white text-[12px] uppercase">
-                        {shortDate(milestone.date)} · {milestone.tag}
+                        {shortDate(milestone.date)} Â· {milestone.tag}
                       </Text>
                       <Text className="font-body text-tertiary-text text-[13px] mt-xs">
                         {milestone.text}
