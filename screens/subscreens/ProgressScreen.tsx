@@ -10,12 +10,13 @@ import type { DashboardSection } from '../../components/AccountSheet';
 import AppTopBar from '../../components/AppTopBar';
 import DadScoreCard from '../../components/dashboard/DadScoreCard';
 import FadeInView from '../../components/FadeInView';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import ScreenErrorNotice from '../../components/ScreenErrorNotice';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import SectionHeader from '../../components/dashboard/SectionHeader';
 import StatCard from '../../components/dashboard/StatCard';
 import ProgressSkeleton from '../../components/skeleton/ProgressSkeleton';
 import { useAuth } from '../../contexts/AuthContext';
+import { useDashboard } from '../../hooks/useDashboard';
 import { useProgressScore } from '../../hooks/useProgressScore';
 import { useProgressReport } from '../../hooks/useProgressReport';
 import { useProgressBadges } from '../../hooks/useProgressBadges';
@@ -43,6 +44,9 @@ export default function ProgressScreen({
   const progressReport = useProgressReport(user?.id);
   const progressBadges = useProgressBadges(user?.id);
   const progressSleep = useProgressSleep(user?.id);
+  // Shared dashboard store — the only source of week-on-week pillar movement,
+  // which the server owns through `dad_score_view`.
+  const dashboard = useDashboard(user?.id);
   const [reportMessage, setReportMessage] = useState<string | null>(null);
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -58,12 +62,12 @@ export default function ProgressScreen({
           await syncAppleHealthIfConnected(user.id, { force: true, days: 7 });
         } catch {}
       }
-      await Promise.all([progressScore.refresh(), progressReport.refresh(), progressBadges.refresh(), progressSleep.refresh()]);
+      await Promise.all([progressScore.refresh(), progressReport.refresh(), progressBadges.refresh(), progressSleep.refresh(), dashboard.refresh()]);
     } finally {
       refreshInFlight.current = false;
       setRefreshing(false);
     }
-  }, [progressBadges.refresh, progressReport.refresh, progressScore.refresh, progressSleep.refresh, user?.id]);
+  }, [dashboard.refresh, progressBadges.refresh, progressReport.refresh, progressScore.refresh, progressSleep.refresh, user?.id]);
   const onClose = useCallback(() => navigation.goBack(), [navigation]);
 
   const scoreItems = useMemo(() => {
@@ -74,6 +78,16 @@ export default function ProgressScreen({
       { label: 'Bond', value: breakdown.bond },
     ];
   }, [progressScore.data.breakdown]);
+
+  // Real week-on-week pillar movement, straight from `dad_score_view`. The
+  // server publishes point deltas, not percentages, so points are what is shown.
+  const weeklyPillars = useMemo(() => [
+    { label: 'Mind', change: dashboard.data?.mindWeekChange ?? null },
+    { label: 'Body', change: dashboard.data?.bodyWeekChange ?? null },
+    { label: 'Bond', change: dashboard.data?.bondWeekChange ?? null },
+  ], [dashboard.data?.bodyWeekChange, dashboard.data?.bondWeekChange, dashboard.data?.mindWeekChange]);
+
+  const monthWorkouts = progressReport.report?.workouts ?? 0;
 
   const reportStats = useMemo(() => progressReport.report ? [
     [String(progressReport.report.workouts), 'Workouts'],
@@ -154,26 +168,23 @@ export default function ProgressScreen({
               <ScreenHero eyebrow="Progress" headline={'Your Dad\nHealth score'} />
             </FadeInView>
 
-            <GlobalErrorToastReporter message={globalError} />
+            <ScreenErrorNotice message={globalError} />
             <FadeInView delay={90}>
               {progressScore.loading ? (
                 <View className="h-[174px] bg-white/5" />
               ) : (
                 <>
+                  {/* The basic score, including the Mind, Body and Bond pillar
+                      values, is free. Only the weekly trends and insights below
+                      are Pro. */}
                   <DadScoreCard
                     score={progressScore.data.score}
                     missingScore={0}
-                    items={progressScore.data.isPro ? scoreItems : []}
-                    lockedLabel={progressScore.data.isPro ? undefined : 'Breakdown with Dad Health Pro'}
+                    items={scoreItems}
                     missingItemValue="—"
                     scoreLabel="out of 100"
                     title=""
                   />
-                  {!progressScore.data.isPro ? (
-                    <Pressable onPress={() => navigation.navigate('ProSubscription')} accessibilityRole="button" className="min-h-[44px] self-start justify-center border-b border-lime">
-                      <Text className="font-heading-bold text-lime text-[11px] uppercase">View Dad Health Pro</Text>
-                    </Pressable>
-                  ) : null}
                   <View className="mt-lg border-t border-border">
                     <ProgressDataRow label="Sync status" value={formatSyncStatus(progressScore.data.integration)} />
                     <ProgressDataRow label="Steps" value={progressScore.data.latestSteps == null ? 'No wearable data' : Math.round(progressScore.data.latestSteps).toLocaleString()} />
@@ -183,11 +194,47 @@ export default function ProgressScreen({
               )}
             </FadeInView>
 
+            {/* Pro moment 5 — your week in Dad Health. Real server-owned point
+                deltas only: no percentages, no narrative, no recommendation
+                copy. Free members see the shape of the report, not the values. */}
+            <FadeInView delay={120}>
+              <SectionHeader title="Your week in Dad Health" className="mb-md" />
+              {dashboard.loading && !dashboard.data ? (
+                <View className="h-[132px] bg-white/5" />
+              ) : (
+                <View className="border-t border-border">
+                  {weeklyPillars.map((pillar) => (
+                    <View key={pillar.label} className="min-h-[48px] flex-row items-center justify-between border-b border-border py-sm">
+                      <Text className="font-heading-bold text-white text-[13px] uppercase">{pillar.label}</Text>
+                      {progressScore.data.isPro ? (
+                        <WeekChange change={pillar.change} />
+                      ) : (
+                        <View className="flex-row items-center gap-sm">
+                          <Feather name="lock" size={14} color={colors.lime} />
+                          <Text className="font-heading-bold text-tertiary-text text-[11px] uppercase">Locked</Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                  {!progressScore.data.isPro ? (
+                    <View className="gap-md py-md">
+                      <Text className="font-body text-muted-text text-[13px] leading-[19px]">
+                        See how your Mind, Body and Bond scores moved against last week.
+                      </Text>
+                      <Pressable onPress={() => navigation.navigate('ProSubscription')} accessibilityRole="button" className="min-h-[44px] self-start justify-center border-b border-lime">
+                        <Text className="font-heading-bold text-lime text-[11px] uppercase">View Dad Health Pro</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </View>
+              )}
+            </FadeInView>
+
             <FadeInView delay={140}>
               <SectionHeader title={`${monthLabel} report`} className="mb-md" />
               {progressReport.loading ? (
                 <View className="flex-row flex-wrap gap-sm">{[0, 1, 2, 3, 4, 5].map((item) => <View key={item} className="h-[92px] basis-[48%] grow-0 bg-white/5" />)}</View>
-              ) : (
+              ) : progressScore.data.isPro ? (
                 <>
                   <View className="flex-row flex-wrap gap-sm">
                     {reportStats.map(([value, label]) => <StatCard key={label} value={value} label={label} className="basis-[48%] grow-0 min-h-[92px]" />)}
@@ -198,6 +245,23 @@ export default function ProgressScreen({
                   </Pressable>
                   {reportMessage ? <Text className="font-body text-muted-text text-[12px] mt-sm">{reportMessage}</Text> : null}
                 </>
+              ) : (
+                // Reports are Pro. This doubles as Pro moment 6: the tease is
+                // built on the member's own real workout count, not a bare lock.
+                <View className="gap-md border-y border-border py-lg">
+                  <View className="flex-row items-center gap-sm">
+                    <Feather name="lock" size={17} color={colors.lime} />
+                    <Text className="font-heading-bold text-white text-[15px] uppercase">Monthly report with Pro</Text>
+                  </View>
+                  <Text className="font-body text-muted-text text-[13px] leading-[19px]">
+                    {monthWorkouts > 0
+                      ? `You have completed ${monthWorkouts} ${monthWorkouts === 1 ? 'workout' : 'workouts'} this month. Want to see how your Body score has changed?`
+                      : 'Your workouts, journal entries, sleep and streak for the month, in one summary you can share.'}
+                  </Text>
+                  <Pressable onPress={() => navigation.navigate('ProSubscription')} accessibilityRole="button" className="min-h-[44px] self-start justify-center border-b border-lime">
+                    <Text className="font-heading-bold text-lime text-[11px] uppercase">Pro: view your trends</Text>
+                  </Pressable>
+                </View>
               )}
             </FadeInView>
 
@@ -250,9 +314,18 @@ export default function ProgressScreen({
               )}
             </FadeInView>
 
+            {/* Mood correlation plots the seven-day mood trend against sleep,
+                so it is Pro on both counts. */}
             <FadeInView delay={270}>
               <SectionHeader title="Mood correlation" className="mb-md" />
-              {progressSleep.loading ? (
+              {!progressScore.data.isPro ? (
+                <View className="gap-md border-y border-border py-lg">
+                  <Feather name="lock" size={20} color={colors.lime} />
+                  <Text className="font-heading-bold text-white text-[16px] uppercase">Mood and sleep together</Text>
+                  <Text className="font-body text-muted-text text-[13px] leading-[19px]">See your seven-day mood trend next to your sleep, night by night.</Text>
+                  <Pressable onPress={() => navigation.navigate('ProSubscription')} accessibilityRole="button" className="min-h-[42px] self-start justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[11px] uppercase">View Dad Health Pro</Text></Pressable>
+                </View>
+              ) : progressSleep.loading ? (
                 <View className="h-[132px] bg-white/5" />
               ) : (
                 <View className="border-t border-border">
@@ -283,6 +356,26 @@ export default function ProgressScreen({
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * One pillar's week-on-week movement. `change` is the server's own point delta
+ * from `dad_score_view`; a missing delta means the previous week had no data,
+ * which is stated rather than filled in with a stand-in figure.
+ */
+function WeekChange({ change }: { change: number | null }) {
+  if (change == null) {
+    return <Text className="font-body text-tertiary-text text-[12px]">Not enough data yet</Text>;
+  }
+  const rounded = Math.round(change);
+  if (rounded === 0) {
+    return <Text className="font-heading-bold text-muted-text text-[12px] uppercase">No change</Text>;
+  }
+  return (
+    <Text className={`font-heading-bold text-[12px] uppercase ${rounded > 0 ? 'text-lime' : 'text-muted-text'}`}>
+      {rounded > 0 ? '↑' : '↓'} {Math.abs(rounded)} {Math.abs(rounded) === 1 ? 'point' : 'points'}
+    </Text>
   );
 }
 

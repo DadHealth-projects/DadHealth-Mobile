@@ -4,7 +4,7 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import type { DashboardSection } from '../components/AccountSheet';
 import FadeInView from '../components/FadeInView';
-import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
+import ScreenErrorNotice from '../components/ScreenErrorNotice';
 import LimeButton from '../components/LimeButton';
 import MiniBarChart from '../components/dashboard/MiniBarChart';
 import PillarScreen from '../components/PillarScreen';
@@ -156,8 +156,8 @@ export default function FitnessScreen({
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}
     >
-      <GlobalErrorToastReporter message={fitnessLibrary.error} />
-      <GlobalErrorToastReporter message={fitnessLibrary.proError} />
+      <ScreenErrorNotice message={fitnessLibrary.error} />
+      <ScreenErrorNotice message={fitnessLibrary.proError} />
       <FadeInView>
         {standalone ? (
           <View>
@@ -171,6 +171,8 @@ export default function FitnessScreen({
         )}
       </FadeInView>
 
+      {/* The seven-day Body activity chart is a progress trend, so it is Pro.
+          Free members see the preview. */}
       <FadeInView delay={90}>
         <SectionHeader title="Body this week" className="mb-md" />
         <FlatSection>
@@ -179,7 +181,18 @@ export default function FitnessScreen({
             labels={MOOD_WEEK_LABELS}
             maxValue={4}
             height={72}
+            locked={!data?.isPro}
+            lockedAccessibilityLabel="Seven-day Body activity trend, locked"
           />
+          {!data?.isPro ? (
+            <Pressable
+              onPress={() => navigation.navigate('ProSubscription')}
+              accessibilityRole="button"
+              className="min-h-[44px] self-start justify-center border-b border-lime mt-sm"
+            >
+              <Text className="font-heading-bold text-lime text-[11px] uppercase">See your Body trend with Pro</Text>
+            </Pressable>
+          ) : null}
         </FlatSection>
       </FadeInView>
 
@@ -253,7 +266,9 @@ export default function FitnessScreen({
             <FlatSection className="gap-md">
               <View className="flex-row items-center justify-between gap-sm">
                 <Text className="font-heading-bold text-muted-text text-[11px] tracking-[1px] uppercase">
-                  {fitnessLibrary.isPro ? 'All available workouts' : 'Free workouts (8 max)'}
+                  {/* The workout library is free. Pro adds the member's own
+                      AI-generated workouts to it. */}
+                  {fitnessLibrary.isPro ? 'Your workouts and the library' : 'Workout library'}
                 </Text>
                 <TagPill label={`${fitnessLibrary.workouts.length} shown`} tone="outline" />
               </View>
@@ -312,7 +327,8 @@ export default function FitnessScreen({
                   Choose your time, equipment and focus. Generate a workout you can start immediately.
                 </Text>
               </View>
-              <TagPill label={fitnessLibrary.isPro ? 'Pro' : 'Free'} />
+              {/* The pill marks the feature's tier, not the member's. */}
+              <TagPill label="Pro" />
             </View>
             <LimeButton
               label={generatedWorkout ? 'View workout' : 'Generate workout'}
@@ -331,7 +347,7 @@ export default function FitnessScreen({
                 <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">Fuel your whole week</Text>
                 <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">Generate a personalised 5-day plan with recipes, macros and a shopping list.</Text>
               </View>
-              <TagPill label={fitnessLibrary.isPro ? 'Pro' : 'Preview'} />
+              <TagPill label="Pro" />
             </View>
             <LimeButton label="Open meal planner" onPress={openMealPlanner} />
           </FlatSection>
