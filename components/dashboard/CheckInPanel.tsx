@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
 import MoodCheckInRow, { type MoodKey } from '../mockup/MoodCheckInRow';
-import GlobalErrorToastReporter from '../GlobalErrorToastReporter';
+import ScreenErrorNotice from '../ScreenErrorNotice';
 import { colors } from '../../theme';
 
 type CheckInPanelProps = {
@@ -35,7 +35,7 @@ function CheckInPanel({
 }: CheckInPanelProps) {
   return (
     <View>
-      <GlobalErrorToastReporter message={error} />
+      <ScreenErrorNotice message={error} />
       <Text className="font-heading-bold text-dark/60 text-[11px] tracking-[0.5px] uppercase mb-sm">
         How are you feeling today?
       </Text>

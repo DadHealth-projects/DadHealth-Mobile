@@ -6,7 +6,7 @@ import type { FitnessWorkout, FitnessWorkoutExercise } from '../../hooks/useFitn
 import { DAD_STRENGTH_MOVES } from '../../lib/homeContent';
 import { supabase } from '../../lib/supabase';
 import LimeButton from '../LimeButton';
-import GlobalErrorToastReporter from '../GlobalErrorToastReporter';
+import ScreenErrorNotice from '../ScreenErrorNotice';
 import SectionHeader from '../dashboard/SectionHeader';
 import TagPill from '../dashboard/TagPill';
 
@@ -21,7 +21,7 @@ type ActiveMove = {
 function exerciseToMove(exercise: FitnessWorkoutExercise): ActiveMove {
   return {
     title: exercise.name ?? '',
-    detail: `${exercise.sets} sets · ${exercise.reps_or_duration} · Rest ${exercise.rest_period}`,
+    detail: `${exercise.sets} sets Â· ${exercise.reps_or_duration} Â· Rest ${exercise.rest_period}`,
     tag: exercise.muscle_group ?? '',
   };
 }
@@ -188,10 +188,10 @@ export default function ActiveWorkout({
           {formatTime(elapsedSeconds)}
         </Text>
         <Text className="font-heading-semibold text-tertiary-text text-[11px] tracking-[1px] uppercase mt-xs">
-          Workout timer · {formatMoveCount(moves.length)}
+          Workout timer Â· {formatMoveCount(moves.length)}
         </Text>
         <View className="gap-sm mt-md">
-          <LimeButton label={`${running ? 'Pause' : 'Start'} →`} onPress={handleToggleTimer} />
+          <LimeButton label={`${running ? 'Pause' : 'Start'} â†’`} onPress={handleToggleTimer} />
           <View className="flex-row gap-sm">
             <Pressable
               onPress={handleNextExercise}
@@ -211,12 +211,12 @@ export default function ActiveWorkout({
               className="flex-1 min-h-[48px] rounded-button border border-white/25 items-center justify-center active:opacity-70 disabled:opacity-40"
             >
               <Text className="font-heading-bold text-white text-[12px] tracking-[1px] uppercase">
-                {saving ? 'Saving...' : 'Log session →'}
+                {saving ? 'Saving...' : 'Log session â†’'}
               </Text>
             </Pressable>
           </View>
         </View>
-        <GlobalErrorToastReporter message={messageTone === 'error' ? message : null} />
+        <ScreenErrorNotice message={messageTone === 'error' ? message : null} />
         {message && messageTone === 'success' ? (
           <View
             accessibilityRole="alert"
