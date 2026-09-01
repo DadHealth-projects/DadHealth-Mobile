@@ -11,7 +11,6 @@ import MoodWeekCard from '../components/dashboard/MoodWeekCard';
 import PillarScreen from '../components/PillarScreen';
 import PillarSkeleton from '../components/skeleton/PillarSkeleton';
 import ScreenHero from '../components/mockup/ScreenHero';
-import StatTile from '../components/mockup/StatTile';
 import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '../hooks/useDashboard';
 import type { AppStackParamList } from '../navigation/AppNavigator';
@@ -131,22 +130,20 @@ export default function MindScreen({
             onPress={() => navigation.navigate('Login')}
           />
         ) : !data?.isPro ? (
-          <MoodAccessPanel
-            title="Mood this week"
-            description="Seven-day mood trends are included with Dad Health Pro."
-            actionLabel="View Dad Health Pro"
-            onPress={() => navigation.navigate('ProSubscription')}
-          />
+          // Entitlement is unchanged — the trend stays with Pro. What changes is
+          // that the chart is previewed rather than hidden behind a bare lock.
+          <View className="gap-md">
+            <MoodWeekCard values={moodWeek} labels={MOOD_WEEK_LABELS} summary={moodSummary} flat locked />
+            <MoodAccessPanel
+              title="See your seven-day trend"
+              description="Your mood pattern across the week is part of Dad Health Pro."
+              actionLabel="View Dad Health Pro"
+              onPress={() => navigation.navigate('ProSubscription')}
+            />
+          </View>
         ) : (
           <MoodWeekCard values={moodWeek} labels={MOOD_WEEK_LABELS} summary={moodSummary} flat />
         )}
-      </FadeInView>
-
-      <FadeInView delay={260}>
-        <View className="flex-row gap-sm">
-          <StatTile value="1 in 8" label="UK men experiencing mental health symptoms" />
-          <StatTile value="4 in 10" label="won't tell a single person" />
-        </View>
       </FadeInView>
     </PillarScreen>
   );

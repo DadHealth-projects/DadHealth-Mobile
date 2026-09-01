@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useNetworkStatus } from '../contexts/NetworkContext';
-import { isProfilePro } from '../lib/proStatus';
 import { supabase } from '../lib/supabase';
 
 export type Therapist = {
@@ -12,17 +11,19 @@ export type Therapist = {
   price_per_hour: number | null;
 };
 
+/**
+ * The therapist and counsellor directory is free for every logged-in dad, which
+ * is also how the web app has always behaved. No Pro check is made here.
+ */
 export function useTherapists(userId?: string) {
   const { isOffline } = useNetworkStatus();
   const [therapists, setTherapists] = useState<Therapist[]>([]);
-  const [isPro, setIsPro] = useState(false);
   const [loading, setLoading] = useState(Boolean(userId));
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!userId) {
       setTherapists([]);
-      setIsPro(false);
       setLoading(false);
       setError(null);
       return;
@@ -35,29 +36,16 @@ export function useTherapists(userId?: string) {
 
     setLoading(true);
     setError(null);
-    const [therapistsResult, profileResult] = await Promise.all([
-      supabase
-        .from('therapists')
-        .select('id,name,spec,availability,price_per_hour')
-        .order('name', { ascending: true }),
-      supabase
-        .from('user_profile')
-        .select('is_pro,subscription_status')
-        .eq('user_id', userId)
-        .maybeSingle(),
-    ]);
+    const therapistsResult = await supabase
+      .from('therapists')
+      .select('id,name,spec,availability,price_per_hour')
+      .order('name', { ascending: true });
 
-    if (profileResult.error) {
+    if (therapistsResult.error) {
       setTherapists([]);
-      setIsPro(false);
-      setError('We could not confirm your Dad Health Pro access. Please try again.');
-    } else if (therapistsResult.error) {
-      setTherapists([]);
-      setIsPro(isProfilePro(profileResult.data));
       setError('We could not load the therapist directory. Please try again.');
     } else {
       setTherapists((therapistsResult.data ?? []) as Therapist[]);
-      setIsPro(isProfilePro(profileResult.data));
     }
     setLoading(false);
   }, [isOffline, userId]);
@@ -66,5 +54,5 @@ export function useTherapists(userId?: string) {
     void refresh();
   }, [refresh]);
 
-  return { therapists, isPro, loading, error, refresh };
+  return { therapists, loading, error, refresh };
 }
