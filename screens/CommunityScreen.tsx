@@ -6,7 +6,7 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import CircleCard from '../components/mockup/CircleCard';
 import type { DashboardSection } from '../components/AccountSheet';
 import FadeInView from '../components/FadeInView';
-import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
+import ScreenErrorNotice from '../components/ScreenErrorNotice';
 import PillarScreen from '../components/PillarScreen';
 import PillarSkeleton from '../components/skeleton/PillarSkeleton';
 import ScreenHero from '../components/mockup/ScreenHero';
@@ -167,10 +167,10 @@ export default function CommunityScreen({
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}
     >
-      <GlobalErrorToastReporter message={circleError} />
-      <GlobalErrorToastReporter message={feed.error} />
-      <GlobalErrorToastReporter message={liveSessionsError} />
-      <GlobalErrorToastReporter message={trendingError} />
+      <ScreenErrorNotice message={circleError} />
+      <ScreenErrorNotice message={feed.error} />
+      <ScreenErrorNotice message={liveSessionsError} />
+      <ScreenErrorNotice message={trendingError} />
       <FadeInView>
         <ScreenHero
           eyebrow="Dad Health Community"
@@ -248,7 +248,6 @@ export default function CommunityScreen({
       <FadeInView delay={180}>
         <SectionHeader title="Live sessions" className="mb-md" />
         {liveSessionsLoading ? <View className="gap-sm"><View className="h-[54px] border-y border-border bg-white/[0.02]" /><View className="h-[54px] border-b border-border bg-white/[0.02]" /></View> : liveSessions.length === 0 ? <Text className="font-body text-muted-text text-[13px]">No live sessions are scheduled yet.</Text> : <View>{liveSessions.map((session) => <View key={session.id} className="border-b border-border py-md gap-xs"><Text className="font-heading-bold text-lime text-[14px] uppercase">{session.title}</Text><Text className="font-body text-tertiary-text text-[11px]">{session.host_name ? `Host: ${session.host_name}` : 'Host TBD'}{session.starts_at ? ` · ${new Date(session.starts_at).toLocaleString()}` : ''}</Text>{session.summary ? <Text className="font-body text-tertiary-text text-[13px] leading-[19px] mt-xs">{session.summary}</Text> : null}</View>)}</View>}
-        <Pressable onPress={() => navigation.navigate('ProSubscription')} accessibilityRole="button" className="self-start min-h-[40px] justify-center mt-md border-b border-lime"><Text className="font-heading-bold text-lime text-[11px] uppercase">View Pro</Text></Pressable>
       </FadeInView>
 
       <FadeInView delay={210}>

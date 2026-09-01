@@ -7,7 +7,7 @@ import ActivityCard from '../components/mockup/ActivityCard';
 import BondScoreCard from '../components/bond/BondScoreCard';
 import type { DashboardSection } from '../components/AccountSheet';
 import FadeInView from '../components/FadeInView';
-import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
+import ScreenErrorNotice from '../components/ScreenErrorNotice';
 import PillarCard from '../components/mockup/PillarCard';
 import PillarScreen from '../components/PillarScreen';
 import PillarSkeleton from '../components/skeleton/PillarSkeleton';
@@ -128,7 +128,7 @@ export default function BondScreen({
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}
     >
-      <GlobalErrorToastReporter message={startersError ? 'Conversation starters are unavailable.' : null} />
+      <ScreenErrorNotice message={startersError ? 'Conversation starters are unavailable.' : null} />
       <FadeInView>
         <ScreenHero
           eyebrow="The Bond"
