@@ -11,19 +11,35 @@ type MoodWeekCardProps = {
   /** From `getMoodSummary` — e.g. `{ label: 'Good', scoreText: ' (3.2/4)' }`. */
   summary: { label: string; scoreText: string };
   flat?: boolean;
+  /**
+   * Preview state for members without Pro. Renders the shape of the chart and
+   * the real weekday labels only — never a mood value, and never a stand-in
+   * figure that could be read as this member's own data.
+   */
+  locked?: boolean;
 };
 
 /** Web "MOOD THIS WEEK" chart + average-mood line. */
-function MoodWeekCard({ values, labels, summary, flat = false }: MoodWeekCardProps) {
+function MoodWeekCard({ values, labels, summary, flat = false, locked = false }: MoodWeekCardProps) {
   const content = (
     <>
-      <MiniBarChart values={values} labels={labels} maxValue={4} />
+      <MiniBarChart
+        values={values}
+        labels={labels}
+        maxValue={4}
+        locked={locked}
+        lockedAccessibilityLabel="Seven-day mood trend, locked"
+      />
       <Text className="font-body text-muted-text text-[14px] mt-md">
         Avg mood:{' '}
-        <Text className="font-body-semibold text-lime">
-          {summary.label}
-          {summary.scoreText}
-        </Text>
+        {locked ? (
+          <Text className="font-body-semibold text-tertiary-text">Locked</Text>
+        ) : (
+          <Text className="font-body-semibold text-lime">
+            {summary.label}
+            {summary.scoreText}
+          </Text>
+        )}
       </Text>
     </>
   );
