@@ -19,6 +19,7 @@ import {
 } from '@react-navigation/native';
 
 import { useAuth } from '../contexts/AuthContext';
+import { useDashboard } from '../hooks/useDashboard';
 import { colors } from '../theme';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 
@@ -67,6 +68,10 @@ export default function AccountSheet({
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const route = useRoute();
   const { session, user, signOut } = useAuth();
+  // Shared dashboard store — no extra fetch. Pro members should never be shown
+  // an upgrade entry point.
+  const { data: dashboardData } = useDashboard(user?.id);
+  const isPro = dashboardData?.isPro === true;
 
   // Keep the Modal mounted through the exit animation: `mounted` trails `visible`.
   const [mounted, setMounted] = useState(visible);
@@ -143,19 +148,22 @@ export default function AccountSheet({
     { icon: 'bar-chart-2', title: 'Progress', section: 'PROGRESS' },
   ];
 
-  const navigationRows: Row[] = [
-    ...dashboardRows.map((row) => ({
-      icon: row.icon,
-      title: row.title,
-      active: activeSection === row.section,
-      onPress: () => closeThen(() => onSelectSection?.(row.section)),
-    })),
+  // Dad Health Pro lives in the account menu only — one entry point across both
+  // sheets, and never shown to a member who already has Pro.
+  const proRow: Row[] = isPro ? [] : [
     {
       icon: 'award',
       title: 'Dad Health Pro',
       onPress: () => closeThen(() => navigation.navigate('ProSubscription')),
     },
   ];
+
+  const navigationRows: Row[] = dashboardRows.map((row) => ({
+    icon: row.icon,
+    title: row.title,
+    active: activeSection === row.section,
+    onPress: () => closeThen(() => onSelectSection?.(row.section)),
+  }));
 
   const accountRows: Row[] = session
     ? [
@@ -165,11 +173,7 @@ export default function AccountSheet({
           active: route.name === 'Profile',
           onPress: () => closeThen(() => navigation.navigate('Profile')),
         },
-        {
-          icon: 'award',
-          title: 'Dad Health Pro',
-          onPress: () => closeThen(() => navigation.navigate('ProSubscription')),
-        },
+        ...proRow,
         {
           icon: 'settings',
           title: 'Settings',
@@ -183,11 +187,7 @@ export default function AccountSheet({
           title: 'Login',
           onPress: () => closeThen(() => navigation.navigate('Login')),
         },
-        {
-          icon: 'award',
-          title: 'Dad Health Pro',
-          onPress: () => closeThen(() => navigation.navigate('ProSubscription')),
-        },
+        ...proRow,
         {
           icon: 'settings',
           title: 'Settings',

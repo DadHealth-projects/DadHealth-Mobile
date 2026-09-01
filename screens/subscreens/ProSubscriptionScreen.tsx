@@ -5,7 +5,7 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from '../../components/AppTopBar';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import ScreenErrorNotice from '../../components/ScreenErrorNotice';
 import LimeButton from '../../components/LimeButton';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,10 +15,15 @@ import type { SubscriptionPlan } from '../../lib/nativeSubscriptions';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
 
+/**
+ * Three concrete things Pro unlocks, each one matching a gate that actually
+ * exists in the app today. Nothing here is user-specific, so no figure on this
+ * screen can be mistaken for the member's own data.
+ */
 const THIS_WEEK_FEATURES = [
-  'Understand what is shaping your Mind, Body and Bond scores',
-  'See your weekly trends and personalised insights',
-  'Get workouts, Dad Days and plans built around your life',
+  'Your week-on-week score trends and pillar insights',
+  'Your seven-day mood trend and sleep patterns',
+  'AI workouts, AI meal plans and unlimited Dad Days searches',
 ] as const;
 
 export default function ProSubscriptionScreen() {
@@ -33,15 +38,18 @@ export default function ProSubscriptionScreen() {
   const trialAvailable = Boolean(selectedProduct?.hasSevenDayTrial);
   const providerLabel = providerName(subscriptions.status?.primaryProvider ?? null);
 
+  // Prices are only ever the store's own localised values. Nothing is shown
+  // until the store has returned a product, so no placeholder amount can be
+  // mistaken for the real one.
   const planCopy = useMemo(() => ({
     monthly: {
-      price: subscriptions.products.find((item) => item.plan === 'monthly')?.displayPrice ?? '£6.99',
+      price: subscriptions.products.find((item) => item.plan === 'monthly')?.displayPrice ?? null,
       suffix: 'per month',
       badge: null,
     },
     annual: {
-      price: subscriptions.products.find((item) => item.plan === 'annual')?.displayPrice ?? '£49.99',
-      suffix: 'per year · about £4.17 a month',
+      price: subscriptions.products.find((item) => item.plan === 'annual')?.displayPrice ?? null,
+      suffix: 'per year',
       badge: 'Best value',
     },
   }), [subscriptions.products]);
@@ -140,7 +148,7 @@ export default function ProSubscriptionScreen() {
           </>
         )}
 
-        <GlobalErrorToastReporter message={subscriptions.error} />
+        <ScreenErrorNotice message={subscriptions.error} />
         {subscriptions.notice ? (
           <Text accessibilityLiveRegion="polite" className="font-body text-lime text-[12px] leading-[18px] text-center">
             {subscriptions.notice}
@@ -182,7 +190,7 @@ function PlanRow({
   onPress,
 }: {
   title: string;
-  price: string;
+  price: string | null;
   suffix: string;
   badge?: string | null;
   selected: boolean;
@@ -209,7 +217,11 @@ function PlanRow({
         </View>
         <Text className="font-body text-muted-text text-[11px] mt-xs">{suffix}</Text>
       </View>
-      <Text className="font-heading text-lime text-[27px]">{price}</Text>
+      {price ? (
+        <Text className="font-heading text-lime text-[27px]">{price}</Text>
+      ) : (
+        <Text className="font-body text-tertiary-text text-[12px]">Loading price</Text>
+      )}
     </Pressable>
   );
 }
