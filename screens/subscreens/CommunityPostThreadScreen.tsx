@@ -5,7 +5,7 @@ import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@r
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from '../../components/AppTopBar';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import ScreenErrorNotice from '../../components/ScreenErrorNotice';
 import LimeButton from '../../components/LimeButton';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
@@ -74,7 +74,7 @@ export default function CommunityPostThreadScreen() {
     <SafeAreaView edges={['top']} className="flex-1 bg-dark">
       <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" automaticallyAdjustKeyboardInsets contentContainerClassName="px-lg pt-lg pb-xl gap-xl">
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center" accessibilityLabel="Close post thread"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
-        <GlobalErrorToastReporter message={error} />
+        <ScreenErrorNotice message={error} />
         {loading ? <View className="h-[240px] bg-white/5" /> : post ? <>
           <View className="border-b border-border pb-xl"><View className="flex-row items-center gap-sm"><Text className="font-heading-bold text-lime text-[11px] uppercase">{post.tag}</Text><Text className="font-heading-bold text-white text-[14px]">{post.author_name}</Text></View><Text className="font-body text-white text-[18px] leading-[27px] mt-md">{post.content}</Text></View>
           <View className="gap-md"><Text className="font-heading-bold text-lime text-[11px] uppercase">Replies</Text>{roots.length === 0 ? <Text className="font-body text-muted-text">No replies yet.</Text> : roots.map((comment) => <View key={comment.id} className="border-b border-border pb-md"><CommentRow comment={comment} owner={comment.user_id === user?.id} onDelete={() => remove(comment)} onReply={() => { setReplyTo(comment.id); setDraft(''); }} />{(replies.get(comment.id) ?? []).map((reply) => <View key={reply.id} className="ml-xl mt-md border-l-2 border-l-lime/30 pl-md"><CommentRow comment={reply} owner={reply.user_id === user?.id} onDelete={() => remove(reply)} /></View>)}</View>)}</View>

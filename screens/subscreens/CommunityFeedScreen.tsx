@@ -5,7 +5,7 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from '../../components/AppTopBar';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import ScreenErrorNotice from '../../components/ScreenErrorNotice';
 import InteractiveFeedPost from '../../components/community/InteractiveFeedPost';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
@@ -59,7 +59,7 @@ export default function CommunityFeedScreen() {
       >
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityLabel="Close recent posts" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
         <View className="mt-xl"><ScreenHero eyebrow="Dad Health Community" headline="Recent Posts" /></View>
-        <GlobalErrorToastReporter message={message ?? (feed.posts.length === 0 ? feed.error : null)} />
+        <ScreenErrorNotice message={message ?? (feed.posts.length === 0 ? feed.error : null)} />
         <Pressable onPress={openComposer} accessibilityRole="button" className="min-h-[58px] flex-row items-center gap-md border-y border-border mt-xl px-sm active:opacity-75">
           <View className="h-[34px] w-[34px] rounded-full bg-lime/10 items-center justify-center"><Feather name="edit-3" size={16} color={colors.lime} /></View>
           <Text className="flex-1 font-body text-muted-text text-[14px]">Share something with the community...</Text>
