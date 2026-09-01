@@ -45,7 +45,7 @@ test('Body uses divider-led sections instead of tall dark cards', async () => {
 test('Mind preserves compact information and feature cards while flattening the tall mood panel', async () => {
   const mind = await source('screens/MindScreen.tsx');
 
-  assert.ok(mind.includes('<StatTile value="1 in 8"'));
+  assert.equal(mind.includes('<StatTile'), false);
   assert.ok(mind.includes('summary={moodSummary} flat'));
   assert.ok(mind.includes("rounded-button border px-md py-md ${featured ? 'border-lime/25 bg-lime/5' : 'border-border bg-card'}"));
   assert.ok(mind.includes('gap-md border-b border-border pb-md'));

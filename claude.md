@@ -1,380 +1,456 @@
-# CLAUDE.md — DadHealth Mobile
+CLAUDE.md — DadHealth Mobile
 
-# Project Rules
+Governing Rule
 
-## Production Error Copy
+Preserve product truth from the web/backend. Present it as a native mobile product.
 
-- Every user-facing error must name the affected feature or action and give the
-  user a useful next step.
-- Never show implementation or development details in the client, including
-  internal provider names such as Supabase or OneSignal, storage mechanisms,
-  native modules, API/schema/database details, tokens, environment variables,
-  build instructions, Expo Go, stack traces or raw caught error messages.
-- Map failures to stable, production-ready copy before rendering them. Do not
-  ship temporary console diagnostics, diagnostic panels or implementation-state
-  labels in production builds.
-- Screen-level load errors must name the current screen or content. Do not reuse
-  Dashboard wording on Body, Mind, Bond, Squad, Progress or settings screens.
-- Do not use placeholder error copy such as "Something went wrong" or "An error
-  occurred." State what failed and what the user can do next.
+DadHealth mobile is not a scaled-down website. The web/backend defines product behavior and data contracts; the approved native design defines mobile presentation.
 
-## Source of Truth
+Project Rules
 
-### Web App = WHAT to build
+Error Placement
 
-Use the web app as the source of truth for:
+The top toast (`GlobalConnectivityToast`) is connectivity only: offline, back
+online, and actions that need a connection.
 
-- Features
-- Business logic
-- Calculations
-- Supabase queries
-- Copy
+Every other error — a failed load, a failed save, a feature error — renders in
+the screen at the bottom. Screens report through `<ScreenErrorNotice message=…>`
+and one `ScreenErrorBanner` renders it above the tab bar. Never put a feature
+error in the top bar, and never paint a red banner into a screen.
 
-### App Store Mockups = HOW to build it
+Errors clear themselves after five seconds, like the connectivity toast. Nothing
+stays on screen until the dad navigates away.
 
-Use the mockups as the source of truth for:
+Production Error Copy
 
-- Layout
-- UI
-- UX
-- Visual hierarchy
-- Spacing
-- Typography
-- Component styling
+Every user-facing error must name the affected feature/action and give a useful next step.
 
-Never copy the web layout or visual hierarchy onto mobile.
+Never expose internal provider names, database/API/schema details, tokens, environment variables, stack traces or raw caught errors.
 
-Every mobile screen must feel like a native app built from the mockups while preserving the web functionality.
+Do not ship temporary diagnostics or implementation-state labels.
 
----
+Screen-level load errors must name the current screen/content.
 
-# Migration Workflow
+Avoid vague placeholder copy such as “Something went wrong”.
 
-Never migrate an entire screen at once.
+Source of Truth
 
-Break every screen into small components.
+Web/backend = WHAT
 
-Example
+Use the web/backend for:
 
-Fitness
+features
 
-- Header
-- Statistics
-- Workout Card
-- Workout Timer
-- Workout Library
-- Meal Planner
-- TDEE
-- Loading / Empty / Error States
+business logic
 
-Each component follows this workflow.
+calculations
 
-1. Read the web component.
-2. Explain exactly what it does.
-3. Compare it with the current mobile implementation.
-4. Recommend one of:
+Supabase contracts
 
-- Keep
-- Modify
-- Remove
-- Replace
+entitlements
 
-5. Wait for me to explicitly say **Approved**.
-6. Only then enter coding mode.
-7. Update **only** the approved component.
-8. Explain exactly what changed.
-9. Return to review mode.
-10. Continue with the next component.
+quotas
 
-Never implement multiple components without approval.
+canonical product behavior
 
-If you finish implementing an approved component, immediately return to review mode.
+Native app/mockups = HOW
 
-Never continue coding until another approval is given.
+Use native design for:
 
----
+layout
 
-# Migration Principles
+hierarchy
 
-Migration is **not** redesign.
+spacing
 
-If a web feature doesn't naturally fit mobile:
+typography
 
-- Keep the feature.
-- Reorganize it using the mockup design language.
-- Do not copy the web layout.
+interactions
 
-Never remove features.
+navigation presentation
 
-Never invent features.
+Never copy the web layout directly to mobile.
 
-Never redesign business logic.
+Database / Backend
 
-If something is a product issue rather than a migration issue:
+Do not change schema, RLS, API contracts or server calculations without explicit approval.
 
-- Record it under **Deferred Product Improvements**.
-- Continue the migration.
+Use targeted migrations only.
 
-If uncertain:
+Never apply full schema.sql as a production migration.
 
-Stop.
+Prefer server-owned canonical calculations over duplicated client formulas.
 
-Ask.
+Do not add synthetic/fake rows merely to make UI logic easier.
 
-Never assume UI, product behavior or data.
+Dependencies
 
----
+Do not add a new third-party package without explicit approval.
 
-# Current Status
+Prefer existing project/platform capabilities.
 
-## Milestone 3 — Native Integrations
+Do not broad-upgrade Expo/React Native during a feature refinement.
 
-In progress.
+Workflow
 
-- M3.1 Push Notifications is implemented with OneSignal, authenticated user
-  linking, notification preferences, native tap routing, concurrency-safe daily
-  limits and event-specific idempotency. Community reply and co-parent event
-  delivery have been verified end to end; scheduled and completion notification
-  QA uses the production dispatcher and claim system.
-- M3.2 Apple HealthKit is implemented as a read-only integration for Steps,
-  Active Minutes, Resting Heart Rate and Sleep, using the existing wearable,
-  Fitness, Progress and score architecture.
-- M3.3 Google Health Connect is implemented. Signed Android and production QA
-  will run near the end of M3.
-- M3.4 Native Subscriptions is implemented. Apple and Google external store
-  configuration will be completed separately as access becomes available.
-- M3.5 Offline Mode is implemented with user-scoped caches, queued Home and
-  Journal writes, reconnect sync and one centralized connectivity experience.
-- M3.6 Deep Links is implemented for secure co-parent invite continuation,
-  community threads and auth-safe notification routing. Signed iOS and Android
-  lifecycle QA remains. Universal Links and Android App Links are not
-  requirements of the original brief. Once verified, do not reopen Deep Links
-  during refinements unless an actual bug is found.
+For every new refinement:
 
-## Screen Migration Milestone
+Read the relevant web/backend behavior.
 
-Completed.
+Read the current mobile implementation.
 
-All standalone native product screens, focused sub-screens, account flows and dashboard subsections have been migrated and reviewed.
+Return Keep / Modify / Remove / Add.
 
-The codebase security and organization audit is also complete:
+Identify product/data gaps.
 
-- Native tab screens live directly in `screens/`.
-- Stack, detail, authentication, onboarding and settings screens live in `screens/subscreens/`.
-- Known npm dependency vulnerabilities were remediated without forcing an Expo major upgrade.
-- Biometric login stores a revocable per-device credential, never a password or copied Supabase refresh token.
-- Google OAuth uses PKCE.
-- Confirmed dead screen and component code was removed.
+Separate:
 
-## Completed
+UI-only changes
 
-### Public Home
+mobile logic changes
 
-Completed.
-
-Uses:
-
-- Web functionality
-- Mockup layout
-- Native onboarding flow
-- Native score preview
-- Native pillar presentation
-
-### Logged-in Dashboard
-
-Completed.
-
-Reviewed and approved component by component.
-
-Includes:
-
-- Header
-- Dad Score
-- Daily Check-in
-- Today's Plan
-- Mood This Week
-- Smart Reminders
-- Weekly Challenge
-- Upgrade Pro
-- Navigation
-- Loading States
-- Empty States
-- Error States
-
-Both completed screens follow:
-
-- Web = functionality
-- Mockups = design
-
-### Fitness
-
-Completed.
-
-Reviewed and approved component by component, including focused native flows for active workouts, AI workouts, meal planning and TDEE.
-
-### Mind
-
-Completed.
-
-Reviewed and approved component by component, including:
-
-- Header
-- Mood This Week
-- Breathing session
-- Private journal
-- Therapist directory
-- Crisis support
-- Statistics and screen states
-
-### Bond
-
-Completed.
-
-Reviewed and approved component by component, including Dad Days, milestones, Cook Together, conversation starters and the shared custody calendar.
-
-### Squad
-
-Completed.
-
-Reviewed and approved component by component, including circles, community posts, post threads, recent-post navigation and live sessions.
-
-### Progress
-
-Completed.
-
-Reviewed and approved component by component, including Dad Score reporting, saved reports, sleep quality and mood correlation.
-
-### Account and Settings
-
-Completed.
-
-Includes Profile, profile photos, Push Notifications, Privacy & Security, Terms & Privacy and Sign Out.
-
----
-
-# Deferred Product Improvements
-
-These are intentionally outside the migration scope.
-
-- Today's Plan onboarding mismatch
-- Mood Week weekday labels
-- TDEE calculation history and body-value logging
-- Non-contact Days card and its wording versus reduced non-custody Bond Score weighting
-- Progress badge catalogue fallback is labelled as earned when no earned badges exist
-
-These items may be considered during Final Polish, but only one at a time after review and explicit approval.
-
----
-# Current Milestone
-
-## Milestone 3 — Native Integrations
-
-The screen migration is complete.
-
-Milestone 3 focuses on making DadHealth a true native mobile application while preserving the existing product behaviour.
-
-Every integration must still follow the same review workflow.
-
-Review one integration at a time.
-
-Explain:
-
-- What the web currently does.
-- What native capability is being added.
-- Required libraries.
-- Required Supabase changes.
-- Native permissions.
-- Offline behaviour.
-- Edge cases.
-
-Recommend:
-
-- Keep
-- Modify
-- Remove
-- Replace
+backend/schema changes
 
 Wait for explicit approval.
 
-Implement only the approved integration.
+Implement only the approved unit.
 
-Return to review mode before continuing.
+Run focused tests + typecheck.
 
----
+Explain exactly what changed.
 
-## Remaining Order
+Return to review mode.
 
-1. Deep Links signed iOS / Android lifecycle QA
-2. Android Health Connect and full iOS / Android production QA
+Never continue automatically into the next unit.
 
-Native subscription external Apple and Google configuration proceeds separately
-as store access and configuration become available.
+If behavior is undefined: stop and ask. Never invent product logic.
 
-After the remaining M3 implementation is complete:
+Current Product State
 
-- Handle Jamie's small refinements as a separate pass.
-- Prepare major customer-journey changes as a separate document and batch for
-  Jamie's approval.
+Screen Migration
 
----
+Completed.
 
-## Milestone Principles
+Primary native screens and focused sub-screens are already migrated. Current work is formation/refinement, not migration.
 
-Native integrations must enhance the existing product.
+Do not reopen completed screens broadly. Make focused product changes only.
 
-Do not redesign existing features.
+Milestone 3 — Native Integrations
 
-Do not change business logic unless explicitly approved.
+Implemented:
 
-Preserve:
+M3.1 Push Notifications
 
-- Existing Supabase architecture
-- Existing API routes
-- Existing permissions
-- Existing calculations
+M3.2 Apple HealthKit
 
-If an integration requires database schema changes, API changes or new tables:
+M3.3 Google Health Connect
 
-Stop.
+M3.4 Native Subscriptions
 
-Explain the required changes.
+M3.5 Offline Mode
 
-Wait for approval before implementation.
+M3.6 Deep Links
 
-Deployment, production configuration and App Store submission remain separate tasks and are not part of implementation unless explicitly requested.
+Remaining verification/configuration:
 
-# Navigation
+signed iOS/Android deep-link lifecycle QA
 
-Keep the approved native navigation structure.
+final Android Health Connect production-device QA
 
-Bottom Tabs
+full production QA
 
-- Body (`Fit` route)
-- Mind
-- Today (`Home` route; raised lime tab)
-- Bond
-- Community (`Squad` route)
+external Apple/Google store configuration where still required
 
-Keep the internal `Home`, `Fit` and `Squad` route names for notification and
-navigation compatibility. Progress remains a standalone dashboard/stack
-destination and is not part of the bottom navigation.
+Do not reopen completed M3 integrations during formation unless an actual bug is found.
 
-Secondary screens remain inside the Account/Profile menu.
+Current Navigation
 
-Do not introduce new navigation patterns unless explicitly requested.
+Visible bottom tabs:
 
----
+Today
 
-# Documentation
+Mind
 
-This file is not a changelog.
+Score
+
+Body
+
+Bond
+
+Community
+
+Rules:
+
+Today remains the daily hub.
+
+Score is the raised lime CTA.
+
+Existing Progress content is reused for Score.
+
+Preserve existing internal route names where required for compatibility, including Home, Fit and Squad.
+
+Do not casually rename internal routes used by push/deep links/navigation.
+
+The old 5-tab structure is obsolete.
+
+Today Formation — Completed
+
+The Today refinement is complete.
+
+Current hierarchy:
+
+Greeting
+
+Dad Health Score
+
+Pro insight/preview when applicable
+
+Today’s check-in
+
+Your one focus
+
+Streak
+
+Supporting tools
+
+Existing lower-priority content
+
+Current approved score behavior:
+
+check-in includes mood, stress and sleep
+
+check-in visibly connects to Mind score
+
+score trends compare current rolling 7 days with previous non-overlapping 7 days
+
+weakest pillar is highlighted
+
+completed Present Dad sessions contribute to Bond
+
+mobile consumes server-owned scores/trends
+
+no fake/hardcoded user score or trend values
+
+One-focus mapping:
+
+incomplete check-in first
+
+Mind → Breathing
+
+Body → Suggested workout
+
+Bond → Present Dad Mode
+
+ties follow existing approved priority order
+
+Do not rewrite this logic during Mind/Pro work.
+
+Mind Formation — Completed
+
+Approved direction
+
+The screen should support a dad who may be opening it in a difficult moment.
+
+Current ordering decision:
+
+Keep the “1 in 8” mental-health statistic near the top as brief context.
+
+Crisis Support is the first actionable item immediately after it.
+
+Breathing/reset actions follow.
+
+Journal remains prominent.
+
+Therapist support remains.
+
+Community remains available.
+
+Mood information/trends can sit lower.
+
+Statistics decision
+
+The large paired 1 in 8 / 4 in 10 statistic-card block is removed. Settled — do not reopen.
+
+Do not replace removed statistics with filler cards.
+
+The screen finishes on support/actions/user-relevant information, not generic statistics.
+
+The seven-day mood trend stays with Pro, shown as a locked preview of the chart
+(empty tracks and real weekday labels only, never a stand-in mood value).
+
+Crisis Support
+
+Must remain always visible in the Mind experience.
+
+Must remain accessible without login.
+
+Never hide crisis support behind Pro or an authenticated-only flow.
+
+Do not change crisis destinations/copy without review.
+
+Product gaps
+
+Do not invent:
+
+a new 5-minute Reset Exercise
+
+a new 10-minute Guided Reflection
+
+a personalised Mind plan
+
+new AI behavior
+
+new mood-trend data
+
+If these do not already exist in the current code/backend, flag them for product review.
+
+Pro Conversion (Change 04) — Completed
+
+Jamie’s principle:
+
+Do not sell Pro aggressively. Let free value create curiosity for personalisation.
+
+Implemented — the 7 Pro moments and the paywall:
+
+Moment 1 after the score, using real server point deltas. Never percentages.
+
+Moment 2 after the check-in, following the free recommendation. Moments 1 and 2
+are mutually exclusive so Today never carries two upgrade asks in one scroll.
+
+Moment 3 AI workout value copy. Filters stay usable before the lock.
+
+Moments 4 and 7 on Dad Days: existing filters stay free, the counter reads as
+used, and Pro claims unlimited searches only.
+
+Moment 5 weekly report on Progress, built on `dad_score_view` week-change
+points. No narrative, no percentages, no generated recommendation.
+
+Moment 6 progress tease, built on the real monthly workout count.
+
+Paywall: “Make Dad Health personal”, annual first, store-supplied prices only,
+real 7-day trial detection, three concrete benefits, no first-open paywall.
+
+Approved Free vs Pro split — settled, do not change without a new decision:
+
+Free — therapist and counsellor directory; milestone logging; the basic Dad
+Health Score including the Mind, Body and Bond pillar values; the workout
+library; the TDEE calculator numbers (BMR, TDEE, BMI); reading a meal plan
+already saved to the account; the first three AI meal plans, then Pro; journal;
+breathing; Community; crisis support; three Dad Days searches a month with all
+existing search filters.
+
+Both allowances are enforced server-side, not just in the client: Dad Days by
+`api/dad_days_searches`, AI meal plans by `FREE_AI_MEAL_PLANS` in
+`api/generate-meal-plan`, counted from the member's own `ai_generated` rows.
+
+Pro — weekly score trends, including the trend arrows beside the pillar values;
+pillar insights and recommendations; every seven-day trend surface, shown to free
+members as a locked preview: the mood week on Today and Mind, Body this week on
+Body, sleep quality and mood correlation on Progress; the full TDEE calorie
+targets and insights; AI workouts; AI meal plans; milestone photos; the weekly
+Dad Health report and the monthly summary; unlimited Dad Days.
+
+A pillar value is free. A pillar's movement over time is Pro. Any chart covering
+a range of days is Pro, wherever it appears. The one deliberate exception is Pro
+moment 1, which reveals a single positive trend as the upgrade tease.
+
+Where the brief says “basic”, the rule is: the existing manual experience stays
+free and the AI or personalised experience is Pro. No new tier was invented.
+
+The weekly Dad Health report dispatches Sunday 08:00 local
+(`dadHealth` `api/notifications/dispatch`). The window still ends on yesterday,
+so it stays a complete seven days. The weekly challenge keeps its Monday
+cadence.
+
+Remaining known gaps — do not act without approval:
+
+Undefined product logic: mood/stress recommendation mapping, Dad Days “time
+available” and “what they enjoy” inputs, AI workout mood input, weekly report
+narrative copy.
+
+Entitlement reads are fragmented across several screens while the paywall reads
+the native-subscription API. Consolidate before adding further gates.
+
+Rules:
+
+no fake/hardcoded scores, trends or workout counts
+
+no Upgrade-to-Pro spam on every screen
+
+no paywall on first open
+
+preview value before locking where possible
+
+Community remains free
+
+do not change native subscription purchase architecture
+
+further entitlement changes require separate review
+
+Native digital subscriptions remain:
+
+iOS → StoreKit/App Store
+
+Android → Google Play Billing
+
+Web Stripe remains separate.
+
+Architecture Guardrails
+
+Read ARCHITECTURE.md before architecture-sensitive work.
+
+Key rules:
+
+Supabase is shared by web/mobile.
+
+privileged operations belong server-side.
+
+mobile must not contain service-role secrets.
+
+score calculation remains server-owned.
+
+offline data is user-scoped.
+
+sign-out must not leak another user’s cache/queue.
+
+push routing/deep-link route compatibility must be preserved.
+
+use targeted backend changes only.
+
+Deferred / Separate Product Work
+
+Keep separate from small formation unless specifically approved:
+
+full notification/activity center
+
+larger customer-journey restructuring
+
+undefined personalised recommendation systems
+
+new AI product flows
+
+new backend content-generation systems
+
+broader entitlement redesigns
+
+Document product gaps rather than silently implementing them.
+
+Documentation Rule
+
+CLAUDE.md is current operating context, not a changelog.
 
 Keep it focused on:
 
-- Project rules
-- Workflow
-- Current completed work
-- Remaining work
-- Deferred product decisions
+rules
 
-Remove historical implementation notes once they are no longer relevant.
+architecture guardrails
+
+current product state
+
+current active unit
+
+important approved decisions
+
+remaining verification
+
+Remove stale historical implementation notes when they stop affecting future work.
