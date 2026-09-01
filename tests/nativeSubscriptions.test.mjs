@@ -63,9 +63,10 @@ test('the approved mobile Pro entry points route to one native subscription scre
   ]);
   assert.match(navigator, /name="ProSubscription"/);
   assert.match(account, /navigate\('ProSubscription'\)/);
-  assert.match(dashboard, /UpgradeProCard onPress=\{\(\) => navigation\.navigate\('ProSubscription'\)\}/);
-  assert.match(screen, /£6\.99/);
-  assert.match(screen, /£49\.99/);
+  assert.match(dashboard, /<UpgradeProCard[\s\S]*?navigation\.navigate\('ProSubscription'\)/);
+  // Prices come from the store only. No hardcoded amount may ship in the paywall.
+  assert.doesNotMatch(screen, /£\d/);
+  assert.match(screen, /displayPrice \?\? null/);
   assert.match(screen, /Start my 7-day free trial/);
   assert.match(screen, /Restore purchases/);
   assert.match(screen, /Manage subscription/);
@@ -80,7 +81,8 @@ test('native paywall leads with annual value and restrained personalisation copy
 
   assert.match(screen, /Make Dad Health\\npersonal/);
   assert.match(screen, /The version of you your kids deserve/);
-  assert.match(screen, /per year · about £4\.17 a month/);
+  assert.match(screen, /suffix: 'per year'/);
+  assert.match(screen, /Loading price/);
   assert.match(screen, /7-day free trial for eligible new subscribers\. Cancel anytime\./);
   assert.ok(screen.indexOf('title="Annual"') < screen.indexOf('title="Monthly"'));
   assert.match(screen, /const THIS_WEEK_FEATURES = \[/);
