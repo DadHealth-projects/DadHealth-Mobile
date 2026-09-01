@@ -5,9 +5,11 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import ScreenErrorNotice from '../../components/ScreenErrorNotice';
 import LimeButton from '../../components/LimeButton';
 import ScreenHero from '../../components/mockup/ScreenHero';
+import { useAuth } from '../../contexts/AuthContext';
+import { useDashboard } from '../../hooks/useDashboard';
 import {
   ACTIVITY_LABELS,
   calculateTDEE,
@@ -25,6 +27,11 @@ const ACTIVITIES = (Object.keys(ACTIVITY_LABELS) as TDEEActivityLevel[]).map((va
 
 export default function TDEECalculatorScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
+  const { user } = useAuth();
+  // The calculator itself stays free. The full breakdown — calorie targets and
+  // insights — is the Pro half, from the shared dashboard store.
+  const { data: dashboardData } = useDashboard(user?.id);
+  const isPro = dashboardData?.isPro === true;
   const [units, setUnits] = useState<UnitSystem>('metric');
   const [gender, setGender] = useState<TDEEGender>('male');
   const [age, setAge] = useState('');
@@ -62,7 +69,7 @@ export default function TDEECalculatorScreen() {
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" contentContainerClassName="px-lg pt-lg pb-xl gap-xl">
           <AppTopBar leftAccessory={<Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close TDEE calculator" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
           <ScreenHero eyebrow="TDEE calculator" headline={'Know your\ndaily fuel'} sub="Calculate calories for your body, activity and goal." />
-          <GlobalErrorToastReporter message={error} />
+          <ScreenErrorNotice message={error} />
 
           <View className="gap-lg">
             <SegmentedControl options={[{ value: 'metric', label: 'Metric' }, { value: 'imperial', label: 'Imperial' }]} value={units} onChange={(value) => { setUnits(value); setResult(null); setError(null); }} />
@@ -91,14 +98,31 @@ export default function TDEECalculatorScreen() {
                 <ResultStat label="BMI" value={String(result.bmi)} detail={result.bmiCategory} />
                 <ResultStat label="Activity" value={activityLevel.replace('_', ' ')} />
               </View>
-              <View className="gap-md">
-                <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Calorie targets</Text>
-                <TargetRow label="Maintenance" value={result.maintenance} detail="Hold your current weight" highlighted />
-                <TargetRow label="Fat loss" value={result.fatLoss} detail="500 kcal daily deficit" />
-                <TargetRow label="Aggressive cut" value={result.aggressiveFatLoss} detail="750 kcal daily deficit" />
-                <TargetRow label="Lean bulk" value={result.muscleGain} detail="300 kcal daily surplus" />
-              </View>
-              <View className="gap-md"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Insights</Text>{insights.map((text, index) => <View key={index} className="border-l-2 border-lime pl-md"><Text className="font-body text-muted-text text-[12px] leading-[18px]">{text}</Text></View>)}</View>
+              {/* Full TDEE — the goal-based calorie targets and the insight
+                  breakdown — is the Pro half. The numbers above stay free. */}
+              {isPro ? (
+                <>
+                  <View className="gap-md">
+                    <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Calorie targets</Text>
+                    <TargetRow label="Maintenance" value={result.maintenance} detail="Hold your current weight" highlighted />
+                    <TargetRow label="Fat loss" value={result.fatLoss} detail="500 kcal daily deficit" />
+                    <TargetRow label="Aggressive cut" value={result.aggressiveFatLoss} detail="750 kcal daily deficit" />
+                    <TargetRow label="Lean bulk" value={result.muscleGain} detail="300 kcal daily surplus" />
+                  </View>
+                  <View className="gap-md"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Insights</Text>{insights.map((text, index) => <View key={index} className="border-l-2 border-lime pl-md"><Text className="font-body text-muted-text text-[12px] leading-[18px]">{text}</Text></View>)}</View>
+                </>
+              ) : (
+                <View className="gap-md border-y border-border py-lg">
+                  <View className="flex-row items-center gap-sm">
+                    <Feather name="lock" size={17} color={colors.lime} />
+                    <Text className="font-heading-bold text-white text-[15px] uppercase">Full TDEE with Pro</Text>
+                  </View>
+                  <Text className="font-body text-muted-text text-[13px] leading-[19px]">
+                    Turn these numbers into calorie targets for maintenance, fat loss and lean bulk, with the insights behind them.
+                  </Text>
+                  <LimeButton label="View Dad Health Pro" onPress={() => navigation.navigate('ProSubscription')} />
+                </View>
+              )}
             </View>
           ) : null}
         </ScrollView>
