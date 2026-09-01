@@ -27,6 +27,7 @@ import PushPrePermissionPrompt from './components/PushPrePermissionPrompt';
 import Splash from './components/Splash';
 import OfflineSyncManager from './components/OfflineSyncManager';
 import GlobalConnectivityToast from './components/GlobalConnectivityToast';
+import ScreenErrorBanner from './components/ScreenErrorBanner';
 import { attachPushNavigation } from './lib/pushNotifications';
 import { deepLinkingOptions } from './lib/deepLinks';
 
@@ -81,6 +82,7 @@ export default function App() {
             <PushPrePermissionPrompt />
           </NavigationContainer>
           <GlobalConnectivityToast />
+          <ScreenErrorBanner />
         </AuthProvider>
       </NetworkProvider>
     </SafeAreaProvider>

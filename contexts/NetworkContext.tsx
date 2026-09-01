@@ -12,12 +12,16 @@ export type ConnectivityToast = {
 type NetworkContextValue = {
   isOffline: boolean;
   isKnown: boolean;
+  /** Connectivity only. The top toast never carries a feature error. */
   toast: ConnectivityToast | null;
   showOfflineNotice: () => void;
   showSyncingNotice: () => void;
   showCaughtUpNotice: () => void;
   showOfflineAction: (action: OfflineAction) => void;
   showErrorNotice: (message: string) => void;
+  /** Feature/screen errors, rendered in the screen at the bottom. */
+  screenError: string | null;
+  reportScreenError: (id: string, message: string | null) => void;
 };
 
 const OFFLINE_ACTION_MESSAGES: Record<OfflineAction, string> = {
@@ -39,16 +43,27 @@ const NetworkContext = createContext<NetworkContextValue>({
   showCaughtUpNotice: () => undefined,
   showOfflineAction: () => undefined,
   showErrorNotice: () => undefined,
+  screenError: null,
+  reportScreenError: () => undefined,
 });
 
 function offlineFrom(state: NetInfoState | null) {
   return state?.isConnected === false || state?.isInternetReachable === false;
 }
 
+/** How long a screen error stays on screen before it clears itself. */
+const SCREEN_ERROR_MS = 5000;
+
+type ScreenErrorEntry = { id: string; seq: number; message: string };
+
 export function NetworkProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<NetInfoState | null>(null);
   const [toast, setToast] = useState<ConnectivityToast | null>(null);
+  // One entry per reporter instance so several notices can coexist on a screen
+  // without clearing each other. The oldest live message is the one shown.
+  const [screenErrors, setScreenErrors] = useState<ScreenErrorEntry[]>([]);
   const toastId = useRef(0);
+  const screenErrorSeq = useRef(0);
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -91,6 +106,37 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     showToast(message, 'neutral');
   }, [showToast]);
 
+  const reportScreenError = useCallback((id: string, message: string | null) => {
+    if (!message) {
+      setScreenErrors((current) => current.some((entry) => entry.id === id)
+        ? current.filter((entry) => entry.id !== id)
+        : current);
+      return;
+    }
+    const seq = ++screenErrorSeq.current;
+    setScreenErrors((current) => {
+      // Re-reporting the same text is a no-op, so a re-render never restarts
+      // the dismissal timer and holds the error on screen.
+      if (current.some((entry) => entry.id === id && entry.message === message)) return current;
+      return [...current.filter((entry) => entry.id !== id), { id, seq, message }];
+    });
+  }, []);
+
+  const activeScreenError = screenErrors[0] ?? null;
+  const activeScreenErrorSeq = activeScreenError?.seq ?? null;
+
+  // Errors clear themselves. Each one gets its own window, so a queued second
+  // error still gets its full time once the first has gone.
+  useEffect(() => {
+    if (activeScreenErrorSeq == null) return undefined;
+    const timer = setTimeout(() => {
+      setScreenErrors((current) => current.filter((entry) => entry.seq !== activeScreenErrorSeq));
+    }, SCREEN_ERROR_MS);
+    return () => clearTimeout(timer);
+  }, [activeScreenErrorSeq]);
+
+  const screenError = activeScreenError?.message ?? null;
+
   const value = useMemo(() => ({
     isOffline: offlineFrom(state),
     isKnown: state !== null,
@@ -100,7 +146,9 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     showCaughtUpNotice,
     showOfflineAction,
     showErrorNotice,
-  }), [showCaughtUpNotice, showErrorNotice, showOfflineAction, showOfflineNotice, showSyncingNotice, state, toast]);
+    screenError,
+    reportScreenError,
+  }), [reportScreenError, screenError, showCaughtUpNotice, showErrorNotice, showOfflineAction, showOfflineNotice, showSyncingNotice, state, toast]);
 
   return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>;
 }
