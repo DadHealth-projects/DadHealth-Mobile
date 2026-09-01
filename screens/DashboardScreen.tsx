@@ -16,7 +16,7 @@ import AppTopBar from '../components/AppTopBar';
 import type { DashboardSection } from '../components/AccountSheet';
 import ChallengeCard from '../components/dashboard/ChallengeCard';
 import CheckInPanel from '../components/dashboard/CheckInPanel';
-import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
+import ScreenErrorNotice from '../components/ScreenErrorNotice';
 import DadScoreCard from '../components/dashboard/DadScoreCard';
 import FadeInView from '../components/FadeInView';
 import GreetingHeader from '../components/dashboard/GreetingHeader';
@@ -144,13 +144,16 @@ export function DashboardScreenContent({
       body: breakdown.body,
       bond: breakdown.bond,
     });
+    // The basic score and its pillar values are free. The week-on-week trend
+    // arrows are a Pro weekly trend, so they are withheld from free members.
+    const trendFor = (change: number | null | undefined) => (data?.isPro ? change ?? null : null);
     return [
-      { label: 'Mind', value: breakdown.mind, trend: data?.mindWeekChange ?? null, highlighted: weakest === 'mind' },
-      { label: 'Body', value: breakdown.body, trend: data?.bodyWeekChange ?? null, highlighted: weakest === 'body' },
+      { label: 'Mind', value: breakdown.mind, trend: trendFor(data?.mindWeekChange), highlighted: weakest === 'mind' },
+      { label: 'Body', value: breakdown.body, trend: trendFor(data?.bodyWeekChange), highlighted: weakest === 'body' },
       {
         label: 'Bond',
         value: breakdown.bond,
-        trend: data?.bondWeekChange ?? null,
+        trend: trendFor(data?.bondWeekChange),
         highlighted: weakest === 'bond',
         warning: weakest === 'bond' && breakdown.bond !== null && breakdown.bond < 50,
       },
@@ -350,8 +353,8 @@ export function DashboardScreenContent({
             activeSection={activeSection}
             onSelectSection={onSelectSection}
           />
-          <GlobalErrorToastReporter message={dashboardError && !data && !isOffline ? "We couldn't bring in today's check-in, score and plan. Try again in a moment." : null} />
-          <GlobalErrorToastReporter message={syncError} />
+          <ScreenErrorNotice message={dashboardError && !data && !isOffline ? "We couldn't bring in today's check-in, score and plan. Try again in a moment." : null} />
+          <ScreenErrorNotice message={syncError} />
 
           {!data ? (
             <View className="gap-md">
@@ -397,9 +400,17 @@ export function DashboardScreenContent({
                 <DadScoreCard score={score} items={scoreItems} title="Dad Health Score" scoreLabel="of 100" />
               </FadeInView>
 
-              {!data.isPro ? (
+              {/* Pro moment 1 — after the Dad Health Score. Suppressed while
+                  moment 2 is on screen so Today never carries two upgrade asks
+                  in one scroll. */}
+              {!data.isPro && !showCheckInSuccess ? (
                 <FadeInView delay={140}>
-                  <UpgradeProCard onPress={() => navigation.navigate('ProSubscription')} insight={proInsight} />
+                  <UpgradeProCard
+                    onPress={() => navigation.navigate('ProSubscription')}
+                    insight={proInsight}
+                    ctaLabel="Unlock my insights"
+                    accessibilityLabel="Unlock Dad Health Pro insights"
+                  />
                 </FadeInView>
               ) : null}
 
@@ -437,12 +448,30 @@ export function DashboardScreenContent({
               </FadeInView>
               ) : null}
 
+              {/* Your one focus — the approved free recommendation, sitting
+                  directly after the check-in as the Today hierarchy requires.
+                  Mapping is unchanged: incomplete check-in first, then
+                  Mind → breathing, Body → suggested workout, Bond → Present Dad. */}
               <FadeInView delay={200}>
-                <MoodWeekCard values={moodWeek} labels={MOOD_WEEK_LABELS} summary={moodSummary} />
+                <TodayFocusCard {...focusContent} onPress={openFocus} />
               </FadeInView>
 
-              <FadeInView delay={220}>
-                <TodayFocusCard {...focusContent} onPress={openFocus} />
+              {/* Pro moment 2 — after the check-in, and only ever after the free
+                  recommendation above it. */}
+              {!data.isPro && showCheckInSuccess ? (
+                <FadeInView delay={230}>
+                  <UpgradeProCard
+                    onPress={() => navigation.navigate('ProSubscription')}
+                    insight="Pro can do more. Get a plan built around your mood, your activity and your Dad Health Score."
+                  />
+                </FadeInView>
+              ) : null}
+
+              {/* The seven-day mood trend is Pro, on Today as well as on Mind.
+                  Free members see the preview; the upgrade route is the Pro
+                  moment above rather than another ask here. */}
+              <FadeInView delay={250}>
+                <MoodWeekCard values={moodWeek} labels={MOOD_WEEK_LABELS} summary={moodSummary} locked={!data.isPro} />
               </FadeInView>
 
               <FadeInView delay={260}>
