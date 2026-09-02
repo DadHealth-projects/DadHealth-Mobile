@@ -11,12 +11,15 @@ import {
 
 import AppTopBar from '../../components/AppTopBar';
 import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
+import ProUpgradeSection from '../../components/ProUpgradeSection';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import TagPill from '../../components/dashboard/TagPill';
 import type { FitnessWorkout } from '../../hooks/useFitnessLibrary';
 import { useFitnessLibrary } from '../../hooks/useFitnessLibrary';
 import { useAuth } from '../../contexts/AuthContext';
+import { PRO_MOMENTS } from '../../lib/proMoments';
 import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -187,6 +190,7 @@ export default function AIWorkoutScreen() {
               onChange={(value) => {
                 setDurationMins(value);
                 setOpenFilter(null);
+                setError(null);
               }}
             />
           ) : null}
@@ -197,6 +201,7 @@ export default function AIWorkoutScreen() {
               onChange={(value) => {
                 setEquipment(value);
                 setOpenFilter(null);
+                setError(null);
               }}
             />
           ) : null}
@@ -207,26 +212,30 @@ export default function AIWorkoutScreen() {
               onChange={(value) => {
                 setFocus(value);
                 setOpenFilter(null);
+                setError(null);
               }}
             />
           ) : null}
         </View>
 
-        {!user ? (
-          <LimeButton label="Log in to generate" onPress={openLogin} />
-        ) : library.loading ? (
-          <LimeButton label="Loading workouts" loading />
-        ) : !library.isPro ? (
-          <LimeButton label="View Dad Health Pro" onPress={openPro} />
-        ) : (
-          <LimeButton
-            label={generatedWorkout ? 'Regenerate workout' : 'Generate workout'}
-            onPress={() => void generate()}
-            loading={generating}
-          />
-        )}
+        <View className="gap-sm">
+          <InlineFormError message={error} />
+          {!user ? (
+            <LimeButton label="Log in to generate" onPress={openLogin} />
+          ) : library.loading ? (
+            <LimeButton label="Loading workouts" loading />
+          ) : !library.isPro ? (
+            <ProUpgradeSection moment={PRO_MOMENTS.aiWorkout} onPress={openPro} />
+          ) : (
+            <LimeButton
+              label={generatedWorkout ? 'Regenerate workout' : 'Generate workout'}
+              onPress={() => void generate()}
+              loading={generating}
+            />
+          )}
+        </View>
 
-        <GlobalErrorToastReporter message={error ?? library.error ?? library.proError} />
+        <GlobalErrorToastReporter message={library.error ?? library.proError} />
 
         {displayedWorkout ? (
           <View className="gap-md border-t border-border pt-lg">
