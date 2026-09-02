@@ -33,14 +33,32 @@ test('Mind reuses real routes without presenting missing products', async () => 
   assert.match(source, /eyebrow="Private journal"[\s\S]*?navigate\('Journal'\)/);
   assert.match(source, /eyebrow="Talk to someone"[\s\S]*?navigate\('TherapistDirectory'\)/);
   assert.match(source, /eyebrow="I just need to talk"[\s\S]*?navigate\('CommunityFeed'\)/);
-  assert.doesNotMatch(source, /Reset Exercise|Guided Reflection|personalised plan/i);
+  assert.doesNotMatch(source, /Reset Exercise|Guided Reflection/i);
 });
 
-test('free users retain the locked mood-trend preview', async () => {
-  const source = await readFile(new URL('screens/MindScreen.tsx', root), 'utf8');
+test('free users see the mood trend as a visible preview behind the lock', async () => {
+  const [source, locks] = await Promise.all([
+    readFile(new URL('screens/MindScreen.tsx', root), 'utf8'),
+    readFile(new URL('lib/proMoments.ts', root), 'utf8'),
+  ]);
 
   assert.match(source, /!data\?\.isPro/);
-  assert.match(source, /Seven-day mood trends are included with Dad Health Pro\./);
   assert.match(source, /navigation\.navigate\('ProSubscription'\)/);
-  assert.match(source, /<MoodWeekCard[\s\S]*?flat/);
+  // The real chart renders inside the lock, not a replacement panel.
+  assert.match(source, /<ProLockedPreview[\s\S]*?PRO_LOCKS\.moodTrends[\s\S]*?<MoodWeekCard[\s\S]*?flat[\s\S]*?<\/ProLockedPreview>/);
+  assert.match(locks, /moodTrends: \{/);
+});
+
+test('Mind offers the Pro personalised plan without gating the free actions', async () => {
+  const [source, locks, therapist] = await Promise.all([
+    readFile(new URL('screens/MindScreen.tsx', root), 'utf8'),
+    readFile(new URL('lib/proMoments.ts', root), 'utf8'),
+    readFile(new URL('screens/subscreens/TherapistDirectoryScreen.tsx', root), 'utf8'),
+  ]);
+
+  assert.match(source, /moment=\{PRO_LOCKS\.mindPlan\}/);
+  assert.match(locks, /Get a personalised plan/);
+  // Brief free column: breathing, journal, therapist directory and crisis.
+  assert.doesNotMatch(therapist, /isPro/);
+  assert.doesNotMatch(therapist, /ProSubscription/);
 });

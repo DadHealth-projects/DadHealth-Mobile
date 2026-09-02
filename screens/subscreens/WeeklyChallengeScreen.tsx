@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from '../../components/AppTopBar';
 import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
@@ -284,7 +285,7 @@ export default function WeeklyChallengeScreen() {
             </Pressable>
           )}
         />
-        <GlobalErrorToastReporter message={loadError ?? actionError} />
+        <GlobalErrorToastReporter message={loadError} />
 
         {loading ? (
           <View className="gap-lg" accessibilityLabel="Loading Weekly Challenge">
@@ -380,6 +381,8 @@ export default function WeeklyChallengeScreen() {
                   </Pressable>
                 </View>
               )}
+
+              <InlineFormError message={actionError} />
             </View>
           </>
         ) : null}
