@@ -9,6 +9,7 @@ import LimeButton from '../components/LimeButton';
 import MiniBarChart from '../components/dashboard/MiniBarChart';
 import PillarScreen from '../components/PillarScreen';
 import PillarSkeleton from '../components/skeleton/PillarSkeleton';
+import ProUpgradeSection from '../components/ProUpgradeSection';
 import ScreenHero from '../components/mockup/ScreenHero';
 import SectionHeader from '../components/dashboard/SectionHeader';
 import StatCard from '../components/dashboard/StatCard';
@@ -19,6 +20,7 @@ import { useFitnessLibrary } from '../hooks/useFitnessLibrary';
 import { useFitnessSummary } from '../hooks/useFitnessSummary';
 import { MOOD_WEEK_LABELS } from '../lib/dashboard.utils';
 import { DAD_STRENGTH_MOVES } from '../lib/homeContent';
+import { PRO_MOMENTS } from '../lib/proMoments';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 import { syncAppleHealthIfConnected } from '../lib/appleHealth';
 
@@ -299,26 +301,31 @@ export default function FitnessScreen({
 
       {standalone ? (
         <FadeInView delay={190}>
-          <FlatSection className="gap-md">
-            <View className="flex-row items-start justify-between gap-md">
-              <View className="flex-1">
-                <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
-                  AI workout
-                </Text>
-                <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">
-                  Built around your day
-                </Text>
-                <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
-                  Choose your time, equipment and focus. Generate a workout you can start immediately.
-                </Text>
+          {fitnessLibrary.isPro ? (
+            <FlatSection className="gap-md">
+              <View className="flex-row items-start justify-between gap-md">
+                <View className="flex-1">
+                  <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
+                    AI workout
+                  </Text>
+                  <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">
+                    Built around your day
+                  </Text>
+                  <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
+                    Choose your time, equipment and focus. Generate a workout you can start immediately.
+                  </Text>
+                </View>
+                <TagPill label="Pro" />
               </View>
-              <TagPill label={fitnessLibrary.isPro ? 'Pro' : 'Free'} />
-            </View>
-            <LimeButton
-              label={generatedWorkout ? 'View workout' : 'Generate workout'}
-              onPress={openAIWorkout}
-            />
-          </FlatSection>
+              <LimeButton
+                label={generatedWorkout ? 'View workout' : 'Generate workout'}
+                onPress={openAIWorkout}
+              />
+            </FlatSection>
+          ) : (
+            /* Moment 3 — AI workouts are the Pro layer over the free library. */
+            <ProUpgradeSection moment={PRO_MOMENTS.aiWorkout} onPress={openAIWorkout} />
+          )}
         </FadeInView>
       ) : null}
 

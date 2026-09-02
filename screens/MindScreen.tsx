@@ -10,10 +10,13 @@ import LimeButton from '../components/LimeButton';
 import MoodWeekCard from '../components/dashboard/MoodWeekCard';
 import PillarScreen from '../components/PillarScreen';
 import PillarSkeleton from '../components/skeleton/PillarSkeleton';
+import ProLockedPreview from '../components/ProLockedPreview';
+import ProUpgradeSection from '../components/ProUpgradeSection';
 import ScreenHero from '../components/mockup/ScreenHero';
 import StatTile from '../components/mockup/StatTile';
 import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '../hooks/useDashboard';
+import { PRO_LOCKS } from '../lib/proMoments';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 import { colors } from '../theme';
 import {
@@ -122,6 +125,16 @@ export default function MindScreen({
         </View>
       </FadeInView>
 
+      {user && !data?.isPro ? (
+        <FadeInView delay={170}>
+          <ProUpgradeSection
+            moment={PRO_LOCKS.mindPlan}
+            onPress={() => navigation.navigate('ProSubscription')}
+            size="sm"
+          />
+        </FadeInView>
+      ) : null}
+
       <FadeInView delay={210}>
         {!user ? (
           <MoodAccessPanel
@@ -131,12 +144,12 @@ export default function MindScreen({
             onPress={() => navigation.navigate('Login')}
           />
         ) : !data?.isPro ? (
-          <MoodAccessPanel
-            title="Mood this week"
-            description="Seven-day mood trends are included with Dad Health Pro."
-            actionLabel="View Dad Health Pro"
+          <ProLockedPreview
+            lock={PRO_LOCKS.moodTrends}
             onPress={() => navigation.navigate('ProSubscription')}
-          />
+          >
+            <MoodWeekCard values={moodWeek} labels={MOOD_WEEK_LABELS} summary={moodSummary} flat />
+          </ProLockedPreview>
         ) : (
           <MoodWeekCard values={moodWeek} labels={MOOD_WEEK_LABELS} summary={moodSummary} flat />
         )}
