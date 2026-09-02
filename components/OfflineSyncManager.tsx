@@ -14,7 +14,6 @@ export default function OfflineSyncManager() {
     isOffline,
     isKnown,
     showCaughtUpNotice,
-    showOfflineNotice,
     showSyncingNotice,
   } = useNetworkStatus();
   const userId = user?.id ?? null;
@@ -41,10 +40,12 @@ export default function OfflineSyncManager() {
     if (!isKnown) return;
     if (isOffline) {
       if (confirmedOffline.current || offlineNoticeTimer.current) return;
+      // The offline state itself is shown by the persistent top banner. This
+      // debounce only decides when a drop is real enough to warrant the
+      // "back online — syncing" follow-up once connectivity returns.
       offlineNoticeTimer.current = setTimeout(() => {
         offlineNoticeTimer.current = null;
         confirmedOffline.current = true;
-        showOfflineNotice();
       }, OFFLINE_NOTICE_DELAY_MS);
       return () => {
         if (offlineNoticeTimer.current) {
@@ -74,7 +75,7 @@ export default function OfflineSyncManager() {
       }
     })();
     return () => { active = false; };
-  }, [isKnown, isOffline, showCaughtUpNotice, showOfflineNotice, showSyncingNotice, sync, userId]);
+  }, [isKnown, isOffline, showCaughtUpNotice, showSyncingNotice, sync, userId]);
 
   useEffect(() => () => {
     if (offlineNoticeTimer.current) clearTimeout(offlineNoticeTimer.current);
