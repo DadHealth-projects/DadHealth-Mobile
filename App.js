@@ -27,6 +27,7 @@ import PushPrePermissionPrompt from './components/PushPrePermissionPrompt';
 import Splash from './components/Splash';
 import OfflineSyncManager from './components/OfflineSyncManager';
 import GlobalConnectivityToast from './components/GlobalConnectivityToast';
+import OfflineStatusBanner from './components/OfflineStatusBanner';
 import { attachPushNavigation } from './lib/pushNotifications';
 import { deepLinkingOptions } from './lib/deepLinks';
 
@@ -67,19 +68,21 @@ export default function App() {
       <NetworkProvider>
         <AuthProvider>
           <OfflineSyncManager />
-          <NavigationContainer
-            ref={navigationRef}
-            onReady={() => attachPushNavigation(navigationRef)}
-            theme={navTheme}
-            linking={deepLinkingOptions}
-          >
-            <StatusBar style="light" />
-            <OneSignalManager />
-            <AppleHealthManager />
-            <HealthConnectManager />
-            <RootNavigator navigationRef={navigationRef} />
-            <PushPrePermissionPrompt />
-          </NavigationContainer>
+          <OfflineStatusBanner>
+            <NavigationContainer
+              ref={navigationRef}
+              onReady={() => attachPushNavigation(navigationRef)}
+              theme={navTheme}
+              linking={deepLinkingOptions}
+            >
+              <StatusBar style="light" />
+              <OneSignalManager />
+              <AppleHealthManager />
+              <HealthConnectManager />
+              <RootNavigator navigationRef={navigationRef} />
+              <PushPrePermissionPrompt />
+            </NavigationContainer>
+          </OfflineStatusBanner>
           <GlobalConnectivityToast />
         </AuthProvider>
       </NetworkProvider>
