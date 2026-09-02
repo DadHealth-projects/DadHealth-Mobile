@@ -6,11 +6,14 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
 import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
+import ProUpgradeSection from '../../components/ProUpgradeSection';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import TagPill from '../../components/dashboard/TagPill';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFitnessLibrary } from '../../hooks/useFitnessLibrary';
+import { PRO_LOCKS } from '../../lib/proMoments';
 import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -110,7 +113,7 @@ export default function MealPlannerScreen() {
       >
         <AppTopBar leftAccessory={<Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close meal planner" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
         <ScreenHero eyebrow="Meal planner" headline={'Fuel your\nwhole week'} sub="Set your needs. Get five days of meals and one shopping list." />
-        <GlobalErrorToastReporter message={error ?? library.error ?? library.proError} />
+        <GlobalErrorToastReporter message={library.error ?? library.proError} />
 
         <View className="gap-md">
           <View>
@@ -122,18 +125,21 @@ export default function MealPlannerScreen() {
             <DropdownTrigger icon="coffee" label="Meals" value={`${mealsPerDay} daily`} open={openFilter === 'meals'} onPress={() => setOpenFilter(openFilter === 'meals' ? null : 'meals')} divided />
             <DropdownTrigger icon="users" label="Adults" value={`${adults}`} open={openFilter === 'adults'} onPress={() => setOpenFilter(openFilter === 'adults' ? null : 'adults')} divided />
           </View>
-          {openFilter === 'calories' ? <DropdownOptions options={CALORIES.map((value) => ({ value, label: `${value} kcal` }))} value={calorieTarget} onChange={(value) => { setCalorieTarget(value); setOpenFilter(null); }} /> : null}
-          {openFilter === 'meals' ? <DropdownOptions options={MEALS.map((value) => ({ value, label: `${value} meals per day` }))} value={mealsPerDay} onChange={(value) => { setMealsPerDay(value); setOpenFilter(null); }} /> : null}
-          {openFilter === 'adults' ? <DropdownOptions options={ADULTS.map((value) => ({ value, label: `${value} ${value === 1 ? 'adult' : 'adults'}` }))} value={adults} onChange={(value) => { setAdults(value); setOpenFilter(null); }} /> : null}
+          {openFilter === 'calories' ? <DropdownOptions options={CALORIES.map((value) => ({ value, label: `${value} kcal` }))} value={calorieTarget} onChange={(value) => { setCalorieTarget(value); setOpenFilter(null); setError(null); }} /> : null}
+          {openFilter === 'meals' ? <DropdownOptions options={MEALS.map((value) => ({ value, label: `${value} meals per day` }))} value={mealsPerDay} onChange={(value) => { setMealsPerDay(value); setOpenFilter(null); setError(null); }} /> : null}
+          {openFilter === 'adults' ? <DropdownOptions options={ADULTS.map((value) => ({ value, label: `${value} ${value === 1 ? 'adult' : 'adults'}` }))} value={adults} onChange={(value) => { setAdults(value); setOpenFilter(null); setError(null); }} /> : null}
           <View className="border-y border-border"><DropdownTrigger icon="shield" label="Diet" value={DIETS.find((item) => item.value === dietaryPreference)?.label ?? 'No strict diet'} open={openFilter === 'diet'} onPress={() => setOpenFilter(openFilter === 'diet' ? null : 'diet')} /></View>
-          {openFilter === 'diet' ? <DropdownOptions options={DIETS} value={dietaryPreference} onChange={(value) => { setDietaryPreference(value); setOpenFilter(null); }} /> : null}
+          {openFilter === 'diet' ? <DropdownOptions options={DIETS} value={dietaryPreference} onChange={(value) => { setDietaryPreference(value); setOpenFilter(null); setError(null); }} /> : null}
           <View className="gap-xs">
             <Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.8px] uppercase">Preferences</Text>
-            <TextInput value={preferences} onChangeText={setPreferences} placeholder="e.g. high-protein, no fish" placeholderTextColor="rgba(255,255,255,0.25)" accessibilityLabel="Other meal preferences" className="min-h-[48px] border-b border-border font-body text-white text-[14px] py-sm" />
+            <TextInput value={preferences} onChangeText={(value) => { setPreferences(value); setError(null); }} placeholder="e.g. high-protein, no fish" placeholderTextColor="rgba(255,255,255,0.25)" accessibilityLabel="Other meal preferences" className="min-h-[48px] border-b border-border font-body text-white text-[14px] py-sm" />
           </View>
         </View>
 
-        {!user ? <LimeButton label="Log in to generate" onPress={openLogin} /> : library.loading ? <LimeButton label="Loading meal planner" loading /> : !library.isPro ? <LimeButton label="View Dad Health Pro" onPress={openPro} /> : <LimeButton label={generatedPlan ? 'Regenerate meal plan' : 'Generate meal plan'} onPress={() => void generate()} loading={generating} />}
+        <View className="gap-sm">
+          <InlineFormError message={error} />
+          {!user ? <LimeButton label="Log in to generate" onPress={openLogin} /> : library.loading ? <LimeButton label="Loading meal planner" loading /> : !library.isPro ? <ProUpgradeSection moment={PRO_LOCKS.mealPlanner} onPress={openPro} /> : <LimeButton label={generatedPlan ? 'Regenerate meal plan' : 'Generate meal plan'} onPress={() => void generate()} loading={generating} />}
+        </View>
 
         {generatedPlan && displayedDay ? (
           <View className="gap-lg border-t border-border pt-lg">
