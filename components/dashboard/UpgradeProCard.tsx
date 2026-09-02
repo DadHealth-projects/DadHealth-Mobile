@@ -1,33 +1,27 @@
 import React, { memo } from 'react';
-import { Pressable, Text } from 'react-native';
 
-import Card from '../Card';
+import ProUpgradeSection from '../ProUpgradeSection';
+import { PRO_MOMENTS } from '../../lib/proMoments';
 
 type UpgradeProCardProps = {
   onPress?: () => void;
+  /** Brief Change 02: the tease leads with the dad's own improvement, e.g.
+   *  "You've improved your Body score by 6% this week." */
   insight?: string | null;
 };
 
+/**
+ * Moment 1 — the Pro tease directly under the Dad Health Score on Today.
+ * Flat section, not a bordered card, so it reads as part of the score story
+ * rather than an advert for Pro.
+ */
 function UpgradeProCard({ onPress, insight }: UpgradeProCardProps) {
   return (
-    <Card className="border-lime/30 gap-sm">
-      <Text className="font-heading-bold text-lime text-[13px] tracking-label uppercase">
-        Make Dad Health personal
-      </Text>
-      <Text className="font-body text-muted-text text-[14px] leading-[20px]">
-        {insight ?? 'See what is shaping your score, with insights built around your week.'}
-      </Text>
-      <Pressable
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel="See what Dad Health Pro can do"
-        className="mt-sm rounded-button bg-lime py-md items-center active:opacity-90"
-      >
-        <Text className="font-heading-bold text-dark text-[14px] tracking-[1px] uppercase">
-          See what Pro can do
-        </Text>
-      </Pressable>
-    </Card>
+    <ProUpgradeSection
+      moment={PRO_MOMENTS.score}
+      lead={insight}
+      onPress={() => onPress?.()}
+    />
   );
 }
 
