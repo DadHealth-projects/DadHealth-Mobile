@@ -5,7 +5,7 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from '../../components/AppTopBar';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
@@ -52,20 +52,22 @@ export default function CreateCommunityPostScreen() {
       <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" automaticallyAdjustKeyboardInsets contentContainerClassName="px-lg pt-lg pb-xl gap-xl">
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Close create post" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
         <ScreenHero eyebrow="Dad Health Community" headline={'Share it\nwith the community'} />
-        <GlobalErrorToastReporter message={error} />
         <>
-          <TextInput value={body} onChangeText={setBody} autoFocus multiline textAlignVertical="top" placeholder="Share something with the community…" placeholderTextColor={colors.tertiaryText} className="min-h-[220px] rounded-button border border-border bg-card p-md font-body text-white text-[16px] leading-[24px]" />
+          <TextInput value={body} onChangeText={(value) => { setBody(value); setError(null); }} autoFocus multiline textAlignVertical="top" placeholder="Share something with the community…" placeholderTextColor={colors.tertiaryText} className="min-h-[220px] rounded-button border border-border bg-card p-md font-body text-white text-[16px] leading-[24px]" />
           <View className="gap-sm">
             <Text className="font-heading-bold text-lime text-[10px] uppercase">Topic</Text>
             <View className="flex-row border-y border-border">
-              {TAGS.map((option) => <Pressable key={option} onPress={() => setTag(option)} accessibilityRole="button" accessibilityState={{ selected: tag === option }} className={`flex-1 min-h-[46px] items-center justify-center border-b-2 ${tag === option ? 'border-lime' : 'border-transparent'}`}><Text className={`font-heading-bold text-[11px] uppercase ${tag === option ? 'text-lime' : 'text-white/40'}`}>{option}</Text></Pressable>)}
+              {TAGS.map((option) => <Pressable key={option} onPress={() => { setTag(option); setError(null); }} accessibilityRole="button" accessibilityState={{ selected: tag === option }} className={`flex-1 min-h-[46px] items-center justify-center border-b-2 ${tag === option ? 'border-lime' : 'border-transparent'}`}><Text className={`font-heading-bold text-[11px] uppercase ${tag === option ? 'text-lime' : 'text-white/40'}`}>{option}</Text></Pressable>)}
             </View>
           </View>
           <View className="min-h-[58px] flex-row items-center justify-between border-y border-border">
             <View className="flex-1 pr-md"><Text className="font-heading-bold text-white text-[13px] uppercase">Post anonymously</Text><Text className="font-body text-muted-text text-[11px] mt-xs">Your name and account will not appear on the post.</Text></View>
-            <Switch value={anonymous} onValueChange={setAnonymous} trackColor={{ false: '#252525', true: colors.lime }} thumbColor={anonymous ? colors.dark : '#8A8A8A'} />
+            <Switch value={anonymous} onValueChange={(value) => { setAnonymous(value); setError(null); }} trackColor={{ false: '#252525', true: colors.lime }} thumbColor={anonymous ? colors.dark : '#8A8A8A'} />
           </View>
-          <LimeButton label={user ? 'Post' : 'Log in to post'} onPress={() => void submit()} loading={saving} disabled={Boolean(user) && !body.trim()} />
+          <View className="gap-sm">
+            <InlineFormError message={error} />
+            <LimeButton label={user ? 'Post' : 'Log in to post'} onPress={() => void submit()} loading={saving} disabled={Boolean(user) && !body.trim()} />
+          </View>
         </>
       </ScrollView>
     </SafeAreaView>
