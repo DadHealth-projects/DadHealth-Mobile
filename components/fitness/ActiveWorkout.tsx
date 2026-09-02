@@ -6,7 +6,7 @@ import type { FitnessWorkout, FitnessWorkoutExercise } from '../../hooks/useFitn
 import { DAD_STRENGTH_MOVES } from '../../lib/homeContent';
 import { supabase } from '../../lib/supabase';
 import LimeButton from '../LimeButton';
-import GlobalErrorToastReporter from '../GlobalErrorToastReporter';
+import InlineFormError from '../InlineFormError';
 import SectionHeader from '../dashboard/SectionHeader';
 import TagPill from '../dashboard/TagPill';
 
@@ -216,7 +216,7 @@ export default function ActiveWorkout({
             </Pressable>
           </View>
         </View>
-        <GlobalErrorToastReporter message={messageTone === 'error' ? message : null} />
+        <InlineFormError message={messageTone === 'error' ? message : null} className="mt-md" />
         {message && messageTone === 'success' ? (
           <View
             accessibilityRole="alert"

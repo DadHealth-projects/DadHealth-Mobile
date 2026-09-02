@@ -3,22 +3,40 @@ import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 
 export type OfflineAction = 'community_post' | 'community_thread' | 'community_update' | 'dad_days_search' | 'dad_days_save' | 'weekly_challenge' | 'present_dad';
 
+/**
+ * Transient bottom snackbar. Used for temporary request failures and short
+ * connectivity transitions. Never for form validation, which belongs inline
+ * next to the field or action that produced it.
+ */
 export type ConnectivityToast = {
   id: number;
   message: string;
-  tone: 'offline' | 'online' | 'neutral';
+  tone: 'error' | 'online' | 'neutral';
+};
+
+/**
+ * Persistent top status banner. Reserved for global conditions that stay true
+ * until the device state changes — currently offline mode only.
+ */
+export type StatusBanner = {
+  message: string;
+  tone: 'offline';
 };
 
 type NetworkContextValue = {
   isOffline: boolean;
   isKnown: boolean;
+  banner: StatusBanner | null;
   toast: ConnectivityToast | null;
-  showOfflineNotice: () => void;
   showSyncingNotice: () => void;
   showCaughtUpNotice: () => void;
   showOfflineAction: (action: OfflineAction) => void;
   showErrorNotice: (message: string) => void;
+  dismissToast: () => void;
 };
+
+const OFFLINE_BANNER_MESSAGE = "You're offline. Some features may be unavailable.";
+const TOAST_DISMISS_MS = 4000;
 
 const OFFLINE_ACTION_MESSAGES: Record<OfflineAction, string> = {
   community_post: 'Reconnect to post or respond.',
@@ -33,12 +51,13 @@ const OFFLINE_ACTION_MESSAGES: Record<OfflineAction, string> = {
 const NetworkContext = createContext<NetworkContextValue>({
   isOffline: false,
   isKnown: false,
+  banner: null,
   toast: null,
-  showOfflineNotice: () => undefined,
   showSyncingNotice: () => undefined,
   showCaughtUpNotice: () => undefined,
   showOfflineAction: () => undefined,
   showErrorNotice: () => undefined,
+  dismissToast: () => undefined,
 });
 
 function offlineFrom(state: NetInfoState | null) {
@@ -50,6 +69,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ConnectivityToast | null>(null);
   const toastId = useRef(0);
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isOffline = offlineFrom(state);
 
   useEffect(() => {
     let active = true;
@@ -65,19 +85,33 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     if (dismissTimer.current) clearTimeout(dismissTimer.current);
   }, []);
 
+  const clearDismissTimer = useCallback(() => {
+    if (dismissTimer.current) {
+      clearTimeout(dismissTimer.current);
+      dismissTimer.current = null;
+    }
+  }, []);
+
+  const dismissToast = useCallback(() => {
+    clearDismissTimer();
+    setToast(null);
+  }, [clearDismissTimer]);
+
   const showToast = useCallback((message: string, tone: ConnectivityToast['tone']) => {
-    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    clearDismissTimer();
     const id = ++toastId.current;
     setToast({ id, message, tone });
     dismissTimer.current = setTimeout(() => {
       setToast((current) => current?.id === id ? null : current);
       dismissTimer.current = null;
-    }, 4000);
-  }, []);
+    }, TOAST_DISMISS_MS);
+  }, [clearDismissTimer]);
 
-  const showOfflineNotice = useCallback(() => {
-    showToast("You're offline. Some features may be unavailable.", 'offline');
-  }, [showToast]);
+  // A connectivity change makes any pending failure notice stale.
+  useEffect(() => {
+    setToast((current) => current && current.tone !== 'online' ? null : current);
+  }, [isOffline]);
+
   const showSyncingNotice = useCallback(() => {
     showToast('Back online — syncing changes…', 'online');
   }, [showToast]);
@@ -88,19 +122,20 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     showToast(OFFLINE_ACTION_MESSAGES[action], 'neutral');
   }, [showToast]);
   const showErrorNotice = useCallback((message: string) => {
-    showToast(message, 'neutral');
+    showToast(message, 'error');
   }, [showToast]);
 
   const value = useMemo(() => ({
-    isOffline: offlineFrom(state),
+    isOffline,
     isKnown: state !== null,
+    banner: state !== null && isOffline ? { message: OFFLINE_BANNER_MESSAGE, tone: 'offline' as const } : null,
     toast,
-    showOfflineNotice,
     showSyncingNotice,
     showCaughtUpNotice,
     showOfflineAction,
     showErrorNotice,
-  }), [showCaughtUpNotice, showErrorNotice, showOfflineAction, showOfflineNotice, showSyncingNotice, state, toast]);
+    dismissToast,
+  }), [dismissToast, isOffline, showCaughtUpNotice, showErrorNotice, showOfflineAction, showSyncingNotice, state, toast]);
 
   return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>;
 }
