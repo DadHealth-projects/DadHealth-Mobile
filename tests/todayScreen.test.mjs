@@ -16,8 +16,9 @@ test('Today follows the approved score-led hierarchy', async () => {
     '<DadScoreCard score={score}',
     '<UpgradeProCard',
     "Today's check-in",
-    '<MoodWeekCard',
+    // One focus is the free recommendation and sits directly after the check-in.
     '<TodayFocusCard',
+    '<MoodWeekCard',
     '<StreakCard',
     '<SupportingTools',
     '<ChallengeCard',

@@ -11,7 +11,7 @@ import {
 
 import AppTopBar from '../../components/AppTopBar';
 import ActiveWorkout from '../../components/fitness/ActiveWorkout';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import ScreenErrorNotice from '../../components/ScreenErrorNotice';
 import LimeButton from '../../components/LimeButton';
 import PillarSkeleton from '../../components/skeleton/PillarSkeleton';
 import { useAuth } from '../../contexts/AuthContext';
@@ -52,7 +52,7 @@ export default function ActiveWorkoutScreen() {
             </Pressable>
           }
         />
-        <GlobalErrorToastReporter message={library.error ?? library.proError} />
+        <ScreenErrorNotice message={library.error ?? library.proError} />
 
         {library.loading ? (
           <PillarSkeleton cards={3} />

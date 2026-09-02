@@ -5,7 +5,7 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from '../../components/AppTopBar';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import ScreenErrorNotice from '../../components/ScreenErrorNotice';
 import LimeButton from '../../components/LimeButton';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
@@ -45,7 +45,7 @@ export default function TherapistDirectoryScreen() {
           headline={'Find someone\nwho gets it'}
           sub="Dad-friendly sessions, including evening and weekend availability."
         />
-        <GlobalErrorToastReporter message={bookingError ?? directory.error} />
+        <ScreenErrorNotice message={bookingError ?? directory.error} />
 
         {!user ? (
           <View className="gap-md border-y border-border py-xl">
@@ -87,7 +87,7 @@ function TherapistRow({ therapist, onBook }: { therapist: Therapist; onBook: () 
       </View>
       <View className="flex-row gap-md border-t border-border pt-md">
         <Detail icon="calendar" label={therapist.availability ?? 'Unavailable'} />
-        <Detail icon="credit-card" label={therapist.price_per_hour != null ? `£${therapist.price_per_hour}/hr` : 'Unavailable'} />
+        <Detail icon="credit-card" label={therapist.price_per_hour != null ? `Â£${therapist.price_per_hour}/hr` : 'Unavailable'} />
       </View>
       <Pressable onPress={onBook} accessibilityRole="button" accessibilityLabel={`Book with ${therapist.name}`} className="min-h-[44px] rounded-button border border-white/25 items-center justify-center active:opacity-70">
         <Text className="font-heading-bold text-white text-[12px] uppercase">Book</Text>
