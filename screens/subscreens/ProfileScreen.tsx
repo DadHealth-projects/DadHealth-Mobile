@@ -102,6 +102,7 @@ export default function ProfileScreen() {
                   <Pressable onPress={() => void pickPhoto()} disabled={photoBusy} className="min-h-[40px] justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[11px] uppercase">{photoBusy ? 'Saving' : avatarUrl ? 'Change photo' : 'Add photo'}</Text></Pressable>
                   {avatarUrl ? <Pressable onPress={removePhoto} disabled={photoBusy} className="min-h-[40px] justify-center border-b border-red-300"><Text className="font-heading-bold text-red-300 text-[11px] uppercase">Remove</Text></Pressable> : null}
                 </View>
+                {message ? <Text accessibilityRole="alert" className="font-body text-tertiary-text text-[12px] text-center">{message}</Text> : null}
               </View>
             </FadeInView>
 
@@ -114,7 +115,6 @@ export default function ProfileScreen() {
             </FadeInView>
           </>
         )}
-        {message ? <Text accessibilityRole="alert" className="font-body text-tertiary-text text-[12px]">{message}</Text> : null}
       </ScrollView>
 
       <Modal visible={photoPreviewOpen} transparent animationType="fade" onRequestClose={() => setPhotoPreviewOpen(false)}>

@@ -5,7 +5,7 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from '../../components/AppTopBar';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
@@ -140,7 +140,7 @@ export default function ProSubscriptionScreen() {
           </>
         )}
 
-        <GlobalErrorToastReporter message={subscriptions.error} />
+        <InlineFormError message={subscriptions.error} />
         {subscriptions.notice ? (
           <Text accessibilityLiveRegion="polite" className="font-body text-lime text-[12px] leading-[18px] text-center">
             {subscriptions.notice}
