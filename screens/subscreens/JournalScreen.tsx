@@ -6,6 +6,7 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
 import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
 import { useAuth } from '../../contexts/AuthContext';
 import { type JournalEntry, useJournalEntries } from '../../hooks/useJournalEntries';
@@ -101,7 +102,7 @@ export default function JournalScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" contentContainerClassName="px-lg pt-lg pb-xl gap-xl">
           <AppTopBar leftAccessory={<Pressable onPress={() => editorOpen ? closeEditor() : navigation.goBack()} accessibilityRole="button" accessibilityLabel={editorOpen ? 'Back to journal entries' : 'Close journal'} hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"><Feather name={editorOpen ? 'chevron-left' : 'x'} size={20} color={colors.text} /></Pressable>} />
-          <GlobalErrorToastReporter message={error ?? journal.syncError ?? journal.error} />
+          <GlobalErrorToastReporter message={journal.syncError ?? journal.error} />
           {!editorOpen ? (
             <View>
               <Text className="font-heading text-white uppercase text-[42px] leading-[44px]">
@@ -129,7 +130,7 @@ export default function JournalScreen() {
               {selectedPrompt ? <View className="border-l-2 border-lime pl-md"><Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">Selected prompt</Text><Text className="font-body text-white/65 text-[13px] leading-[19px] mt-xs">{selectedPrompt}</Text></View> : null}
               <TextInput
                 value={content}
-                onChangeText={setContent}
+                onChangeText={(value) => { setContent(value); setError(null); }}
                 placeholder="Write freely..."
                 placeholderTextColor="rgba(255,255,255,0.25)"
                 multiline
@@ -137,6 +138,7 @@ export default function JournalScreen() {
                 accessibilityLabel="Private journal entry"
                 className="min-h-[420px] rounded-button border border-border bg-card p-md font-body text-white text-[15px] leading-[23px]"
               />
+              <InlineFormError message={error} />
               <LimeButton label={editing ? 'Save changes' : 'Save entry'} onPress={() => void save()} loading={saving} disabled={!content.trim() || Boolean(editing && journal.isOffline)} />
               {editing ? <Pressable onPress={confirmDelete} disabled={saving || journal.isOffline} accessibilityRole="button" accessibilityState={{ disabled: saving || journal.isOffline }} className="min-h-[44px] items-center justify-center disabled:opacity-40"><Text className="font-heading-bold text-red-300 text-[12px] uppercase">Delete entry</Text></Pressable> : null}
             </View>
