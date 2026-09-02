@@ -5,9 +5,13 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
+import ProLockedPreview from '../../components/ProLockedPreview';
 import ScreenHero from '../../components/mockup/ScreenHero';
+import { useAuth } from '../../contexts/AuthContext';
+import { useDashboard } from '../../hooks/useDashboard';
+import { PRO_LOCKS } from '../../lib/proMoments';
 import {
   ACTIVITY_LABELS,
   calculateTDEE,
@@ -25,6 +29,10 @@ const ACTIVITIES = (Object.keys(ACTIVITY_LABELS) as TDEEActivityLevel[]).map((va
 
 export default function TDEECalculatorScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
+  const { user } = useAuth();
+  // Reads the shared dashboard store, so this adds no extra network round trip.
+  const { data: dashboard } = useDashboard(user?.id);
+  const isPro = dashboard?.isPro === true;
   const [units, setUnits] = useState<UnitSystem>('metric');
   const [gender, setGender] = useState<TDEEGender>('male');
   const [age, setAge] = useState('');
@@ -37,6 +45,16 @@ export default function TDEECalculatorScreen() {
   const [result, setResult] = useState<TDEEResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const close = useCallback(() => navigation.goBack(), [navigation]);
+  const openPro = useCallback(() => navigation.navigate('ProSubscription'), [navigation]);
+
+  // Editing any value clears the previous validation message.
+  const editField = useCallback(
+    (setter: (value: string) => void) => (value: string) => {
+      setter(value);
+      setError(null);
+    },
+    [],
+  );
 
   const calculate = useCallback(() => {
     setError(null);
@@ -62,26 +80,25 @@ export default function TDEECalculatorScreen() {
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" contentContainerClassName="px-lg pt-lg pb-xl gap-xl">
           <AppTopBar leftAccessory={<Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close TDEE calculator" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
           <ScreenHero eyebrow="TDEE calculator" headline={'Know your\ndaily fuel'} sub="Calculate calories for your body, activity and goal." />
-          <GlobalErrorToastReporter message={error} />
 
           <View className="gap-lg">
             <SegmentedControl options={[{ value: 'metric', label: 'Metric' }, { value: 'imperial', label: 'Imperial' }]} value={units} onChange={(value) => { setUnits(value); setResult(null); setError(null); }} />
             <View>
               <Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.8px] uppercase mb-sm">Gender</Text>
-              <SegmentedControl options={[{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }]} value={gender} onChange={setGender} />
+              <SegmentedControl options={[{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }]} value={gender} onChange={(value) => { setGender(value); setError(null); }} />
             </View>
             <View className="flex-row gap-md">
-              <NumberField label="Age" value={age} onChange={setAge} placeholder="35" />
-              <NumberField label={units === 'metric' ? 'Weight kg' : 'Weight lbs'} value={weight} onChange={setWeight} placeholder={units === 'metric' ? '85' : '185'} />
+              <NumberField label="Age" value={age} onChange={editField(setAge)} placeholder="35" />
+              <NumberField label={units === 'metric' ? 'Weight kg' : 'Weight lbs'} value={weight} onChange={editField(setWeight)} placeholder={units === 'metric' ? '85' : '185'} />
             </View>
-            {units === 'metric' ? <NumberField label="Height cm" value={heightCm} onChange={setHeightCm} placeholder="178" /> : <View className="flex-row gap-md"><NumberField label="Height ft" value={heightFt} onChange={setHeightFt} placeholder="5" /><NumberField label="Height in" value={heightIn} onChange={setHeightIn} placeholder="10" /></View>}
+            {units === 'metric' ? <NumberField label="Height cm" value={heightCm} onChange={editField(setHeightCm)} placeholder="178" /> : <View className="flex-row gap-md"><NumberField label="Height ft" value={heightFt} onChange={editField(setHeightFt)} placeholder="5" /><NumberField label="Height in" value={heightIn} onChange={editField(setHeightIn)} placeholder="10" /></View>}
             <View className="border-y border-border">
               <DropdownTrigger label="Activity" value={ACTIVITY_LABELS[activityLevel]} open={activityOpen} onPress={() => setActivityOpen((open) => !open)} />
             </View>
-            {activityOpen ? <DropdownOptions options={ACTIVITIES} value={activityLevel} onChange={(value) => { setActivityLevel(value); setActivityOpen(false); }} /> : null}
+            {activityOpen ? <DropdownOptions options={ACTIVITIES} value={activityLevel} onChange={(value) => { setActivityLevel(value); setActivityOpen(false); setError(null); }} /> : null}
           </View>
 
-          <View className="gap-sm"><LimeButton label="Calculate TDEE" onPress={calculate} />{result ? <Pressable onPress={reset} accessibilityRole="button" className="min-h-[44px] items-center justify-center"><Text className="font-heading-bold text-muted-text text-[12px] uppercase">Reset</Text></Pressable> : null}</View>
+          <View className="gap-sm"><InlineFormError message={error} /><LimeButton label="Calculate TDEE" onPress={calculate} />{result ? <Pressable onPress={reset} accessibilityRole="button" className="min-h-[44px] items-center justify-center"><Text className="font-heading-bold text-muted-text text-[12px] uppercase">Reset</Text></Pressable> : null}</View>
 
           {result ? (
             <View className="gap-xl border-t border-border pt-lg">
@@ -94,11 +111,26 @@ export default function TDEECalculatorScreen() {
               <View className="gap-md">
                 <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Calorie targets</Text>
                 <TargetRow label="Maintenance" value={result.maintenance} detail="Hold your current weight" highlighted />
-                <TargetRow label="Fat loss" value={result.fatLoss} detail="500 kcal daily deficit" />
-                <TargetRow label="Aggressive cut" value={result.aggressiveFatLoss} detail="750 kcal daily deficit" />
-                <TargetRow label="Lean bulk" value={result.muscleGain} detail="300 kcal daily surplus" />
+                {isPro ? (
+                  <>
+                    <TargetRow label="Fat loss" value={result.fatLoss} detail="500 kcal daily deficit" />
+                    <TargetRow label="Aggressive cut" value={result.aggressiveFatLoss} detail="750 kcal daily deficit" />
+                    <TargetRow label="Lean bulk" value={result.muscleGain} detail="300 kcal daily surplus" />
+                  </>
+                ) : null}
               </View>
-              <View className="gap-md"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Insights</Text>{insights.map((text, index) => <View key={index} className="border-l-2 border-lime pl-md"><Text className="font-body text-muted-text text-[12px] leading-[18px]">{text}</Text></View>)}</View>
+
+              {isPro ? (
+                <View className="gap-md"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Insights</Text>{insights.map((text, index) => <View key={index} className="border-l-2 border-lime pl-md"><Text className="font-body text-muted-text text-[12px] leading-[18px]">{text}</Text></View>)}</View>
+              ) : (
+                <ProLockedPreview lock={PRO_LOCKS.fullTdee} onPress={openPro}>
+                  <View className="gap-md">
+                    <TargetRow label="Fat loss" value={result.fatLoss} detail="500 kcal daily deficit" />
+                    <TargetRow label="Aggressive cut" value={result.aggressiveFatLoss} detail="750 kcal daily deficit" />
+                    <TargetRow label="Lean bulk" value={result.muscleGain} detail="300 kcal daily surplus" />
+                  </View>
+                </ProLockedPreview>
+              )}
             </View>
           ) : null}
         </ScrollView>

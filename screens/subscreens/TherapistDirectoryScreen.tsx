@@ -22,7 +22,6 @@ export default function TherapistDirectoryScreen() {
   const [bookingError, setBookingError] = useState<string | null>(null);
   const close = useCallback(() => navigation.goBack(), [navigation]);
   const openLogin = useCallback(() => navigation.navigate('Login'), [navigation]);
-  const openPro = useCallback(() => navigation.navigate('ProSubscription'), [navigation]);
   const openBooking = useCallback(() => {
     setBookingError(null);
     void Linking.openURL(`${WEB_URL}/pricing`).catch(() => {
@@ -58,13 +57,6 @@ export default function TherapistDirectoryScreen() {
         ) : directory.loading ? (
           <View className="gap-sm">
             {[0, 1, 2].map((item) => <View key={item} className="h-[112px] rounded-button bg-white/5" />)}
-          </View>
-        ) : !directory.isPro ? (
-          <View className="gap-md border-y border-border py-xl">
-            <Feather name="lock" size={24} color={colors.lime} />
-            <Text className="font-heading-bold text-white text-[18px] uppercase">Dad Health Pro</Text>
-            <Text className="font-body text-muted-text text-[13px] leading-[20px]">The gap between thinking about support and finding it should be smaller.</Text>
-            <LimeButton label="View Dad Health Pro" onPress={openPro} />
           </View>
         ) : directory.therapists.length === 0 ? (
           <View className="border-y border-border py-xl">
