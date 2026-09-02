@@ -1,3 +1,4 @@
+import { isProfilePro } from './proStatus';
 import { supabase } from './supabase';
 import {
   allowPrivateOfflineUser,
@@ -96,6 +97,60 @@ function previousDate(date: string) {
   return value.toISOString().slice(0, 10);
 }
 
+/**
+ * Streak protection is a Pro benefit (brief checklist item 18): a Pro member's
+ * streak survives a single missed day instead of resetting to zero. It uses the
+ * existing `user_streaks` row — no schema change — and a failed profile read
+ * degrades to the free rule rather than failing the check-in.
+ */
+async function hasStreakProtection(userId: string) {
+  try {
+    const profile = await supabase
+      .from('user_profile')
+      .select('is_pro,subscription_status')
+      .eq('user_id', userId)
+      .maybeSingle();
+    return profile.error ? false : isProfilePro(profile.data);
+  } catch {
+    // This read must never turn a check-in sync into a retry.
+    return false;
+  }
+}
+
+/**
+ * Walks the check-in dates back from the most recent one. Free members break on
+ * the first gap; protected members may skip exactly one missing day.
+ */
+export function countStreakDays(
+  sortedDescendingDates: string[],
+  protectionAvailable: boolean,
+): number {
+  let streakCount = 0;
+  let expected: string | null = sortedDescendingDates[0] ?? null;
+  let graceUsed = false;
+
+  for (const date of sortedDescendingDates) {
+    if (!expected) break;
+
+    if (date === expected) {
+      streakCount += 1;
+      expected = previousDate(expected);
+      continue;
+    }
+
+    if (protectionAvailable && !graceUsed && date === previousDate(expected)) {
+      graceUsed = true;
+      streakCount += 1;
+      expected = previousDate(date);
+      continue;
+    }
+
+    break;
+  }
+
+  return streakCount;
+}
+
 async function recomputeStreak(userId: string) {
   const result = await supabase
     .from('mood_logs')
@@ -106,13 +161,7 @@ async function recomputeStreak(userId: string) {
 
   const dates = [...new Set((result.data ?? []).map((row) => String(row.date)))].sort().reverse();
   const lastActivityDate = dates[0] ?? null;
-  let streakCount = 0;
-  let expected = lastActivityDate;
-  for (const date of dates) {
-    if (!expected || date !== expected) break;
-    streakCount += 1;
-    expected = previousDate(expected);
-  }
+  const streakCount = countStreakDays(dates, await hasStreakProtection(userId));
 
   const streak = await supabase
     .from('user_streaks')
