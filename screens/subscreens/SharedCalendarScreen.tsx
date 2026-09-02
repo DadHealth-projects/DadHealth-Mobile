@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppTopBar from "../../components/AppTopBar";
 import GlobalErrorToastReporter from "../../components/GlobalErrorToastReporter";
+import InlineFormError from "../../components/InlineFormError";
 import LimeButton from "../../components/LimeButton";
 import ScreenHero from "../../components/mockup/ScreenHero";
 import { useAuth } from "../../contexts/AuthContext";
@@ -64,14 +65,19 @@ export default function SharedCalendarScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const route = useRoute<RouteProp<AppStackParamList, "SharedCalendar">>();
   const { user, session, onboardingComplete } = useAuth();
-  const { isOffline } = useNetworkStatus();
+  const { isOffline, showErrorNotice } = useNetworkStatus();
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [sharedSchedule, setSharedSchedule] = useState<Schedule | null>(null);
   const [events, setEvents] = useState<SharedEvent[]>([]);
   const [milestones, setMilestones] = useState<SharedMilestone[]>([]);
   const [loading, setLoading] = useState(Boolean(user));
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Screen load problems go to the bottom snackbar; the custody, co-parent and
+  // event forms each own an inline slot beside their own action.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [custodyError, setCustodyError] = useState<string | null>(null);
+  const [coParentError, setCoParentError] = useState<string | null>(null);
+  const [eventError, setEventError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [eventMessage, setEventMessage] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -88,11 +94,11 @@ export default function SharedCalendarScreen() {
     }
     if (isOffline) {
       setLoading(false);
-      setError(null);
+      setLoadError(null);
       return;
     }
     setLoading(true);
-    setError(null);
+    setLoadError(null);
     const [ownedResult, sharedResult] = await Promise.all([
       supabase
         .from("co_parenting_schedules")
@@ -106,7 +112,7 @@ export default function SharedCalendarScreen() {
         .maybeSingle(),
     ]);
     if (ownedResult.error || sharedResult.error) {
-      setError(
+      setLoadError(
         "We could not load the co-parenting calendar. Please try again.",
       );
       setLoading(false);
@@ -141,7 +147,7 @@ export default function SharedCalendarScreen() {
       );
     const [eventResult, milestoneResult] = await Promise.all(queries);
     if (eventResult.error || milestoneResult?.error)
-      setError(
+      setLoadError(
         "We could not load the co-parenting calendar details. Please try again.",
       );
     else {
@@ -162,10 +168,11 @@ export default function SharedCalendarScreen() {
 
       setSaving(true);
       setMessage(null);
+      setCoParentError(null);
       let handled = false;
       try {
         if (isOffline) {
-          setError(
+          setCoParentError(
             "Reconnect to accept this calendar invite.",
           );
           return;
@@ -191,30 +198,30 @@ export default function SharedCalendarScreen() {
         if (response.status === 400) {
           handled = true;
           await clearPendingCoParentInvite(token);
-          setError(INVALID_CO_PARENT_INVITE_MESSAGE);
+          setCoParentError(INVALID_CO_PARENT_INVITE_MESSAGE);
           return;
         }
 
         if (response.status === 403) {
           await blockPendingCoParentInviteForUser(token, user.id);
-          setError(
+          setCoParentError(
             "This calendar invite was sent to a different account. Sign out, then sign in with the invited email.",
           );
           return;
         }
 
         if (response.status === 401) {
-          setError(
+          setCoParentError(
             "Your sign-in needs to be refreshed before this calendar invite can be accepted. Sign in again and retry.",
           );
           return;
         }
 
-        setError(
+        setCoParentError(
           "We could not accept this calendar invite right now. Check your connection and try again.",
         );
       } catch {
-        setError(
+        setCoParentError(
           "We could not accept this calendar invite right now. Check your connection and try again.",
         );
       } finally {
@@ -235,7 +242,7 @@ export default function SharedCalendarScreen() {
       token === INVALID_CO_PARENT_INVITE
       || !isValidCoParentInviteToken(token)
     ) {
-      setError(INVALID_CO_PARENT_INVITE_MESSAGE);
+      setCoParentError(INVALID_CO_PARENT_INVITE_MESSAGE);
       return;
     }
 
@@ -243,7 +250,7 @@ export default function SharedCalendarScreen() {
       try {
         await persistPendingCoParentInvite(token);
       } catch {
-        setError(
+        setCoParentError(
           "Dad Health could not keep this calendar invite. Open the invite again after signing in.",
         );
         if (!session?.access_token) return;
@@ -276,6 +283,7 @@ export default function SharedCalendarScreen() {
       if (sharedSchedule && !schedule) return;
       setSaving(true);
       setMessage(null);
+      setCustodyError(null);
       try {
         const current = schedule?.custody_dates ?? [];
         const next = current.includes(dateString)
@@ -296,7 +304,7 @@ export default function SharedCalendarScreen() {
         }
         await load();
       } catch {
-        setError("We could not save your custody days. Please try again.");
+        setCustodyError("We could not save your custody days. Please try again.");
       } finally {
         setSaving(false);
       }
@@ -308,6 +316,7 @@ export default function SharedCalendarScreen() {
     if (!user?.id) return;
     setSaving(true);
     setEventMessage(null);
+    setEventError(null);
     try {
       const scheduleId = await ensureSchedule();
       const { error: addError } = await supabase
@@ -323,7 +332,7 @@ export default function SharedCalendarScreen() {
       setEventMessage("Event added.");
       await load();
     } catch {
-      setError("We could not add this event. Please try again.");
+      setEventError("We could not add this event. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -345,19 +354,20 @@ export default function SharedCalendarScreen() {
                   .from("co_parenting_events")
                   .delete()
                   .eq("id", eventId);
-                if (removeError) setError("We could not remove this event.");
+                if (removeError) showErrorNotice("We could not remove this event.");
                 else await load();
               })(),
           },
         ],
       ),
-    [load],
+    [load, showErrorNotice],
   );
 
   const sendInvite = useCallback(async () => {
     if (!session?.access_token || !inviteEmail.trim()) return;
     setSaving(true);
     setMessage(null);
+    setCoParentError(null);
     try {
       const response = await fetch(`${WEB_URL}/api/co-parenting/invite`, {
         method: "POST",
@@ -375,7 +385,7 @@ export default function SharedCalendarScreen() {
       setMessage("Invite sent.");
       await load();
     } catch {
-      setError(
+      setCoParentError(
         "The co-parent invite was not sent. Check the email address, then try again.",
       );
     } finally {
@@ -409,7 +419,7 @@ export default function SharedCalendarScreen() {
                 ]);
                 setSaving(false);
                 if (scheduleResult.error || profileResult.error)
-                  setError("We could not revoke access. Please try again.");
+                  setCoParentError("We could not revoke access. Please try again.");
                 else {
                   setMessage("Co-parent access revoked.");
                   await load();
@@ -466,7 +476,7 @@ export default function SharedCalendarScreen() {
               : "Mark custody days and keep handovers and school events in one place."
           }
         />
-        <GlobalErrorToastReporter message={error} />
+        <GlobalErrorToastReporter message={loadError} />
         {!user ? (
           <LimeButton
             label="Log in to continue"
@@ -530,6 +540,7 @@ export default function SharedCalendarScreen() {
                   }}
                 />
               ) : null}
+              <InlineFormError message={custodyError} />
             </View>
             {saving ? <View className="h-[2px] bg-lime" /> : null}
             {!readOnly ? (
@@ -553,7 +564,10 @@ export default function SharedCalendarScreen() {
                     <View className="gap-md">
                       <TextInput
                         value={inviteEmail}
-                        onChangeText={setInviteEmail}
+                        onChangeText={(value) => {
+                          setInviteEmail(value);
+                          setCoParentError(null);
+                        }}
                         autoCapitalize="none"
                         keyboardType="email-address"
                         placeholder="co-parent@example.com"
@@ -568,6 +582,7 @@ export default function SharedCalendarScreen() {
                       />
                     </View>
                   )}
+                  <InlineFormError message={coParentError} />
                 </View>
                 <View className="gap-md">
                   <Text className="font-heading-bold text-lime text-[11px] uppercase">
@@ -625,22 +640,26 @@ export default function SharedCalendarScreen() {
                     <TypeOption
                       label="Handover"
                       selected={eventType === "handover"}
-                      onPress={() => setEventType("handover")}
+                      onPress={() => { setEventType("handover"); setEventError(null); }}
                     />
                     <TypeOption
                       label="School event"
                       selected={eventType === "school"}
-                      onPress={() => setEventType("school")}
+                      onPress={() => { setEventType("school"); setEventError(null); }}
                     />
                   </View>
                   <TextInput
                     value={eventNotes}
-                    onChangeText={setEventNotes}
+                    onChangeText={(value) => {
+                      setEventNotes(value);
+                      setEventError(null);
+                    }}
                     placeholder="Notes visible to both parents"
                     placeholderTextColor={colors.tertiaryText}
                     multiline
                     className="min-h-[88px] rounded-button border border-border bg-card p-md font-body text-white"
                   />
+                  <InlineFormError message={eventError} />
                   <LimeButton
                     label="Add event"
                     onPress={() => void addEvent()}

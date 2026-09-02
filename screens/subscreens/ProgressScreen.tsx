@@ -11,11 +11,15 @@ import AppTopBar from '../../components/AppTopBar';
 import DadScoreCard from '../../components/dashboard/DadScoreCard';
 import FadeInView from '../../components/FadeInView';
 import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
+import ProLockedPreview from '../../components/ProLockedPreview';
+import ProUpgradeSection from '../../components/ProUpgradeSection';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import SectionHeader from '../../components/dashboard/SectionHeader';
 import StatCard from '../../components/dashboard/StatCard';
+import WeeklyReportCard from '../../components/dashboard/WeeklyReportCard';
 import ProgressSkeleton from '../../components/skeleton/ProgressSkeleton';
 import { useAuth } from '../../contexts/AuthContext';
+import { useDashboard } from '../../hooks/useDashboard';
 import { useProgressScore } from '../../hooks/useProgressScore';
 import { useProgressReport } from '../../hooks/useProgressReport';
 import { useProgressBadges } from '../../hooks/useProgressBadges';
@@ -23,6 +27,8 @@ import { useProgressSleep } from '../../hooks/useProgressSleep';
 import { colors } from '../../theme';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { syncAppleHealthIfConnected } from '../../lib/appleHealth';
+import { PRO_LOCKS, PRO_MOMENTS } from '../../lib/proMoments';
+import { buildWeeklyReport } from '../../lib/weeklyReport';
 
 /**
  * Progress — the web dashboard PROGRESS screen's features
@@ -43,10 +49,29 @@ export default function ProgressScreen({
   const progressReport = useProgressReport(user?.id);
   const progressBadges = useProgressBadges(user?.id);
   const progressSleep = useProgressSleep(user?.id);
+  // Shared dashboard store — supplies the week-on-week movement the weekly
+  // report needs, without another round trip.
+  const { data: dashboardData } = useDashboard(user?.id);
   const [reportMessage, setReportMessage] = useState<string | null>(null);
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const globalError = progressScore.error ?? progressReport.error ?? progressBadges.error ?? progressSleep.error;
+  const isPro = progressScore.data.isPro;
+  const openPro = useCallback(() => navigation.navigate('ProSubscription'), [navigation]);
+
+  const weeklyReport = useMemo(() => dashboardData ? buildWeeklyReport({
+    mindWeekChange: dashboardData.mindWeekChange,
+    bodyWeekChange: dashboardData.bodyWeekChange,
+    bondWeekChange: dashboardData.bondWeekChange,
+    monthWorkouts: dashboardData.monthWorkouts,
+  }) : null, [dashboardData]);
+
+  /** Moment 6 — progress creates desire, keyed on this month's real workouts. */
+  const progressTease = useMemo(() => {
+    const workouts = progressReport.report?.workouts ?? 0;
+    if (workouts <= 0) return null;
+    return `You've completed ${workouts} ${workouts === 1 ? 'workout' : 'workouts'} this month.`;
+  }, [progressReport.report?.workouts]);
 
   const onRefresh = useCallback(async () => {
     if (refreshInFlight.current) return;
@@ -163,16 +188,21 @@ export default function ProgressScreen({
                   <DadScoreCard
                     score={progressScore.data.score}
                     missingScore={0}
-                    items={progressScore.data.isPro ? scoreItems : []}
-                    lockedLabel={progressScore.data.isPro ? undefined : 'Breakdown with Dad Health Pro'}
+                    items={isPro ? scoreItems : []}
+                    lockedLabel={isPro ? undefined : 'Breakdown with Dad Health Pro'}
                     missingItemValue="—"
                     scoreLabel="out of 100"
                     title=""
                   />
-                  {!progressScore.data.isPro ? (
-                    <Pressable onPress={() => navigation.navigate('ProSubscription')} accessibilityRole="button" className="min-h-[44px] self-start justify-center border-b border-lime">
-                      <Text className="font-heading-bold text-lime text-[11px] uppercase">View Dad Health Pro</Text>
-                    </Pressable>
+                  {!isPro ? (
+                    <View className="mt-lg">
+                      <ProUpgradeSection
+                        moment={PRO_MOMENTS.progressTrends}
+                        lead={progressTease}
+                        onPress={openPro}
+                        size="sm"
+                      />
+                    </View>
                   ) : null}
                   <View className="mt-lg border-t border-border">
                     <ProgressDataRow label="Sync status" value={formatSyncStatus(progressScore.data.integration)} />
@@ -183,11 +213,15 @@ export default function ProgressScreen({
               )}
             </FadeInView>
 
+            <FadeInView delay={120}>
+              <WeeklyReportCard report={weeklyReport} isPro={isPro} onUpgrade={openPro} />
+            </FadeInView>
+
             <FadeInView delay={140}>
               <SectionHeader title={`${monthLabel} report`} className="mb-md" />
               {progressReport.loading ? (
                 <View className="flex-row flex-wrap gap-sm">{[0, 1, 2, 3, 4, 5].map((item) => <View key={item} className="h-[92px] basis-[48%] grow-0 bg-white/5" />)}</View>
-              ) : (
+              ) : isPro ? (
                 <>
                   <View className="flex-row flex-wrap gap-sm">
                     {reportStats.map(([value, label]) => <StatCard key={label} value={value} label={label} className="basis-[48%] grow-0 min-h-[92px]" />)}
@@ -198,6 +232,13 @@ export default function ProgressScreen({
                   </Pressable>
                   {reportMessage ? <Text className="font-body text-muted-text text-[12px] mt-sm">{reportMessage}</Text> : null}
                 </>
+              ) : (
+                /* Reports are a Pro feature; free members see the shape of theirs. */
+                <ProLockedPreview lock={PRO_LOCKS.monthlyReport} onPress={openPro}>
+                  <View className="flex-row flex-wrap gap-sm">
+                    {reportStats.map(([value, label]) => <StatCard key={label} value={value} label={label} className="basis-[48%] grow-0 min-h-[92px]" />)}
+                  </View>
+                </ProLockedPreview>
               )}
             </FadeInView>
 
@@ -225,12 +266,12 @@ export default function ProgressScreen({
 
             <FadeInView delay={230}>
               <SectionHeader title="Sleep quality this week" className="mb-md" />
-              {!progressScore.data.isPro ? (
+              {!isPro ? (
                 <View className="gap-md border-y border-border py-lg">
                   <Feather name="lock" size={20} color={colors.lime} />
                   <Text className="font-heading-bold text-white text-[16px] uppercase">Sleep tracker</Text>
                   <Text className="font-body text-muted-text text-[13px] leading-[19px]">Your sleep is connected to your mood, your patience and your energy. This shows you exactly how.</Text>
-                  <Pressable onPress={() => navigation.navigate('ProSubscription')} accessibilityRole="button" className="min-h-[42px] self-start justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[11px] uppercase">View Dad Health Pro</Text></Pressable>
+                  <Pressable onPress={openPro} accessibilityRole="button" className="min-h-[42px] self-start justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[11px] uppercase">View Dad Health Pro</Text></Pressable>
                 </View>
               ) : progressSleep.loading ? (
                 <View className="h-[132px] bg-white/5" />
