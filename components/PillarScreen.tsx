@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from './AppTopBar';
 import type { DashboardSection } from './AccountSheet';
 import GlobalErrorToastReporter from './GlobalErrorToastReporter';
+import { useNetworkStatus } from '../contexts/NetworkContext';
 import { colors } from '../theme';
 
 const REFRESH_SKELETON_MAX_MS = 900;
@@ -39,6 +40,14 @@ export default function PillarScreen({
   children,
 }: PillarScreenProps) {
   const [refreshSkeletonExpired, setRefreshSkeletonExpired] = useState(false);
+  const { dismissToast } = useNetworkStatus();
+
+  // A pull-to-refresh makes the previous failure notice stale.
+  const handleRefresh = useCallback(() => {
+    if (!onRefresh) return;
+    dismissToast();
+    onRefresh();
+  }, [dismissToast, onRefresh]);
 
   useEffect(() => {
     if (!refreshing) {
@@ -60,7 +69,7 @@ export default function PillarScreen({
         contentContainerClassName="px-lg pt-lg pb-[120px] gap-xl"
         refreshControl={
           onRefresh ? (
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.lime} />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.lime} />
           ) : undefined
         }
       >
