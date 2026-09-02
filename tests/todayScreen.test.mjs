@@ -66,10 +66,11 @@ test('lowest-pillar focus uses approved tie order and existing destinations', as
 });
 
 test('score card shows real trends and highlights one weakest pillar', async () => {
-  const [screen, scoreCard, hook] = await Promise.all([
+  const [screen, scoreCard, hook, moments] = await Promise.all([
     source('screens/DashboardScreen.tsx'),
     source('components/dashboard/DadScoreCard.tsx'),
     source('hooks/useDashboard.ts'),
+    source('lib/proMoments.ts'),
   ]);
 
   assert.ok(hook.includes('mind_week_change,body_week_change,bond_week_change'));
@@ -77,7 +78,9 @@ test('score card shows real trends and highlights one weakest pillar', async () 
   assert.ok(screen.includes("highlighted: weakest === 'body'"));
   assert.ok(screen.includes("highlighted: weakest === 'bond'"));
   assert.ok(scoreCard.includes("roundedTrend > 0 ? '↑' : '↓'"));
-  assert.ok(screen.includes('points this week.'));
+  // Brief Change 02: the Pro tease leads with the dad's own improvement.
+  assert.ok(screen.includes('proScoreTease(strongestPositiveTrend('));
+  assert.ok(moments.includes("score by ${rounded}% this week."));
 });
 
 test('Today supporting tools use existing workout, meal, and Bond routes', async () => {
