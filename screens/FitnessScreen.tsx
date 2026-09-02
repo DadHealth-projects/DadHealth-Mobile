@@ -20,7 +20,7 @@ import { useFitnessLibrary } from '../hooks/useFitnessLibrary';
 import { useFitnessSummary } from '../hooks/useFitnessSummary';
 import { MOOD_WEEK_LABELS } from '../lib/dashboard.utils';
 import { DAD_STRENGTH_MOVES } from '../lib/homeContent';
-import { PRO_MOMENTS } from '../lib/proMoments';
+import { PRO_LOCKS, PRO_MOMENTS } from '../lib/proMoments';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 import { syncAppleHealthIfConnected } from '../lib/appleHealth';
 
@@ -342,6 +342,16 @@ export default function FitnessScreen({
             </View>
             <LimeButton label="Open meal planner" onPress={openMealPlanner} />
           </FlatSection>
+        </FadeInView>
+      ) : null}
+
+      {standalone && !fitnessLibrary.isPro ? (
+        <FadeInView delay={230}>
+          <ProUpgradeSection
+            moment={PRO_LOCKS.trainingPlans}
+            onPress={() => navigation.navigate('ProSubscription')}
+            size="sm"
+          />
         </FadeInView>
       ) : null}
 

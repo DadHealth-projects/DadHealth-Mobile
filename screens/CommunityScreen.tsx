@@ -43,6 +43,7 @@ export default function CommunityScreen({
   const [circlesLoading, setCirclesLoading] = useState(true);
   const [circleError, setCircleError] = useState<string | null>(null);
   const [busyCircleId, setBusyCircleId] = useState<string | null>(null);
+  const [circlePrompts, setCirclePrompts] = useState<Array<{ circle_id: string; prompt: string; is_official: boolean }>>([]);
   const [liveSessions, setLiveSessions] = useState<Array<{ id: string; title: string; starts_at: string | null; host_name: string | null; summary: string | null }>>([]);
   const [liveSessionsLoading, setLiveSessionsLoading] = useState(true);
   const [liveSessionsError, setLiveSessionsError] = useState<string | null>(null);
@@ -51,6 +52,19 @@ export default function CommunityScreen({
   const [trendingError, setTrendingError] = useState<string | null>(null);
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
+  const loadCirclePrompts = useCallback(async () => {
+    if (isOffline) return;
+    const { data: prompts } = await supabase
+      .from('circle_prompts')
+      .select('circle_id,prompt,is_official')
+      .order('is_official', { ascending: false })
+      .order('created_at', { ascending: false });
+    setCirclePrompts((prompts ?? []).map((prompt) => ({
+      circle_id: String(prompt.circle_id),
+      prompt: String(prompt.prompt),
+      is_official: prompt.is_official === true,
+    })));
+  }, [isOffline]);
 
   const hasUser = Boolean(user?.id);
   const loadCircles = useCallback(async (silent = false) => {
@@ -122,12 +136,12 @@ export default function CommunityScreen({
     refreshInFlight.current = true;
     setRefreshing(true);
     try {
-      await Promise.all([refresh(), loadCircles(), feed.refresh(), loadLiveSessions(), loadTrending()]);
+      await Promise.all([refresh(), loadCircles(), loadCirclePrompts(), feed.refresh(), loadLiveSessions(), loadTrending()]);
     } finally {
       refreshInFlight.current = false;
       setRefreshing(false);
     }
-  }, [feed.refresh, loadCircles, loadLiveSessions, loadTrending, refresh]);
+  }, [feed.refresh, loadCirclePrompts, loadCircles, loadLiveSessions, loadTrending, refresh]);
   const onToggleCircle = useCallback(async (circleId: string, joined: boolean) => {
     if (!user?.id || busyCircleId) return;
     if (isOffline) { showOfflineAction('community_update'); return; }
@@ -153,6 +167,7 @@ export default function CommunityScreen({
   useEffect(() => { void loadTrending(); }, [loadTrending]);
 
   useEffect(() => { void loadCircles(); }, [loadCircles]);
+  useEffect(() => { void loadCirclePrompts(); }, [loadCirclePrompts]);
 
   useEffect(() => { void loadLiveSessions(); }, [loadLiveSessions]);
 
@@ -216,6 +231,27 @@ export default function CommunityScreen({
             ))}
           </View>
         )}
+      </FadeInView>
+
+      <FadeInView delay={120}>
+        <SectionHeader title="Start a conversation" className="mb-md" />
+        <View className="gap-sm">
+          {circlePrompts.filter((item) => item.is_official).slice(0, 1).map((item) => (
+            <Pressable key={`${item.circle_id}-${item.prompt}`} onPress={() => navigation.navigate('CreateCommunityPost')} accessibilityRole="button" className="border-l-2 border-l-lime bg-lime/[0.04] px-md py-md active:opacity-75">
+              <Text className="font-heading-bold text-lime text-[10px] uppercase">Dad Health weekly prompt</Text>
+              <Text className="font-body text-white text-[14px] leading-[20px] mt-xs">{item.prompt}</Text>
+            </Pressable>
+          ))}
+          {communityCircles.map((circle) => {
+            const prompt = circlePrompts.find((item) => item.circle_id === circle.id && !item.is_official);
+            return prompt ? (
+              <Pressable key={`${circle.id}-${prompt.prompt}`} onPress={() => navigation.navigate('CreateCommunityPost')} accessibilityRole="button" className="border-b border-border py-sm active:opacity-75">
+                <Text className="font-heading-bold text-tertiary-text text-[10px] uppercase">{circle.name}</Text>
+                <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">{prompt.prompt}</Text>
+              </Pressable>
+            ) : null;
+          })}
+        </View>
       </FadeInView>
 
       <FadeInView delay={140}>

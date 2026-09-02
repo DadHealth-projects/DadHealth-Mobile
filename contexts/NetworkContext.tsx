@@ -32,6 +32,8 @@ type NetworkContextValue = {
   showCaughtUpNotice: () => void;
   showOfflineAction: (action: OfflineAction) => void;
   showErrorNotice: (message: string) => void;
+  screenError: string | null;
+  reportScreenError: (id: string, message: string | null) => void;
   dismissToast: () => void;
 };
 
@@ -57,6 +59,8 @@ const NetworkContext = createContext<NetworkContextValue>({
   showCaughtUpNotice: () => undefined,
   showOfflineAction: () => undefined,
   showErrorNotice: () => undefined,
+  screenError: null,
+  reportScreenError: () => undefined,
   dismissToast: () => undefined,
 });
 
@@ -67,6 +71,7 @@ function offlineFrom(state: NetInfoState | null) {
 export function NetworkProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<NetInfoState | null>(null);
   const [toast, setToast] = useState<ConnectivityToast | null>(null);
+  const [screenErrors, setScreenErrors] = useState<Record<string, string>>({});
   const toastId = useRef(0);
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isOffline = offlineFrom(state);
@@ -124,18 +129,29 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   const showErrorNotice = useCallback((message: string) => {
     showToast(message, 'error');
   }, [showToast]);
+  const reportScreenError = useCallback((id: string, message: string | null) => {
+    setScreenErrors((current) => {
+      const next = { ...current };
+      if (message) next[id] = message;
+      else delete next[id];
+      return next;
+    });
+  }, []);
+  const screenError = Object.values(screenErrors)[0] ?? null;
 
   const value = useMemo(() => ({
     isOffline,
     isKnown: state !== null,
     banner: state !== null && isOffline ? { message: OFFLINE_BANNER_MESSAGE, tone: 'offline' as const } : null,
     toast,
+    screenError,
     showSyncingNotice,
     showCaughtUpNotice,
     showOfflineAction,
     showErrorNotice,
+    reportScreenError,
     dismissToast,
-  }), [dismissToast, isOffline, showCaughtUpNotice, showErrorNotice, showOfflineAction, showSyncingNotice, state, toast]);
+  }), [dismissToast, isOffline, reportScreenError, screenError, showCaughtUpNotice, showErrorNotice, showOfflineAction, showSyncingNotice, state, toast]);
 
   return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>;
 }

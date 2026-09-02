@@ -23,7 +23,7 @@ export default function CreateCommunityPostScreen() {
   const { isOffline, showOfflineAction } = useNetworkStatus();
   const [body, setBody] = useState('');
   const [tag, setTag] = useState<(typeof TAGS)[number]>('FITNESS');
-  const [anonymous, setAnonymous] = useState(false);
+  const [anonymous, setAnonymous] = useState(true);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

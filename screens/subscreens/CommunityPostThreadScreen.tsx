@@ -15,7 +15,7 @@ import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
 
-type Comment = { id: string; user_id: string; content: string; parent_id: string | null; created_at: string; anonymous: boolean; author: string; likes_count: number; user_liked: boolean };
+type Comment = { id: string; user_id: string; content: string; parent_id: string | null; created_at: string; anonymous: boolean; author: string; author_name: string | null; likes_count: number; user_liked: boolean };
 
 export default function CommunityPostThreadScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
@@ -37,7 +37,7 @@ export default function CommunityPostThreadScreen() {
     setLoading(true);
     const [postResult, commentResult] = await Promise.all([
       supabase.from('posts').select('content,author_name,anonymous,tag').eq('id', route.params.postId).maybeSingle(),
-      supabase.from('comments').select('id,user_id,content,parent_id,created_at,anonymous').eq('post_id', route.params.postId).order('created_at', { ascending: true }),
+      supabase.from('comments').select('id,user_id,content,parent_id,created_at,anonymous,author_name').eq('post_id', route.params.postId).order('created_at', { ascending: true }),
     ]);
     if (postResult.error || commentResult.error || !postResult.data) { setError('We could not load this conversation. Please try again.'); setLoading(false); return; }
     const rows = commentResult.data ?? [];
@@ -55,11 +55,19 @@ export default function CommunityPostThreadScreen() {
     });
     const userIds = [...new Set(rows.map((row) => String(row.user_id)))];
     const profileResult = userIds.length ? await supabase.from('user_profile').select('user_id,display_name').in('user_id', userIds) : { data: [], error: null };
-    const names = new Map((profileResult.data ?? []).map((profile: { user_id: string; display_name: string | null }) => [String(profile.user_id), profile.display_name?.trim() || 'Member']));
+    const names = new Map((profileResult.data ?? []).map((profile: { user_id: string; display_name: string | null }) => [String(profile.user_id), profile.display_name?.trim() || null]));
+    if (names.size < userIds.length || [...names.values()].some((name) => !name)) {
+      const authorResult = await supabase.rpc('get_comment_author_names', { p_user_ids: userIds });
+      (authorResult.data ?? []).forEach((profile: { user_id: string; display_name: string | null }) => {
+        if (profile.display_name?.trim()) names.set(String(profile.user_id), profile.display_name.trim());
+      });
+    }
     setPost({ content: String(postResult.data.content), author_name: postResult.data.anonymous ? 'Anonymous' : String(postResult.data.author_name ?? 'Member'), anonymous: postResult.data.anonymous === true, tag: String(postResult.data.tag ?? '') });
     setComments(rows.map((row) => {
       const commentId = String(row.id);
-      return { id: commentId, user_id: String(row.user_id), content: String(row.content), parent_id: row.parent_id ? String(row.parent_id) : null, created_at: String(row.created_at), anonymous: row.anonymous === true, author: row.anonymous ? 'Anonymous' : names.get(String(row.user_id)) ?? (String(row.user_id) === user?.id ? 'You' : 'Member'), likes_count: likeCounts.get(commentId) ?? 0, user_liked: likedCommentIds.has(commentId) };
+      const storedAuthor = String(row.author_name ?? '').trim();
+      const resolvedAuthor = storedAuthor || names.get(String(row.user_id)) || (String(row.user_id) === user?.id ? 'You' : 'Dad');
+      return { id: commentId, user_id: String(row.user_id), content: String(row.content), parent_id: row.parent_id ? String(row.parent_id) : null, created_at: String(row.created_at), anonymous: row.anonymous === true, author: row.anonymous ? 'Anonymous' : resolvedAuthor, author_name: row.author_name ? String(row.author_name) : null, likes_count: likeCounts.get(commentId) ?? 0, user_liked: likedCommentIds.has(commentId) };
     }));
     setError(null); setLoading(false);
   }, [isOffline, route.params.postId, user?.id]);
@@ -105,7 +113,7 @@ export default function CommunityPostThreadScreen() {
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center" accessibilityLabel="Close post thread"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
         <GlobalErrorToastReporter message={error} />
         {loading ? <View className="h-[240px] bg-white/5" /> : post ? <>
-          <View className="border-b border-border pb-xl"><View className="flex-row items-center gap-sm"><Text className="font-heading-bold text-lime text-[11px] uppercase">{post.tag}</Text><Text className="font-heading-bold text-white text-[14px]">{post.author_name}</Text></View><Text className="font-body text-white text-[18px] leading-[27px] mt-md">{post.content}</Text></View>
+          <View className="border-b border-border pb-xl"><View className="flex-row items-center gap-sm"><View className="h-[36px] w-[36px] rounded-full border border-lime/40 bg-lime/10 items-center justify-center"><Text className="font-heading-bold text-lime text-[14px]">{post.anonymous ? 'A' : post.author_name.charAt(0).toUpperCase()}</Text></View><Text className="font-heading-bold text-white text-[14px]">{post.author_name}</Text></View><Text className="font-body text-white text-[18px] leading-[27px] mt-md">{post.content}</Text></View>
           <View className="gap-md"><Text className="font-heading-bold text-lime text-[11px] uppercase">Replies</Text>{roots.length === 0 ? <Text className="font-body text-muted-text">No replies yet.</Text> : roots.map((comment) => <View key={comment.id} className="border-b border-border pb-md"><CommentRow comment={comment} owner={comment.user_id === user?.id} busy={respectBusyId === comment.id} onRespect={() => void toggleRespect(comment)} onDelete={() => remove(comment)} onReply={() => { setReplyTo(comment.id); setDraft(''); setComposerError(null); }} />{(replies.get(comment.id) ?? []).map((reply) => <View key={reply.id} className="ml-xl mt-md border-l-2 border-l-lime/30 pl-md"><CommentRow comment={reply} owner={reply.user_id === user?.id} busy={respectBusyId === reply.id} onRespect={() => void toggleRespect(reply)} onDelete={() => remove(reply)} /></View>)}</View>)}</View>
           {replyTo ? <View className="flex-row items-center justify-between"><Text className="font-body text-muted-text text-[12px]">Replying to {comments.find((comment) => comment.id === replyTo)?.author}</Text><Pressable onPress={() => { setReplyTo(null); setComposerError(null); }}><Text className="font-heading-bold text-lime text-[10px] uppercase">Cancel</Text></Pressable></View> : null}
           <TextInput value={draft} onChangeText={(value) => { setDraft(value); setComposerError(null); }} multiline placeholder={replyTo ? 'Write a reply…' : 'Add a comment…'} placeholderTextColor={colors.tertiaryText} className="min-h-[90px] rounded-button border border-border bg-card p-md font-body text-white" />

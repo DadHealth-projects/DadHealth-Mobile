@@ -15,6 +15,7 @@ import ScreenHero from '../components/mockup/ScreenHero';
 import FilterChips from '../components/mockup/FilterChips';
 import SectionHeader from '../components/dashboard/SectionHeader';
 import ToggleRow from '../components/mockup/ToggleRow';
+import ProUpgradeSection from '../components/ProUpgradeSection';
 import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { usePresentDadMode } from '../hooks/usePresentDadMode';
@@ -22,6 +23,7 @@ import { dashboardIcon } from '../lib/dashboardIcons';
 import { trackEvent } from '../lib/analytics';
 import { supabase } from '../lib/supabase';
 import { colors } from '../theme';
+import { PRO_LOCKS } from '../lib/proMoments';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 
 /**
@@ -214,6 +216,16 @@ export default function BondScreen({
           onPress={() => navigation.navigate('MilestoneTracker')}
         />
       </FadeInView>
+
+      {hasUser && !data?.isPro ? (
+        <FadeInView delay={335}>
+          <ProUpgradeSection
+            moment={PRO_LOCKS.familyActivityPlans}
+            onPress={() => navigation.navigate('ProSubscription')}
+            size="sm"
+          />
+        </FadeInView>
+      ) : null}
 
       <FadeInView delay={350}>
         <ToggleRow

@@ -13,7 +13,6 @@ import PillarSkeleton from '../components/skeleton/PillarSkeleton';
 import ProLockedPreview from '../components/ProLockedPreview';
 import ProUpgradeSection from '../components/ProUpgradeSection';
 import ScreenHero from '../components/mockup/ScreenHero';
-import StatTile from '../components/mockup/StatTile';
 import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { PRO_LOCKS } from '../lib/proMoments';
@@ -155,12 +154,6 @@ export default function MindScreen({
         )}
       </FadeInView>
 
-      <FadeInView delay={260}>
-        <View className="flex-row gap-sm">
-          <StatTile value="1 in 8" label="UK men experiencing mental health symptoms" />
-          <StatTile value="4 in 10" label="won't tell a single person" />
-        </View>
-      </FadeInView>
     </PillarScreen>
   );
 }

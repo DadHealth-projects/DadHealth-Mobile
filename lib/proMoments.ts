@@ -78,7 +78,9 @@ export type ProLockId =
   | 'fullTdee'
   | 'mealPlanner'
   | 'monthlyReport'
-  | 'milestonePhotos';
+  | 'milestonePhotos'
+  | 'trainingPlans'
+  | 'familyActivityPlans';
 
 /**
  * Free vs Pro feature-split locks (brief Change 04 table). Each one is rendered
@@ -120,6 +122,18 @@ export const PRO_LOCKS: Record<ProLockId, ProMoment> = {
     heading: 'Words are good. Photos last forever.',
     body: 'Logging milestones is free. Pro members add photos and see milestone insights.',
     cta: 'Unlock milestone photos',
+  },
+  trainingPlans: {
+    eyebrow: 'Training plans',
+    heading: 'A plan that fits your week',
+    body: 'Pro members get structured training plans built around their time, equipment and goals.',
+    cta: 'Unlock training plans',
+  },
+  familyActivityPlans: {
+    eyebrow: 'Family activity plans',
+    heading: 'More time that counts',
+    body: 'Pro members get personalised activity plans built around your family and the time you have together.',
+    cta: 'Unlock family plans',
   },
 };
 
