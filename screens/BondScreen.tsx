@@ -8,7 +8,7 @@ import BondScoreCard from '../components/bond/BondScoreCard';
 import type { DashboardSection } from '../components/AccountSheet';
 import FadeInView from '../components/FadeInView';
 import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
-import PillarCard from '../components/mockup/PillarCard';
+import LimeButton from '../components/LimeButton';
 import PillarScreen from '../components/PillarScreen';
 import PillarSkeleton from '../components/skeleton/PillarSkeleton';
 import ScreenHero from '../components/mockup/ScreenHero';
@@ -196,22 +196,22 @@ export default function BondScreen({
       </FadeInView>
 
       <FadeInView delay={290}>
-        <PillarCard
-          emoji="📅"
-          title="Co-parenting calendar"
+        <BondFeatureSection
+          eyebrow="Bond tools"
+          headline="Co-parenting calendar"
           description="Every day, 50/50, weekends — Bond score adapts to your situation"
+          actionLabel="Open co-parenting calendar"
           onPress={() => navigation.navigate('SharedCalendar')}
-          accessibilityLabel="Open co-parenting calendar"
         />
       </FadeInView>
 
       <FadeInView delay={320}>
-        <PillarCard
-          emoji="🏆"
-          title="Milestone tracker"
+        <BondFeatureSection
+          eyebrow="Bond tools"
+          headline="Milestone tracker"
           description="Log the moments that matter. First bike ride. Said I love you unprompted."
+          actionLabel="Open milestone tracker"
           onPress={() => navigation.navigate('MilestoneTracker')}
-          accessibilityLabel="Open milestone tracker"
         />
       </FadeInView>
 
@@ -233,5 +233,35 @@ export default function BondScreen({
         {startersOpen ? <View className="mt-md gap-sm">{startersLoading ? <View className="h-[56px] bg-white/5" /> : conversationStarters.length === 0 ? <Text className="font-body text-muted-text text-[14px]">No conversation starters yet.</Text> : conversationStarters.map((prompt) => <View key={prompt} className="border-b border-border border-l-[3px] border-l-lime py-md pl-md"><Text className="font-body text-tertiary-text text-[14px] leading-[20px] italic">"{prompt}"</Text></View>)}</View> : null}
       </FadeInView>
     </PillarScreen>
+  );
+}
+
+/**
+ * Flat feature section: label → heading → supporting copy → action → divider.
+ * Same composition the Body screen uses for AI Workout and Meal Planner, so
+ * these features are never wrapped in a bordered card.
+ */
+function BondFeatureSection({
+  eyebrow,
+  headline,
+  description,
+  actionLabel,
+  onPress,
+}: {
+  eyebrow: string;
+  headline: string;
+  description: string;
+  actionLabel: string;
+  onPress: () => void;
+}) {
+  return (
+    <View className="gap-md border-b border-border pb-lg">
+      <View>
+        <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">{eyebrow}</Text>
+        <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">{headline}</Text>
+        <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">{description}</Text>
+      </View>
+      <LimeButton label={actionLabel} onPress={onPress} />
+    </View>
   );
 }

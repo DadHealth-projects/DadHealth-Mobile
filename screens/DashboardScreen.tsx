@@ -15,6 +15,7 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import AppTopBar from '../components/AppTopBar';
 import type { DashboardSection } from '../components/AccountSheet';
 import ChallengeCard from '../components/dashboard/ChallengeCard';
+import CheckInFollowUp from '../components/dashboard/CheckInFollowUp';
 import CheckInPanel from '../components/dashboard/CheckInPanel';
 import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
 import DadScoreCard from '../components/dashboard/DadScoreCard';
@@ -22,12 +23,14 @@ import FadeInView from '../components/FadeInView';
 import GreetingHeader from '../components/dashboard/GreetingHeader';
 import HomeSkeleton from '../components/skeleton/HomeSkeleton';
 import MoodWeekCard from '../components/dashboard/MoodWeekCard';
+import ProLockedPreview from '../components/ProLockedPreview';
 import RemindersList from '../components/dashboard/RemindersList';
 import ScreenTransition from '../components/ScreenTransition';
 import StreakCard from '../components/dashboard/StreakCard';
 import SupportingTools, { type SupportingTool } from '../components/dashboard/SupportingTools';
 import TodayFocusCard from '../components/dashboard/TodayFocusCard';
 import UpgradeProCard from '../components/dashboard/UpgradeProCard';
+import WeeklyReportCard from '../components/dashboard/WeeklyReportCard';
 import type { MoodKey } from '../components/mockup/MoodCheckInRow';
 import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '../hooks/useDashboard';
@@ -41,8 +44,11 @@ import {
   getMoodWeek,
   getScoreBreakdown,
 } from '../lib/dashboard.utils';
+import type { CheckInAction } from '../lib/checkInRecommendation';
+import { PRO_LOCKS, proScoreTease } from '../lib/proMoments';
 import { selectTodayFocus, strongestPositiveTrend } from '../lib/todayFocus';
 import { greetingFirstName } from '../lib/userDisplay';
+import { buildWeeklyReport, isWeeklyReportDay } from '../lib/weeklyReport';
 import { colors } from '../theme';
 import BondScreen from './BondScreen';
 import CommunityScreen from './CommunityScreen';
@@ -97,7 +103,7 @@ export function DashboardScreenContent({
 }) {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { data, loading, error: dashboardError, syncError, checkingIn, refresh, saveCheckIn } = useDashboard(user.id);
-  const { isOffline } = useNetworkStatus();
+  const { dismissToast, isOffline } = useNetworkStatus();
   // Web pre-selects mood 3 ("Good") and 7 hours of sleep.
   const [moodKey, setMoodKey] = useState<MoodKey>('good');
   const [moodValue, setMoodValue] = useState(3);
@@ -224,14 +230,36 @@ export function DashboardScreenContent({
     bond: data?.bondScore ?? null,
   }), [data?.bodyScore, data?.bondScore, data?.checkedInToday, data?.mindScore]);
 
-  const proInsight = useMemo(() => {
-    const trend = strongestPositiveTrend({
-      Mind: data?.mindWeekChange ?? null,
-      Body: data?.bodyWeekChange ?? null,
-      Bond: data?.bondWeekChange ?? null,
-    });
-    return trend ? `Your ${trend[0]} score is up ${Math.round(trend[1])} points this week.` : null;
-  }, [data?.bodyWeekChange, data?.bondWeekChange, data?.mindWeekChange]);
+  const proInsight = useMemo(() => proScoreTease(strongestPositiveTrend({
+    Mind: data?.mindWeekChange ?? null,
+    Body: data?.bodyWeekChange ?? null,
+    Bond: data?.bondWeekChange ?? null,
+  })), [data?.bodyWeekChange, data?.bondWeekChange, data?.mindWeekChange]);
+
+  // Moment 5 — the weekly report lands on Sundays on Today, and lives
+  // permanently on Progress.
+  const weeklyReport = useMemo(() => data ? buildWeeklyReport({
+    mindWeekChange: data.mindWeekChange,
+    bodyWeekChange: data.bodyWeekChange,
+    bondWeekChange: data.bondWeekChange,
+    monthWorkouts: data.monthWorkouts,
+  }) : null, [data]);
+  const showWeeklyReport = useMemo(() => isWeeklyReportDay(), []);
+
+  // After a reload the stress answer is no longer in session, so the follow-up
+  // reads today's logged mood rather than the panel's pre-selected default.
+  const checkedInMood = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return data?.moodLogs.find((log) => log.date === today)?.mood_value ?? moodValue;
+  }, [data?.moodLogs, moodValue]);
+
+  const openCheckInAction = useCallback((action: CheckInAction) => {
+    if (action === 'breathing') navigation.navigate('BreathingSession');
+    else if (action === 'journal') navigation.navigate('Journal');
+    else navigation.navigate('Tabs', { screen: 'Bond' });
+  }, [navigation]);
+
+  const openPro = useCallback(() => navigation.navigate('ProSubscription'), [navigation]);
 
   const openFocus = useCallback(() => {
     if (todayFocus === 'checkin') {
@@ -307,6 +335,8 @@ export function DashboardScreenContent({
   const handleRefresh = useCallback(async () => {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
+    // A refresh makes the previous failure notice stale.
+    dismissToast();
     setRefreshing(true);
     try {
       await refresh();
@@ -314,7 +344,7 @@ export function DashboardScreenContent({
       refreshInFlight.current = false;
       setRefreshing(false);
     }
-  }, [refresh]);
+  }, [dismissToast, refresh]);
 
   if ((!data && !dashboardError) || refreshing) {
     return (
@@ -437,8 +467,26 @@ export function DashboardScreenContent({
               </FadeInView>
               ) : null}
 
+              {data.checkedInToday ? (
+                <FadeInView delay={190}>
+                  <CheckInFollowUp
+                    moodValue={checkedInMood}
+                    stressLevel={stressLevel}
+                    isPro={data.isPro}
+                    onAction={openCheckInAction}
+                    onUpgrade={openPro}
+                  />
+                </FadeInView>
+              ) : null}
+
               <FadeInView delay={200}>
-                <MoodWeekCard values={moodWeek} labels={MOOD_WEEK_LABELS} summary={moodSummary} />
+                {data.isPro ? (
+                  <MoodWeekCard values={moodWeek} labels={MOOD_WEEK_LABELS} summary={moodSummary} flat />
+                ) : (
+                  <ProLockedPreview lock={PRO_LOCKS.moodTrends} onPress={openPro}>
+                    <MoodWeekCard values={moodWeek} labels={MOOD_WEEK_LABELS} summary={moodSummary} flat />
+                  </ProLockedPreview>
+                )}
               </FadeInView>
 
               <FadeInView delay={220}>
@@ -446,8 +494,14 @@ export function DashboardScreenContent({
               </FadeInView>
 
               <FadeInView delay={260}>
-                <StreakCard streak={data.streak} />
+                <StreakCard streak={data.streak} isPro={data.isPro} onUpgrade={openPro} />
               </FadeInView>
+
+              {showWeeklyReport ? (
+                <FadeInView delay={280}>
+                  <WeeklyReportCard report={weeklyReport} isPro={data.isPro} onUpgrade={openPro} />
+                </FadeInView>
+              ) : null}
 
               <FadeInView delay={300}>
                 <SupportingTools tools={supportingTools} />
