@@ -158,7 +158,7 @@ test('feature errors use the same global temporary toast instead of red screen b
   ]);
 
   assert.ok(network.includes('showErrorNotice'));
-  assert.ok(network.includes("showToast(message, 'neutral')"));
+  assert.ok(network.includes("showToast(message, 'error')"));
   assert.ok(reporter.includes('showErrorNotice(message)'));
   assert.equal(topBar.includes('text-red'), false);
   assert.ok(fitness.includes('<GlobalErrorToastReporter message={fitnessLibrary.error} />'));

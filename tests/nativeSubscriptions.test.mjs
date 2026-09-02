@@ -87,7 +87,7 @@ test('native paywall leads with annual value and restrained personalisation copy
   const featureBlock = /const THIS_WEEK_FEATURES = \[([\s\S]*?)\] as const;/.exec(screen)?.[1] ?? '';
   assert.equal((featureBlock.match(/^  '/gm) ?? []).length, 3);
   assert.match(screen, /What Pro can do this week/);
-  assert.match(prompt, /Make Dad Health personal/);
-  assert.match(prompt, /See what Pro can do/);
+  // Moment 1 lives under the score on Today and pulls its copy from one place.
+  assert.match(prompt, /PRO_MOMENTS\.score/);
   assert.doesNotMatch(prompt, /Upgrade to Pro/);
 });
