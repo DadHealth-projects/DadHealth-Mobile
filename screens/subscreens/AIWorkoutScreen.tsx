@@ -10,24 +10,22 @@ import {
 } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
+import GeneratedWorkoutSection from '../../components/fitness/GeneratedWorkoutSection';
 import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
 import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
-import ProUpgradeSection from '../../components/ProUpgradeSection';
+import ProPromptModal from '../../components/ProPromptModal';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import TagPill from '../../components/dashboard/TagPill';
+import { useAuth } from '../../contexts/AuthContext';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
 import type { FitnessWorkout } from '../../hooks/useFitnessLibrary';
 import { useFitnessLibrary } from '../../hooks/useFitnessLibrary';
-import { useAuth } from '../../contexts/AuthContext';
+import { generateAIWorkout, WorkoutGenerationError } from '../../lib/aiWorkout';
 import { PRO_MOMENTS } from '../../lib/proMoments';
-import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
 
-const CONFIGURED_WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? 'https://www.dadhealth.co.uk';
-const WEB_URL = CONFIGURED_WEB_URL
-  .replace(/^https:\/\/dadhealth\.co\.uk(?=\/|$)/, 'https://www.dadhealth.co.uk')
-  .replace(/\/$/, '');
 const DURATIONS = [10, 20, 30, 45] as const;
 const EQUIPMENT = [
   { value: 'none', label: 'None' },
@@ -41,10 +39,12 @@ const FOCUS = [
   { value: 'core', label: 'Core' },
 ] as const;
 
+/** One workout-options experience: three generations monthly for Free, unlimited for Pro. */
 export default function AIWorkoutScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const route = useRoute<RouteProp<AppStackParamList, 'AIWorkout'>>();
   const { user, session } = useAuth();
+  const { isOffline, showOfflineAction } = useNetworkStatus();
   const library = useFitnessLibrary(user?.id, true);
   const [durationMins, setDurationMins] = useState<(typeof DURATIONS)[number]>(20);
   const [equipment, setEquipment] = useState<(typeof EQUIPMENT)[number]['value']>('none');
@@ -53,6 +53,7 @@ export default function AIWorkoutScreen() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openFilter, setOpenFilter] = useState<'duration' | 'equipment' | 'focus' | null>(null);
+  const [limitPromptOpen, setLimitPromptOpen] = useState(false);
 
   const displayedWorkout = useMemo(
     () => generatedWorkout
@@ -63,10 +64,10 @@ export default function AIWorkoutScreen() {
 
   const close = useCallback(() => navigation.goBack(), [navigation]);
   const openLogin = useCallback(() => navigation.navigate('Login'), [navigation]);
-  const openPro = useCallback(
-    () => navigation.navigate('ProSubscription'),
-    [navigation],
-  );
+  const openPro = useCallback(() => {
+    setLimitPromptOpen(false);
+    navigation.navigate('ProSubscription');
+  }, [navigation]);
   const openWorkout = useCallback(() => {
     if (displayedWorkout) {
       navigation.navigate('ActiveWorkout', { workoutId: displayedWorkout.id });
@@ -79,48 +80,34 @@ export default function AIWorkoutScreen() {
       openLogin();
       return;
     }
-    if (!library.isPro) {
-      openPro();
+    if (isOffline) {
+      showOfflineAction('ai_workout');
       return;
     }
 
     setGenerating(true);
-    const endpoint = `${WEB_URL}/api/generate-workout`;
-    const requestId = `mobile-${Date.now()}`;
-    let accessToken = session.access_token;
-
-    const tokenCheck = await supabase.auth.getUser(accessToken);
-    if (tokenCheck.error || !tokenCheck.data.user) {
-      const refreshed = await supabase.auth.refreshSession();
-      accessToken = refreshed.data.session?.access_token ?? '';
-      if (!accessToken) {
-        setGenerating(false);
-        setError('Your session has expired. Please log in again.');
+    try {
+      const workout = await generateAIWorkout(session.access_token, {
+        durationMins,
+        equipment,
+        focus,
+      });
+      setGeneratedWorkout(workout);
+      await library.refresh();
+    } catch (cause) {
+      if (cause instanceof WorkoutGenerationError && cause.code === 'free_limit_reached') {
+        setLimitPromptOpen(true);
         return;
       }
-    }
-
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-          'X-Request-Id': requestId,
-        },
-        body: JSON.stringify({ durationMins, equipment, focus }),
-      });
-      const responseText = await response.text();
-      const payload = JSON.parse(responseText) as FitnessWorkout & { error?: string };
-      if (!response.ok) throw new Error('generation_failed');
-      setGeneratedWorkout(payload);
-      await library.refresh();
-    } catch {
-      setError('We could not generate your workout. Please try again.');
+      setError(cause instanceof WorkoutGenerationError
+        ? `[${cause.code}] ${cause.message}`
+        : cause instanceof Error
+          ? cause.message
+          : String(cause));
     } finally {
       setGenerating(false);
     }
-  }, [durationMins, equipment, focus, library, openLogin, openPro, session?.access_token]);
+  }, [durationMins, equipment, focus, isOffline, library, openLogin, session?.access_token, showOfflineAction]);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
@@ -149,13 +136,16 @@ export default function AIWorkoutScreen() {
         />
 
         <View className="gap-md">
-          <View>
-            <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
-              Workout filters
-            </Text>
-            <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">
-              Set the session constraints before generating.
-            </Text>
+          <View className="flex-row items-end justify-between gap-md">
+            <View className="flex-1">
+              <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
+                Workout filters
+              </Text>
+              <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">
+                Set the session constraints before generating.
+              </Text>
+            </View>
+            <TagPill label={library.isPro ? 'Unlimited' : '3 free / month'} tone="outline" />
           </View>
           <View className="flex-row border-y border-border">
             <DropdownTrigger
@@ -218,62 +208,31 @@ export default function AIWorkoutScreen() {
           ) : null}
         </View>
 
-        <View className="gap-sm">
-          <InlineFormError message={error} />
-          {!user ? (
-            <LimeButton label="Log in to generate" onPress={openLogin} />
-          ) : library.loading ? (
-            <LimeButton label="Loading workouts" loading />
-          ) : !library.isPro ? (
-            <ProUpgradeSection moment={PRO_MOMENTS.aiWorkout} onPress={openPro} />
-          ) : (
-            <LimeButton
-              label={generatedWorkout ? 'Regenerate workout' : 'Generate workout'}
-              onPress={() => void generate()}
-              loading={generating}
-            />
-          )}
-        </View>
+        <GlobalErrorToastReporter message={library.error} />
+        <InlineFormError message={error} />
 
-        <GlobalErrorToastReporter message={library.error ?? library.proError} />
+        {!user ? (
+          <LimeButton label="Log in to generate" onPress={openLogin} />
+        ) : library.loading ? (
+          <LimeButton label="Loading workouts" loading />
+        ) : (
+          <LimeButton
+            label={generatedWorkout ? 'Generate another workout' : 'Generate workout'}
+            onPress={() => void generate()}
+            loading={generating}
+          />
+        )}
 
         {displayedWorkout ? (
-          <View className="gap-md border-t border-border pt-lg">
-            <View className="flex-row items-center justify-between gap-sm">
-              <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
-                Workout ready
-              </Text>
-              <TagPill label={`${displayedWorkout.exercises.length} moves`} tone="outline" />
-            </View>
-            <Text className="font-heading text-white text-[30px] leading-[32px] uppercase">
-              {displayedWorkout.title}
-            </Text>
-            <View className="flex-row flex-wrap gap-sm">
-              <TagPill label={`${displayedWorkout.duration_mins} min`} />
-              <TagPill label={EQUIPMENT.find((item) => item.value === displayedWorkout.equipment)?.label ?? 'None'} />
-              <TagPill label={FOCUS.find((item) => item.value === displayedWorkout.focus)?.label ?? 'Full body'} />
-            </View>
-            <View className="gap-sm">
-              {displayedWorkout.exercises.slice(0, 3).map((exercise, index) => (
-                <View key={`${exercise.name}-${index}`} className="flex-row items-center gap-md py-sm border-b border-border last:border-b-0">
-                  <View className="h-[28px] w-[28px] rounded-button bg-lime/10 items-center justify-center">
-                    <Text className="font-heading text-lime text-[13px]">{index + 1}</Text>
-                  </View>
-                  <Text className="font-heading-bold text-white text-[14px] uppercase flex-1">
-                    {exercise.name}
-                  </Text>
-                </View>
-              ))}
-            </View>
-            {displayedWorkout.exercises.length > 3 ? (
-              <Text className="font-body text-tertiary-text text-[12px]">
-                +{displayedWorkout.exercises.length - 3} more moves in the full workout
-              </Text>
-            ) : null}
-            <LimeButton label="View workout" onPress={openWorkout} />
-          </View>
+          <GeneratedWorkoutSection workout={displayedWorkout} onOpen={openWorkout} />
         ) : null}
       </ScrollView>
+      <ProPromptModal
+        visible={limitPromptOpen}
+        moment={PRO_MOMENTS.aiWorkout}
+        onUpgrade={openPro}
+        onDismiss={() => setLimitPromptOpen(false)}
+      />
     </SafeAreaView>
   );
 }
