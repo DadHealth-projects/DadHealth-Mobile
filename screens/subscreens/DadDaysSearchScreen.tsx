@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
@@ -9,7 +9,7 @@ import * as SecureStore from 'expo-secure-store';
 import AppTopBar from '../../components/AppTopBar';
 import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
-import ProUpgradeSection from '../../components/ProUpgradeSection';
+import ProPromptModal from '../../components/ProPromptModal';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
@@ -54,6 +54,7 @@ export default function DadDaysSearchScreen() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [openFilter, setOpenFilter] = useState<'budget' | 'radius' | 'age' | null>(null);
+  const [limitPromptOpen, setLimitPromptOpen] = useState(false);
 
   useEffect(() => {
     void SecureStore.getItemAsync(RADIUS_KEY).then((saved) => {
@@ -136,7 +137,7 @@ export default function DadDaysSearchScreen() {
     if (!user || !session?.access_token) { navigation.navigate('Login'); return; }
     if (isOffline) { showOfflineAction('dad_days_search'); return; }
     if (!coords) { setLocationError('Use your location or enter a postcode first.'); return; }
-    if (limitReached) { navigation.navigate('ProSubscription'); return; }
+    if (limitReached) { setLimitPromptOpen(true); return; }
     setSearching(true); setSearchError(null); setResults([]);
     try {
       const response = await fetch(`${WEB_URL}/api/dad_days_searches`, {
@@ -146,7 +147,7 @@ export default function DadDaysSearchScreen() {
       });
       const body = await response.json() as { results?: SearchResult[]; searchesUsed?: number; error?: string };
       if (response.status === 401) { setSearchError('Your session has expired. Please log in again.'); return; }
-      if (body.error === 'search_limit_reached' || response.status === 403) { setSearchesUsed(FREE_LIMIT); trackEvent('dad_days_search_limit_reached', { searchesUsed: FREE_LIMIT }, user.id); return; }
+      if (body.error === 'search_limit_reached' || response.status === 403) { setSearchesUsed(FREE_LIMIT); setLimitPromptOpen(true); trackEvent('dad_days_search_limit_reached', { searchesUsed: FREE_LIMIT }, user.id); return; }
       if (!response.ok) { setSearchError(response.status === 429 ? "You're searching too quickly. Wait a moment and try again." : 'We could not search for Dad Days. Please try again.'); return; }
       const nextResults = body.results ?? [];
       setResults(nextResults);
@@ -174,7 +175,10 @@ export default function DadDaysSearchScreen() {
   const locationLabel = coords ? (postcode ? postcode : 'Current location') : 'No location set';
   // Moment 7 wording is the used count, not the remaining count.
   const searchesUsedLabel = `${Math.min(searchesUsed, FREE_LIMIT)} of ${FREE_LIMIT} free Dad Days searches used this month.`;
-  const openPro = () => navigation.navigate('ProSubscription');
+  const openPro = () => {
+    setLimitPromptOpen(false);
+    navigation.navigate('ProSubscription');
+  };
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
@@ -204,27 +208,24 @@ export default function DadDaysSearchScreen() {
             </View>
 
             {/* Moment 4 — Pro makes Dad Days personal. */}
-            {!isPro ? <ProUpgradeSection moment={PRO_MOMENTS.dadDays} onPress={openPro} size="sm" /> : null}
+            <InlineFormError message={searchError} />
 
             {limitReached ? (
               /* Moment 7 — the free counter, at the limit. */
-              <ProUpgradeSection
-                moment={PRO_MOMENTS.dadDaysCounter}
-                lead={`${searchesUsedLabel} Your allowance resets on the first of next month.`}
-                onPress={openPro}
-              />
+              <>
+                <LimeButton label="Search for Dad Days" onPress={() => void search()} loading={searching} />
+                <Text className="font-body text-tertiary-text text-[11px] leading-[16px] text-center">
+                  {searchesUsedLabel}
+                </Text>
+              </>
             ) : (
               <>
-                <InlineFormError message={searchError} />
                 <LimeButton label="Search for Dad Days" onPress={() => void search()} loading={searching} />
                 {/* Moment 7 — the free counter, while searches remain. */}
                 {!isPro ? (
-                  <ProUpgradeSection
-                    moment={PRO_MOMENTS.dadDaysCounter}
-                    lead={searchesUsedLabel}
-                    onPress={openPro}
-                    size="sm"
-                  />
+                  <Text className="font-body text-tertiary-text text-[11px] leading-[16px] text-center">
+                    {searchesUsedLabel}
+                  </Text>
                 ) : null}
               </>
             )}
@@ -233,6 +234,13 @@ export default function DadDaysSearchScreen() {
 
         {results.length > 0 ? <View className="gap-md border-t border-border pt-xl"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Activities found ({results.length})</Text>{results.map((result) => <ResultRow key={result.name} result={result} saving={savingName === result.name} onSave={() => void save(result)} />)}</View> : null}
       </ScrollView>
+      <ProPromptModal
+        visible={limitPromptOpen}
+        moment={PRO_MOMENTS.dadDaysCounter}
+        lead={`${searchesUsedLabel} Your allowance resets on the first of next month.`}
+        onUpgrade={openPro}
+        onDismiss={() => setLimitPromptOpen(false)}
+      />
     </SafeAreaView>
   );
 }

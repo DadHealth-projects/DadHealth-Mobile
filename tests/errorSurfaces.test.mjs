@@ -108,7 +108,7 @@ test('Body and Bond features compose as flat sections instead of bordered cards'
 
   // label → heading → supporting copy → action → divider
   assert.ok(fitness.includes('border-b border-border pb-lg'));
-  for (const feature of ['AI workout', 'Meal planner']) {
+  for (const feature of ['Free workout', 'Meal planner']) {
     assert.ok(fitness.includes(feature), `Missing Body feature label: ${feature}`);
   }
   assert.equal(fitness.includes('rounded-card'), false);

@@ -29,7 +29,7 @@ test('each upgrade moment keeps the wording from the brief', async () => {
     "We'll build your workout around you.",
     "Child's age · Budget · Time available · Distance · What they enjoy",
     'Your week in Dad Health',
-    'Pro members get unlimited personalised searches.',
+    'Get unlimited personalised Dad Days searches.',
   ];
   for (const line of copy) {
     assert.ok(moments.includes(line), `Missing brief copy: ${line}`);
@@ -42,11 +42,10 @@ test('each upgrade moment keeps the wording from the brief', async () => {
 });
 
 test('every upgrade moment is wired to the screen the brief places it on', async () => {
-  const [scoreTease, checkIn, weekly, aiWorkout, body, dadDays, progress] = await Promise.all([
+  const [scoreTease, checkIn, weekly, body, dadDays, progress] = await Promise.all([
     source('components/dashboard/UpgradeProCard.tsx'),
     source('components/dashboard/CheckInFollowUp.tsx'),
     source('components/dashboard/WeeklyReportCard.tsx'),
-    source('screens/subscreens/AIWorkoutScreen.tsx'),
     source('screens/FitnessScreen.tsx'),
     source('screens/subscreens/DadDaysSearchScreen.tsx'),
     source('screens/subscreens/ProgressScreen.tsx'),
@@ -55,7 +54,6 @@ test('every upgrade moment is wired to the screen the brief places it on', async
   assert.ok(scoreTease.includes('PRO_MOMENTS.score'));
   assert.ok(checkIn.includes('PRO_MOMENTS.checkIn'));
   assert.ok(weekly.includes('PRO_MOMENTS.weeklyReport'));
-  assert.ok(aiWorkout.includes('PRO_MOMENTS.aiWorkout'));
   assert.ok(body.includes('PRO_MOMENTS.aiWorkout'));
   assert.ok(dadDays.includes('PRO_MOMENTS.dadDays'));
   assert.ok(dadDays.includes('PRO_MOMENTS.dadDaysCounter'));
@@ -71,8 +69,8 @@ test('Moment 2 gives a free recommendation before it mentions Pro', async () => 
 
   assert.ok(advice.includes("state: \"You're feeling stressed today.\""));
   assert.ok(advice.includes('stressLevel >= 4'));
-  // The free step renders above the Pro line, never the other way round.
-  assert.ok(followUp.indexOf('advice.recommendation') < followUp.indexOf('<ProUpgradeSection'));
+  // The free step renders above the compact Pro trigger, never the other way round.
+  assert.ok(followUp.indexOf('advice.recommendation') < followUp.indexOf('<ProPromptModal'));
   assert.ok(followUp.includes('{!isPro ?'));
   assert.ok(dashboard.includes('<CheckInFollowUp'));
   assert.ok(dashboard.includes('data.checkedInToday ? ('));
@@ -86,6 +84,34 @@ test('Moment 7 counts searches used, as the brief words it', async () => {
   assert.ok(dadDays.includes('FREE_LIMIT = 3'));
 });
 
+test('Moment 3 separates the free generator from personalised Pro workouts', async () => {
+  const [freeScreen, proScreen, library, body, navigator, request] = await Promise.all([
+    source('screens/subscreens/AIWorkoutScreen.tsx'),
+    source('screens/subscreens/PersonalisedAIWorkoutScreen.tsx'),
+    source('hooks/useFitnessLibrary.ts'),
+    source('screens/FitnessScreen.tsx'),
+    source('navigation/AppNavigator.tsx'),
+    source('lib/aiWorkout.ts'),
+  ]);
+
+  assert.ok(freeScreen.includes("{ mode: 'basic' }"));
+  assert.equal(freeScreen.includes('MOOD_OPTIONS'), false);
+  assert.equal(freeScreen.includes('PRO_MOMENTS'), false);
+  assert.equal(freeScreen.includes("mode: 'personalised'"), false);
+  assert.ok(proScreen.includes("mode: 'personalised'"));
+  assert.ok(proScreen.includes('MOOD_OPTIONS'));
+  assert.ok(proScreen.includes('durationMins'));
+  assert.ok(proScreen.includes('equipment'));
+  assert.ok(proScreen.includes('!library.isPro'));
+  assert.ok(request.includes("mode: 'basic'"));
+  assert.ok(request.includes("mode: 'personalised'"));
+  assert.ok(library.includes('setWorkouts([...generatedWorkouts, ...adminWorkouts])'));
+  assert.ok(body.indexOf('Free workout') < body.indexOf('PRO_MOMENTS.aiWorkout'));
+  assert.ok(body.includes("if (fitnessLibrary.isPro) navigation.navigate('PersonalisedAIWorkout')"));
+  assert.ok(body.includes('<ProPromptModal'));
+  assert.ok(navigator.includes('name="PersonalisedAIWorkout"'));
+});
+
 test('the weekly Sunday report is a Pro feature and never invents a week', async () => {
   const [report, card, dashboard, progress] = await Promise.all([
     source('lib/weeklyReport.ts'),
@@ -97,12 +123,37 @@ test('the weekly Sunday report is a Pro feature and never invents a week', async
   assert.ok(report.includes('date.getDay() === 0'));
   assert.ok(report.includes('if (pillars.every((pillar) => pillar.change === null)) return null;'));
   assert.ok(report.includes('Next week: Focus on'));
-  // Free members see the layout with em dashes, not fabricated percentages.
-  assert.ok(card.includes('PLACEHOLDER_PILLARS'));
-  assert.ok(card.includes('change: null'));
+  // Free members request the report before the full Pro value proposition appears.
+  assert.ok(card.includes('<ProPromptModal'));
+  assert.equal(card.includes('<ProLockedPreview'), false);
   assert.ok(dashboard.includes('isWeeklyReportDay()'));
   assert.ok(dashboard.includes('{showWeeklyReport ? ('));
   assert.ok(progress.includes('<WeeklyReportCard'));
+});
+
+test('conversion moments stay compact until the user asks for Pro', async () => {
+  const [prompt, score, body, dadDays, weekly, progress] = await Promise.all([
+    source('components/ProPromptModal.tsx'),
+    source('components/dashboard/UpgradeProCard.tsx'),
+    source('screens/FitnessScreen.tsx'),
+    source('screens/subscreens/DadDaysSearchScreen.tsx'),
+    source('components/dashboard/WeeklyReportCard.tsx'),
+    source('screens/subscreens/ProgressScreen.tsx'),
+  ]);
+
+  assert.ok(prompt.includes('Not now'));
+  assert.ok(prompt.includes('onRequestClose={onDismiss}'));
+  assert.ok(prompt.includes('onPress={onDismiss}'));
+  assert.ok(score.includes('Understand your score'));
+  assert.equal(score.includes('<ProUpgradeSection'), false);
+  assert.ok(body.includes('Make it personal'));
+  assert.equal(body.includes('moment={PRO_MOMENTS.aiWorkout} onPress='), false);
+  assert.ok(dadDays.includes('free Dad Days searches used this month.'));
+  assert.ok(dadDays.includes("setProPrompt('limit')"));
+  assert.equal(dadDays.includes('<ProUpgradeSection'), false);
+  assert.ok(weekly.includes('Learn about weekly Dad Health reports'));
+  assert.ok(progress.includes("See what's driving your score"));
+  assert.equal(progress.includes('<ProUpgradeSection'), false);
 });
 
 test('streak protection is a Pro benefit and degrades safely', async () => {

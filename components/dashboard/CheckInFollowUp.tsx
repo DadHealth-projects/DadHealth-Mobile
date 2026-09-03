@@ -26,7 +26,6 @@ function CheckInFollowUp({
     () => checkInRecommendation(moodValue, stressLevel),
     [moodValue, stressLevel],
   );
-
   return (
     <View className="gap-lg">
       <View className="gap-md border-b border-border pb-lg">

@@ -20,7 +20,7 @@ import { useFitnessLibrary } from '../hooks/useFitnessLibrary';
 import { useFitnessSummary } from '../hooks/useFitnessSummary';
 import { MOOD_WEEK_LABELS } from '../lib/dashboard.utils';
 import { DAD_STRENGTH_MOVES } from '../lib/homeContent';
-import { PRO_LOCKS, PRO_MOMENTS } from '../lib/proMoments';
+import { PRO_LOCKS } from '../lib/proMoments';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 import { syncAppleHealthIfConnected } from '../lib/appleHealth';
 
@@ -255,7 +255,7 @@ export default function FitnessScreen({
             <FlatSection className="gap-md">
               <View className="flex-row items-center justify-between gap-sm">
                 <Text className="font-heading-bold text-muted-text text-[11px] tracking-[1px] uppercase">
-                  {fitnessLibrary.isPro ? 'All available workouts' : 'Free workouts (8 max)'}
+                  {fitnessLibrary.isPro ? 'All available workouts' : 'Free workout library'}
                 </Text>
                 <TagPill label={`${fitnessLibrary.workouts.length} shown`} tone="outline" />
               </View>
@@ -301,36 +301,31 @@ export default function FitnessScreen({
 
       {standalone ? (
         <FadeInView delay={190}>
-          {fitnessLibrary.isPro ? (
-            <FlatSection className="gap-md">
-              <View className="flex-row items-start justify-between gap-md">
-                <View className="flex-1">
-                  <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
-                    AI workout
-                  </Text>
-                  <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">
-                    Built around your day
-                  </Text>
-                  <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
-                    Choose your time, equipment and focus. Generate a workout you can start immediately.
-                  </Text>
-                </View>
-                <TagPill label="Pro" />
+          <FlatSection className="gap-md">
+            <View className="flex-row items-start justify-between gap-md">
+              <View className="flex-1">
+                <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
+                  AI workout
+                </Text>
+                <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">
+                  Built around your day
+                </Text>
+                <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
+                  Choose your time, equipment and focus. Generate a workout you can start immediately.
+                </Text>
               </View>
-              <LimeButton
-                label={generatedWorkout ? 'View workout' : 'Generate workout'}
-                onPress={openAIWorkout}
-              />
-            </FlatSection>
-          ) : (
-            /* Moment 3 — AI workouts are the Pro layer over the free library. */
-            <ProUpgradeSection moment={PRO_MOMENTS.aiWorkout} onPress={openAIWorkout} />
-          )}
+              <TagPill label={fitnessLibrary.isPro ? 'Unlimited' : '3 free / month'} />
+            </View>
+            <LimeButton
+              label={generatedWorkout ? 'View workout' : 'Generate workout'}
+              onPress={openAIWorkout}
+            />
+          </FlatSection>
         </FadeInView>
       ) : null}
 
       {standalone ? (
-        <FadeInView delay={215}>
+        <FadeInView delay={225}>
           <FlatSection className="gap-md">
             <View className="flex-row items-start justify-between gap-md">
               <View className="flex-1">

@@ -42,9 +42,9 @@ export const PRO_MOMENTS: Record<ProMomentId, ProMoment> = {
   },
   aiWorkout: {
     eyebrow: 'AI workout',
-    heading: 'Built around you',
-    body: "Tell us how much time you have, what equipment you have and how you're feeling. We'll build your workout around you.",
-    cta: 'Unlock AI workouts',
+    heading: 'Unlimited AI workouts',
+    body: 'Build unlimited workouts around your time, equipment and focus.',
+    cta: 'Upgrade to Pro',
   },
   dadDays: {
     eyebrow: 'Dad Days',
@@ -65,9 +65,9 @@ export const PRO_MOMENTS: Record<ProMomentId, ProMoment> = {
     cta: 'View your trends',
   },
   dadDaysCounter: {
-    eyebrow: 'Free searches',
-    heading: 'Unlimited Dad Days with Pro',
-    body: 'Pro members get unlimited personalised searches.',
+    eyebrow: 'Dad Days',
+    heading: 'Get unlimited Dad Days',
+    body: 'Unlimited personalised searches with Pro.',
     cta: 'Upgrade to Pro',
   },
 };

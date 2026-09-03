@@ -94,7 +94,10 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
     const generatedWorkouts = (generatedResult.data ?? []) as FitnessWorkout[];
     setProError(profileResult.error ? 'Unable to confirm Dad Health Pro access.' : null);
     setIsPro(profileResult.error ? false : pro);
-    setWorkouts(!profileResult.error && pro ? [...generatedWorkouts, ...adminWorkouts] : adminWorkouts);
+    // Pro controls how a workout is generated, not ownership of a workout the
+    // user has already created. Keep those workouts available after refresh or
+    // an entitlement change.
+    setWorkouts([...generatedWorkouts, ...adminWorkouts]);
     setLoading(false);
   }, [enabled, isOffline, userId]);
 
