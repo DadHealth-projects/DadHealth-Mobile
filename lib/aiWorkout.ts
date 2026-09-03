@@ -83,7 +83,7 @@ export async function generateAIWorkout(
   let token: string;
   try {
     token = await validAccessToken(accessToken);
-  } catch {
+  } catch (error) {
     if (error instanceof WorkoutGenerationError) throw error;
     throw new WorkoutGenerationError(
       "We couldn't verify your sign-in. Check your connection and try again.",

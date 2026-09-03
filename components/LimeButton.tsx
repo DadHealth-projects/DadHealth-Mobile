@@ -1,10 +1,5 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { colors, shadows } from '../theme';
 
@@ -15,16 +10,6 @@ type LimeButtonProps = {
   loading?: boolean;
   accessibilityLabel?: string;
 };
-
-function ButtonSkeleton() {
-  return (
-    <View
-      className="h-[20px] w-[120px] rounded-full bg-dark/20"
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-    />
-  );
-}
 
 export default function LimeButton({
   label,
@@ -54,15 +39,7 @@ export default function LimeButton({
       className="bg-lime rounded-button px-lg py-md items-center justify-center"
     >
       {loading ? (
-        <>
-          <ActivityIndicator
-            size="small"
-            color={colors.dark}
-          />
-          <View className="mt-sm">
-            <ButtonSkeleton />
-          </View>
-        </>
+        <ActivityIndicator size="small" color={colors.dark} />
       ) : (
         <Text className="font-heading-bold text-dark text-[15px] tracking-[1px] uppercase">
           {label}

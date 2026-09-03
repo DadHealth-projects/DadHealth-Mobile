@@ -86,14 +86,19 @@ export default function AIWorkoutScreen() {
     }
 
     setGenerating(true);
+    const generationStartedAt = Date.now();
     try {
       const workout = await generateAIWorkout(session.access_token, {
         durationMins,
         equipment,
         focus,
       });
-      setGeneratedWorkout(workout);
       await library.refresh();
+      const remainingLoadingMs = 1000 - (Date.now() - generationStartedAt);
+      if (remainingLoadingMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, remainingLoadingMs));
+      }
+      setGeneratedWorkout(workout);
     } catch (cause) {
       if (cause instanceof WorkoutGenerationError && cause.code === 'free_limit_reached') {
         setLimitPromptOpen(true);
@@ -214,7 +219,7 @@ export default function AIWorkoutScreen() {
         {!user ? (
           <LimeButton label="Log in to generate" onPress={openLogin} />
         ) : library.loading ? (
-          <LimeButton label="Loading workouts" loading />
+          <LimeButton label="Generate workout" loading />
         ) : (
           <LimeButton
             label={generatedWorkout ? 'Generate another workout' : 'Generate workout'}

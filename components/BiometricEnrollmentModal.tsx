@@ -70,7 +70,7 @@ export default function BiometricEnrollmentModal() {
             className="bg-lime rounded-button px-lg py-md items-center justify-center mt-lg active:bg-lime-hover active:opacity-90 disabled:opacity-60"
           >
             {busy ? (
-              <ActivityIndicator color={colors.dark} />
+              <ActivityIndicator size="small" color={colors.dark} />
             ) : (
               <Text className="font-heading-bold text-dark text-[15px] tracking-[1px] uppercase">
                 {`Enable ${label}`}

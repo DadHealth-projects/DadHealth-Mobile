@@ -56,7 +56,7 @@ function AuthProviderButton({
       className="flex-row items-center justify-center gap-sm bg-muted/40 border border-border rounded-button px-lg py-md active:opacity-70 disabled:opacity-60"
     >
       {loading ? (
-        <ActivityIndicator color={colors.text} />
+        <ActivityIndicator size="small" color={colors.text} />
       ) : (
         <>
           {icon}
@@ -414,7 +414,7 @@ export default function LoginScreen() {
             className="bg-lime rounded-button px-lg py-md items-center justify-center mt-xl active:bg-lime-hover active:opacity-90 disabled:opacity-60"
           >
             {loading === 'in' ? (
-              <ActivityIndicator color={colors.dark} />
+              <ActivityIndicator size="small" color={colors.dark} />
             ) : (
               <Text className="font-heading-bold text-dark text-[15px] tracking-[1px] uppercase">
                 Sign In
@@ -427,7 +427,7 @@ export default function LoginScreen() {
             <Text className="font-body text-muted-text text-[14px]">New here?</Text>
             <Pressable onPress={handleCreateAccount} disabled={busy} hitSlop={8}>
               {loading === 'signup' ? (
-                <ActivityIndicator color={colors.lime} />
+                <ActivityIndicator size="small" color={colors.lime} />
               ) : (
                 <Text className="font-heading-semibold text-lime text-[14px] tracking-[0.5px] uppercase">
                   Create Account

@@ -121,7 +121,7 @@ export default function HealthPermissionsScreen() {
                 </View>
                 <Feather name="check-circle" size={20} color={colors.lime} />
               </View>
-              <LimeButton label={health.saving ? 'Syncing...' : 'Sync now'} onPress={() => void sync()} disabled={health.saving} />
+              <LimeButton label="Sync now" onPress={() => void sync()} loading={health.saving} />
               <Pressable onPress={manageAccess} accessibilityRole="button" className="min-h-[44px] self-start justify-center border-b border-lime active:opacity-70">
                 <Text className="font-heading-bold text-lime text-[11px] uppercase">{isAndroid ? 'Manage Health Connect access' : 'Manage in Apple settings'}</Text>
               </Pressable>
@@ -131,9 +131,10 @@ export default function HealthPermissionsScreen() {
               <Text className="font-heading-bold text-white text-[13px] uppercase">{providerCopy.connect}</Text>
               <Text className="font-body text-muted-text text-[12px] leading-[19px]">Allow Dad Health to read your health data so your Fitness and Progress screens stay up to date automatically.</Text>
               <LimeButton
-                label={health.saving ? 'Connecting...' : providerCopy.connect}
+                label={providerCopy.connect}
                 onPress={() => void connect()}
-                disabled={health.saving || health.capability !== 'available'}
+                loading={health.saving}
+                disabled={health.capability !== 'available'}
               />
               {health.capability !== 'available' ? (
                 <Text className="font-body text-muted-text text-[12px] leading-[19px]">{isAndroid && health.capability === 'provider_update_required' ? 'Health Connect needs to be updated before Dad Health can connect.' : providerCopy.unavailable}</Text>
