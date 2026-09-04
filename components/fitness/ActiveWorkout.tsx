@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 import type { FitnessWorkout, FitnessWorkoutExercise } from '../../hooks/useFitnessLibrary';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { DAD_STRENGTH_MOVES } from '../../lib/homeContent';
 import { supabase } from '../../lib/supabase';
 import LimeButton from '../LimeButton';
@@ -49,6 +50,7 @@ export default function ActiveWorkout({
   onRequireAuth,
   onElapsedChange,
 }: ActiveWorkoutProps) {
+  const { isOffline, showOfflineAction } = useNetworkStatus();
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [running, setRunning] = useState(false);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -135,6 +137,7 @@ export default function ActiveWorkout({
       onRequireAuth();
       return;
     }
+    if (isOffline) { showOfflineAction('workout_log'); return; }
     if (!currentMove) return;
 
     setSaving(true);
@@ -179,7 +182,7 @@ export default function ActiveWorkout({
       : 'Session logged. This workout contributes to your Body score.');
     setCurrentExerciseIndex(nextIndex);
     setSaving(false);
-  }, [currentExerciseIndex, currentMove, elapsedSeconds, moves, onRequireAuth, userId, workout?.id]);
+  }, [currentExerciseIndex, currentMove, elapsedSeconds, isOffline, moves, onRequireAuth, showOfflineAction, userId, workout?.id]);
 
   return (
     <View className="gap-lg">
@@ -216,7 +219,7 @@ export default function ActiveWorkout({
             </Pressable>
           </View>
         </View>
-        <InlineFormError message={messageTone === 'error' ? message : null} className="mt-md" />
+        <InlineFormError message={!isOffline && messageTone === 'error' ? message : null} className="mt-md" />
         {message && messageTone === 'success' ? (
           <View
             accessibilityRole="alert"

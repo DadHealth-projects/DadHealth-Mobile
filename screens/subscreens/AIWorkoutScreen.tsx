@@ -11,7 +11,6 @@ import {
 
 import AppTopBar from '../../components/AppTopBar';
 import GeneratedWorkoutSection from '../../components/fitness/GeneratedWorkoutSection';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
 import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
 import ProPromptModal from '../../components/ProPromptModal';
@@ -105,10 +104,10 @@ export default function AIWorkoutScreen() {
         return;
       }
       setError(cause instanceof WorkoutGenerationError
-        ? `[${cause.code}] ${cause.message}`
+        ? cause.message
         : cause instanceof Error
           ? cause.message
-          : String(cause));
+          : "We couldn't create your workout right now. Please try again.");
     } finally {
       setGenerating(false);
     }
@@ -213,8 +212,7 @@ export default function AIWorkoutScreen() {
           ) : null}
         </View>
 
-        <GlobalErrorToastReporter message={library.error} />
-        <InlineFormError message={error} />
+        <InlineFormError message={isOffline ? null : error ?? library.error ?? library.proError} />
 
         {!user ? (
           <LimeButton label="Log in to generate" onPress={openLogin} />
