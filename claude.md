@@ -34,12 +34,11 @@ never by convenience.
    Place the slot beside the relevant field or directly above/below its button,
    not at the top or bottom of the screen. Use `surface="lime"` on the lime
    check-in surface.
-3. **Bottom snackbar** — `components/GlobalConnectivityToast.tsx`, reached via
-   `GlobalErrorToastReporter` or `showErrorNotice`. Small, bottom-anchored,
-   auto-dismissing after 4 seconds, and clear of the bottom navigation. Use it
-   for temporary request failures: screen-level load failures, background
-   refresh and sync failures, per-row request failures and short connectivity
-   transitions.
+3. **Bottom snackbar** — `components/GlobalConnectivityToast.tsx`. Small,
+   bottom-anchored, auto-dismissing and clear of the bottom navigation. Reserve
+   it for connectivity transitions and network-only actions attempted while
+   offline. Feature load/save/generate errors remain inline beside their action;
+   do not route them through the global snackbar.
 
 Screens that mix both kinds keep separate state per surface — for example
 `loadError` on the snackbar and `eventError` inline — rather than routing one
@@ -87,9 +86,9 @@ Free → useful → curiosity → personalised insight → Pro.
    section (label → heading → supporting copy → action → divider). The label
    text leads and the lock is a small trailing glyph, because a lock is never
    the first thing on a screen. `size="sm"` when it sits inside another section.
-2. **`components/ProLockedPreview.tsx`** — a Pro feature rendered dimmed and
-   non-interactive behind a lock, with the label, copy and action below it.
-   Never block a feature without showing a preview of what is behind the lock.
+2. **`components/ProLockedPreview.tsx`** — an intentional, non-data preview for
+   a genuinely Pro-only feature. Never dim, blur or expose the member's real
+   values beneath a lock.
 3. **`screens/subscreens/ProSubscriptionScreen.tsx`** — the only place Pro is
    sold. Annual first, 7-day trial, "Make Dad Health personal", three things a
    dad gets this week. It is a pushed screen, never an initial route, so the
@@ -105,7 +104,7 @@ not in a screen, so the wording stays consistent and testable.
 | - | ------ | ----- |
 | 1 | `score` | Today, under the Dad Health Score (`UpgradeProCard`) |
 | 2 | `checkIn` | Today, after the daily check-in (`CheckInFollowUp`) |
-| 3 | `aiWorkout` | Body screen section and AI Workout screen |
+| 3 | `aiWorkout` | AI Workout screen after the free monthly allowance is used |
 | 4 | `dadDays` | Dad Days search, above the search action |
 | 5 | `weeklyReport` | Today on Sundays, and always on Progress |
 | 6 | `progressTrends` | Progress, under the score card |
@@ -122,10 +121,10 @@ remaining.
 | Area | Free | Pro |
 | ---- | ---- | --- |
 | Mind | Breathing, journal, therapist directory, crisis button | Personalised Mind plan tease, mood trends |
-| Body | Workout library, TDEE core numbers and maintenance target | AI Workout, full TDEE target ladder and insights, meal planner |
+| Body | Workout library, 3 AI Workout generations per calendar month, TDEE core numbers and maintenance target | Unlimited AI Workout generations, full TDEE target ladder and insights, meal planner |
 | Bond | Milestone logging (text, date, tag), 3 Dad Days searches a month | Milestone photos, personalised Dad Days, unlimited searches |
 | Score | Total score, pillar bars, week-on-week arrows | Weekly report, pillar breakdown on Progress, recommendations |
-| Reports | None | Weekly report, monthly report and its share/PDF |
+| Reports | Factual earned totals and a compact non-data weekly preview | Full weekly report, historical trends and personalised interpretation |
 | Community | Full access | Full access |
 
 The therapist directory and milestone logging are **free** — do not re-gate
@@ -279,50 +278,24 @@ In progress.
   requirements of the original brief. Once verified, do not reopen Deep Links
   during refinements unless an actual bug is found.
 
-## TestFlight Change Requests — Developer Brief v3 (August 2026)
+## Developer Brief v3 — Complete
 
-Source: `DadHealth_Developer_Brief_v3.docx` (Jamie Smith). The brief is not in
-the repo; it lives outside the project directory.
+The approved Jamie developer-brief pass is complete: navigation and Today,
+score feedback and trends, action-first Mind, public crisis access, approved Pro
+conversion and paywall behaviour, community prompts, Dad Days filters and
+allowances, Cook Together Bond logging, and workout/copy/zero-state polish.
 
-**Change 04 — Pro Conversion Strategy: complete.** Checklist items 9, 10, 11,
-17, 18 and 19 are implemented and covered by `tests/proConversion.test.mjs`.
-See **Pro Conversion** above for the rules that resulted.
+Paused by product decision:
 
-Remaining brief changes, not started:
+- **Badges and achievements** — keep the existing badge architecture unchanged.
+  The catalogue, award rules and first Cook Together badge remain paused pending
+  a separate Jamie/product decision.
+- **In-app notification centre** — a future activity-history feature for
+  likes/comments, Community activity, score changes, Weekly Challenge updates,
+  missed reminders, new features and important prompts. This is separate from
+  push notifications and remains paused until separately reviewed and approved.
 
-- Change 01 — navigation rename and reorder (Today / Mind / Score / Body / Bond
-  / Community). Jamie asked to be advised on 5-tab vs 6-tab before implementing.
-- Change 02 — rebuild Home around Today (checklist 2–6).
-- Change 03 — Mind screen action-first opening, 5- and 10-minute options
-  (checklist 7, 8).
-- Change 05 — Community empty state and pre-seeded circle prompts.
-- Change 06 — Dad Days quick filter chips and affiliate card.
-- Change 07 — Cook Together Bond logging confirmation and badge.
-- Change 08 — copy fixes, including the "1 moves" bug.
-
-### Pro reconciliation decisions
-
-Two brief lines conflicted with the shipped architecture. Both were resolved in
-favour of the brief, and both are worth confirming with Jamie:
-
-- **Full TDEE.** The brief lists "Full TDEE" as Pro; the calculator was entirely
-  free. Free members keep the core answer (BMR, TDEE, BMI and the maintenance
-  target); the fat-loss, aggressive-cut and lean-bulk targets plus the insights
-  are Pro behind a visible preview. This narrows what existing free users see.
-- **Monthly report.** The brief's Reports row gives free members nothing, so the
-  monthly report grid and its share/PDF action are now Pro. The grid still
-  renders as the locked preview.
-
-### Open items for Jamie
-
-- **"Meal planner basics" (free).** The brief puts meal planner basics in the
-  free column, but plan generation is gated server-side on the web
-  `/api/generate-meal-plan` route and there is no non-AI meal content in the
-  product. Free members currently get the planner screen, the filters and a
-  locked preview. Making basics genuinely free needs either a free tier on that
-  API or a set of static starter plans — a decision and web-side work.
-- **"Training plans" (Body, Pro)** and **"Family activity plans" (Bond, Pro)**
-  do not exist as features. Nothing was invented for them.
+Existing push notifications remain implemented and are not paused.
 
 ## Screen Migration Milestone
 
@@ -433,7 +406,7 @@ These are intentionally outside the migration scope.
 - Mood Week weekday labels
 - TDEE calculation history and body-value logging
 - Non-contact Days card and its wording versus reduced non-custody Bond Score weighting
-- Progress badge catalogue fallback is labelled as earned when no earned badges exist
+- Badge catalogue, award rules and the first Cook Together badge are paused
 
 These items may be considered during Final Polish, but only one at a time after review and explicit approval.
 
@@ -483,11 +456,8 @@ Return to review mode before continuing.
 Native subscription external Apple and Google configuration proceeds separately
 as store access and configuration become available.
 
-After the remaining M3 implementation is complete:
-
-- Handle Jamie's small refinements as a separate pass.
-- Prepare major customer-journey changes as a separate document and batch for
-  Jamie's approval.
+Jamie’s approved developer-brief refinements are complete. Any future major
+customer-journey change requires a separate document, review and approval.
 
 ---
 
