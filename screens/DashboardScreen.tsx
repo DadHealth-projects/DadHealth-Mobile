@@ -23,13 +23,12 @@ import FadeInView from '../components/FadeInView';
 import GreetingHeader from '../components/dashboard/GreetingHeader';
 import HomeSkeleton from '../components/skeleton/HomeSkeleton';
 import MoodWeekCard from '../components/dashboard/MoodWeekCard';
-import ProLockedPreview from '../components/ProLockedPreview';
+import ProPromptModal from '../components/ProPromptModal';
 import RemindersList from '../components/dashboard/RemindersList';
 import ScreenTransition from '../components/ScreenTransition';
 import StreakCard from '../components/dashboard/StreakCard';
 import SupportingTools, { type SupportingTool } from '../components/dashboard/SupportingTools';
 import TodayFocusCard from '../components/dashboard/TodayFocusCard';
-import UpgradeProCard from '../components/dashboard/UpgradeProCard';
 import WeeklyReportCard from '../components/dashboard/WeeklyReportCard';
 import type { MoodKey } from '../components/mockup/MoodCheckInRow';
 import { useAuth } from '../contexts/AuthContext';
@@ -45,8 +44,8 @@ import {
   getScoreBreakdown,
 } from '../lib/dashboard.utils';
 import type { CheckInAction } from '../lib/checkInRecommendation';
-import { PRO_LOCKS, proScoreTease } from '../lib/proMoments';
-import { selectTodayFocus, strongestPositiveTrend } from '../lib/todayFocus';
+import { PRO_LOCKS, PRO_MOMENTS } from '../lib/proMoments';
+import { selectTodayFocus } from '../lib/todayFocus';
 import { greetingFirstName } from '../lib/userDisplay';
 import { buildWeeklyReport, isWeeklyReportDay } from '../lib/weeklyReport';
 import { colors } from '../theme';
@@ -116,6 +115,7 @@ export function DashboardScreenContent({
   const scrollRef = useRef<ScrollView>(null);
   const checkInOffset = useRef(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [proPrompt, setProPrompt] = useState<'score' | 'checkIn' | 'moodTrends' | 'weeklyReport' | null>(null);
 
   const displayName = useMemo(
     () => greetingFirstName(data?.displayName, user),
@@ -150,15 +150,17 @@ export function DashboardScreenContent({
       body: breakdown.body,
       bond: breakdown.bond,
     });
+    const allPillarsCritical = [breakdown.mind, breakdown.body, breakdown.bond]
+      .every((value) => value === 5 || value === 10);
     return [
-      { label: 'Mind', value: breakdown.mind, trend: data?.mindWeekChange ?? null, highlighted: weakest === 'mind' },
-      { label: 'Body', value: breakdown.body, trend: data?.bodyWeekChange ?? null, highlighted: weakest === 'body' },
+      { label: 'Mind', value: breakdown.mind, trend: data?.isPro ? data.mindWeekChange ?? null : null, highlighted: weakest === 'mind', warning: allPillarsCritical && weakest === 'mind' },
+      { label: 'Body', value: breakdown.body, trend: data?.isPro ? data.bodyWeekChange ?? null : null, highlighted: weakest === 'body', warning: allPillarsCritical && weakest === 'body' },
       {
         label: 'Bond',
         value: breakdown.bond,
-        trend: data?.bondWeekChange ?? null,
+        trend: data?.isPro ? data.bondWeekChange ?? null : null,
         highlighted: weakest === 'bond',
-        warning: weakest === 'bond' && breakdown.bond !== null && breakdown.bond < 50,
+        warning: allPillarsCritical && weakest === 'bond',
       },
     ];
   }, [data]);
@@ -230,12 +232,6 @@ export function DashboardScreenContent({
     bond: data?.bondScore ?? null,
   }), [data?.bodyScore, data?.bondScore, data?.checkedInToday, data?.mindScore]);
 
-  const proInsight = useMemo(() => proScoreTease(strongestPositiveTrend({
-    Mind: data?.mindWeekChange ?? null,
-    Body: data?.bodyWeekChange ?? null,
-    Bond: data?.bondWeekChange ?? null,
-  })), [data?.bodyWeekChange, data?.bondWeekChange, data?.mindWeekChange]);
-
   // Moment 5 — the weekly report lands on Sundays on Today, and lives
   // permanently on Progress.
   const weeklyReport = useMemo(() => data ? buildWeeklyReport({
@@ -260,6 +256,21 @@ export function DashboardScreenContent({
   }, [navigation]);
 
   const openPro = useCallback(() => navigation.navigate('ProSubscription'), [navigation]);
+
+  const openScoreInsights = useCallback(() => {
+    if (data?.isPro) navigation.navigate('Progress');
+    else setProPrompt('score');
+  }, [data?.isPro, navigation]);
+
+  const openCheckInPlan = useCallback(() => {
+    if (data?.isPro) navigation.navigate('Tabs', { screen: 'Mind' });
+    else setProPrompt('checkIn');
+  }, [data?.isPro, navigation]);
+
+  const openMoodTrends = useCallback(() => {
+    if (data?.isPro) navigation.navigate('Tabs', { screen: 'Mind' });
+    else setProPrompt('moodTrends');
+  }, [data?.isPro, navigation]);
 
   const openFocus = useCallback(() => {
     if (todayFocus === 'checkin') {
@@ -391,6 +402,7 @@ export function DashboardScreenContent({
                 <>
                   <DadScoreCard
                     score={null}
+                    compactBottom
                     items={[{ label: 'Mind', value: null }, { label: 'Body', value: null }, { label: 'Bond', value: null }]}
                     missingScore="—"
                     missingItemValue="—"
@@ -424,14 +436,16 @@ export function DashboardScreenContent({
               </FadeInView>
 
               <FadeInView delay={90}>
-                <DadScoreCard score={score} items={scoreItems} title="Dad Health Score" scoreLabel="of 100" />
+                <DadScoreCard
+                  score={score}
+                  items={scoreItems}
+                  title="Dad Health Score"
+                  scoreLabel="of 100"
+                  actionLabel="Unlock my insights"
+                  onAction={openScoreInsights}
+                  compactBottom
+                />
               </FadeInView>
-
-              {!data.isPro ? (
-                <FadeInView delay={140}>
-                  <UpgradeProCard onPress={() => navigation.navigate('ProSubscription')} insight={proInsight} />
-                </FadeInView>
-              ) : null}
 
               {!data.checkedInToday || showCheckInSuccess ? (
               <FadeInView delay={180}>
@@ -474,19 +488,21 @@ export function DashboardScreenContent({
                     stressLevel={stressLevel}
                     isPro={data.isPro}
                     onAction={openCheckInAction}
-                    onUpgrade={openPro}
+                    onPlan={openCheckInPlan}
                   />
                 </FadeInView>
               ) : null}
 
               <FadeInView delay={200}>
-                {data.isPro ? (
-                  <MoodWeekCard values={moodWeek} labels={MOOD_WEEK_LABELS} summary={moodSummary} flat />
-                ) : (
-                  <ProLockedPreview lock={PRO_LOCKS.moodTrends} onPress={openPro}>
-                    <MoodWeekCard values={moodWeek} labels={MOOD_WEEK_LABELS} summary={moodSummary} flat />
-                  </ProLockedPreview>
-                )}
+                <MoodWeekCard
+                  values={moodWeek}
+                  labels={MOOD_WEEK_LABELS}
+                  summary={moodSummary}
+                  flat
+                  locked={!data.isPro}
+                  actionLabel="View mood trends"
+                  onAction={openMoodTrends}
+                />
               </FadeInView>
 
               <FadeInView delay={220}>
@@ -499,7 +515,11 @@ export function DashboardScreenContent({
 
               {showWeeklyReport ? (
                 <FadeInView delay={280}>
-                  <WeeklyReportCard report={weeklyReport} isPro={data.isPro} onUpgrade={openPro} />
+                  <WeeklyReportCard
+                    report={weeklyReport}
+                    isPro={data.isPro}
+                    onUpgrade={() => setProPrompt('weeklyReport')}
+                  />
                 </FadeInView>
               ) : null}
 
@@ -519,6 +539,15 @@ export function DashboardScreenContent({
               <FadeInView delay={380}>
                 <RemindersList reminders={reminders} />
               </FadeInView>
+
+              <ProPromptModal
+                visible={proPrompt !== null}
+                moment={proPrompt === 'moodTrends'
+                  ? PRO_LOCKS.moodTrends
+                  : PRO_MOMENTS[proPrompt ?? 'score']}
+                onUpgrade={openPro}
+                onDismiss={() => setProPrompt(null)}
+              />
             </>
           ) : null}
         </ScrollView>

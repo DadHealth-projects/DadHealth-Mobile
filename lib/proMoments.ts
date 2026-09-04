@@ -43,8 +43,8 @@ export const PRO_MOMENTS: Record<ProMomentId, ProMoment> = {
   aiWorkout: {
     eyebrow: 'AI workout',
     heading: 'Unlimited AI workouts',
-    body: 'Build unlimited workouts around your time, equipment and focus.',
-    cta: 'Upgrade to Pro',
+    body: "Tell us how much time you have, what equipment you have and how you're feeling. We'll build your workout around you.",
+    cta: 'Unlock AI workouts',
   },
   dadDays: {
     eyebrow: 'Dad Days',
@@ -67,7 +67,7 @@ export const PRO_MOMENTS: Record<ProMomentId, ProMoment> = {
   dadDaysCounter: {
     eyebrow: 'Dad Days',
     heading: 'Get unlimited Dad Days',
-    body: 'Unlimited personalised searches with Pro.',
+    body: 'Get unlimited personalised Dad Days searches.',
     cta: 'Upgrade to Pro',
   },
 };
