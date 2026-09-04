@@ -65,7 +65,7 @@ export default function SharedCalendarScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const route = useRoute<RouteProp<AppStackParamList, "SharedCalendar">>();
   const { user, session, onboardingComplete } = useAuth();
-  const { isOffline, showErrorNotice } = useNetworkStatus();
+  const { isOffline, showOfflineAction } = useNetworkStatus();
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [sharedSchedule, setSharedSchedule] = useState<Schedule | null>(null);
   const [events, setEvents] = useState<SharedEvent[]>([]);
@@ -172,9 +172,6 @@ export default function SharedCalendarScreen() {
       let handled = false;
       try {
         if (isOffline) {
-          setCoParentError(
-            "Reconnect to accept this calendar invite.",
-          );
           return;
         }
 
@@ -281,6 +278,7 @@ export default function SharedCalendarScreen() {
   const toggleCustodyDate = useCallback(
     async (dateString: string) => {
       if (sharedSchedule && !schedule) return;
+      if (isOffline) { showOfflineAction("shared_calendar"); return; }
       setSaving(true);
       setMessage(null);
       setCustodyError(null);
@@ -309,11 +307,12 @@ export default function SharedCalendarScreen() {
         setSaving(false);
       }
     },
-    [load, schedule, sharedSchedule, user?.id],
+    [isOffline, load, schedule, sharedSchedule, showOfflineAction, user?.id],
   );
 
   const addEvent = useCallback(async () => {
     if (!user?.id) return;
+    if (isOffline) { showOfflineAction("shared_calendar"); return; }
     setSaving(true);
     setEventMessage(null);
     setEventError(null);
@@ -336,7 +335,7 @@ export default function SharedCalendarScreen() {
     } finally {
       setSaving(false);
     }
-  }, [ensureSchedule, eventDate, eventNotes, eventType, load, user?.id]);
+  }, [ensureSchedule, eventDate, eventNotes, eventType, isOffline, load, showOfflineAction, user?.id]);
 
   const removeEvent = useCallback(
     (eventId: string) =>
@@ -350,21 +349,23 @@ export default function SharedCalendarScreen() {
             style: "destructive",
             onPress: () =>
               void (async () => {
+                if (isOffline) { showOfflineAction("shared_calendar"); return; }
                 const { error: removeError } = await supabase
                   .from("co_parenting_events")
                   .delete()
                   .eq("id", eventId);
-                if (removeError) showErrorNotice("We could not remove this event.");
+                if (removeError) setEventError("We could not remove this event. Please try again.");
                 else await load();
               })(),
           },
         ],
       ),
-    [load, showErrorNotice],
+    [isOffline, load, showOfflineAction],
   );
 
   const sendInvite = useCallback(async () => {
     if (!session?.access_token || !inviteEmail.trim()) return;
+    if (isOffline) { showOfflineAction("shared_calendar"); return; }
     setSaving(true);
     setMessage(null);
     setCoParentError(null);
@@ -391,7 +392,7 @@ export default function SharedCalendarScreen() {
     } finally {
       setSaving(false);
     }
-  }, [inviteEmail, load, session?.access_token]);
+  }, [inviteEmail, isOffline, load, session?.access_token, showOfflineAction]);
 
   const revoke = useCallback(
     () =>
@@ -406,6 +407,7 @@ export default function SharedCalendarScreen() {
             onPress: () =>
               void (async () => {
                 if (!user?.id) return;
+                if (isOffline) { showOfflineAction("shared_calendar"); return; }
                 setSaving(true);
                 const [scheduleResult, profileResult] = await Promise.all([
                   supabase
@@ -428,7 +430,7 @@ export default function SharedCalendarScreen() {
           },
         ],
       ),
-    [load, user?.id],
+    [isOffline, load, showOfflineAction, user?.id],
   );
 
   const readOnly = Boolean(sharedSchedule && !schedule);
@@ -540,7 +542,7 @@ export default function SharedCalendarScreen() {
                   }}
                 />
               ) : null}
-              <InlineFormError message={custodyError} />
+              <InlineFormError message={isOffline ? null : custodyError} />
             </View>
             {saving ? <View className="h-[2px] bg-lime" /> : null}
             {!readOnly ? (
@@ -582,7 +584,7 @@ export default function SharedCalendarScreen() {
                       />
                     </View>
                   )}
-                  <InlineFormError message={coParentError} />
+                  <InlineFormError message={isOffline ? null : coParentError} />
                 </View>
                 <View className="gap-md">
                   <Text className="font-heading-bold text-lime text-[11px] uppercase">
@@ -659,7 +661,7 @@ export default function SharedCalendarScreen() {
                     multiline
                     className="min-h-[88px] rounded-button border border-border bg-card p-md font-body text-white"
                   />
-                  <InlineFormError message={eventError} />
+                  <InlineFormError message={isOffline ? null : eventError} />
                   <LimeButton
                     label="Add event"
                     onPress={() => void addEvent()}

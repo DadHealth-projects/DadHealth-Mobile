@@ -10,6 +10,7 @@ import AppTopBar from '../../components/AppTopBar';
 import Card from '../../components/Card';
 import FadeInView from '../../components/FadeInView';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -21,6 +22,7 @@ const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL ?? 'https://www.dadhealth.co.uk
 export default function ProfileScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { session, user } = useAuth();
+  const { isOffline, showOfflineAction } = useNetworkStatus();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(typeof user?.user_metadata?.dadhealth_avatar_url === 'string' ? user.user_metadata.dadhealth_avatar_url : null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
@@ -37,6 +39,7 @@ export default function ProfileScreen() {
 
   const pickPhoto = useCallback(async () => {
     if (!session?.access_token) return;
+    if (isOffline) { showOfflineAction('profile_photo'); return; }
     setMessage(null);
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) { setMessage('Photo access is required to choose a profile picture.'); return; }
@@ -58,13 +61,14 @@ export default function ProfileScreen() {
     } finally {
       setPhotoBusy(false);
     }
-  }, [session?.access_token]);
+  }, [isOffline, session?.access_token, showOfflineAction]);
 
   const removePhoto = useCallback(() => {
     if (!session?.access_token) return;
     Alert.alert('Remove profile photo?', 'Your account will use your initial instead.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: () => void (async () => {
+        if (isOffline) { showOfflineAction('profile_photo'); return; }
         setPhotoBusy(true); setMessage(null);
         try {
           const response = await fetch(`${WEB_URL}/api/profile/photo`, { method: 'DELETE', headers: { Authorization: `Bearer ${session.access_token}` } });
@@ -76,7 +80,7 @@ export default function ProfileScreen() {
         finally { setPhotoBusy(false); }
       })() },
     ]);
-  }, [session?.access_token]);
+  }, [isOffline, session?.access_token, showOfflineAction]);
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-dark">
@@ -102,7 +106,7 @@ export default function ProfileScreen() {
                   <Pressable onPress={() => void pickPhoto()} disabled={photoBusy} className="min-h-[40px] justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[11px] uppercase">{photoBusy ? 'Saving' : avatarUrl ? 'Change photo' : 'Add photo'}</Text></Pressable>
                   {avatarUrl ? <Pressable onPress={removePhoto} disabled={photoBusy} className="min-h-[40px] justify-center border-b border-red-300"><Text className="font-heading-bold text-red-300 text-[11px] uppercase">Remove</Text></Pressable> : null}
                 </View>
-                {message ? <Text accessibilityRole="alert" className="font-body text-tertiary-text text-[12px] text-center">{message}</Text> : null}
+                {!isOffline && message ? <Text accessibilityRole="alert" className="font-body text-tertiary-text text-[12px] text-center">{message}</Text> : null}
               </View>
             </FadeInView>
 
