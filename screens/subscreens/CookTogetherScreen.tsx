@@ -9,6 +9,7 @@ import ScreenErrorNotice from "../../components/ScreenErrorNotice";
 import LimeButton from "../../components/LimeButton";
 import ScreenHero from "../../components/mockup/ScreenHero";
 import { useAuth } from "../../contexts/AuthContext";
+import { useNetworkStatus } from "../../contexts/NetworkContext";
 import { useDashboard } from "../../hooks/useDashboard";
 import {
   type CookTogetherRecipe,
@@ -32,6 +33,7 @@ const TIMES = [
 export default function CookTogetherScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { user } = useAuth();
+  const { isOffline, showOfflineAction } = useNetworkStatus();
   const { refresh: refreshDashboard } = useDashboard(user?.id);
   const recipeData = useCookTogetherRecipes(user?.id);
   const [active, setActive] = useState<CookTogetherRecipe | null>(null);
@@ -85,8 +87,8 @@ export default function CookTogetherScreen() {
         />
         <ScreenHero
           eyebrow="Cook together"
-          headline={"Meals that\nmatter"}
-          sub="Kid-friendly recipes that build connection and log active minutes."
+          headline={"Connection in\nthe kitchen"}
+          sub="Cook with your child and log it as Bond time."
         />
         <View className="flex-row items-center justify-between border-y border-border py-md">
           <Text className="font-heading-bold text-lime text-[11px] uppercase">
@@ -107,7 +109,7 @@ export default function CookTogetherScreen() {
                 Recipe complete
               </Text>
               <Text className="font-body text-white text-[13px] leading-[19px] mt-xs">
-                {completion.title} was added to your Bond activity. {completion.activeMinutes} active minutes logged.
+                {completion.title} was logged as {completion.activeMinutes} minutes of Bond time.
               </Text>
               {recipeData.bondScore != null ? (
                 <Text className="font-heading-bold text-white text-[12px] uppercase mt-sm">
@@ -189,6 +191,9 @@ export default function CookTogetherScreen() {
                   <View className="p-md gap-md">
                     <View className="flex-row items-start gap-md">
                       <View className="flex-1">
+                        <Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase mb-xs">
+                          Cook Together
+                        </Text>
                         <Text className="font-heading-bold text-white text-[19px] uppercase">
                           {recipe.title}
                         </Text>
@@ -198,11 +203,10 @@ export default function CookTogetherScreen() {
                         </Text>
                       </View>
                       <Pressable
-                        onPress={() =>
-                          void recipeData
-                            .toggleSaved(recipe.id)
-                            .then((result) => setMessage(result.error))
-                        }
+                        onPress={() => {
+                          if (isOffline) { showOfflineAction("cook_together"); return; }
+                          void recipeData.toggleSaved(recipe.id).then((result) => setMessage(result.error));
+                        }}
                         accessibilityLabel={
                           saved ? "Unsave recipe" : "Save recipe"
                         }
@@ -214,15 +218,15 @@ export default function CookTogetherScreen() {
                         />
                       </Pressable>
                     </View>
-                    <View className="flex-row gap-md">
+                    <View className="flex-row flex-wrap gap-md">
                       <Text className="font-heading-bold text-muted-text text-[11px] uppercase">
                         {recipe.prep_mins} min
                       </Text>
                       <Text className="font-heading-bold text-muted-text text-[11px] uppercase">
-                        Age {recipe.age_min}+
+                        {recipe.ingredients.length} {recipe.ingredients.length === 1 ? "ingredient" : "ingredients"}
                       </Text>
                       <Text className="font-heading-bold text-lime text-[11px] uppercase">
-                        {recipe.difficulty}
+                        Kid friendly
                       </Text>
                       {completed ? (
                         <Text className="font-heading-bold text-lime text-[11px] uppercase">
@@ -269,8 +273,7 @@ export default function CookTogetherScreen() {
                 {active?.title}
               </Text>
               <Text className="font-body text-muted-text text-[13px] mt-xs">
-                {active?.prep_mins} minutes Â· age {active?.age_min}+ Â·{" "}
-                {active?.difficulty}
+                {active?.prep_mins} minutes · {active?.ingredients.length} ingredients · Kid friendly
               </Text>
             </View>
             <View>
@@ -333,12 +336,13 @@ export default function CookTogetherScreen() {
                 label={
                   recipeData.completedIds.has(active.id)
                     ? "Cook again"
-                    : "Mark complete"
+                    : "Complete & log Bond time"
                 }
                 loading={recipeData.busyId === active.id}
                 onPress={() => {
                   const recipe = active;
                   if (!recipe) return;
+                  if (isOffline) { showOfflineAction("cook_together"); return; }
                   void recipeData.complete(recipe).then((result) => {
                     setMessage(result.error);
                     if (!result.error) {

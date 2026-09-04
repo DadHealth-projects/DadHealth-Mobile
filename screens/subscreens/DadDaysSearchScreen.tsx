@@ -24,6 +24,7 @@ import { colors } from '../../theme';
 type Budget = 'free' | 'under_20' | 'over_20';
 type ChildAge = 'toddler' | 'primary' | 'teen';
 type SearchResult = { name: string; description: string; address: string; distanceMiles: number; estimatedCost: string; ageRange: string; websiteUrl: string; requiresBooking: boolean };
+type QuickFilter = '60_minutes' | 'under_20' | 'raining' | 'active' | 'creative' | 'at_home';
 
 const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL ?? 'https://www.dadhealth.co.uk').replace(/\/$/, '');
 const RADIUS_KEY = 'dadHealth.dadDaysRadius';
@@ -31,11 +32,19 @@ const FREE_LIMIT = 3;
 const BUDGETS = [{ value: 'free', label: 'Free' }, { value: 'under_20', label: 'Under £20' }, { value: 'over_20', label: 'Over £20' }] as const;
 const AGES = [{ value: 'toddler', label: 'Toddler 0-4' }, { value: 'primary', label: 'Primary 5-11' }, { value: 'teen', label: 'Teen 12+' }] as const;
 const RADII = [{ value: '5', label: '5 mi' }, { value: '10', label: '10 mi' }, { value: '20', label: '20 mi' }, { value: '50', label: '50 mi' }] as const;
+const QUICK_FILTERS: Array<{ value: QuickFilter; label: string }> = [
+  { value: '60_minutes', label: 'I have 60 minutes' },
+  { value: 'under_20', label: 'I have £20' },
+  { value: 'raining', label: "It's raining" },
+  { value: 'active', label: 'Active' },
+  { value: 'creative', label: 'Creative' },
+  { value: 'at_home', label: 'At-home' },
+];
 
 export default function DadDaysSearchScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { user, session } = useAuth();
-  const { isOffline, showErrorNotice, showOfflineAction } = useNetworkStatus();
+  const { isOffline, showOfflineAction } = useNetworkStatus();
   const { refresh: refreshDashboard } = useDashboard(user?.id);
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [postcodeInput, setPostcodeInput] = useState('');
@@ -43,6 +52,7 @@ export default function DadDaysSearchScreen() {
   const [budget, setBudget] = useState<Budget>('free');
   const [childAge, setChildAge] = useState<ChildAge>('primary');
   const [radius, setRadius] = useState('20');
+  const [quickFilters, setQuickFilters] = useState<QuickFilter[]>([]);
   const [isPro, setIsPro] = useState(false);
   const [searchesUsed, setSearchesUsed] = useState(0);
   const [locating, setLocating] = useState(false);
@@ -53,6 +63,7 @@ export default function DadDaysSearchScreen() {
   // problems sit next to the search action.
   const [locationError, setLocationError] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<{ name: string; message: string } | null>(null);
   const [openFilter, setOpenFilter] = useState<'budget' | 'radius' | 'age' | null>(null);
   const [limitPromptOpen, setLimitPromptOpen] = useState(false);
 
@@ -67,17 +78,20 @@ export default function DadDaysSearchScreen() {
     const monthStart = new Date();
     monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
     const [profileResult, countResult] = await Promise.all([
-      supabase.from('user_profile').select('is_pro,subscription_status').eq('user_id', user.id).maybeSingle(),
+      supabase.from('user_profile').select('is_pro,subscription_status,child_age').eq('user_id', user.id).maybeSingle(),
       supabase.from('dad_day_searches').select('*', { count: 'exact', head: true }).eq('user_id', user.id).gte('searched_at', monthStart.toISOString()),
     ]);
     if (profileResult.error || countResult.error) {
-      showErrorNotice('We could not load your Dad Days allowance. Please try again.');
+      setSearchError('We could not load your Dad Days allowance. Please try again.');
       return;
     }
     const profile = profileResult.data;
     setIsPro(isProfilePro(profile));
     setSearchesUsed(countResult.count ?? 0);
-  }, [isOffline, showErrorNotice, user?.id]);
+    if (profile?.child_age && AGES.some((option) => option.value === profile.child_age)) {
+      setChildAge(profile.child_age as ChildAge);
+    }
+  }, [isOffline, user?.id]);
 
   useEffect(() => { void loadAccess(); }, [loadAccess]);
 
@@ -143,7 +157,7 @@ export default function DadDaysSearchScreen() {
       const response = await fetch(`${WEB_URL}/api/dad_days_searches`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ ...coords, postcode, budget, radius: Number(radius), childAge, userId: user.id }),
+        body: JSON.stringify({ ...coords, postcode, budget, radius: Number(radius), childAge, quickFilters, userId: user.id }),
       });
       const body = await response.json() as { results?: SearchResult[]; searchesUsed?: number; error?: string };
       if (response.status === 401) { setSearchError('Your session has expired. Please log in again.'); return; }
@@ -156,21 +170,22 @@ export default function DadDaysSearchScreen() {
       trackEvent('dad_days_search_completed', { budget, radius: Number(radius), childAge, resultCount: nextResults.length, isPro }, user.id);
     } catch { setSearchError('We could not search for Dad Days. Check your connection and try again.'); }
     finally { setSearching(false); }
-  }, [budget, childAge, coords, isOffline, isPro, limitReached, navigation, postcode, radius, searchesUsed, session?.access_token, showOfflineAction, user]);
+  }, [budget, childAge, coords, isOffline, isPro, limitReached, navigation, postcode, quickFilters, radius, searchesUsed, session?.access_token, showOfflineAction, user]);
 
   const save = useCallback(async (result: SearchResult) => {
     if (!user?.id) return;
     if (isOffline) { showOfflineAction('dad_days_save'); return; }
     setSavingName(result.name);
+    setSaveError(null);
     const saveResult = await supabase.from('dad_dates').insert({ user_id: user.id, icon: 'map-pin', name: result.name, age_range: result.ageRange, budget: result.estimatedCost, duration_minutes: 120, time_of_day: 'Any time', source: 'ai_search', booking_url: result.websiteUrl, address: result.address, requires_booking: result.requiresBooking });
-    if (saveResult.error) showErrorNotice('We could not save this activity. Please try again.');
+    if (saveResult.error) setSaveError({ name: result.name, message: 'We could not save this activity. Please try again.' });
     else {
       trackEvent('dad_days_result_saved', { activityName: result.name, budget }, user.id);
       await refreshDashboard();
       Alert.alert('Saved', 'This activity was added to your Dad Date Ideas.');
     }
     setSavingName(null);
-  }, [budget, isOffline, refreshDashboard, showErrorNotice, showOfflineAction, user?.id]);
+  }, [budget, isOffline, refreshDashboard, showOfflineAction, user?.id]);
 
   const locationLabel = coords ? (postcode ? postcode : 'Current location') : 'No location set';
   // Moment 7 wording is the used count, not the remaining count.
@@ -178,6 +193,10 @@ export default function DadDaysSearchScreen() {
   const openPro = () => {
     setLimitPromptOpen(false);
     navigation.navigate('ProSubscription');
+  };
+  const openResultWebsite = (url: string) => {
+    if (isOffline) { showOfflineAction('dad_days_open'); return; }
+    openSecureWebsite(url);
   };
 
   return (
@@ -192,11 +211,17 @@ export default function DadDaysSearchScreen() {
               <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Location</Text>
               <Pressable onPress={() => void useLocation()} disabled={locating} accessibilityRole="button" accessibilityState={{ busy: locating }} className="min-h-[48px] flex-row items-center justify-center gap-sm rounded-button bg-lime px-lg active:opacity-80 disabled:opacity-60"><Feather name="crosshair" size={17} color={colors.dark} /><Text className="font-heading-bold text-dark text-[14px] uppercase">{locating ? 'Getting location...' : 'Use my location'}</Text></Pressable>
               <View className="flex-row gap-sm"><TextInput value={postcodeInput} onChangeText={(value) => { setPostcodeInput(value); setLocationError(null); }} autoCapitalize="characters" placeholder="e.g. SW1A 1AA" placeholderTextColor={colors.tertiaryText} className="flex-1 min-h-[48px] rounded-button border border-border bg-card px-md text-white font-body" /><Pressable onPress={() => void usePostcode()} className="min-h-[48px] px-lg rounded-button border border-white/25 items-center justify-center"><Text className="font-heading-bold text-white text-[12px] uppercase">Use</Text></Pressable></View>
-              <InlineFormError message={locationError} />
+              <InlineFormError message={isOffline ? null : locationError} />
               <View className="flex-row items-center gap-sm"><Feather name={coords ? 'check-circle' : 'map-pin'} size={15} color={coords ? colors.lime : colors.tertiaryText} /><Text className="font-body text-muted-text text-[12px]">{locationLabel}</Text></View>
             </View>
             <View className="gap-md">
               <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Search filters</Text>
+              <View className="flex-row flex-wrap gap-sm">
+                {QUICK_FILTERS.map((filter) => {
+                  const selected = quickFilters.includes(filter.value);
+                  return <Pressable key={filter.value} onPress={() => { setQuickFilters((current) => selected ? current.filter((value) => value !== filter.value) : [...current, filter.value]); if (filter.value === 'under_20' && !selected) setBudget('under_20'); }} accessibilityRole="button" accessibilityState={{ selected }} className={`rounded-full border px-md py-sm ${selected ? 'border-lime bg-lime/10' : 'border-border'}`}><Text className={`font-heading-bold text-[10px] uppercase ${selected ? 'text-lime' : 'text-muted-text'}`}>{filter.label}</Text></Pressable>;
+                })}
+              </View>
               <View className="flex-row border-y border-border">
                 <DropdownTrigger icon="credit-card" label="Budget" value={BUDGETS.find((item) => item.value === budget)?.label ?? 'Free'} open={openFilter === 'budget'} onPress={() => setOpenFilter((current) => current === 'budget' ? null : 'budget')} />
                 <DropdownTrigger icon="navigation" label="Radius" value={RADII.find((item) => item.value === radius)?.label ?? '20 mi'} open={openFilter === 'radius'} onPress={() => setOpenFilter((current) => current === 'radius' ? null : 'radius')} divided />
@@ -208,7 +233,7 @@ export default function DadDaysSearchScreen() {
             </View>
 
             {/* Moment 4 — Pro makes Dad Days personal. */}
-            <InlineFormError message={searchError} />
+            <InlineFormError message={isOffline ? null : searchError} />
 
             {limitReached ? (
               /* Moment 7 — the free counter, at the limit. */
@@ -232,7 +257,7 @@ export default function DadDaysSearchScreen() {
           </View>
         )}
 
-        {results.length > 0 ? <View className="gap-md border-t border-border pt-xl"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Activities found ({results.length})</Text>{results.map((result) => <ResultRow key={result.name} result={result} saving={savingName === result.name} onSave={() => void save(result)} />)}</View> : null}
+        {results.length > 0 ? <View className="gap-md border-t border-border pt-xl"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Activities found ({results.length})</Text><FeaturedResult result={results[0]} saving={savingName === results[0].name} error={!isOffline && saveError?.name === results[0].name ? saveError.message : null} onOpen={() => openResultWebsite(results[0].websiteUrl)} onSave={() => void save(results[0])} /><View className="gap-md">{results.slice(1).map((result) => <ResultRow key={result.name} result={result} saving={savingName === result.name} error={!isOffline && saveError?.name === result.name ? saveError.message : null} onOpen={() => openResultWebsite(result.websiteUrl)} onSave={() => void save(result)} />)}</View></View> : null}
       </ScrollView>
       <ProPromptModal
         visible={limitPromptOpen}
@@ -263,8 +288,12 @@ function openSecureWebsite(value: string) {
   }
 }
 
-function ResultRow({ result, saving, onSave }: { result: SearchResult; saving: boolean; onSave: () => void }) {
-  return <View className="rounded-button border border-border bg-card p-md gap-md"><Text className="font-heading-bold text-white text-[17px] uppercase">{result.name}</Text><Text className="font-body text-muted-text text-[13px] leading-[19px]">{result.description}</Text><View className="flex-row flex-wrap gap-sm"><Meta icon="navigation" text={`${result.distanceMiles.toFixed(1)} miles`} /><Meta icon="credit-card" text={result.estimatedCost} /><Meta icon="users" text={result.ageRange} /></View><Text className="font-body text-tertiary-text text-[11px] leading-[16px]">{result.address}</Text><View className="flex-row gap-sm"><Pressable onPress={() => openSecureWebsite(result.websiteUrl)} className="flex-1 min-h-[44px] rounded-button bg-lime items-center justify-center"><Text className="font-heading-bold text-dark text-[11px] uppercase">Find out more</Text></Pressable><Pressable onPress={onSave} disabled={saving} className="flex-1 min-h-[44px] rounded-button border border-lime items-center justify-center disabled:opacity-50"><Text className="font-heading-bold text-lime text-[11px] uppercase">{saving ? 'Saving' : 'Save to list'}</Text></Pressable></View></View>;
+function ResultRow({ result, saving, error, onOpen, onSave }: { result: SearchResult; saving: boolean; error: string | null; onOpen: () => void; onSave: () => void }) {
+  return <View className="rounded-button border border-border bg-card p-md gap-md"><Text className="font-heading-bold text-white text-[17px] uppercase">{result.name}</Text><Text className="font-body text-muted-text text-[13px] leading-[19px]">{result.description}</Text><View className="flex-row flex-wrap gap-sm"><Meta icon="navigation" text={`${result.distanceMiles.toFixed(1)} miles`} /><Meta icon="credit-card" text={result.estimatedCost} /><Meta icon="users" text={result.ageRange} /></View><Text className="font-body text-tertiary-text text-[11px] leading-[16px]">{result.address}</Text><InlineFormError message={error} /><View className="flex-row gap-sm"><Pressable onPress={onOpen} className="flex-1 min-h-[44px] rounded-button bg-lime items-center justify-center"><Text className="font-heading-bold text-dark text-[11px] uppercase">Find out more</Text></Pressable><Pressable onPress={onSave} disabled={saving} className="flex-1 min-h-[44px] rounded-button border border-lime items-center justify-center disabled:opacity-50"><Text className="font-heading-bold text-lime text-[11px] uppercase">{saving ? 'Saving' : 'Save to list'}</Text></Pressable></View></View>;
+}
+
+function FeaturedResult({ result, saving, error, onOpen, onSave }: { result: SearchResult; saving: boolean; error: string | null; onOpen: () => void; onSave: () => void }) {
+  return <View className="rounded-button border border-lime/50 bg-lime/[0.06] p-md gap-md"><Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">Featured family day</Text><Text className="font-heading text-white text-[22px] uppercase">{result.name}</Text><Text className="font-body text-muted-text text-[13px] leading-[19px]">{result.description}</Text><View className="flex-row flex-wrap gap-sm"><Meta icon="navigation" text={`${result.distanceMiles.toFixed(1)} miles`} /><Meta icon="credit-card" text={result.estimatedCost} /><Meta icon="users" text={result.ageRange} /></View><InlineFormError message={error} /><Pressable onPress={onOpen} className="min-h-[44px] rounded-button bg-lime items-center justify-center"><Text className="font-heading-bold text-dark text-[11px] uppercase">Find out more</Text></Pressable><Pressable onPress={onSave} disabled={saving} className="min-h-[40px] items-center justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[11px] uppercase">{saving ? 'Saving' : 'Save to list'}</Text></Pressable></View>;
 }
 
 function Meta({ icon, text }: { icon: keyof typeof Feather.glyphMap; text: string }) { return <View className="flex-row items-center gap-xs"><Feather name={icon} size={13} color={colors.lime} /><Text className="font-body text-muted-text text-[11px]">{text}</Text></View>; }
