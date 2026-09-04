@@ -65,7 +65,7 @@ export default function CreateCommunityPostScreen() {
             <Switch value={anonymous} onValueChange={(value) => { setAnonymous(value); setError(null); }} trackColor={{ false: '#252525', true: colors.lime }} thumbColor={anonymous ? colors.dark : '#8A8A8A'} />
           </View>
           <View className="gap-sm">
-            <InlineFormError message={error} />
+            <InlineFormError message={isOffline ? null : error} />
             <LimeButton label={user ? 'Post' : 'Log in to post'} onPress={() => void submit()} loading={saving} disabled={Boolean(user) && !body.trim()} />
           </View>
         </>

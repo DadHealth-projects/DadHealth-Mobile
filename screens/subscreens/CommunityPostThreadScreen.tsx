@@ -74,7 +74,7 @@ export default function CommunityPostThreadScreen() {
 
   useEffect(() => {
     void load();
-    if (isOffline) { showOfflineAction('community_post'); return; }
+    if (isOffline) return;
     const channel = supabase.channel(`mobile-thread-${route.params.postId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `post_id=eq.${route.params.postId}` }, () => void load()).on('postgres_changes', { event: '*', schema: 'public', table: 'comment_likes' }, () => void load()).subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [isOffline, load, route.params.postId]);
@@ -83,7 +83,7 @@ export default function CommunityPostThreadScreen() {
   const replies = useMemo(() => { const map = new Map<string, Comment[]>(); comments.filter((comment) => comment.parent_id).forEach((comment) => { const list = map.get(comment.parent_id!) ?? []; list.push(comment); map.set(comment.parent_id!, list); }); return map; }, [comments]);
   const submit = async () => {
     const content = draft.trim(); if (!content) return; if (!user?.id) { navigation.navigate('Login'); return; }
-    if (isOffline) return;
+    if (isOffline) { showOfflineAction('community_post'); return; }
     setSaving(true); setComposerError(null);
     if (replyTo) { const parent = comments.find((comment) => comment.id === replyTo); if (!parent || parent.parent_id) { setComposerError('You can only reply to a main comment.'); setSaving(false); return; } }
     const { error: insertError } = await supabase.from('comments').insert({ user_id: user.id, post_id: route.params.postId, content, parent_id: replyTo });
@@ -117,7 +117,7 @@ export default function CommunityPostThreadScreen() {
           <View className="gap-md"><Text className="font-heading-bold text-lime text-[11px] uppercase">Replies</Text>{roots.length === 0 ? <Text className="font-body text-muted-text">No replies yet.</Text> : roots.map((comment) => <View key={comment.id} className="border-b border-border pb-md"><CommentRow comment={comment} owner={comment.user_id === user?.id} busy={respectBusyId === comment.id} onRespect={() => void toggleRespect(comment)} onDelete={() => remove(comment)} onReply={() => { setReplyTo(comment.id); setDraft(''); setComposerError(null); }} />{(replies.get(comment.id) ?? []).map((reply) => <View key={reply.id} className="ml-xl mt-md border-l-2 border-l-lime/30 pl-md"><CommentRow comment={reply} owner={reply.user_id === user?.id} busy={respectBusyId === reply.id} onRespect={() => void toggleRespect(reply)} onDelete={() => remove(reply)} /></View>)}</View>)}</View>
           {replyTo ? <View className="flex-row items-center justify-between"><Text className="font-body text-muted-text text-[12px]">Replying to {comments.find((comment) => comment.id === replyTo)?.author}</Text><Pressable onPress={() => { setReplyTo(null); setComposerError(null); }}><Text className="font-heading-bold text-lime text-[10px] uppercase">Cancel</Text></Pressable></View> : null}
           <TextInput value={draft} onChangeText={(value) => { setDraft(value); setComposerError(null); }} multiline placeholder={replyTo ? 'Write a reply…' : 'Add a comment…'} placeholderTextColor={colors.tertiaryText} className="min-h-[90px] rounded-button border border-border bg-card p-md font-body text-white" />
-          <InlineFormError message={composerError} />
+          <InlineFormError message={isOffline ? null : composerError} />
           <LimeButton label={replyTo ? 'Reply' : 'Post comment'} onPress={() => void submit()} loading={saving} disabled={!draft.trim()} />
         </> : null}
       </ScrollView>
