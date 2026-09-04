@@ -9,6 +9,7 @@ import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { refreshDashboardForUser } from '../../hooks/useDashboard';
 import { useNativeSubscriptions } from '../../hooks/useNativeSubscriptions';
 import type { SubscriptionPlan } from '../../lib/nativeSubscriptions';
@@ -24,6 +25,7 @@ const THIS_WEEK_FEATURES = [
 export default function ProSubscriptionScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { user } = useAuth();
+  const { isOffline, showOfflineAction } = useNetworkStatus();
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('annual');
   const subscriptions = useNativeSubscriptions(
     user?.id,
@@ -79,7 +81,7 @@ export default function ProSubscriptionScreen() {
                 Your Pro access works across Dad Health wherever you use this account.
               </Text>
               {subscriptions.status.primaryProvider !== 'manual' ? (
-                <LimeButton label="Manage subscription" onPress={() => void subscriptions.manage()} />
+                <LimeButton label="Manage subscription" onPress={() => isOffline ? showOfflineAction('subscriptions') : void subscriptions.manage()} />
               ) : null}
             </View>
           </>
@@ -126,7 +128,7 @@ export default function ProSubscriptionScreen() {
             ) : (
               <LimeButton
                 label={trialAvailable ? 'Start my 7-day free trial' : 'Continue'}
-                onPress={() => void subscriptions.purchase(selectedPlan)}
+                onPress={() => isOffline ? showOfflineAction('subscriptions') : void subscriptions.purchase(selectedPlan)}
                 loading={subscriptions.purchasing}
                 disabled={subscriptions.loading || !subscriptions.storeAvailable || !selectedProduct}
               />
@@ -140,7 +142,7 @@ export default function ProSubscriptionScreen() {
           </>
         )}
 
-        <InlineFormError message={subscriptions.error} />
+        <InlineFormError message={isOffline ? null : subscriptions.error} />
         {subscriptions.notice ? (
           <Text accessibilityLiveRegion="polite" className="font-body text-lime text-[12px] leading-[18px] text-center">
             {subscriptions.notice}
@@ -151,7 +153,7 @@ export default function ProSubscriptionScreen() {
           || subscriptions.status.primaryProvider === 'apple'
           || subscriptions.status.primaryProvider === 'google') ? (
           <Pressable
-            onPress={() => void subscriptions.restore()}
+            onPress={() => isOffline ? showOfflineAction('subscriptions') : void subscriptions.restore()}
             disabled={subscriptions.restoring}
             accessibilityRole="button"
             className="min-h-[44px] self-center justify-center border-b border-lime active:opacity-70"

@@ -9,6 +9,7 @@ import AppTopBar from '../../components/AppTopBar';
 import ScreenErrorNotice from '../../components/ScreenErrorNotice';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { useNotificationSettings, type NotificationType } from '../../hooks/useNotificationSettings';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -33,6 +34,7 @@ const DEFAULT_TIMES: Partial<Record<NotificationType, string>> = { bedtime_story
 export default function NotificationSettingsScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { user } = useAuth();
+  const { isOffline, showOfflineAction } = useNetworkStatus();
   const settings = useNotificationSettings(user?.id);
   const deviceTimezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', []);
   const [message, setMessage] = useState<string | null>(null);
@@ -41,6 +43,7 @@ export default function NotificationSettingsScreen() {
   const preferenceFor = useCallback((type: NotificationType) => settings.preferences.find((preference) => preference.notification_type === type), [settings.preferences]);
 
   const toggleMaster = useCallback(async (enabled: boolean) => {
+    if (isOffline) { showOfflineAction('notification_settings'); return; }
     setMessage(null);
     let permissionGranted = true;
     let permissionConfigured = true;
@@ -60,16 +63,17 @@ export default function NotificationSettingsScreen() {
     else if (!permissionConfigured) setMessage('Your notification choices were saved, but push alerts are unavailable in this version of Dad Health. Update the app, then try again.');
     else if (!permissionGranted) setMessage('Your notification choices were saved. Allow notifications in your device settings to receive alerts.');
     else setMessage('Push notifications enabled.');
-  }, [deviceTimezone, settings.updateMaster]);
+  }, [deviceTimezone, isOffline, settings.updateMaster, showOfflineAction]);
 
   const togglePreference = useCallback(async (type: NotificationType, enabled: boolean) => {
+    if (isOffline) { showOfflineAction('notification_settings'); return; }
     setMessage(null);
     const existing = preferenceFor(type);
     const definition = TYPES.find((item) => item.type === type);
     const sendTime = enabled && definition?.needsTime && !existing?.send_time ? DEFAULT_TIMES[type] ?? null : existing?.send_time ?? null;
     const updateError = await settings.upsertPreference(type, enabled, sendTime);
     if (updateError) setMessage(updateError);
-  }, [preferenceFor, settings.upsertPreference]);
+  }, [isOffline, preferenceFor, settings.upsertPreference, showOfflineAction]);
 
   const openTimePicker = useCallback((type: NotificationType) => {
     const value = timeToDate(preferenceFor(type)?.send_time ?? DEFAULT_TIMES[type] ?? '12:00:00');
@@ -78,11 +82,12 @@ export default function NotificationSettingsScreen() {
   }, [preferenceFor]);
 
   const saveTime = useCallback(async (type: NotificationType, value: Date) => {
+    if (isOffline) { showOfflineAction('notification_settings'); return; }
     setMessage(null);
     const updateError = await settings.upsertPreference(type, preferenceFor(type)?.enabled ?? true, dateToPgTime(value));
     if (updateError) setMessage(updateError);
     else setMessage('Notification time saved.');
-  }, [preferenceFor, settings.upsertPreference]);
+  }, [isOffline, preferenceFor, settings.upsertPreference, showOfflineAction]);
 
   const onPickerChange = useCallback((event: DateTimePickerEvent, value?: Date) => {
     if (event.type === 'dismissed') { setPickerType(null); return; }
@@ -101,7 +106,7 @@ export default function NotificationSettingsScreen() {
         {!user ? <Pressable onPress={() => navigation.navigate('Login')} className="min-h-[48px] justify-center border-y border-border"><Text className="font-heading-bold text-lime text-[12px] uppercase">Log in to edit settings</Text></Pressable> : settings.loading ? <View className="gap-sm">{[0,1,2,3].map((item) => <View key={item} className="h-[72px] bg-white/5" />)}</View> : <>
           <View className="border-t border-border">
             <SettingToggleRow title="Enable push notifications" description="Required for all notification types." value={settings.masterEnabled} disabled={settings.savingKey === 'master'} onChange={(value) => void toggleMaster(value)} />
-            <View className="min-h-[62px] flex-row items-center gap-md border-b border-border py-sm"><View className="flex-1"><Text className="font-heading-bold text-white text-[13px] uppercase">Timezone</Text><Text className="font-body text-tertiary-text text-[11px] mt-xs">{settings.timezone || 'Not set'}</Text></View><Pressable onPress={() => void settings.saveTimezone(deviceTimezone).then(setMessage)} disabled={settings.savingKey === 'timezone'} className="min-h-[40px] justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[10px] uppercase">Use device timezone</Text></Pressable></View>
+            <View className="min-h-[62px] flex-row items-center gap-md border-b border-border py-sm"><View className="flex-1"><Text className="font-heading-bold text-white text-[13px] uppercase">Timezone</Text><Text className="font-body text-tertiary-text text-[11px] mt-xs">{settings.timezone || 'Not set'}</Text></View><Pressable onPress={() => isOffline ? showOfflineAction('notification_settings') : void settings.saveTimezone(deviceTimezone).then(setMessage)} disabled={settings.savingKey === 'timezone'} className="min-h-[40px] justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[10px] uppercase">Use device timezone</Text></Pressable></View>
           </View>
 
           <View className="border-t border-border">
@@ -114,7 +119,7 @@ export default function NotificationSettingsScreen() {
         </>}
 
         {pickerType ? <View className="border-y border-border py-md"><DateTimePicker value={pickerValue} mode="time" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onPickerChange} />{Platform.OS === 'ios' ? <Pressable onPress={() => { const type = pickerType; setPickerType(null); void saveTime(type, pickerValue); }} className="min-h-[44px] items-center justify-center border-y border-lime/30"><Text className="font-heading-bold text-lime text-[11px] uppercase">Done</Text></Pressable> : null}</View> : null}
-        {message ? <Text accessibilityRole="alert" className="font-body text-tertiary-text text-[12px]">{message}</Text> : null}
+        {!isOffline && message ? <Text accessibilityRole="alert" className="font-body text-tertiary-text text-[12px]">{message}</Text> : null}
       </ScrollView>
     </SafeAreaView>
   );
