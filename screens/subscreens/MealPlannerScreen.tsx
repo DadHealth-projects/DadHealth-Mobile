@@ -12,6 +12,7 @@ import ProUpgradeSection from '../../components/ProUpgradeSection';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import TagPill from '../../components/dashboard/TagPill';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { useFitnessLibrary } from '../../hooks/useFitnessLibrary';
 import { PRO_LOCKS } from '../../lib/proMoments';
 import { supabase } from '../../lib/supabase';
@@ -42,6 +43,7 @@ type MealPlan = {
 export default function MealPlannerScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { user, session } = useAuth();
+  const { isOffline, showOfflineAction } = useNetworkStatus();
   const library = useFitnessLibrary(user?.id, true);
   const [calorieTarget, setCalorieTarget] = useState<(typeof CALORIES)[number]>(2200);
   const [mealsPerDay, setMealsPerDay] = useState<(typeof MEALS)[number]>(4);
@@ -64,6 +66,7 @@ export default function MealPlannerScreen() {
     setError(null);
     if (!session?.access_token) return openLogin();
     if (!library.isPro) return openPro();
+    if (isOffline) { showOfflineAction('meal_plan'); return; }
 
     setGenerating(true);
     let accessToken = session.access_token;
@@ -97,7 +100,7 @@ export default function MealPlannerScreen() {
     } finally {
       setGenerating(false);
     }
-  }, [adults, calorieTarget, dietaryPreference, library.isPro, mealsPerDay, openLogin, openPro, preferences, session?.access_token]);
+  }, [adults, calorieTarget, dietaryPreference, isOffline, library.isPro, mealsPerDay, openLogin, openPro, preferences, session?.access_token, showOfflineAction]);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
@@ -137,7 +140,7 @@ export default function MealPlannerScreen() {
         </View>
 
         <View className="gap-sm">
-          <InlineFormError message={error} />
+          <InlineFormError message={isOffline ? null : error} />
           {!user ? <LimeButton label="Log in to generate" onPress={openLogin} /> : library.loading ? <LimeButton label="Loading meal planner" loading /> : !library.isPro ? <ProUpgradeSection moment={PRO_LOCKS.mealPlanner} onPress={openPro} /> : <LimeButton label={generatedPlan ? 'Regenerate meal plan' : 'Generate meal plan'} onPress={() => void generate()} loading={generating} />}
         </View>
 

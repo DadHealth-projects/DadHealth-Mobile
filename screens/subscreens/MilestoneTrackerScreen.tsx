@@ -32,14 +32,12 @@ const STORAGE_WARNING = 450 * 1024 * 1024;
 export default function MilestoneTrackerScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { user, session } = useAuth();
-  const { isOffline, showErrorNotice } = useNetworkStatus();
+  const { isOffline, showOfflineAction } = useNetworkStatus();
   const { data: dashboardData, refresh: refreshDashboard } = useDashboard(user?.id);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [isPro, setIsPro] = useState(false);
   const [loading, setLoading] = useState(Boolean(user));
   const [saving, setSaving] = useState(false);
-  // Milestone-form problems only. Load and per-row request failures use the
-  // bottom snackbar instead.
   const [formError, setFormError] = useState<string | null>(null);
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -61,15 +59,15 @@ export default function MilestoneTrackerScreen() {
       supabase.from('milestones').select('id,date,text,tag,photo_url').eq('user_id', user.id).order('date', { ascending: false }),
       supabase.storage.from('milestone-photos').list(user.id, { limit: 1000 }),
     ]);
-    if (profileResult.error) showErrorNotice('We could not confirm your Dad Health Pro access. Please try again.');
-    else if (milestoneResult.error) showErrorNotice('We could not load your milestones. Please try again.');
+    if (profileResult.error) setFormError('We could not confirm your Dad Health Pro access. Please try again.');
+    else if (milestoneResult.error) setFormError('We could not load your milestones. Please try again.');
     else {
       setIsPro(isProfilePro(profileResult.data));
       setMilestones((milestoneResult.data ?? []) as Milestone[]);
       setStorageBytes((storageResult.data ?? []).reduce((sum, item) => sum + (Number(item.metadata?.size) || 0), 0));
     }
     setLoading(false);
-  }, [isOffline, showErrorNotice, user?.id]);
+  }, [isOffline, user?.id]);
 
   useEffect(() => {
     if (milestones.length > 0 || !dashboardData?.milestones.length) return;
@@ -80,6 +78,7 @@ export default function MilestoneTrackerScreen() {
 
   const uploadPhoto = useCallback(async (milestoneId: string, selected: PreparedPhoto) => {
     if (!session?.access_token) throw new Error('auth_required');
+    if (isOffline) { showOfflineAction('milestone_update'); return; }
     setPhotoTarget(milestoneId);
     try {
       const form = new FormData();
@@ -88,12 +87,12 @@ export default function MilestoneTrackerScreen() {
       if (!response.ok) throw new Error('upload_failed');
       trackEvent('milestone_photo_uploaded', { milestone_id: milestoneId }, user?.id);
       await refresh(); await refreshDashboard();
-    } catch { showErrorNotice('We could not save the milestone photo. Please try again.'); }
+    } catch { setFormError('We could not save the milestone photo. Please try again.'); }
     finally { setPhotoTarget(null); }
-  }, [refresh, refreshDashboard, session?.access_token, showErrorNotice, user?.id]);
+  }, [isOffline, refresh, refreshDashboard, session?.access_token, showOfflineAction, user?.id]);
 
   const pickPhoto = useCallback(async (target?: string) => {
-    const reportPhotoProblem = (problem: string) => target ? showErrorNotice(problem) : setFormError(problem);
+    const reportPhotoProblem = (problem: string) => setFormError(problem);
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) { reportPhotoProblem('Photo access is required to choose a milestone photo.'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
@@ -109,11 +108,12 @@ export default function MilestoneTrackerScreen() {
       if (target) await uploadPhoto(target, nextPhoto);
       else { setPhoto(nextPhoto); setFormError(null); }
     } catch { reportPhotoProblem('We could not prepare that photo. Try another image.'); }
-  }, [showErrorNotice, uploadPhoto]);
+  }, [uploadPhoto]);
 
   const saveMilestone = useCallback(async () => {
     const text = note.trim();
     if (!user?.id || !text) { setFormError('Add a short milestone note first.'); return; }
+    if (isOffline) { showOfflineAction('milestone_update'); return; }
     setSaving(true); setFormError(null);
     const values = { date: date.toISOString().slice(0, 10), text, tag: tag.trim() || 'moment' };
     const saveResult = editingId
@@ -127,7 +127,7 @@ export default function MilestoneTrackerScreen() {
       await refresh(); await refreshDashboard();
     }
     setSaving(false);
-  }, [date, editingId, note, photo, refresh, refreshDashboard, tag, uploadPhoto, user?.id]);
+  }, [date, editingId, isOffline, note, photo, refresh, refreshDashboard, showOfflineAction, tag, uploadPhoto, user?.id]);
 
   const editMilestone = useCallback((milestone: Milestone) => {
     setEditingId(milestone.id);
@@ -152,6 +152,7 @@ export default function MilestoneTrackerScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => {
         if (!user?.id) return;
+        if (isOffline) { showOfflineAction('milestone_update'); return; }
         setPhotoTarget(milestone.id);
         void (async () => {
           try {
@@ -166,26 +167,27 @@ export default function MilestoneTrackerScreen() {
             await refresh();
             await refreshDashboard();
           } catch {
-            showErrorNotice('We could not delete this milestone. Please try again.');
+            setFormError('We could not delete this milestone. Please try again.');
           } finally {
             setPhotoTarget(null);
           }
         })();
       } },
     ]);
-  }, [cancelEdit, editingId, refresh, refreshDashboard, session?.access_token, showErrorNotice, user?.id]);
+  }, [cancelEdit, editingId, isOffline, refresh, refreshDashboard, session?.access_token, showOfflineAction, user?.id]);
 
   const removePhoto = useCallback((milestone: Milestone) => {
     Alert.alert('Remove photo?', 'The milestone will remain in your history.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Remove', style: 'destructive', onPress: () => {
       if (!session?.access_token) return;
+      if (isOffline) { showOfflineAction('milestone_update'); return; }
       setPhotoTarget(milestone.id);
       void fetch(`${WEB_URL}/api/milestones/${milestone.id}/photo`, { method: 'DELETE', headers: { Authorization: `Bearer ${session.access_token}` } })
         .then((response) => { if (!response.ok) throw new Error('remove_failed'); return refresh(); })
         .then(() => refreshDashboard())
-        .catch(() => showErrorNotice('We could not remove the milestone photo. Please try again.'))
+        .catch(() => setFormError('We could not remove the milestone photo. Please try again.'))
         .finally(() => setPhotoTarget(null));
     } }]);
-  }, [refresh, refreshDashboard, session?.access_token, showErrorNotice]);
+  }, [isOffline, refresh, refreshDashboard, session?.access_token, showOfflineAction]);
 
   const nearLimit = storageBytes >= STORAGE_WARNING;
   const effectiveIsPro = isPro || dashboardData?.isPro === true;
@@ -196,7 +198,7 @@ export default function MilestoneTrackerScreen() {
       <View className="gap-md"><Pressable onPress={() => setShowDatePicker((visible) => !visible)} accessibilityRole="button" accessibilityState={{ expanded: showDatePicker }} accessibilityLabel={showDatePicker ? 'Close milestone date picker' : 'Choose milestone date'} className="min-h-[48px] flex-row items-center justify-between border-y border-border py-sm"><Text className="font-heading-bold text-white text-[13px] uppercase">{dateLabel}</Text><Feather name="calendar" size={18} color={colors.lime} /></Pressable>{showDatePicker ? <View className="gap-sm"><DateTimePicker value={date} maximumDate={new Date()} mode="date" display={Platform.OS === 'ios' ? 'inline' : 'default'} onChange={(_event: DateTimePickerEvent, value?: Date) => { if (Platform.OS !== 'ios') setShowDatePicker(false); if (value) setDate(value); }} />{Platform.OS === 'ios' ? <Pressable onPress={() => setShowDatePicker(false)} accessibilityRole="button" className="min-h-[44px] items-center justify-center border-y border-lime/30"><Text className="font-heading-bold text-lime text-[12px] uppercase">Done</Text></Pressable> : null}</View> : null}<TextInput value={note} onChangeText={(value) => { setNote(value); setFormError(null); }} placeholder="First bike ride, school play, big laugh..." placeholderTextColor={colors.tertiaryText} multiline textAlignVertical="top" className="min-h-[120px] rounded-button border border-border bg-card p-md font-body text-white text-[14px]" /><TextInput value={tag} onChangeText={(value) => { setTag(value); setFormError(null); }} placeholder="Tag" placeholderTextColor={colors.tertiaryText} className="min-h-[48px] rounded-button border border-border bg-card px-md font-body text-white" />
         {photo ? <View className="relative"><Image source={{ uri: photo.uri }} className="h-[180px] w-full rounded-button" resizeMode="cover" /><Pressable onPress={() => setPhoto(null)} accessibilityLabel="Remove selected photo" className="absolute top-sm right-sm h-[36px] w-[36px] rounded-full bg-dark/90 items-center justify-center"><Feather name="x" size={18} color={colors.text} /></Pressable></View> : null}
         {editingId ? <View className="flex-row items-center justify-between"><Text className="font-heading-bold text-lime text-[11px] uppercase">Editing milestone</Text><Pressable onPress={cancelEdit} accessibilityRole="button"><Text className="font-heading-bold text-tertiary-text text-[11px] uppercase">Cancel</Text></Pressable></View> : null}
-        <InlineFormError message={formError} />
+        <InlineFormError message={isOffline ? null : formError} />
         {effectiveIsPro
           ? <View className="flex-row gap-sm"><Pressable onPress={() => void pickPhoto()} className="flex-1 min-h-[48px] flex-row gap-sm border border-white/20 rounded-button items-center justify-center"><Feather name="image" size={16} color={colors.lime} /><Text className="font-heading-bold text-white text-[11px] uppercase">{photo ? 'Change photo' : 'Add photo'}</Text></Pressable><View className="flex-1"><LimeButton label={editingId ? 'Update milestone' : 'Save milestone'} onPress={() => void saveMilestone()} loading={saving} disabled={!note.trim()} /></View></View>
           : <LimeButton label={editingId ? 'Update milestone' : 'Save milestone'} onPress={() => void saveMilestone()} loading={saving} disabled={!note.trim()} />}
