@@ -1,8 +1,6 @@
 import React, { memo, useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import ProUpgradeSection from '../ProUpgradeSection';
-import { PRO_MOMENTS } from '../../lib/proMoments';
 import { checkInRecommendation, type CheckInAction } from '../../lib/checkInRecommendation';
 
 /**
@@ -14,13 +12,13 @@ function CheckInFollowUp({
   stressLevel,
   isPro,
   onAction,
-  onUpgrade,
+  onPlan,
 }: {
   moodValue: number;
   stressLevel: number | null;
   isPro: boolean;
   onAction: (action: CheckInAction) => void;
-  onUpgrade: () => void;
+  onPlan: () => void;
 }) {
   const advice = useMemo(
     () => checkInRecommendation(moodValue, stressLevel),
@@ -51,11 +49,17 @@ function CheckInFollowUp({
             {advice.actionLabel}
           </Text>
         </Pressable>
+        <Pressable
+          onPress={onPlan}
+          accessibilityRole="button"
+          accessibilityLabel={isPro ? 'Build my plan' : 'See what Pro can do'}
+          className="min-h-[44px] self-start justify-center border-b border-lime active:opacity-70"
+        >
+          <Text className="font-heading-bold text-lime text-[11px] uppercase">
+            {isPro ? 'Build my plan' : 'See what Pro can do'}
+          </Text>
+        </Pressable>
       </View>
-
-      {!isPro ? (
-        <ProUpgradeSection moment={PRO_MOMENTS.checkIn} onPress={onUpgrade} size="sm" />
-      ) : null}
     </View>
   );
 }
