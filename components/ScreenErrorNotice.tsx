@@ -1,5 +1,4 @@
-import { useEffect, useId } from 'react';
-
+import InlineFormError from './InlineFormError';
 import { useNetworkStatus } from '../contexts/NetworkContext';
 
 /**
@@ -10,13 +9,7 @@ import { useNetworkStatus } from '../contexts/NetworkContext';
  * event and must not appear up there.
  */
 export default function ScreenErrorNotice({ message }: { message: string | null | undefined }) {
-  const { reportScreenError } = useNetworkStatus();
-  const id = useId();
+  const { isOffline } = useNetworkStatus();
 
-  useEffect(() => {
-    reportScreenError(id, message ?? null);
-    return () => reportScreenError(id, null);
-  }, [id, message, reportScreenError]);
-
-  return null;
+  return <InlineFormError message={isOffline ? null : message} />;
 }

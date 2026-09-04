@@ -1,13 +1,8 @@
-import { useEffect } from 'react';
-
+import InlineFormError from './InlineFormError';
 import { useNetworkStatus } from '../contexts/NetworkContext';
 
 export default function GlobalErrorToastReporter({ message }: { message?: string | null }) {
-  const { showErrorNotice } = useNetworkStatus();
+  const { isOffline } = useNetworkStatus();
 
-  useEffect(() => {
-    if (message) showErrorNotice(message);
-  }, [message, showErrorNotice]);
-
-  return null;
+  return <InlineFormError message={isOffline ? null : message} />;
 }
