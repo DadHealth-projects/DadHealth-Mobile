@@ -13,8 +13,7 @@ test('Today follows the approved score-led hierarchy', async () => {
   const signedIn = screen.slice(screen.indexOf('          {data ? ('));
   const ordered = [
     '<GreetingHeader',
-    '<DadScoreCard score={score}',
-    '<UpgradeProCard',
+    '<DadScoreCard',
     "Today's check-in",
     // One focus is the free recommendation and sits directly after the check-in.
     '<TodayFocusCard',
@@ -66,7 +65,7 @@ test('lowest-pillar focus uses approved tie order and existing destinations', as
   assert.ok(screen.includes("actionLabel: 'Open Present Dad Mode'"));
 });
 
-test('score card shows real trends and highlights one weakest pillar', async () => {
+test('score card keeps real scores visible but reserves weekly trends for Pro', async () => {
   const [screen, scoreCard, hook, moments] = await Promise.all([
     source('screens/DashboardScreen.tsx'),
     source('components/dashboard/DadScoreCard.tsx'),
@@ -78,10 +77,27 @@ test('score card shows real trends and highlights one weakest pillar', async () 
   assert.ok(screen.includes("highlighted: weakest === 'mind'"));
   assert.ok(screen.includes("highlighted: weakest === 'body'"));
   assert.ok(screen.includes("highlighted: weakest === 'bond'"));
+  assert.ok(screen.includes('trend: data?.isPro ? data.mindWeekChange ?? null : null'));
+  assert.ok(screen.includes('trend: data?.isPro ? data.bodyWeekChange ?? null : null'));
+  assert.ok(screen.includes('trend: data?.isPro ? data.bondWeekChange ?? null : null'));
   assert.ok(scoreCard.includes("roundedTrend > 0 ? '↑' : '↓'"));
-  // Brief Change 02: the Pro tease leads with the dad's own improvement.
-  assert.ok(screen.includes('proScoreTease(strongestPositiveTrend('));
-  assert.ok(moments.includes("score by ${rounded}% this week."));
+  assert.ok(screen.includes('actionLabel="Unlock my insights"'));
+  assert.equal(screen.includes('lockedValues={!data.isPro}'), false);
+  assert.ok(screen.includes('setProPrompt(\'score\')'));
+  assert.ok(moments.includes('Understand your score'));
+  assert.ok(moments.includes('personalised insights, weekly trends and recommendations.'));
+  assert.ok(moments.includes("cta: 'Unlock my insights'"));
+});
+
+test('post-check-in keeps the free recommendation and uses the approved Pro CTA', async () => {
+  const [screen, followUp] = await Promise.all([
+    source('screens/DashboardScreen.tsx'),
+    source('components/dashboard/CheckInFollowUp.tsx'),
+  ]);
+
+  assert.ok(screen.includes('isPro={data.isPro}'));
+  assert.ok(followUp.includes("isPro ? 'Build my plan' : 'See what Pro can do'"));
+  assert.ok(screen.includes("setProPrompt('checkIn')"));
 });
 
 test('Today supporting tools use existing workout, meal, and Bond routes', async () => {
@@ -107,7 +123,7 @@ test('completed check-in retains a visible Mind-score result', async () => {
   assert.ok(screen.includes('!data.checkedInToday || showCheckInSuccess'));
 });
 
-test('Today uses flat focus, streak, and challenge sections with a subtle low-Bond warning', async () => {
+test('Today uses flat sections and warns only for real critical pillar scores', async () => {
   const [screen, score, focus, streak, challenge] = await Promise.all([
     source('screens/DashboardScreen.tsx'),
     source('components/dashboard/DadScoreCard.tsx'),
@@ -116,8 +132,13 @@ test('Today uses flat focus, streak, and challenge sections with a subtle low-Bo
     source('components/dashboard/ChallengeCard.tsx'),
   ]);
 
-  assert.ok(screen.includes("warning: weakest === 'bond' && breakdown.bond !== null && breakdown.bond < 50"));
+  assert.ok(screen.includes('[breakdown.mind, breakdown.body, breakdown.bond]'));
+  assert.ok(screen.includes('.every((value) => value === 5 || value === 10)'));
+  assert.ok(screen.includes("warning: allPillarsCritical && weakest === 'mind'"));
+  assert.ok(screen.includes("warning: allPillarsCritical && weakest === 'body'"));
+  assert.ok(screen.includes("warning: allPillarsCritical && weakest === 'bond'"));
   assert.ok(score.includes("backgroundColor: 'rgba(184, 74, 66, 0.2)'"));
+  assert.equal(score.includes("item.highlighted ? 'bg-dark/10"), false);
   assert.equal(focus.includes("import Card from '../Card'"), false);
   assert.equal(streak.includes("import Card from '../Card'"), false);
   assert.equal(challenge.includes("import Card from '../Card'"), false);

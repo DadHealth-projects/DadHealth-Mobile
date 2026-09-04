@@ -26,9 +26,11 @@ test('completed Cook Together recipes visibly confirm their Bond result', async 
 
   assert.match(hook, /supabase\.rpc\('complete_cook_together_recipe'/);
   assert.match(screen, /Recipe complete/);
-  assert.match(screen, /was added to your Bond activity/);
-  assert.match(screen, /active minutes logged/);
+  assert.match(screen, /was logged as \{completion\.activeMinutes\} minutes of Bond time/);
   assert.match(screen, /Your Bond score is now \{recipeData\.bondScore\}/);
+  assert.match(screen, /Cook Together/);
+  assert.match(screen, /Kid friendly/);
+  assert.match(screen, /Complete & log Bond time/);
   assert.match(screen, /setCompletion\(\{ title: recipe\.title, activeMinutes: recipe\.prep_mins \}\)/);
   assert.match(screen, /setTimeout\(\(\) => setCompletion\(null\), 30_000\)/);
   assert.match(screen, /clearTimeout\(timer\)/);
