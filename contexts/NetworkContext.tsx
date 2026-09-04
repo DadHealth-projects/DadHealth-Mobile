@@ -1,12 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 
-export type OfflineAction = 'community_post' | 'community_thread' | 'community_update' | 'dad_days_search' | 'dad_days_save' | 'weekly_challenge' | 'present_dad' | 'ai_workout';
+export type OfflineAction = 'community_post' | 'community_thread' | 'community_update' | 'cook_together' | 'dad_days_open' | 'dad_days_search' | 'dad_days_save' | 'weekly_challenge' | 'present_dad' | 'ai_workout' | 'meal_plan' | 'milestone_update' | 'notification_settings' | 'profile_photo' | 'shared_calendar' | 'therapist_booking' | 'workout_log' | 'subscriptions';
 
 /**
- * Transient bottom snackbar. Used for temporary request failures and short
- * connectivity transitions. Never for form validation, which belongs inline
- * next to the field or action that produced it.
+ * Transient bottom snackbar. Used for short connectivity transitions and
+ * attempted network-only actions. Feature and form errors stay inline next to
+ * the action that produced them.
  */
 export type ConnectivityToast = {
   id: number;
@@ -44,11 +44,21 @@ const OFFLINE_ACTION_MESSAGES: Record<OfflineAction, string> = {
   community_post: 'Reconnect to post or respond.',
   community_thread: 'Reconnect to open this conversation.',
   community_update: 'Reconnect to update Community content.',
+  cook_together: 'Cook Together updates need an internet connection. Reconnect and try again.',
+  dad_days_open: 'Activity websites need an internet connection. Reconnect and try again.',
   dad_days_search: 'Dad Days search needs an internet connection. Reconnect and try again.',
   dad_days_save: 'Reconnect to save this Dad Day.',
   weekly_challenge: 'Weekly Challenge updates need an internet connection. Reconnect and try again.',
   present_dad: 'Present Dad Mode needs an internet connection. Reconnect and try again.',
   ai_workout: 'Workout generation needs an internet connection. Reconnect and try again.',
+  meal_plan: 'Meal planning needs an internet connection. Reconnect and try again.',
+  milestone_update: 'Milestone updates need an internet connection. Reconnect and try again.',
+  notification_settings: 'Notification settings need an internet connection. Reconnect and try again.',
+  profile_photo: 'Profile photo updates need an internet connection. Reconnect and try again.',
+  shared_calendar: 'Shared Calendar updates need an internet connection. Reconnect and try again.',
+  therapist_booking: 'Therapist booking information needs an internet connection. Reconnect and try again.',
+  workout_log: 'Workout logging needs an internet connection. Reconnect and try again.',
+  subscriptions: 'Subscription purchases need an internet connection. Reconnect and try again.',
 };
 
 const NetworkContext = createContext<NetworkContextValue>({

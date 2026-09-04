@@ -9,7 +9,7 @@ import { colors } from '../theme';
 /**
  * The one top status banner in the app. It is reserved for persistent global
  * conditions — offline mode — and never used for form validation or normal API
- * errors, which stay inline or in the bottom snackbar.
+ * errors, which stay inline in their feature screens.
  *
  * The banner sits in the layout flow above the app rather than overlaying it,
  * so it never covers the top bar. While it is visible it claims the top safe
@@ -19,6 +19,9 @@ import { colors } from '../theme';
 export default function OfflineStatusBanner({ children }: { children: ReactNode }) {
   const { banner } = useNetworkStatus();
   const insets = useSafeAreaInsets();
+  // Notched iPhones report a tall safe area. Pull the banner content slightly
+  // into its unused lower portion while leaving standard iOS/Android insets intact.
+  const bannerTopPadding = insets.top > 32 ? insets.top - 10 : insets.top;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.dark }}>
@@ -26,12 +29,12 @@ export default function OfflineStatusBanner({ children }: { children: ReactNode 
         <View
           accessibilityLiveRegion="polite"
           accessibilityRole="alert"
-          style={{ paddingTop: insets.top }}
+          style={{ paddingTop: bannerTopPadding }}
           className="border-b border-lime/25 bg-[#171A10]"
         >
-          <View className="flex-row items-center gap-sm px-lg py-sm">
-            <Feather name="wifi-off" size={15} color={colors.lime} />
-            <Text className="flex-1 font-body text-white text-[12px] leading-[17px]">
+          <View className="flex-row items-center gap-sm px-lg py-xs">
+            <Feather name="wifi-off" size={14} color={colors.lime} />
+            <Text className="flex-1 font-body text-white text-[11px] leading-[15px]">
               {banner.message}
             </Text>
           </View>
