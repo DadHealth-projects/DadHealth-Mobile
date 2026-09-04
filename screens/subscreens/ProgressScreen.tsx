@@ -11,8 +11,7 @@ import AppTopBar from '../../components/AppTopBar';
 import DadScoreCard from '../../components/dashboard/DadScoreCard';
 import FadeInView from '../../components/FadeInView';
 import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
-import ProLockedPreview from '../../components/ProLockedPreview';
-import ProUpgradeSection from '../../components/ProUpgradeSection';
+import ProPromptModal from '../../components/ProPromptModal';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import SectionHeader from '../../components/dashboard/SectionHeader';
 import StatCard from '../../components/dashboard/StatCard';
@@ -27,7 +26,9 @@ import { useProgressSleep } from '../../hooks/useProgressSleep';
 import { colors } from '../../theme';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { syncAppleHealthIfConnected } from '../../lib/appleHealth';
-import { PRO_LOCKS, PRO_MOMENTS } from '../../lib/proMoments';
+import { getDashboardScore, getScoreBreakdown } from '../../lib/dashboard.utils';
+import { PRO_MOMENTS } from '../../lib/proMoments';
+import { selectTodayFocus } from '../../lib/todayFocus';
 import { buildWeeklyReport } from '../../lib/weeklyReport';
 
 /**
@@ -53,6 +54,7 @@ export default function ProgressScreen({
   // report needs, without another round trip.
   const { data: dashboardData } = useDashboard(user?.id);
   const [reportMessage, setReportMessage] = useState<string | null>(null);
+  const [proPrompt, setProPrompt] = useState<'weeklyReport' | 'progressTrends' | null>(null);
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const globalError = progressScore.error ?? progressReport.error ?? progressBadges.error ?? progressSleep.error;
@@ -67,12 +69,6 @@ export default function ProgressScreen({
   }) : null, [dashboardData]);
 
   /** Moment 6 — progress creates desire, keyed on this month's real workouts. */
-  const progressTease = useMemo(() => {
-    const workouts = progressReport.report?.workouts ?? 0;
-    if (workouts <= 0) return null;
-    return `You've completed ${workouts} ${workouts === 1 ? 'workout' : 'workouts'} this month.`;
-  }, [progressReport.report?.workouts]);
-
   const onRefresh = useCallback(async () => {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
@@ -91,14 +87,38 @@ export default function ProgressScreen({
   }, [progressBadges.refresh, progressReport.refresh, progressScore.refresh, progressSleep.refresh, user?.id]);
   const onClose = useCallback(() => navigation.goBack(), [navigation]);
 
+  const score = useMemo(() => getDashboardScore({
+    total_score: dashboardData ? dashboardData.totalScore : progressScore.data.score,
+    mind_score: dashboardData ? dashboardData.mindScore : progressScore.data.breakdown.mind,
+    body_score: dashboardData ? dashboardData.bodyScore : progressScore.data.breakdown.body,
+    bond_score: dashboardData ? dashboardData.bondScore : progressScore.data.breakdown.bond,
+  }, true), [dashboardData, progressScore.data]);
+
   const scoreItems = useMemo(() => {
-    const breakdown = progressScore.data.breakdown;
+    const breakdown = getScoreBreakdown({
+      mind_score: dashboardData ? dashboardData.mindScore : progressScore.data.breakdown.mind,
+      body_score: dashboardData ? dashboardData.bodyScore : progressScore.data.breakdown.body,
+      bond_score: dashboardData ? dashboardData.bondScore : progressScore.data.breakdown.bond,
+    }, true);
+    const weakest = selectTodayFocus(true, {
+      mind: breakdown.mind,
+      body: breakdown.body,
+      bond: breakdown.bond,
+    });
+    const allPillarsCritical = [breakdown.mind, breakdown.body, breakdown.bond]
+      .every((value) => value === 5 || value === 10);
     return [
-      { label: 'Mind', value: breakdown.mind },
-      { label: 'Body', value: breakdown.body },
-      { label: 'Bond', value: breakdown.bond },
+      { label: 'Mind', value: breakdown.mind, trend: isPro ? dashboardData?.mindWeekChange ?? null : null, highlighted: weakest === 'mind', warning: allPillarsCritical && weakest === 'mind' },
+      { label: 'Body', value: breakdown.body, trend: isPro ? dashboardData?.bodyWeekChange ?? null : null, highlighted: weakest === 'body', warning: allPillarsCritical && weakest === 'body' },
+      {
+        label: 'Bond',
+        value: breakdown.bond,
+        trend: isPro ? dashboardData?.bondWeekChange ?? null : null,
+        highlighted: weakest === 'bond',
+        warning: allPillarsCritical && weakest === 'bond',
+      },
     ];
-  }, [progressScore.data.breakdown]);
+  }, [dashboardData, isPro, progressScore.data.breakdown]);
 
   const reportStats = useMemo(() => progressReport.report ? [
     [String(progressReport.report.workouts), 'Workouts'],
@@ -119,19 +139,19 @@ export default function ProgressScreen({
       return;
     }
     try {
-      const html = buildReportHtml(monthLabel, progressScore.data.score ?? 0, progressReport.report);
+      const html = buildReportHtml(monthLabel, score ?? 0, progressReport.report);
       const { uri } = await Print.printToFileAsync({ html });
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Save or share Dad Health report' });
         setReportMessage('Report ready.');
       } else {
-        await Share.share({ title: 'My Dad Health Report', message: buildReportTable(monthLabel, progressScore.data.score ?? 0, progressReport.report) });
+        await Share.share({ title: 'My Dad Health Report', message: buildReportTable(monthLabel, score ?? 0, progressReport.report) });
         setReportMessage('Report shared.');
       }
     } catch {
       setReportMessage('We could not share your report. Please try again.');
     }
-  }, [monthLabel, progressReport.report, progressScore.data.score]);
+  }, [monthLabel, progressReport.report, score]);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
@@ -186,23 +206,22 @@ export default function ProgressScreen({
               ) : (
                 <>
                   <DadScoreCard
-                    score={progressScore.data.score}
-                    missingScore={0}
-                    items={isPro ? scoreItems : []}
-                    lockedLabel={isPro ? undefined : 'Breakdown with Dad Health Pro'}
-                    missingItemValue="—"
+                    score={score}
+                    items={scoreItems}
                     scoreLabel="out of 100"
                     title=""
                   />
                   {!isPro ? (
-                    <View className="mt-lg">
-                      <ProUpgradeSection
-                        moment={PRO_MOMENTS.progressTrends}
-                        lead={progressTease}
-                        onPress={openPro}
-                        size="sm"
-                      />
-                    </View>
+                    <Pressable
+                      onPress={() => setProPrompt('progressTrends')}
+                      accessibilityRole="button"
+                      className="min-h-[48px] flex-row items-center justify-between gap-md border-b border-border py-sm mt-sm active:opacity-70"
+                    >
+                      <Text className="flex-1 font-body text-muted-text text-[13px] leading-[19px]">
+                        Want to see how your Body score has changed?
+                      </Text>
+                      <Text className="font-heading-bold text-lime text-[10px] uppercase">View trends</Text>
+                    </Pressable>
                   ) : null}
                   <View className="mt-lg border-t border-border">
                     <ProgressDataRow label="Sync status" value={formatSyncStatus(progressScore.data.integration)} />
@@ -214,31 +233,49 @@ export default function ProgressScreen({
             </FadeInView>
 
             <FadeInView delay={120}>
-              <WeeklyReportCard report={weeklyReport} isPro={isPro} onUpgrade={openPro} />
+              {isPro ? (
+                <WeeklyReportCard report={weeklyReport} isPro onUpgrade={openPro} />
+              ) : (
+                <View className="border-b border-border pb-lg">
+                  <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
+                    Every Sunday
+                  </Text>
+                  <Text className="font-heading text-white text-[22px] leading-[24px] uppercase mt-xs">
+                    Your week in Dad Health
+                  </Text>
+                  <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-sm">
+                    Weekly Mind, Body and Bond movement, what caused it and where to put it next week.
+                  </Text>
+                  <Pressable
+                    onPress={() => setProPrompt('weeklyReport')}
+                    accessibilityRole="button"
+                    className="min-h-[44px] self-start justify-center border-b border-lime mt-md active:opacity-70"
+                  >
+                    <Text className="font-heading-bold text-lime text-[11px] uppercase">Unlock weekly report</Text>
+                  </Pressable>
+                </View>
+              )}
             </FadeInView>
 
             <FadeInView delay={140}>
               <SectionHeader title={`${monthLabel} report`} className="mb-md" />
               {progressReport.loading ? (
                 <View className="flex-row flex-wrap gap-sm">{[0, 1, 2, 3, 4, 5].map((item) => <View key={item} className="h-[92px] basis-[48%] grow-0 bg-white/5" />)}</View>
-              ) : isPro ? (
+              ) : (
                 <>
                   <View className="flex-row flex-wrap gap-sm">
                     {reportStats.map(([value, label]) => <StatCard key={label} value={value} label={label} className="basis-[48%] grow-0 min-h-[92px]" />)}
                   </View>
-                  <Pressable onPress={() => void shareReport()} accessibilityRole="button" className="min-h-[48px] flex-row items-center gap-sm self-start border-b border-lime mt-md">
-                    <Feather name="share-2" size={16} color={colors.lime} />
-                    <Text className="font-heading-bold text-lime text-[11px] uppercase">Share report</Text>
-                  </Pressable>
-                  {reportMessage ? <Text className="font-body text-muted-text text-[12px] mt-sm">{reportMessage}</Text> : null}
+                  {isPro ? (
+                    <>
+                      <Pressable onPress={() => void shareReport()} accessibilityRole="button" className="min-h-[48px] flex-row items-center gap-sm self-start border-b border-lime mt-md">
+                        <Feather name="share-2" size={16} color={colors.lime} />
+                        <Text className="font-heading-bold text-lime text-[11px] uppercase">Share report</Text>
+                      </Pressable>
+                      {reportMessage ? <Text className="font-body text-muted-text text-[12px] mt-sm">{reportMessage}</Text> : null}
+                    </>
+                  ) : null}
                 </>
-              ) : (
-                /* Reports are a Pro feature; free members see the shape of theirs. */
-                <ProLockedPreview lock={PRO_LOCKS.monthlyReport} onPress={openPro}>
-                  <View className="flex-row flex-wrap gap-sm">
-                    {reportStats.map(([value, label]) => <StatCard key={label} value={value} label={label} className="basis-[48%] grow-0 min-h-[92px]" />)}
-                  </View>
-                </ProLockedPreview>
               )}
             </FadeInView>
 
@@ -320,6 +357,13 @@ export default function ProgressScreen({
                 </View>
               )}
             </FadeInView>
+
+            <ProPromptModal
+              visible={proPrompt !== null}
+              moment={PRO_MOMENTS[proPrompt ?? 'progressTrends']}
+              onUpgrade={openPro}
+              onDismiss={() => setProPrompt(null)}
+            />
           </>
         )}
       </ScrollView>
