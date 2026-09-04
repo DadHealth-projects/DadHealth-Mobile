@@ -36,7 +36,7 @@ test('Mind reuses real routes without presenting missing products', async () => 
   assert.doesNotMatch(source, /Reset Exercise|Guided Reflection/i);
 });
 
-test('free users see the mood trend as a visible preview behind the lock', async () => {
+test('free users see a non-data mood trend preview', async () => {
   const [source, locks] = await Promise.all([
     readFile(new URL('screens/MindScreen.tsx', root), 'utf8'),
     readFile(new URL('lib/proMoments.ts', root), 'utf8'),
@@ -44,8 +44,8 @@ test('free users see the mood trend as a visible preview behind the lock', async
 
   assert.match(source, /!data\?\.isPro/);
   assert.match(source, /navigation\.navigate\('ProSubscription'\)/);
-  // The real chart renders inside the lock, not a replacement panel.
-  assert.match(source, /<ProLockedPreview[\s\S]*?PRO_LOCKS\.moodTrends[\s\S]*?<MoodWeekCard[\s\S]*?flat[\s\S]*?<\/ProLockedPreview>/);
+  assert.match(source, /<MoodWeekCard[\s\S]*?flat[\s\S]*?locked[\s\S]*?actionLabel="View mood trends"/);
+  assert.doesNotMatch(source, /<ProLockedPreview/);
   assert.match(locks, /moodTrends: \{/);
 });
 

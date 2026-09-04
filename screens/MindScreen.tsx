@@ -6,14 +6,15 @@ import { Feather } from '@expo/vector-icons';
 import type { DashboardSection } from '../components/AccountSheet';
 import CrisisSupportRow from '../components/mockup/CrisisSupportRow';
 import FadeInView from '../components/FadeInView';
+import InlineFormError from '../components/InlineFormError';
 import LimeButton from '../components/LimeButton';
 import MoodWeekCard from '../components/dashboard/MoodWeekCard';
 import PillarScreen from '../components/PillarScreen';
 import PillarSkeleton from '../components/skeleton/PillarSkeleton';
-import ProLockedPreview from '../components/ProLockedPreview';
 import ProUpgradeSection from '../components/ProUpgradeSection';
 import ScreenHero from '../components/mockup/ScreenHero';
 import { useAuth } from '../contexts/AuthContext';
+import { useNetworkStatus } from '../contexts/NetworkContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { PRO_LOCKS } from '../lib/proMoments';
 import type { AppStackParamList } from '../navigation/AppNavigator';
@@ -39,6 +40,7 @@ export default function MindScreen({
   onSelectDashboardSection?: (section: DashboardSection) => void;
 } = {}) {
   const { user } = useAuth();
+  const { isOffline } = useNetworkStatus();
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { data, loading, error, refresh } = useDashboard(user?.id);
   const refreshInFlight = useRef(false);
@@ -69,8 +71,6 @@ export default function MindScreen({
       skeleton={<PillarSkeleton cards={3} />}
       refreshing={refreshing}
       onRefresh={hasUser ? onRefresh : undefined}
-      error={data ? null : error}
-      errorMessage="We couldn't bring in your mood, journal and mental health tools. Try again in a moment."
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}
     >
@@ -134,6 +134,8 @@ export default function MindScreen({
         </FadeInView>
       ) : null}
 
+      {!isOffline && error ? <InlineFormError message={error} /> : null}
+
       <FadeInView delay={210}>
         {!user ? (
           <MoodAccessPanel
@@ -143,12 +145,15 @@ export default function MindScreen({
             onPress={() => navigation.navigate('Login')}
           />
         ) : !data?.isPro ? (
-          <ProLockedPreview
-            lock={PRO_LOCKS.moodTrends}
-            onPress={() => navigation.navigate('ProSubscription')}
-          >
-            <MoodWeekCard values={moodWeek} labels={MOOD_WEEK_LABELS} summary={moodSummary} flat />
-          </ProLockedPreview>
+          <MoodWeekCard
+            values={moodWeek}
+            labels={MOOD_WEEK_LABELS}
+            summary={moodSummary}
+            flat
+            locked
+            actionLabel="View mood trends"
+            onAction={() => navigation.navigate('ProSubscription')}
+          />
         ) : (
           <MoodWeekCard values={moodWeek} labels={MOOD_WEEK_LABELS} summary={moodSummary} flat />
         )}
