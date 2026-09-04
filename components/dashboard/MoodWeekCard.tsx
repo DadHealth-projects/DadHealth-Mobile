@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import Card from '../Card';
 import MiniBarChart from './MiniBarChart';
@@ -11,6 +11,8 @@ type MoodWeekCardProps = {
   /** From `getMoodSummary` — e.g. `{ label: 'Good', scoreText: ' (3.2/4)' }`. */
   summary: { label: string; scoreText: string };
   flat?: boolean;
+  actionLabel?: string;
+  onAction?: () => void;
   /**
    * Preview state for members without Pro. Renders the shape of the chart and
    * the real weekday labels only — never a mood value, and never a stand-in
@@ -20,7 +22,7 @@ type MoodWeekCardProps = {
 };
 
 /** Web "MOOD THIS WEEK" chart + average-mood line. */
-function MoodWeekCard({ values, labels, summary, flat = false, locked = false }: MoodWeekCardProps) {
+function MoodWeekCard({ values, labels, summary, flat = false, locked = false, actionLabel, onAction }: MoodWeekCardProps) {
   const content = (
     <>
       <MiniBarChart
@@ -44,10 +46,21 @@ function MoodWeekCard({ values, labels, summary, flat = false, locked = false }:
     </>
   );
 
+  const action = actionLabel && onAction ? (
+    <Pressable
+      onPress={onAction}
+      accessibilityRole="button"
+      accessibilityLabel={actionLabel}
+      className="min-h-[44px] self-start justify-center border-b border-lime mt-md active:opacity-70"
+    >
+      <Text className="font-heading-bold text-lime text-[11px] uppercase">{actionLabel}</Text>
+    </Pressable>
+  ) : null;
+
   return (
     <View>
       <SectionHeader title="Mood this week" />
-      {flat ? <View className="border-b border-border pb-lg">{content}</View> : <Card>{content}</Card>}
+      {flat ? <View className="border-b border-border pb-lg">{content}{action}</View> : <Card>{content}{action}</Card>}
     </View>
   );
 }
