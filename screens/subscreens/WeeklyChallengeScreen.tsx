@@ -382,7 +382,7 @@ export default function WeeklyChallengeScreen() {
                 </View>
               )}
 
-              <InlineFormError message={actionError} />
+              <InlineFormError message={isOffline ? null : actionError} />
             </View>
           </>
         ) : null}

@@ -9,6 +9,7 @@ import ScreenErrorNotice from '../../components/ScreenErrorNotice';
 import LimeButton from '../../components/LimeButton';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { type Therapist, useTherapists } from '../../hooks/useTherapists';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -18,16 +19,18 @@ const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL ?? 'https://www.dadhealth.co.uk
 export default function TherapistDirectoryScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { user } = useAuth();
+  const { isOffline, showOfflineAction } = useNetworkStatus();
   const directory = useTherapists(user?.id);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const close = useCallback(() => navigation.goBack(), [navigation]);
   const openLogin = useCallback(() => navigation.navigate('Login'), [navigation]);
   const openBooking = useCallback(() => {
+    if (isOffline) { showOfflineAction('therapist_booking'); return; }
     setBookingError(null);
     void Linking.openURL(`${WEB_URL}/pricing`).catch(() => {
       setBookingError('We could not open booking information. Please try again.');
     });
-  }, []);
+  }, [isOffline, showOfflineAction]);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
