@@ -19,13 +19,15 @@ test('the top status banner is reserved for persistent offline state', async () 
   assert.ok(app.includes('<OfflineStatusBanner>'));
   assert.ok(banner.includes('const { banner } = useNetworkStatus()'));
   assert.ok(banner.includes('SafeAreaInsetsContext.Provider'));
+  assert.ok(banner.includes('px-lg py-xs'));
+  assert.ok(banner.includes('insets.top > 32 ? insets.top - 10 : insets.top'));
   // Offline is derived from connectivity, so the banner persists instead of timing out.
   assert.ok(network.includes('state !== null && isOffline ? { message: OFFLINE_BANNER_MESSAGE'));
   assert.equal(network.includes('showOfflineNotice'), false);
   assert.equal(topBar.includes('banner'), false);
 });
 
-test('transient request failures use the auto-dismissing bottom snackbar', async () => {
+test('connectivity transitions and attempted offline actions use the auto-dismissing bottom snackbar', async () => {
   const [toast, network] = await Promise.all([
     source('components/GlobalConnectivityToast.tsx'),
     source('contexts/NetworkContext.tsx'),
@@ -84,8 +86,10 @@ test('form validation and submission errors render inline, never in the banner o
   assert.ok(inline.includes("surface = 'dark'"));
 });
 
-test('screen-level load failures stay on the snackbar and never become inline forms', async () => {
-  const [fitness, weekly, calendar, journal, planner] = await Promise.all([
+test('screen-level load failures render inline and are suppressed while offline', async () => {
+  const [reporter, screenNotice, fitness, weekly, calendar, journal, planner] = await Promise.all([
+    source('components/GlobalErrorToastReporter.tsx'),
+    source('components/ScreenErrorNotice.tsx'),
     source('screens/FitnessScreen.tsx'),
     source('screens/subscreens/WeeklyChallengeScreen.tsx'),
     source('screens/subscreens/SharedCalendarScreen.tsx'),
@@ -93,11 +97,34 @@ test('screen-level load failures stay on the snackbar and never become inline fo
     source('screens/subscreens/MealPlannerScreen.tsx'),
   ]);
 
+  assert.ok(reporter.includes('<InlineFormError message={isOffline ? null : message} />'));
+  assert.ok(screenNotice.includes('<InlineFormError message={isOffline ? null : message} />'));
   assert.ok(fitness.includes('<GlobalErrorToastReporter message={fitnessLibrary.error} />'));
   assert.ok(weekly.includes('<GlobalErrorToastReporter message={loadError} />'));
   assert.ok(calendar.includes('<GlobalErrorToastReporter message={loadError} />'));
   assert.ok(journal.includes('<GlobalErrorToastReporter message={journal.syncError ?? journal.error} />'));
   assert.ok(planner.includes('<GlobalErrorToastReporter message={library.error ?? library.proError} />'));
+});
+
+test('network-only feature actions use connectivity notices rather than feature failure text offline', async () => {
+  const guardedActions = [
+    ['screens/subscreens/AIWorkoutScreen.tsx', "showOfflineAction('ai_workout')"],
+    ['screens/subscreens/CookTogetherScreen.tsx', 'showOfflineAction("cook_together")'],
+    ['screens/subscreens/MealPlannerScreen.tsx', "showOfflineAction('meal_plan')"],
+    ['screens/subscreens/MilestoneTrackerScreen.tsx', "showOfflineAction('milestone_update')"],
+    ['screens/subscreens/NotificationSettingsScreen.tsx', "showOfflineAction('notification_settings')"],
+    ['screens/subscreens/ProfileScreen.tsx', "showOfflineAction('profile_photo')"],
+    ['screens/subscreens/ProSubscriptionScreen.tsx', "showOfflineAction('subscriptions')"],
+    ['screens/subscreens/SharedCalendarScreen.tsx', 'showOfflineAction("shared_calendar")'],
+    ['screens/subscreens/TherapistDirectoryScreen.tsx', "showOfflineAction('therapist_booking')"],
+    ['components/fitness/ActiveWorkout.tsx', "showOfflineAction('workout_log')"],
+  ];
+
+  for (const [path, expectedGuard] of guardedActions) {
+    const file = await source(path);
+    assert.ok(file.includes(expectedGuard), `Missing offline action guard in ${path}`);
+    assert.equal(file.includes('showErrorNotice'), false, `Global feature error remains in ${path}`);
+  }
 });
 
 test('Body and Bond features compose as flat sections instead of bordered cards', async () => {

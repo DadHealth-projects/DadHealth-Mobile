@@ -148,23 +148,26 @@ test('Dad Days remains visible and guards search only when invoked while breathi
   assert.equal(storage.includes('bond_check'), false);
 });
 
-test('feature errors use the same global temporary toast instead of red screen banners', async () => {
-  const [network, reporter, topBar, fitness, therapist] = await Promise.all([
-    source('contexts/NetworkContext.tsx'),
+test('feature errors remain inline and stale feature failures are hidden while offline', async () => {
+  const [reporter, screenNotice, topBar, fitness, therapist, aiWorkout] = await Promise.all([
     source('components/GlobalErrorToastReporter.tsx'),
+    source('components/ScreenErrorNotice.tsx'),
     source('components/AppTopBar.tsx'),
     source('screens/FitnessScreen.tsx'),
     source('screens/subscreens/TherapistDirectoryScreen.tsx'),
+    source('screens/subscreens/AIWorkoutScreen.tsx'),
   ]);
 
-  assert.ok(network.includes('showErrorNotice'));
-  assert.ok(network.includes("showToast(message, 'error')"));
-  assert.ok(reporter.includes('showErrorNotice(message)'));
+  assert.ok(reporter.includes('<InlineFormError message={isOffline ? null : message} />'));
+  assert.ok(screenNotice.includes('<InlineFormError message={isOffline ? null : message} />'));
   assert.equal(topBar.includes('text-red'), false);
   assert.ok(fitness.includes('<GlobalErrorToastReporter message={fitnessLibrary.error} />'));
   assert.equal(fitness.includes('text-red'), false);
-  assert.ok(therapist.includes('<GlobalErrorToastReporter message={bookingError ?? directory.error} />'));
+  assert.ok(therapist.includes('<ScreenErrorNotice message={bookingError ?? directory.error} />'));
   assert.equal(therapist.includes('text-red'), false);
+  assert.equal(aiWorkout.includes('GlobalErrorToastReporter'), false);
+  assert.ok(aiWorkout.includes('<InlineFormError message={isOffline ? null : error ?? library.error ?? library.proError} />'));
+  assert.ok(aiWorkout.includes("showOfflineAction('ai_workout')"));
 });
 
 test('feature screens keep their normal layout without offline retry screens or banners', async () => {
