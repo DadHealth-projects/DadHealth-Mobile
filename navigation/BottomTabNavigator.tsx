@@ -12,12 +12,14 @@ import FitnessScreen from '../screens/FitnessScreen';
 import MindScreen from '../screens/MindScreen';
 import BondScreen from '../screens/BondScreen';
 import CommunityScreen from '../screens/CommunityScreen';
+import ProgressScreen from '../screens/subscreens/ProgressScreen';
 import { colors, fonts } from '../theme';
 
 export type BottomTabsParamList = {
-  Fit: undefined;
-  Mind: undefined;
   Home: undefined;
+  Mind: undefined;
+  Score: undefined;
+  Fit: undefined;
   Bond: undefined;
   Squad: undefined;
 };
@@ -31,18 +33,22 @@ type TabMeta = {
 };
 
 const TAB_META: Record<keyof BottomTabsParamList, TabMeta> = {
-  Fit: {
-    label: 'Body',
-    icon: 'activity',
+  Home: {
+    label: 'Today',
+    icon: 'home',
   },
   Mind: {
     label: 'Mind',
     icon: 'wind',
   },
-  Home: {
-    label: 'Today',
-    icon: 'home',
+  Score: {
+    label: 'Score',
+    icon: 'bar-chart-2',
     center: true,
+  },
+  Fit: {
+    label: 'Body',
+    icon: 'activity',
   },
   Bond: {
     label: 'Bond',
@@ -59,12 +65,12 @@ const INACTIVE = 'rgba(200,245,90,0.68)';
 function MockupTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const compact = width < 360;
+  const compact = width < 380;
   const spacious = width >= 390;
-  const iconSize = compact ? 21 : spacious ? 24 : 22;
+  const iconSize = compact ? 20 : spacious ? 23 : 21;
   const labelFontSize = compact ? 8 : spacious ? 10 : 9;
   const labelLetterSpacing = compact ? 0.25 : spacious ? 0.9 : 0.55;
-  const centerButtonSize = compact ? 52 : 56;
+  const centerButtonSize = compact ? 50 : 56;
 
   return (
     <View
@@ -106,14 +112,15 @@ function MockupTabBar({ state, navigation }: BottomTabBarProps) {
                 flex: 1,
                 alignItems: 'center',
                 justifyContent: 'flex-end',
+                gap: compact ? 3 : 5,
               }}
             >
               <View
-              style={{
+                style={{
                   width: centerButtonSize,
                   height: centerButtonSize,
-                  marginTop: -14,
-                  borderRadius: 16,
+                  marginTop: -20,
+                  borderRadius: centerButtonSize / 2,
                   backgroundColor: colors.lime,
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -130,6 +137,23 @@ function MockupTabBar({ state, navigation }: BottomTabBarProps) {
                   color={colors.dark}
                 />
               </View>
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+                style={{
+                  width: '100%',
+                  paddingHorizontal: 2,
+                  textAlign: 'center',
+                  fontFamily: fonts.bodySemiBold,
+                  fontSize: labelFontSize,
+                  letterSpacing: labelLetterSpacing,
+                  textTransform: 'uppercase',
+                  color: focused ? colors.lime : INACTIVE,
+                }}
+              >
+                {meta.label}
+              </Text>
             </Pressable>
           );
         }
@@ -189,11 +213,16 @@ export default function BottomTabNavigator() {
       }}
       tabBar={(props) => <MockupTabBar {...props} />}
     >
-      <Tab.Screen name="Fit" component={FitnessScreen} />
-      <Tab.Screen name="Mind" component={MindScreen} />
       <Tab.Screen name="Home" component={HomeTabScreen} />
+      <Tab.Screen name="Mind" component={MindScreen} />
+      <Tab.Screen name="Score" component={ScoreTabScreen} options={{ lazy: true }} />
+      <Tab.Screen name="Fit" component={FitnessScreen} />
       <Tab.Screen name="Bond" component={BondScreen} />
       <Tab.Screen name="Squad" component={CommunityScreen} />
     </Tab.Navigator>
   );
+}
+
+function ScoreTabScreen() {
+  return <ProgressScreen tabMode />;
 }
