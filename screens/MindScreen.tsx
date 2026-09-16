@@ -21,7 +21,7 @@ import type { AppStackParamList } from '../navigation/AppNavigator';
 import { colors } from '../theme';
 import {
   MOOD_WEEK_LABELS,
-  getLastSevenDayKeys,
+  getCurrentWeekDayKeys,
   getMoodSummary,
   getMoodWeek,
 } from '../lib/dashboard.utils';
@@ -60,7 +60,7 @@ export default function MindScreen({
   }, [hasUser, refresh]);
 
   const moodWeek = useMemo(
-    () => getMoodWeek(data?.moodLogs ?? [], getLastSevenDayKeys()),
+    () => getMoodWeek(data?.moodLogs ?? [], getCurrentWeekDayKeys()),
     [data?.moodLogs],
   );
   const moodSummary = useMemo(() => getMoodSummary(moodWeek, Boolean(data)), [moodWeek, data]);
