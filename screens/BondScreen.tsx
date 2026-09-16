@@ -140,7 +140,7 @@ export default function BondScreen({
       </FadeInView>
 
       <FadeInView delay={90}>
-        <BondScoreCard score={bondScore ?? 0} />
+        <BondScoreCard score={bondScore} />
       </FadeInView>
 
       <FadeInView delay={140}>
