@@ -227,6 +227,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     milestoneCountResult,
     milestonesResult,
     dadDatesResult,
+    savedDadDatesCountResult,
     weightResult,
     todayWorkoutsResult,
     bodyWeekResult,
@@ -258,6 +259,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     supabase.from('milestones').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('date', monthStart).lte('date', monthEndDate),
     supabase.from('milestones').select('id,date,text,photo_url').eq('user_id', userId).order('date', { ascending: false }).limit(8),
     supabase.from('dad_dates').select('id,icon,name,age_range,budget,time_of_day,duration_minutes'),
+    supabase.from('dad_dates').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('source', 'ai_search'),
     supabase.from('body_metrics').select('value').eq('user_id', userId).eq('metric_type', 'weight').order('recorded_at', { ascending: false }).limit(2),
     supabase.from('workout_sessions').select('duration_minutes').eq('user_id', userId).gte('performed_at', todayStart.toISOString()).lte('performed_at', todayEnd.toISOString()),
     supabase.from('workout_sessions').select('performed_at,duration_minutes').eq('user_id', userId).gte('performed_at', sevenDaysAgo.toISOString()),
@@ -469,7 +471,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     reportStats: {
       workouts: monthWorkouts,
       journal: journalCountResult.count ?? 0,
-      dadDates: milestoneCountResult.count ?? 0,
+      dadDates: savedDadDatesCountResult.count ?? 0,
     },
     badges,
   };
