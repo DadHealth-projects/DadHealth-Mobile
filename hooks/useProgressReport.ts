@@ -43,15 +43,15 @@ export function useProgressReport(userId?: string) {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
     const monthEnd = now.toISOString().slice(0, 10);
-    const [workoutsRes, journalRes, milestonesRes, sleepRes, streakRes, moodRes] = await Promise.all([
+    const [workoutsRes, journalRes, dadDatesRes, sleepRes, streakRes, moodRes] = await Promise.all([
       supabase.from('workout_sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('performed_at', monthStart).lte('performed_at', `${monthEnd}T23:59:59`),
       supabase.from('journal_entries').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('created_at', monthStart).lte('created_at', `${monthEnd}T23:59:59`),
-      supabase.from('milestones').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('date', monthStart).lte('date', monthEnd),
+      supabase.from('dad_dates').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('source', 'ai_search'),
       supabase.from('sleep_logs').select('hours').eq('user_id', userId).gte('date', monthStart).lte('date', monthEnd),
       supabase.from('user_streaks').select('streak_count').eq('user_id', userId).maybeSingle(),
       supabase.from('mood_logs').select('mood_value').eq('user_id', userId).gte('date', monthStart).lte('date', monthEnd),
     ]);
-    if (workoutsRes.error || journalRes.error || milestonesRes.error || sleepRes.error || streakRes.error || moodRes.error) {
+    if (workoutsRes.error || journalRes.error || sleepRes.error || streakRes.error || moodRes.error) {
       setError('We could not load your monthly report. Please try again.');
       setLoading(false);
       return;
@@ -63,7 +63,7 @@ export function useProgressReport(userId?: string) {
     setReport({
       workouts: workoutsRes.count ?? 0,
       journal: journalRes.count ?? 0,
-      dadDates: milestonesRes.count ?? 0,
+      dadDates: dadDatesRes.count ?? 0,
       avgSleep: sleepAverage == null ? null : Math.round(sleepAverage * 10) / 10,
       streak: streakRes.data?.streak_count ?? 0,
       avgMood: moodAverage == null ? null : moodAverage >= 3.5 ? 'Good' : moodAverage >= 2.5 ? 'Okay' : 'Low',
