@@ -16,7 +16,6 @@ import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { useDashboard } from '../../hooks/useDashboard';
 import { trackEvent } from '../../lib/analytics';
 import { PRO_MOMENTS } from '../../lib/proMoments';
-import { isProfilePro } from '../../lib/proStatus';
 import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -55,6 +54,7 @@ export default function DadDaysSearchScreen() {
   const [quickFilters, setQuickFilters] = useState<QuickFilter[]>([]);
   const [isPro, setIsPro] = useState(false);
   const [searchesUsed, setSearchesUsed] = useState(0);
+  const [accessReady, setAccessReady] = useState(false);
   const [locating, setLocating] = useState(false);
   const [searching, setSearching] = useState(false);
   const [savingName, setSavingName] = useState<string | null>(null);
@@ -74,24 +74,30 @@ export default function DadDaysSearchScreen() {
   }, []);
 
   const loadAccess = useCallback(async () => {
-    if (!user?.id || isOffline) return;
-    const monthStart = new Date();
-    monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
-    const [profileResult, countResult] = await Promise.all([
-      supabase.from('user_profile').select('is_pro,subscription_status,child_age').eq('user_id', user.id).maybeSingle(),
-      supabase.from('dad_day_searches').select('*', { count: 'exact', head: true }).eq('user_id', user.id).gte('searched_at', monthStart.toISOString()),
-    ]);
-    if (profileResult.error || countResult.error) {
-      setSearchError('We could not load your Dad Days allowance. Please try again.');
+    if (!user?.id || !session?.access_token || isOffline) {
+      setAccessReady(false);
       return;
     }
-    const profile = profileResult.data;
-    setIsPro(isProfilePro(profile));
-    setSearchesUsed(countResult.count ?? 0);
-    if (profile?.child_age && AGES.some((option) => option.value === profile.child_age)) {
-      setChildAge(profile.child_age as ChildAge);
+
+    setSearchError(null);
+    setAccessReady(false);
+    try {
+      const response = await fetch(`${WEB_URL}/api/dad_days_searches`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const body = await response.json() as { isPro?: boolean; searchesUsed?: number | null; childAge?: string | null };
+      if (!response.ok || typeof body.isPro !== 'boolean') throw new Error('allowance_unavailable');
+
+      setIsPro(body.isPro);
+      setSearchesUsed(typeof body.searchesUsed === 'number' ? body.searchesUsed : 0);
+      if (body.childAge && AGES.some((option) => option.value === body.childAge)) {
+        setChildAge(body.childAge as ChildAge);
+      }
+      setAccessReady(true);
+    } catch {
+      setSearchError('We could not load your Dad Days allowance. Please try again.');
     }
-  }, [isOffline, user?.id]);
+  }, [isOffline, session?.access_token, user?.id]);
 
   useEffect(() => { void loadAccess(); }, [loadAccess]);
 
@@ -146,7 +152,7 @@ export default function DadDaysSearchScreen() {
   }, [isOffline, postcodeInput, showOfflineAction]);
 
   const remaining = Math.max(0, FREE_LIMIT - searchesUsed);
-  const limitReached = !isPro && remaining === 0;
+  const limitReached = accessReady && !isPro && remaining === 0;
   const search = useCallback(async () => {
     if (!user || !session?.access_token) { navigation.navigate('Login'); return; }
     if (isOffline) { showOfflineAction('dad_days_search'); return; }
@@ -247,7 +253,7 @@ export default function DadDaysSearchScreen() {
               <>
                 <LimeButton label="Search for Dad Days" onPress={() => void search()} loading={searching} />
                 {/* Moment 7 — the free counter, while searches remain. */}
-                {!isPro ? (
+                {accessReady && !isPro ? (
                   <Text className="font-body text-tertiary-text text-[11px] leading-[16px] text-center">
                     {searchesUsedLabel}
                   </Text>
