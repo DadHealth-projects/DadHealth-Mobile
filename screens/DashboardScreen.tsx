@@ -38,7 +38,7 @@ import { CAPS } from '../lib/dashboardCaps';
 import {
   MOOD_WEEK_LABELS,
   getDashboardScore,
-  getLastSevenDayKeys,
+  getCurrentWeekDayKeys,
   getMoodSummary,
   getMoodWeek,
   getScoreBreakdown,
@@ -166,7 +166,7 @@ export function DashboardScreenContent({
   }, [data]);
 
   const moodWeek = useMemo(
-    () => getMoodWeek(data?.moodLogs ?? [], getLastSevenDayKeys()),
+    () => getMoodWeek(data?.moodLogs ?? [], getCurrentWeekDayKeys()),
     [data?.moodLogs],
   );
   const moodSummary = useMemo(() => getMoodSummary(moodWeek, Boolean(data)), [moodWeek, data]);

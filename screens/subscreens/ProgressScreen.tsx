@@ -40,9 +40,12 @@ import { buildWeeklyReport } from '../../lib/weeklyReport';
 export default function ProgressScreen({
   dashboardSection,
   onSelectDashboardSection,
+  tabMode = false,
 }: {
   dashboardSection?: DashboardSection;
   onSelectDashboardSection?: (section: DashboardSection) => void;
+  /** The raised Score tab reuses this screen without a stack close control. */
+  tabMode?: boolean;
 } = {}) {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { user } = useAuth();
@@ -165,10 +168,10 @@ export default function ProgressScreen({
         }
       >
         <AppTopBar
-          showNavigation={Boolean(dashboardSection)}
+          showNavigation={tabMode || Boolean(dashboardSection)}
           activeSection={dashboardSection}
           onSelectSection={onSelectDashboardSection}
-          rightAccessory={dashboardSection ? undefined : (
+          rightAccessory={tabMode || dashboardSection ? undefined : (
             <Pressable
               onPress={onClose}
               accessibilityRole="button"
