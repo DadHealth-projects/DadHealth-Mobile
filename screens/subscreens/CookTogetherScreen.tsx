@@ -284,7 +284,7 @@ export default function CookTogetherScreen() {
                 active.ingredients.map((ingredient) => (
                   <Text
                     key={ingredient}
-                    className="border-b border-border py-sm font-body text-white/65 text-[14px]"
+                    className="border-b border-border py-sm font-body text-white text-[14px]"
                   >
                     {ingredient}
                   </Text>
@@ -310,7 +310,7 @@ export default function CookTogetherScreen() {
                         {step.title}
                       </Text>
                     ) : null}
-                    <Text className="font-body text-white/65 text-[14px] leading-[21px] mt-sm">
+                    <Text className="font-body text-white text-[14px] leading-[21px] mt-sm">
                       {step.instruction}
                     </Text>
                     {step.kid_instruction ? (

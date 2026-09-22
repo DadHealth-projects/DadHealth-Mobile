@@ -56,6 +56,9 @@ import MindScreen from './MindScreen';
 import ProgressScreen from './subscreens/ProgressScreen';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 
+// TODAY top-centre brand logo (dark-background colour logo).
+const TODAY_LOGO = require('../assets/02. DAD HEALTH LOGO_COLOR_Dark BG.png');
+
 /** Signed-in dashboard screen, kept separate from the public Home experience. */
 export default function DashboardScreen() {
   const { user } = useAuth();
@@ -364,6 +367,7 @@ export function DashboardScreenContent({
           <AppTopBar
             showNavigation
             showBrand
+            brandSource={TODAY_LOGO}
             activeSection={activeSection}
             onSelectSection={onSelectSection}
           />
@@ -388,6 +392,7 @@ export function DashboardScreenContent({
           <AppTopBar
             showNavigation
             showBrand
+            brandSource={TODAY_LOGO}
             activeSection={activeSection}
             onSelectSection={onSelectSection}
           />
