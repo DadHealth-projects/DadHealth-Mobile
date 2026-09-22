@@ -127,7 +127,7 @@ export default function JournalScreen() {
                   })}
                 </ScrollView>
               </View>
-              {selectedPrompt ? <View className="border-l-2 border-lime pl-md"><Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">Selected prompt</Text><Text className="font-body text-white/65 text-[13px] leading-[19px] mt-xs">{selectedPrompt}</Text></View> : null}
+              {selectedPrompt ? <View className="border-l-2 border-lime pl-md"><Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">Selected prompt</Text><Text className="font-body text-white text-[13px] leading-[19px] mt-xs">{selectedPrompt}</Text></View> : null}
               <TextInput
                 value={content}
                 onChangeText={(value) => { setContent(value); setError(null); }}

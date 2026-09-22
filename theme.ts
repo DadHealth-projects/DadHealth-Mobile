@@ -21,9 +21,9 @@ export const colors = {
   text: '#FFFFFF',
   muted: '#1F1F1F',
   border: '#1F1F1F',
-  // Softer text tiers pulled from --muted-foreground / --text-tertiary
-  mutedText: '#C7C7C7',
-  tertiaryText: '#A6A6A6',
+  // Sub text tiers rendered white so they read the same as headlines.
+  mutedText: '#FFFFFF',
+  tertiaryText: '#FFFFFF',
 };
 
 // Barlow families loaded via expo-font (@expo-google-fonts) in App.js.
