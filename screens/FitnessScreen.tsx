@@ -330,8 +330,10 @@ export default function FitnessScreen({
             <View className="flex-row items-start justify-between gap-md">
               <View className="flex-1">
                 <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Meal planner</Text>
-                <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">Fuel your whole week</Text>
-                <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">Generate a personalised 5-day plan with recipes, macros and a shopping list.</Text>
+                <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">Eat like you train</Text>
+                <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
+                  A personalised 5-day plan with recipes, macros and a shopping list — built around your goals.
+                </Text>
               </View>
               <TagPill label={fitnessLibrary.isPro ? 'Pro' : 'Preview'} />
             </View>
@@ -351,25 +353,19 @@ export default function FitnessScreen({
       ) : null}
 
       <FadeInView delay={240}>
-        <FlatSection className="gap-sm">
-          <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
-            {standalone ? 'Do you know your calories?' : 'Know your daily calories'}
-          </Text>
-          <Text className="font-body text-muted-text text-[12px] leading-[18px]">
-            {standalone
-              ? 'Find the daily calories your body needs.'
-              : 'Calculate your TDEE and discover the exact calories you need to maintain, lose, or gain weight — built for busy dads.'}
-          </Text>
-          <Pressable
-            onPress={openTdee}
-            accessibilityRole="button"
-            accessibilityLabel={standalone ? 'Calculate daily calories' : 'Calculate TDEE'}
-            className="self-start rounded-button bg-lime px-md py-sm mt-xs active:opacity-90"
-          >
-            <Text className="font-heading-bold text-dark text-[11px] tracking-[1px] uppercase">
-              {standalone ? 'Calculate' : 'Calculate TDEE →'}
+        <FlatSection className="gap-md">
+          <View className="flex-1">
+            <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
+              Calorie calculator
             </Text>
-          </Pressable>
+            <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">
+              Know your number
+            </Text>
+            <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
+              Find the daily calories your body needs to perform, recover and feel like yourself.
+            </Text>
+          </View>
+          <LimeButton label="Calculate →" onPress={openTdee} accessibilityLabel="Calculate daily calories" />
         </FlatSection>
       </FadeInView>
 
