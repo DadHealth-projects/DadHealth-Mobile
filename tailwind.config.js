@@ -18,8 +18,9 @@ module.exports = {
         card: '#111111',
         muted: '#1F1F1F',
         border: '#1F1F1F',
-        'muted-text': '#C7C7C7',
-        'tertiary-text': '#A6A6A6',
+        // Sub lines rendered white so they read the same as headlines.
+        'muted-text': '#FFFFFF',
+        'tertiary-text': '#FFFFFF',
       },
       fontFamily: {
         // Barlow Condensed (headings) — loaded via expo-font in App.js
