@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View } from 'react-native';
+import { type ImageSourcePropType, View } from 'react-native';
 
 import AccountButton from './AccountButton';
 import AccountSheet, { type DashboardSection } from './AccountSheet';
@@ -13,6 +13,7 @@ type AppTopBarProps = {
   leftAccessory?: React.ReactNode;
   rightAccessory?: React.ReactNode;
   showBrand?: boolean;
+  brandSource?: ImageSourcePropType;
 };
 
 export default function AppTopBar({
@@ -22,6 +23,7 @@ export default function AppTopBar({
   leftAccessory,
   rightAccessory,
   showBrand = false,
+  brandSource,
 }: AppTopBarProps) {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -33,7 +35,7 @@ export default function AppTopBar({
       <View className="relative min-h-[44px] flex-row items-center justify-between" accessibilityRole="header">
         {showBrand ? (
           <View pointerEvents="none" className="absolute inset-x-0 items-center justify-center">
-            <BrandWordmark />
+            <BrandWordmark source={brandSource} />
           </View>
         ) : null}
         {showNavigation ? (
