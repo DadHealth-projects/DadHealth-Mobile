@@ -367,6 +367,7 @@ export function DashboardScreenContent({
           <AppTopBar
             showNavigation
             showBrand
+            brandAlign="center"
             brandSource={TODAY_LOGO}
             activeSection={activeSection}
             onSelectSection={onSelectSection}
@@ -392,6 +393,7 @@ export function DashboardScreenContent({
           <AppTopBar
             showNavigation
             showBrand
+            brandAlign="center"
             brandSource={TODAY_LOGO}
             activeSection={activeSection}
             onSelectSection={onSelectSection}
