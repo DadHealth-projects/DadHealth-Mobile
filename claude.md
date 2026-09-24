@@ -1,523 +1,597 @@
 # CLAUDE.md — DadHealth Mobile
 
-# Project Rules
+## Project
 
-## Production Error Copy
+DadHealth is a React Native / Expo application for iOS and Android.
 
-- Every user-facing error must name the affected feature or action and give the
-  user a useful next step.
-- Never show implementation or development details in the client, including
-  internal provider names such as Supabase or OneSignal, storage mechanisms,
-  native modules, API/schema/database details, tokens, environment variables,
-  build instructions, Expo Go, stack traces or raw caught error messages.
-- Map failures to stable, production-ready copy before rendering them. Do not
-  ship temporary console diagnostics, diagnostic panels or implementation-state
-  labels in production builds.
-- Screen-level load errors must name the current screen or content. Do not reuse
-  Dashboard wording on Body, Mind, Bond, Squad, Progress or settings screens.
-- Do not use placeholder error copy such as "Something went wrong" or "An error
-  occurred." State what failed and what the user can do next.
+The mobile app shares the DadHealth Supabase backend, authentication, business data and product rules with the web application.
 
-## Error Surfaces
+The mobile client is responsible for native presentation and native platform capabilities. It must not duplicate privileged backend logic or independently implement canonical product calculations.
 
-There are exactly three places an error may appear. Pick by the kind of error,
-never by convenience.
+Repository:
 
-1. **Top status banner** — `components/OfflineStatusBanner.tsx`.
-   Reserved for persistent global conditions only. Today that means offline
-   mode. It is driven by connectivity state, not by a timer, so it stays visible
-   for as long as the condition is true. Never put form validation, save
-   failures or normal API errors in it. Do not add a second top banner.
-2. **Inline, next to the field or action** — `components/InlineFormError.tsx`.
-   All form errors live here: validation messages and the failure of the action
-   the user just triggered (save, post, generate, invite, connect, purchase).
-   Place the slot beside the relevant field or directly above/below its button,
-   not at the top or bottom of the screen. Use `surface="lime"` on the lime
-   check-in surface.
-3. **Bottom snackbar** — `components/GlobalConnectivityToast.tsx`. Small,
-   bottom-anchored, auto-dismissing and clear of the bottom navigation. Reserve
-   it for connectivity transitions and network-only actions attempted while
-   offline. Feature load/save/generate errors remain inline beside their action;
-   do not route them through the global snackbar.
-
-Screens that mix both kinds keep separate state per surface — for example
-`loadError` on the snackbar and `eventError` inline — rather than routing one
-string to whichever surface is closest.
-
-### Clearing stale errors
-
-An error must be cleared as soon as it can no longer be true:
-
-- **Edit** — clear the inline error in the field's `onChangeText` / option
-  `onPress`, so correcting an input removes the message.
-- **Retry** — clear before the request starts, at the top of the action.
-- **Refresh** — pull-to-refresh calls `dismissToast()` before refetching
-  (`PillarScreen` and `DashboardScreen` already do).
-- **Success** — clear on the success path, never leave the previous failure on
-  screen next to a fresh result.
-- **Reconnect** — `NetworkProvider` drops any pending failure notice when
-  connectivity changes.
-
-## Body Layout and Section Composition
-
-The Body screen is the reference layout. Feature sections are flat and read in
-this order:
-
-`label → heading → supporting copy → action → divider`
-
-The divider is a `border-b border-border` on the section itself. Do not wrap
-AI Workout, Meal Planner, TDEE or comparable features in large bordered or
-elevated cards. Apply the same composition to feature sections on the other
-pillar screens (Bond already uses it for the co-parenting calendar and
-milestone tracker). Compact navigation rows and stat tiles keep their existing
-mockup treatment; this rule is about feature sections with their own action.
-
-The bottom navigation is fixed. Keep all five tabs and the raised Today tab
-exactly as they are.
-
-## Pro Conversion
-
-Jamie's rule governs every Pro surface: **do not sell Pro, demonstrate it.**
-Free → useful → curiosity → personalised insight → Pro.
-
-### The three Pro surfaces
-
-1. **`components/ProUpgradeSection.tsx`** — an upgrade moment as a flat native
-   section (label → heading → supporting copy → action → divider). The label
-   text leads and the lock is a small trailing glyph, because a lock is never
-   the first thing on a screen. `size="sm"` when it sits inside another section.
-2. **`components/ProLockedPreview.tsx`** — an intentional, non-data preview for
-   a genuinely Pro-only feature. Never dim, blur or expose the member's real
-   values beneath a lock.
-3. **`screens/subscreens/ProSubscriptionScreen.tsx`** — the only place Pro is
-   sold. Annual first, 7-day trial, "Make Dad Health personal", three things a
-   dad gets this week. It is a pushed screen, never an initial route, so the
-   paywall never appears on first open.
-
-All Pro copy lives in `lib/proMoments.ts` (`PRO_MOMENTS` for the seven upgrade
-moments, `PRO_LOCKS` for the feature-split locks). Add or reword Pro copy there,
-not in a screen, so the wording stays consistent and testable.
-
-### The seven upgrade moments
-
-| # | Moment | Where |
-| - | ------ | ----- |
-| 1 | `score` | Today, under the Dad Health Score (`UpgradeProCard`) |
-| 2 | `checkIn` | Today, after the daily check-in (`CheckInFollowUp`) |
-| 3 | `aiWorkout` | AI Workout screen after the free monthly allowance is used |
-| 4 | `dadDays` | Dad Days search, above the search action |
-| 5 | `weeklyReport` | Today on Sundays, and always on Progress |
-| 6 | `progressTrends` | Progress, under the score card |
-| 7 | `dadDaysCounter` | Dad Days search, under the search action and at the limit |
-
-Moment 2 always renders one genuinely useful free recommendation
-(`lib/checkInRecommendation.ts`) *above* the Pro line. Moment 1 leads with the
-dad's own improvement via `proScoreTease`, and falls back to the generic wording
-rather than inventing progress. Moment 7 is worded as searches **used**, not
-remaining.
-
-### Free vs Pro split as implemented
-
-| Area | Free | Pro |
-| ---- | ---- | --- |
-| Mind | Breathing, journal, therapist directory, crisis button | Personalised Mind plan tease, mood trends |
-| Body | Workout library, 3 AI Workout generations per calendar month, TDEE core numbers and maintenance target | Unlimited AI Workout generations, full TDEE target ladder and insights, meal planner |
-| Bond | Milestone logging (text, date, tag), 3 Dad Days searches a month | Milestone photos, personalised Dad Days, unlimited searches |
-| Score | Total score, pillar bars, week-on-week arrows | Weekly report, pillar breakdown on Progress, recommendations |
-| Reports | Factual earned totals and a compact non-data weekly preview | Full weekly report, historical trends and personalised interpretation |
-| Community | Full access | Full access |
-
-The therapist directory and milestone logging are **free** — do not re-gate
-them. Every Pro lock in this table renders over a visible preview.
-
-### Streak protection
-
-Streak protection is a Pro benefit. `countStreakDays` in `lib/offlineSync.ts`
-forgives exactly one missed day for a Pro member and breaks on the first gap for
-everyone else. It uses the existing `user_streaks` row — no schema change — and
-a failed profile read degrades to the free rule rather than failing the
-check-in. `StreakCard` states the protection for Pro and teases it for free.
-
-### Weekly report
-
-`lib/weeklyReport.ts` builds the report from the dad's own week-on-week changes
-and month workout count. It returns `null` when there is no week-on-week data,
-and the card then says so. Free members see the real layout with em dashes —
-never fabricated percentages.
-
-## Source of Truth
-
-### Web App = WHAT to build
-
-Use the web app as the source of truth for:
-
-- Features
-- Business logic
-- Calculations
-- Supabase queries
-- Copy
-
-### App Store Mockups = HOW to build it
-
-Use the mockups as the source of truth for:
-
-- Layout
-- UI
-- UX
-- Visual hierarchy
-- Spacing
-- Typography
-- Component styling
-
-Never copy the web layout or visual hierarchy onto mobile.
-
-Every mobile screen must feel like a native app built from the mockups while preserving the web functionality.
-
----
-
-# Migration Workflow
-
-Never migrate an entire screen at once.
-
-Break every screen into small components.
-
-Example
-
-Fitness
-
-- Header
-- Statistics
-- Workout Card
-- Workout Timer
-- Workout Library
-- Meal Planner
-- TDEE
-- Loading / Empty / Error States
-
-Each component follows this workflow.
-
-1. Read the web component.
-2. Explain exactly what it does.
-3. Compare it with the current mobile implementation.
-4. Recommend one of:
-
-- Keep
-- Modify
-- Remove
-- Replace
-
-5. Wait for me to explicitly say **Approved**.
-6. Only then enter coding mode.
-7. Update **only** the approved component.
-8. Explain exactly what changed.
-9. Return to review mode.
-10. Continue with the next component.
-
-Never implement multiple components without approval.
-
-If you finish implementing an approved component, immediately return to review mode.
-
-Never continue coding until another approval is given.
-
----
-
-# Migration Principles
-
-Migration is **not** redesign.
-
-If a web feature doesn't naturally fit mobile:
-
-- Keep the feature.
-- Reorganize it using the mockup design language.
-- Do not copy the web layout.
-
-Never remove features.
-
-Never invent features.
-
-Never redesign business logic.
-
-If something is a product issue rather than a migration issue:
-
-- Record it under **Deferred Product Improvements**.
-- Continue the migration.
-
-If uncertain:
-
-Stop.
-
-Ask.
-
-Never assume UI, product behavior or data.
+`E:\client-projects\dadhealth-mobile`
 
 ---
 
 # Current Status
 
-## Milestone 3 — Native Integrations
+## M4 — Phase 3 Native Integration & Refinement Pass
 
-In progress.
+**Status: COMPLETED, APPROVED AND PAID**
 
-- M3.1 Push Notifications is implemented with OneSignal, authenticated user
-  linking, notification preferences, native tap routing, concurrency-safe daily
-  limits and event-specific idempotency. Community reply and co-parent event
-  delivery have been verified end to end; scheduled and completion notification
-  QA uses the production dispatcher and claim system.
-- M3.2 Apple HealthKit is implemented as a read-only integration for Steps,
-  Active Minutes, Resting Heart Rate and Sleep, using the existing wearable,
-  Fitness, Progress and score architecture.
-- M3.3 Google Health Connect is implemented. Signed Android and production QA
-  will run near the end of M3.
-- M3.4 Native Subscriptions is implemented. Apple and Google external store
-  configuration will be completed separately as access becomes available.
-- M3.5 Offline Mode is implemented with user-scoped caches, queued Home and
-  Journal writes, reconnect sync and one centralized connectivity experience.
-- M3.6 Deep Links is implemented for secure co-parent invite continuation,
-  community threads and auth-safe notification routing. Signed iOS and Android
-  lifecycle QA remains. Universal Links and Android App Links are not
-  requirements of the original brief. Once verified, do not reopen Deep Links
-  during refinements unless an actual bug is found.
+M4 is the latest completed milestone and the current implementation baseline.
 
-## Developer Brief v3 — Complete
+Do not reopen or rebuild M4 work unless a new task explicitly requires a regression fix or change.
 
-The approved Jamie developer-brief pass is complete: navigation and Today,
-score feedback and trends, action-first Mind, public crisis access, approved Pro
-conversion and paywall behaviour, community prompts, Dad Days filters and
-allowances, Cook Together Bond logging, and workout/copy/zero-state polish.
+## Active Milestone
 
-Paused by product decision:
+**Next Milestone Brief — Dad Health Journey & Personalisation Formation**
 
-- **Badges and achievements** — keep the existing badge architecture unchanged.
-  The catalogue, award rules and first Cook Together badge remain paused pending
-  a separate Jamie/product decision.
-- **In-app notification centre** — a future activity-history feature for
-  likes/comments, Community activity, score changes, Weekly Challenge updates,
-  missed reminders, new features and important prompts. This is separate from
-  push notifications and remains paused until separately reviewed and approved.
+This is the current active product milestone.
 
-Existing push notifications remain implemented and are not paused.
+The latest amendment is:
 
-## Screen Migration Milestone
+**Brief Addendum A — Merge Score into Today**
 
-Completed.
+Addendum A overrides the relevant navigation, Score and Today decisions from the main milestone brief.
 
-All standalone native product screens, focused sub-screens, account flows and dashboard subsections have been migrated and reviewed.
-
-The codebase security and organization audit is also complete:
-
-- Native tab screens live directly in `screens/`.
-- Stack, detail, authentication, onboarding and settings screens live in `screens/subscreens/`.
-- Known npm dependency vulnerabilities were remediated without forcing an Expo major upgrade.
-- Biometric login stores a revocable per-device credential, never a password or copied Supabase refresh token.
-- Google OAuth uses PKCE.
-- Confirmed dead screen and component code was removed.
-
-## Completed
-
-### Public Home
-
-Completed.
-
-Uses:
-
-- Web functionality
-- Mockup layout
-- Native onboarding flow
-- Native score preview
-- Native pillar presentation
-
-### Logged-in Dashboard
-
-Completed.
-
-Reviewed and approved component by component.
-
-Includes:
-
-- Header
-- Dad Score
-- Daily Check-in
-- Today's Plan
-- Mood This Week
-- Smart Reminders
-- Weekly Challenge
-- Upgrade Pro
-- Navigation
-- Loading States
-- Empty States
-- Error States
-
-Both completed screens follow:
-
-- Web = functionality
-- Mockups = design
-
-### Fitness
-
-Completed.
-
-Reviewed and approved component by component, including focused native flows for active workouts, AI workouts, meal planning and TDEE.
-
-### Mind
-
-Completed.
-
-Reviewed and approved component by component, including:
-
-- Header
-- Mood This Week
-- Breathing session
-- Private journal
-- Therapist directory
-- Crisis support
-- Statistics and screen states
-
-### Bond
-
-Completed.
-
-Reviewed and approved component by component, including Dad Days, milestones, Cook Together, conversation starters and the shared custody calendar.
-
-### Squad
-
-Completed.
-
-Reviewed and approved component by component, including circles, community posts, post threads, recent-post navigation and live sessions.
-
-### Progress
-
-Completed.
-
-Reviewed and approved component by component, including Dad Score reporting, saved reports, sleep quality and mood correlation.
-
-### Account and Settings
-
-Completed.
-
-Includes Profile, profile photos, Push Notifications, Privacy & Security, Terms & Privacy and Sign Out.
+Do not use older milestone briefs, TestFlight feedback or historical Jamie decisions as the current product specification when they conflict with these documents.
 
 ---
 
-# Deferred Product Improvements
+# Source-of-Truth Hierarchy
 
-These are intentionally outside the migration scope.
+When deciding what to build, use this order:
 
-- Today's Plan onboarding mismatch
-- Mood Week weekday labels
-- TDEE calculation history and body-value logging
-- Non-contact Days card and its wording versus reduced non-custody Bond Score weighting
-- Badge catalogue, award rules and the first Cook Together badge are paused
+1. **Latest approved milestone brief**
+2. **Latest approved addendum/amendment**
+3. **Existing web/backend product behavior**
+4. **Current mobile implementation**
+5. **Approved native UI/mockups**
 
-These items may be considered during Final Polish, but only one at a time after review and explicit approval.
+Older briefs and feedback documents are historical context only.
 
----
-# Current Milestone
-
-## Milestone 3 — Native Integrations
-
-The screen migration is complete.
-
-Milestone 3 focuses on making DadHealth a true native mobile application while preserving the existing product behaviour.
-
-Every integration must still follow the same review workflow.
-
-Review one integration at a time.
-
-Explain:
-
-- What the web currently does.
-- What native capability is being added.
-- Required libraries.
-- Required Supabase changes.
-- Native permissions.
-- Offline behaviour.
-- Edge cases.
-
-Recommend:
-
-- Keep
-- Modify
-- Remove
-- Replace
-
-Wait for explicit approval.
-
-Implement only the approved integration.
-
-Return to review mode before continuing.
+If two current sources genuinely conflict and the conflict cannot be resolved from the documents, stop and ask rather than guessing.
 
 ---
 
-## Remaining Order
+# Product Principle
 
-1. Deep Links signed iOS / Android lifecycle QA
-2. Android Health Connect and full iOS / Android production QA
+The active milestone is centered around one question:
 
-Native subscription external Apple and Google configuration proceeds separately
-as store access and configuration become available.
+> Does this help the dad understand how he is doing, decide what matters today, and take one simple action?
 
-Jamie’s approved developer-brief refinements are complete. Any future major
-customer-journey change requires a separate document, review and approval.
+The product should demonstrate the value of Dad Health through the free experience rather than aggressively selling Pro.
+
+Do not introduce unnecessary UI, filler content, artificial recommendations or unrelated redesigns.
 
 ---
-
-## Milestone Principles
-
-Native integrations must enhance the existing product.
-
-Do not redesign existing features.
-
-Do not change business logic unless explicitly approved.
-
-Preserve:
-
-- Existing Supabase architecture
-- Existing API routes
-- Existing permissions
-- Existing calculations
-
-If an integration requires database schema changes, API changes or new tables:
-
-Stop.
-
-Explain the required changes.
-
-Wait for approval before implementation.
-
-Deployment, production configuration and App Store submission remain separate tasks and are not part of implementation unless explicitly requested.
 
 # Navigation
 
-Keep the approved native navigation structure.
+The active mobile navigation is:
 
-Bottom Tabs
+**Today → Mind → Body → Bond → Community**
 
-- Body (`Fit` route)
-- Mind
-- Today (`Home` route; raised lime tab)
-- Bond
-- Community (`Squad` route)
+There is **no Score tab**.
 
-Keep the internal `Home`, `Fit` and `Squad` route names for notification and
-navigation compatibility. Progress remains a standalone dashboard/stack
-destination and is not part of the bottom navigation.
+## Score
 
-Secondary screens remain inside the Account/Profile menu.
+Score is part of Today.
 
-Do not introduce new navigation patterns unless explicitly requested.
+Tapping the Dad Health Score card opens the **Score Detail Sheet**.
+
+Legacy Score navigation must not be restored.
+
+If an existing deep link, notification or internal route targets the old Score destination, it should resolve to Today with the Score Detail Sheet expanded where technically supported.
+
+## + LOG
+
+The centre position may contain a raised:
+
+**+ LOG**
+
+quick action.
+
+When confirmed and implemented, it opens:
+
+* Log workout
+* Log Bond time
+* Log Mind activity
+
+Do not implement the + LOG centre action until its inclusion is confirmed.
+
+If + LOG is not confirmed, the navigation uses five equal tabs.
+
+Do not describe Today as the raised centre tab. That was an older navigation state.
 
 ---
 
-# Documentation
+# Dad Health Score
 
-This file is not a changelog.
+Dad Health Score contains:
 
-Keep it focused on:
+* Mind
+* Body
+* Bond
 
-- Project rules
-- Workflow
-- Current completed work
-- Remaining work
-- Deferred product decisions
+All Score values must come from one canonical source.
 
-Remove historical implementation notes once they are no longer relevant.
+This includes:
+
+* total Score
+* pillar Scores
+* week-on-week trends
+* weakest pillar
+* recommended action
+
+Do not calculate the Score independently inside individual mobile screens.
+
+Do not hardcode fake Score or trend values.
+
+Score recalculation must follow the current backend/product implementation and active milestone rules.
+
+## Trends
+
+Use the active milestone's agreed comparison window.
+
+Display trends in the approved format:
+
+`MIND 56 ↓27%`
+
+The Score appears first, followed by the trend.
+
+When there is insufficient historical data, use the defined zero-state rather than inventing a trend.
+
+## Weakest Pillar
+
+The weakest pillar is the lowest of Mind, Body and Bond.
+
+Recommendations must use the mapping defined in the active milestone.
+
+Do not create competing recommendation logic inside Today, Mind, Body or Bond.
+
+---
+
+# Today
+
+Today is the primary daily hub.
+
+The active hierarchy is:
+
+1. Greeting
+2. Dad Health Score card
+3. Pro tease / upgrade moment
+4. Daily check-in
+5. Your One Focus
+6. Streak
+7. Weekly card on report day
+8. Supporting tools
+9. This week's challenge
+
+## Dad Health Score Card
+
+The card contains:
+
+* Score ring
+* Mind
+* Body
+* Bond
+* trend values
+* weakest-pillar indication
+
+Tapping the card opens the Score Detail Sheet.
+
+## Daily Check-in
+
+The check-in contains the three approved daily questions.
+
+After submission, the relevant Mind value should update using the canonical Score source.
+
+If the check-in is already complete, **Your One Focus must not tell the user to complete the check-in again**.
+
+## Your One Focus
+
+The action is based on the weakest pillar and the current day's state.
+
+Use only the recommendation/action mapping defined in the active milestone.
+
+## Today Content Removed / Moved
+
+Mood information belongs on Mind.
+
+Historical Score information belongs in the Score Detail Sheet or the relevant pillar.
+
+Empty Smart Reminder content should not appear as an empty row.
+
+---
+
+# Score Detail Sheet
+
+The Score Detail Sheet replaces the old Score tab.
+
+It is opened from the Today Score card.
+
+Order:
+
+1. Score + pillars
+2. What feeds each pillar
+3. Pro improvement/insight tease
+4. Score trend history
+5. Monthly report card preview
+6. Badges
+7. Share report
+
+There should be one Share Report action in this experience.
+
+Score detail, trends and badges must use the same Score source as Today.
+
+---
+
+# Mind
+
+Mind is **action-first**.
+
+The user should be able to take a useful action immediately.
+
+Core actions defined by the active milestone include:
+
+* **2 MINUTES — Breathing reset (4-4-4)**
+* **5 MINUTES — Reset exercise**
+* **10 MINUTES — Guided reflection**
+* **TALK TO SOMEONE — Therapist directory**
+* **I JUST NEED TO TALK — Community**
+* **PRO — personalised plan**
+
+Crisis support must remain visible and accessible without login.
+
+Mind owns:
+
+* Mood This Week
+* Sleep Quality This Week
+* Mood Correlation / Pattern Spotted
+* Journal
+* Mood Trends
+
+Mood uses the current approved 1–5 model.
+
+The UI should use the approved mood labels rather than displaying the mood as a fractional score.
+
+---
+
+# Body
+
+Body owns physical activity, workouts, nutrition tools and wearable activity.
+
+Current feature areas include:
+
+* AI Workout
+* Meal Planner
+* TDEE / calorie calculator
+* Workout Library
+* wearable activity
+* manual workout logging
+
+Follow the current active brief for feature availability and Free/Pro entitlements.
+
+Do not bring old Body-specific decisions back simply because they exist in historical TestFlight feedback.
+
+## Wearables
+
+Wearable information belongs below the primary Body feature cards.
+
+When no wearable is connected, show the approved Connect Apple Health state.
+
+Do not display empty Steps/Active Minutes rows.
+
+When connected, supported data can include:
+
+* Steps
+* Active Minutes
+
+Sync status belongs in Settings.
+
+---
+
+# Bond
+
+Bond is one of the three Score pillars.
+
+Current active features include:
+
+* Present Dad Mode
+* Dad Days
+* Cook Together
+* Manual Bond logging
+
+Features explicitly removed by the current milestone must not be restored without a new approved requirement.
+
+Manual Bond activity contributes to the Bond Score according to the canonical backend rules.
+
+---
+
+# Community
+
+The current Community direction uses:
+
+**Every Kind of Dad**
+
+Community is available to Free and Pro users.
+
+The community structure and initial seeded content are governed by the active product brief and Jamie-provided content.
+
+Do not invent production community content when Jamie is responsible for supplying it.
+
+---
+
+# Manual Activity Logging
+
+Manual logging is part of the active milestone.
+
+## Body
+
+Support:
+
+* activity type
+* duration
+* intensity
+* date
+* notes
+
+Backdating is supported up to seven days.
+
+## Bond
+
+Support the approved Bond activity types, including:
+
+* routine
+* play
+* active
+* out & about
+* remote
+* other
+
+Support contact-day state where defined by the product.
+
+## Mind
+
+Support:
+
+* professional support
+* mindfulness
+* social connection
+* nature/recovery
+* other
+
+Use the backend activity-log contract rather than creating a separate mobile-only data model.
+
+New logs must trigger the approved Score recalculation behavior.
+
+---
+
+# Free and Pro
+
+Use the active milestone's entitlement rules.
+
+Core Free experience includes:
+
+* basic Dad Health Score
+* daily check-in
+* Mind breathing/journal/crisis support
+* basic Body workouts
+* manual activity logging
+* limited Dad Days
+* Community
+
+Pro adds defined personalisation and historical insight such as:
+
+* weekly Score trends
+* pillar insights
+* personalised recommendations
+* mood history/pattern insights
+* personalised Mind plan
+* personalised AI Workout
+* deeper progress/trend history
+* expanded Dad Days
+* personalised Bond insights
+* weekly report
+* streak protection
+* monthly report card
+
+The active milestone is authoritative for exact limits and entitlement behavior.
+
+Do not invent new paywalls or quotas.
+
+---
+
+# Pro Conversion
+
+Pro should appear at contextual moments where the user has already experienced value.
+
+The active upgrade moments are:
+
+1. After Score
+2. After check-in
+3. AI Workout
+4. Dad Days usage
+5. Progress/trend insight
+6. Score Detail Sheet
+7. Weekly report tease
+
+Do not make a paywall the first element of a feature.
+
+Do not use aggressive or repetitive upselling.
+
+Locked previews should explain what additional value Pro provides.
+
+---
+
+# Weekly Report
+
+The weekly Sunday report is currently a **Phase 4 specification**, not a general instruction to implement immediately.
+
+The approved specification includes:
+
+* Sunday 8am
+* Mind, Body and Bond Scores
+* trend arrows
+* total activities
+* streak status
+* one observation
+* one focus
+
+Free users receive the defined summary view.
+
+Pro users receive the defined breakdown, observation, next-week focus and previous reports.
+
+Do not begin building the weekly report unless the active task explicitly moves it into implementation scope.
+
+---
+
+# Native Integrations
+
+M4 established the current native integration baseline.
+
+Maintain existing approved functionality for:
+
+* Apple HealthKit
+* Google Health Connect
+* native subscriptions
+* OneSignal push
+* deep links
+* native authentication
+* biometrics
+* offline support
+
+Do not replace working native integrations with unrelated alternatives without approval.
+
+---
+
+# Authentication
+
+Supabase Auth is shared between web and mobile.
+
+Mobile supports:
+
+* email/password
+* Google OAuth using PKCE
+* native Apple Sign In
+* biometric convenience login
+* auth-aware deep-link continuation
+
+Rules:
+
+* never store passwords
+* never expose service-role credentials
+* never display raw provider/internal auth errors
+* preserve session isolation during sign-out/account switching
+
+---
+
+# Offline
+
+Offline support is mobile-only and user-scoped.
+
+Maintain:
+
+* per-user cached data
+* queued writes where supported
+* replay on reconnect
+* no cross-account cache leakage
+* cache/queue clearing on sign-out
+* guarded network-only writes
+
+Use the existing centralized connectivity experience.
+
+Do not create additional permanent connectivity banners.
+
+---
+
+# Push Notifications
+
+Server-side dispatch belongs to the web/backend layer.
+
+Mobile handles:
+
+* OneSignal device/user linking
+* notification-open routing
+* auth/loading-aware pending navigation
+* destination compatibility
+* production-safe messaging
+
+Push notifications are not a replacement for a future in-app activity/notification centre.
+
+---
+
+# Error Handling
+
+Production user-facing errors must:
+
+* name the affected feature/action
+* provide a useful next step
+* avoid raw provider/database/API details
+* never expose stack traces, tokens or environment variables
+* avoid vague placeholder messages
+
+Use the existing centralized error/connectivity patterns.
+
+Do not create a new error surface for every screen.
+
+---
+
+# Database and Security
+
+Use targeted Supabase migrations.
+
+Do not reapply the full schema to production.
+
+Rules:
+
+* no secrets in source control
+* no service-role keys in mobile
+* no raw tokens in logs or UI
+* least privilege for database functions and RLS
+* preserve idempotency for retries, webhooks and queued writes
+* prefer targeted changes over broad refactors
+
+New third-party dependencies require review.
+
+Do not add a dependency when platform/runtime functionality already solves the problem cleanly.
+
+---
+
+# Development Workflow
+
+For active product formation/refinement:
+
+1. Inspect existing web/backend behavior.
+2. Inspect the current mobile implementation.
+3. Read the active milestone requirement.
+4. Apply the latest addendum where it overrides the milestone.
+5. Identify:
+
+   * Keep
+   * Modify
+   * Remove
+   * Add
+6. Separate UI changes from backend/schema/product changes.
+7. Flag genuinely undefined behavior instead of guessing.
+8. Wait for approval where required.
+9. Change only the approved unit.
+10. Run focused regression tests and typecheck.
+11. Return to review mode.
+
+Do not turn a focused product request into an unrelated architecture refactor.
+
+---
+
+# Documentation Rule
+
+This file describes the **current development rules and product architecture relevant to the mobile client**.
+
+M4 is recorded only as the completed baseline.
+
+Historical TestFlight briefs, old milestone checklists and superseded Jamie decisions must not be treated as current requirements.
+
+When a new approved milestone or addendum changes product behavior, update this file so outdated rules are removed or clearly superseded.
