@@ -10,14 +10,18 @@ export type ProgressBadge = { icon: string; name: string };
 export function useProgressBadges(userId?: string) {
   const { isOffline } = useNetworkStatus();
   const [badges, setBadges] = useState<ProgressBadge[]>([]);
+  const [earnedCount, setEarnedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    if (!userId) { setBadges([]); setLoading(false); return; }
+    if (!userId) { setBadges([]); setEarnedCount(0); setLoading(false); return; }
     if (isOffline) {
       const cached = await readDashboardCache<DashboardData>(userId).catch(() => null);
-      if (cached) setBadges(cached.badges);
+      if (cached) {
+        setBadges(cached.badges);
+        setEarnedCount(cached.badges.length);
+      }
       setLoading(false);
       setError(null);
       return;
@@ -38,10 +42,11 @@ export function useProgressBadges(userId?: string) {
       .filter((badge): badge is ProgressBadge => Boolean(badge && typeof badge.icon === 'string' && typeof badge.name === 'string'));
     const catalogue = (catalogueResult.data ?? [])
       .filter((badge): badge is ProgressBadge => typeof badge.icon === 'string' && typeof badge.name === 'string');
+    setEarnedCount(earned.length);
     setBadges(earned.length > 0 ? earned : catalogue);
     setLoading(false);
   }, [isOffline, userId]);
 
   useEffect(() => { void refresh(); }, [refresh]);
-  return { badges, loading, error, refresh };
+  return { badges, earnedCount, loading, error, refresh };
 }
