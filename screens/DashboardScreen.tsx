@@ -3,6 +3,7 @@ import {
   KeyboardAvoidingView,
   type LayoutChangeEvent,
   Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   Text,
@@ -22,7 +23,7 @@ import DadScoreCard from '../components/dashboard/DadScoreCard';
 import FadeInView from '../components/FadeInView';
 import GreetingHeader from '../components/dashboard/GreetingHeader';
 import HomeSkeleton from '../components/skeleton/HomeSkeleton';
-import MoodWeekCard from '../components/dashboard/MoodWeekCard';
+import ScoreDetailSheet from '../components/dashboard/ScoreDetailSheet';
 import ProPromptModal from '../components/ProPromptModal';
 import RemindersList from '../components/dashboard/RemindersList';
 import ScreenTransition from '../components/ScreenTransition';
@@ -36,16 +37,11 @@ import { useDashboard } from '../hooks/useDashboard';
 import { useNetworkStatus } from '../contexts/NetworkContext';
 import { CAPS } from '../lib/dashboardCaps';
 import {
-  MOOD_WEEK_LABELS,
   getDashboardScore,
-  getCurrentWeekDayKeys,
-  getMoodSummary,
-  getMoodWeek,
   getScoreBreakdown,
 } from '../lib/dashboard.utils';
 import type { CheckInAction } from '../lib/checkInRecommendation';
-import { PRO_LOCKS, PRO_MOMENTS } from '../lib/proMoments';
-import { selectTodayFocus } from '../lib/todayFocus';
+import { PRO_MOMENTS } from '../lib/proMoments';
 import { greetingFirstName } from '../lib/userDisplay';
 import { buildWeeklyReport, isWeeklyReportDay } from '../lib/weeklyReport';
 import { colors } from '../theme';
@@ -53,14 +49,19 @@ import BondScreen from './BondScreen';
 import CommunityScreen from './CommunityScreen';
 import FitnessScreen from './FitnessScreen';
 import MindScreen from './MindScreen';
-import ProgressScreen from './subscreens/ProgressScreen';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 
 // TODAY top-centre brand logo (dark-background colour logo).
 const TODAY_LOGO = require('../assets/02. DAD HEALTH LOGO_COLOR_Dark BG.png');
 
 /** Signed-in dashboard screen, kept separate from the public Home experience. */
-export default function DashboardScreen() {
+export default function DashboardScreen({
+  openScoreDetail = false,
+  onScoreDetailRequestConsumed,
+}: {
+  openScoreDetail?: boolean;
+  onScoreDetailRequestConsumed?: () => void;
+}) {
   const { user } = useAuth();
   const [activeSection, setActiveSection] = useState<DashboardSection>('HOME');
 
@@ -76,12 +77,13 @@ export default function DashboardScreen() {
   else if (activeSection === 'MIND') screen = <MindScreen {...sectionProps} />;
   else if (activeSection === 'BOND') screen = <BondScreen {...sectionProps} />;
   else if (activeSection === 'COMMUNITY') screen = <CommunityScreen {...sectionProps} />;
-  else if (activeSection === 'PROGRESS') screen = <ProgressScreen {...sectionProps} />;
   else screen = (
     <DashboardScreenContent
       user={user}
       activeSection={activeSection}
       onSelectSection={setActiveSection}
+      openScoreDetail={openScoreDetail || activeSection === 'PROGRESS'}
+      onScoreDetailRequestConsumed={onScoreDetailRequestConsumed}
     />
   );
 
@@ -98,10 +100,14 @@ export function DashboardScreenContent({
   user,
   activeSection = 'HOME',
   onSelectSection,
+  openScoreDetail = false,
+  onScoreDetailRequestConsumed,
 }: {
   user: User;
   activeSection?: DashboardSection;
   onSelectSection?: (section: DashboardSection) => void;
+  openScoreDetail?: boolean;
+  onScoreDetailRequestConsumed?: () => void;
 }) {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { data, loading, error: dashboardError, syncError, checkingIn, refresh, saveCheckIn } = useDashboard(user.id);
@@ -118,7 +124,7 @@ export function DashboardScreenContent({
   const scrollRef = useRef<ScrollView>(null);
   const checkInOffset = useRef(0);
   const [refreshing, setRefreshing] = useState(false);
-  const [proPrompt, setProPrompt] = useState<'score' | 'checkIn' | 'moodTrends' | 'weeklyReport' | null>(null);
+  const [proPrompt, setProPrompt] = useState<'checkIn' | 'weeklyReport' | null>(null);
 
   const displayName = useMemo(
     () => greetingFirstName(data?.displayName, user),
@@ -148,31 +154,24 @@ export function DashboardScreenContent({
       },
       Boolean(data),
     );
-    const weakest = selectTodayFocus(true, {
-      mind: breakdown.mind,
-      body: breakdown.body,
-      bond: breakdown.bond,
-    });
+    const weakest = data?.weakestPillar;
     const allPillarsCritical = [breakdown.mind, breakdown.body, breakdown.bond]
       .every((value) => value === 5 || value === 10);
+    const trends = [data?.mindWeekChange, data?.bodyWeekChange, data?.bondWeekChange];
     return [
-      { label: 'Mind', value: breakdown.mind, trend: data?.isPro ? data.mindWeekChange ?? null : null, highlighted: weakest === 'mind', warning: allPillarsCritical && weakest === 'mind' },
-      { label: 'Body', value: breakdown.body, trend: data?.isPro ? data.bodyWeekChange ?? null : null, highlighted: weakest === 'body', warning: allPillarsCritical && weakest === 'body' },
+      { label: 'Mind', value: breakdown.mind, trend: data?.isPro ? trends[0] ?? null : null, highlighted: weakest === 'mind', warning: allPillarsCritical && weakest === 'mind' },
+      { label: 'Body', value: breakdown.body, trend: data?.isPro ? trends[1] ?? null : null, highlighted: weakest === 'body', warning: allPillarsCritical && weakest === 'body' },
       {
         label: 'Bond',
         value: breakdown.bond,
-        trend: data?.isPro ? data.bondWeekChange ?? null : null,
+        trend: data?.isPro ? trends[2] ?? null : null,
         highlighted: weakest === 'bond',
         warning: allPillarsCritical && weakest === 'bond',
       },
     ];
   }, [data]);
 
-  const moodWeek = useMemo(
-    () => getMoodWeek(data?.moodLogs ?? [], getCurrentWeekDayKeys()),
-    [data?.moodLogs],
-  );
-  const moodSummary = useMemo(() => getMoodSummary(moodWeek, Boolean(data)), [moodWeek, data]);
+  const scoreDetailItems = scoreItems;
 
   const reminders = useMemo(
     () => (data?.reminders ?? []).slice(0, CAPS.reminders),
@@ -229,21 +228,23 @@ export function DashboardScreenContent({
     }
   }, [moodValue, saveCheckIn, sleep, stressLevel]);
 
-  const todayFocus = useMemo(() => selectTodayFocus(Boolean(data?.checkedInToday), {
-    mind: data?.mindScore ?? null,
-    body: data?.bodyScore ?? null,
-    bond: data?.bondScore ?? null,
-  }), [data?.bodyScore, data?.bondScore, data?.checkedInToday, data?.mindScore]);
+  const todayFocus = useMemo(() => {
+    if (data?.recommendedAction === 'checkin') return 'checkin';
+    if (data?.recommendedAction === 'mind_breathing') return 'mind';
+    if (data?.recommendedAction === 'body_workout') return 'body';
+    if (data?.recommendedAction === 'bond_present_mode') return 'bond';
+    return null;
+  }, [data?.bodyScore, data?.bondScore, data?.checkedInToday, data?.mindScore, data?.recommendedAction]);
 
-  // Moment 5 — the weekly report lands on Sundays on Today, and lives
-  // permanently on Progress.
+  // The report is part of Today on Sunday after its configured 08:00 release.
   const weeklyReport = useMemo(() => data ? buildWeeklyReport({
     mindWeekChange: data.mindWeekChange,
     bodyWeekChange: data.bodyWeekChange,
     bondWeekChange: data.bondWeekChange,
     monthWorkouts: data.monthWorkouts,
+    recommendedAction: data.recommendedAction,
   }) : null, [data]);
-  const showWeeklyReport = useMemo(() => isWeeklyReportDay(), []);
+  const showWeeklyReport = isWeeklyReportDay();
 
   // After a reload the stress answer is no longer in session, so the follow-up
   // reads today's logged mood rather than the panel's pre-selected default.
@@ -260,19 +261,28 @@ export function DashboardScreenContent({
 
   const openPro = useCallback(() => navigation.navigate('ProSubscription'), [navigation]);
 
-  const openScoreInsights = useCallback(() => {
-    if (data?.isPro) navigation.navigate('Progress');
-    else setProPrompt('score');
-  }, [data?.isPro, navigation]);
+  const [scoreSheetOpen, setScoreSheetOpen] = useState(false);
+  const scoreDetailRequestHandled = useRef(false);
+  const openScoreInsights = useCallback(() => setScoreSheetOpen(true), []);
+
+  useEffect(() => {
+    if (openScoreDetail && !scoreDetailRequestHandled.current) {
+      scoreDetailRequestHandled.current = true;
+      setScoreSheetOpen(true);
+      onScoreDetailRequestConsumed?.();
+    } else if (!openScoreDetail) {
+      scoreDetailRequestHandled.current = false;
+    }
+  }, [onScoreDetailRequestConsumed, openScoreDetail]);
+
+  const closeScoreSheet = useCallback(() => {
+    setScoreSheetOpen(false);
+    if (activeSection === 'PROGRESS') onSelectSection?.('HOME');
+  }, [activeSection, onSelectSection]);
 
   const openCheckInPlan = useCallback(() => {
     if (data?.isPro) navigation.navigate('Tabs', { screen: 'Mind' });
     else setProPrompt('checkIn');
-  }, [data?.isPro, navigation]);
-
-  const openMoodTrends = useCallback(() => {
-    if (data?.isPro) navigation.navigate('Tabs', { screen: 'Mind' });
-    else setProPrompt('moodTrends');
   }, [data?.isPro, navigation]);
 
   const openFocus = useCallback(() => {
@@ -282,7 +292,7 @@ export function DashboardScreenContent({
       navigation.navigate('BreathingSession');
     } else if (todayFocus === 'body') {
       navigation.navigate('ActiveWorkout', data?.suggestedWorkout?.id ? { workoutId: data.suggestedWorkout.id } : undefined);
-    } else {
+    } else if (todayFocus === 'bond') {
       navigation.navigate('Tabs', { screen: 'Bond' });
     }
   }, [data?.suggestedWorkout?.id, navigation, todayFocus]);
@@ -308,12 +318,13 @@ export function DashboardScreenContent({
       actionLabel: 'Start workout',
       icon: 'activity' as const,
     };
-    return {
+    if (todayFocus === 'bond') return {
       title: 'Make time to connect',
       description: 'Choose one intentional moment with your family today.',
       actionLabel: 'Open Present Dad Mode',
       icon: 'heart' as const,
     };
+    return null;
   }, [data?.suggestedWorkout, todayFocus]);
 
   const supportingTools = useMemo<SupportingTool[]>(() => [
@@ -385,7 +396,7 @@ export function DashboardScreenContent({
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerClassName="px-lg pt-lg pb-[120px] gap-xl"
+          contentContainerClassName="px-lg pt-lg pb-[120px] gap-lg"
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => void handleRefresh()} tintColor={colors.lime} />
           }
@@ -443,15 +454,22 @@ export function DashboardScreenContent({
               </FadeInView>
 
               <FadeInView delay={90}>
-                <DadScoreCard
-                  score={score}
-                  items={scoreItems}
-                  title="Dad Health Score"
-                  scoreLabel="of 100"
-                  actionLabel="Unlock my insights"
-                  onAction={openScoreInsights}
-                  compactBottom
-                />
+                <View className="relative">
+                  <DadScoreCard
+                    score={score}
+                    items={scoreItems}
+                    title="Dad Health Score"
+                    scoreLabel="of 100"
+                    proTease={!data.isPro ? 'Unlock my insights' : undefined}
+                    compactBottom
+                  />
+                  <Pressable
+                    onPress={openScoreInsights}
+                    accessibilityRole="button"
+                    accessibilityLabel="Open Dad Health Score details"
+                    className="absolute inset-0"
+                  />
+                </View>
               </FadeInView>
 
               {!data.checkedInToday || showCheckInSuccess ? (
@@ -501,27 +519,15 @@ export function DashboardScreenContent({
               ) : null}
 
               <FadeInView delay={200}>
-                <MoodWeekCard
-                  values={moodWeek}
-                  labels={MOOD_WEEK_LABELS}
-                  summary={moodSummary}
-                  flat
-                  locked={!data.isPro}
-                  actionLabel="View mood trends"
-                  onAction={openMoodTrends}
-                />
+                {focusContent ? <TodayFocusCard {...focusContent} onPress={openFocus} /> : null}
               </FadeInView>
 
-              <FadeInView delay={220}>
-                <TodayFocusCard {...focusContent} onPress={openFocus} />
-              </FadeInView>
-
-              <FadeInView delay={260}>
+              <FadeInView delay={240}>
                 <StreakCard streak={data.streak} isPro={data.isPro} onUpgrade={openPro} />
               </FadeInView>
 
               {showWeeklyReport ? (
-                <FadeInView delay={280}>
+                <FadeInView delay={260}>
                   <WeeklyReportCard
                     report={weeklyReport}
                     isPro={data.isPro}
@@ -530,11 +536,11 @@ export function DashboardScreenContent({
                 </FadeInView>
               ) : null}
 
-              <FadeInView delay={300}>
+              <FadeInView delay={280}>
                 <SupportingTools tools={supportingTools} />
               </FadeInView>
 
-              <FadeInView delay={340}>
+              <FadeInView delay={300}>
                 <ChallengeCard
                   challenge={data.challenge}
                   onOpenChallenge={data.challenge
@@ -543,15 +549,25 @@ export function DashboardScreenContent({
                 />
               </FadeInView>
 
-              <FadeInView delay={380}>
-                <RemindersList reminders={reminders} />
-              </FadeInView>
+              {reminders.length > 0 ? (
+                <FadeInView delay={320}>
+                  <RemindersList reminders={reminders} />
+                </FadeInView>
+              ) : null}
+
+              <ScoreDetailSheet
+                visible={scoreSheetOpen}
+                onClose={closeScoreSheet}
+                score={score}
+                items={scoreDetailItems}
+                isPro={data.isPro}
+                userId={user.id}
+                onUpgrade={openPro}
+              />
 
               <ProPromptModal
                 visible={proPrompt !== null}
-                moment={proPrompt === 'moodTrends'
-                  ? PRO_LOCKS.moodTrends
-                  : PRO_MOMENTS[proPrompt ?? 'score']}
+                moment={PRO_MOMENTS[proPrompt ?? 'checkIn']}
                 onUpgrade={openPro}
                 onDismiss={() => setProPrompt(null)}
               />

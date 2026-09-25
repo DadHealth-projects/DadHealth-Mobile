@@ -39,26 +39,28 @@ function CheckInFollowUp({
           </Text>
         </View>
 
-        <Pressable
-          onPress={() => onAction(advice.action)}
-          accessibilityRole="button"
-          accessibilityLabel={advice.actionLabel}
-          className="min-h-[44px] self-start justify-center border-b border-lime active:opacity-70"
-        >
-          <Text className="font-heading-bold text-lime text-[11px] uppercase">
-            {advice.actionLabel}
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={onPlan}
-          accessibilityRole="button"
-          accessibilityLabel={isPro ? 'Build my plan' : 'See what Pro can do'}
-          className="min-h-[44px] self-start justify-center border-b border-lime active:opacity-70"
-        >
-          <Text className="font-heading-bold text-lime text-[11px] uppercase">
-            {isPro ? 'Build my plan' : 'See what Pro can do'}
-          </Text>
-        </Pressable>
+        <View className="flex-row items-center justify-between">
+          <Pressable
+            onPress={() => onAction(advice.action)}
+            accessibilityRole="button"
+            accessibilityLabel={advice.actionLabel}
+            className="min-h-[44px] justify-center active:opacity-70"
+          >
+            <Text className="font-heading-bold text-lime text-[11px] uppercase underline decoration-lime">
+              {advice.actionLabel}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={onPlan}
+            accessibilityRole="button"
+            accessibilityLabel={isPro ? 'Build my plan' : 'See what Pro can do'}
+            className="min-h-[44px] justify-center active:opacity-70"
+          >
+            <Text className="font-heading-bold text-lime text-[11px] uppercase text-right underline decoration-lime">
+              {isPro ? 'Build my plan' : 'See what Pro can do'}
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
