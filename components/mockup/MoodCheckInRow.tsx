@@ -6,7 +6,7 @@ export const MOOD_OPTIONS = [
   { key: 'okay', emoji: '😐', label: 'Okay', value: 2 },
   { key: 'good', emoji: '🙂', label: 'Good', value: 3 },
   { key: 'great', emoji: '😄', label: 'Great', value: 4 },
-  { key: 'fired-up', emoji: '⚡', label: 'Fired up', value: 4 },
+  { key: 'fired-up', emoji: '⚡', label: 'Fired up', value: 5 },
 ] as const;
 
 export type MoodKey = (typeof MOOD_OPTIONS)[number]['key'];

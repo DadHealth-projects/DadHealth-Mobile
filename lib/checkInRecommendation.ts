@@ -20,7 +20,7 @@ export type CheckInRecommendation = {
 };
 
 /**
- * @param moodValue 1–4, as stored in `mood_logs.mood_value`.
+ * @param moodValue 1–5, as selected by the current check-in.
  * @param stressLevel 1–5, as collected by the check-in panel.
  */
 export function checkInRecommendation(
