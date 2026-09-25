@@ -40,7 +40,7 @@ export function isRetryableOfflineError(error: unknown) {
 function assertDailyCheckIn(item: OfflineDailyCheckInItem) {
   const { date, moodValue, stressLevel, sleepHours } = item.payload;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('invalid_checkin_date');
-  if (!Number.isInteger(moodValue) || moodValue < 1 || moodValue > 4) throw new Error('invalid_mood');
+  if (!Number.isInteger(moodValue) || moodValue < 1 || moodValue > 5) throw new Error('invalid_mood');
   if (stressLevel != null && (!Number.isInteger(stressLevel) || stressLevel < 1 || stressLevel > 5)) throw new Error('invalid_stress');
   if (!Number.isFinite(sleepHours) || sleepHours < 0 || sleepHours > 12) throw new Error('invalid_sleep');
 }
@@ -180,6 +180,7 @@ export async function persistDailyCheckIn(item: OfflineDailyCheckInItem) {
     user_id: item.userId,
     date,
     mood_value: moodValue,
+    mood_scale_version: 1,
     ...(stressLevel == null ? {} : { stress_level: stressLevel }),
   };
   const mood = await supabase
