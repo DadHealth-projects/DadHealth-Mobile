@@ -37,7 +37,7 @@ export default function HealthPermissionsScreen() {
   const health = isAndroid ? healthConnect : appleHealth;
   const providerCopy = isAndroid
     ? {
-        hero: 'Connect Health Connect to keep your existing Fitness and Progress data up to date.',
+        hero: 'Connect Health Connect to keep your Body activity up to date.',
         connected: 'Health Connect connected',
         connectedMessage: 'Health Connect connected.',
         syncedMessage: 'Health Connect data synced.',
@@ -45,7 +45,7 @@ export default function HealthPermissionsScreen() {
         unavailable: 'Health Connect isn’t available on this device.',
       }
     : {
-        hero: 'Connect Apple Health to keep your existing Fitness and Progress data up to date.',
+        hero: 'Connect Apple Health to keep your Body activity up to date.',
         connected: 'Apple Health connected',
         connectedMessage: 'Apple Health connected.',
         syncedMessage: 'Apple Health data synced.',
@@ -129,7 +129,7 @@ export default function HealthPermissionsScreen() {
           ) : (
             <>
               <Text className="font-heading-bold text-white text-[13px] uppercase">{providerCopy.connect}</Text>
-              <Text className="font-body text-muted-text text-[12px] leading-[19px]">Allow Dad Health to read your health data so your Fitness and Progress screens stay up to date automatically.</Text>
+              <Text className="font-body text-muted-text text-[12px] leading-[19px]">Allow Dad Health to read your health data so Body activity stays up to date automatically.</Text>
               <LimeButton
                 label={providerCopy.connect}
                 onPress={() => void connect()}

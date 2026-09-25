@@ -14,7 +14,7 @@ test('Health Permissions uses production Apple Health copy', async () => {
 
   for (const expected of [
     'Connect Apple Health',
-    'Allow Dad Health to read your health data so your Fitness and Progress screens stay up to date automatically.',
+    'Allow Dad Health to read your health data so Body activity stays up to date automatically.',
     'Apple Health connected',
     'You can change what Dad Health can access anytime in Apple Health or iPhone Settings.',
     'Apple Health isn’t available on this device.',
