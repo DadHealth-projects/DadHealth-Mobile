@@ -12,6 +12,7 @@ import {
 import { isRetryableOfflineError, persistDailyCheckIn } from '../lib/offlineSync';
 import { supabase } from '../lib/supabase';
 import { isProfilePro } from '../lib/proStatus';
+import { selectTodayFocus } from '../lib/todayFocus';
 
 export type Reminder = {
   id: string;
@@ -85,6 +86,8 @@ export type DashboardData = {
   bodyWeekChange: number | null;
   bondWeekChange: number | null;
   totalScore: number | null;
+  weakestPillar: 'mind' | 'body' | 'bond' | null;
+  recommendedAction: 'checkin' | 'mind_breathing' | 'body_workout' | 'bond_present_mode' | null;
   moodLogs: Array<{ date: string; mood_value: number }>;
   checkedInToday: boolean;
   reminders: Reminder[];
@@ -240,8 +243,8 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     postsResult,
   ] = await Promise.all([
     supabase.from('user_profile').select('display_name,goals,is_pro,subscription_status').eq('user_id', userId).maybeSingle(),
-    supabase.from('dad_score_view').select('mind_score,body_score,bond_score,mind_week_change,body_week_change,bond_week_change').eq('user_id', userId).maybeSingle(),
-    supabase.from('mood_logs').select('date,mood_value').eq('user_id', userId).gte('date', weekStart).order('date'),
+    supabase.from('dad_score_view').select('mind_score,body_score,bond_score,mind_week_change,body_week_change,bond_week_change,total_score,weakest_pillar,recommended_action').eq('user_id', userId).maybeSingle(),
+    supabase.from('mood_logs').select('date,mood_value,mood_scale_version').eq('user_id', userId).gte('date', weekStart).order('date'),
     supabase
       .from('weekly_challenges')
       .select('id,title,description,participants_count')
@@ -280,7 +283,10 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
   const dashboard = dashboardResult.error
     ? null
     : dashboardResult.data as Record<string, unknown> | null;
-  const moodLogs = moodsResult.data ?? [];
+  const moodLogs = (moodsResult.data ?? []).map((log) => ({
+    date: log.date,
+    mood_value: log.mood_scale_version === 1 ? log.mood_value : log.mood_value + 1,
+  }));
 
   // Prefer the `reminders` table (web's source). If the table is missing or the
   // policy blocks it, fall back to the reminder payload on `dashboard_view` —
@@ -444,7 +450,16 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     mindWeekChange: nullableScore(scoresResult.data?.mind_week_change),
     bodyWeekChange: nullableScore(scoresResult.data?.body_week_change),
     bondWeekChange: nullableScore(scoresResult.data?.bond_week_change),
-    totalScore: nullableScore(dashboard?.total_score),
+    totalScore: nullableScore(scoresResult.data?.total_score),
+    weakestPillar: scoresResult.data?.weakest_pillar === 'mind' || scoresResult.data?.weakest_pillar === 'body' || scoresResult.data?.weakest_pillar === 'bond'
+      ? scoresResult.data.weakest_pillar
+      : null,
+    recommendedAction: scoresResult.data?.recommended_action === 'checkin'
+      || scoresResult.data?.recommended_action === 'mind_breathing'
+      || scoresResult.data?.recommended_action === 'body_workout'
+      || scoresResult.data?.recommended_action === 'bond_present_mode'
+      ? scoresResult.data.recommended_action
+      : null,
     moodLogs,
     checkedInToday: moodLogs.some((log) => log.date === today),
     reminders,
@@ -653,7 +668,7 @@ export function useDashboard(userId: string | undefined) {
 
   const saveCheckIn = useCallback(async (moodValue: number, stressLevel: number, sleepHours: number): Promise<{ error: string | null; queued?: boolean; mindScore?: number | null }> => {
     if (!userId) return { error: "You're not signed in. Please sign in again to save your check-in." };
-    if (!Number.isInteger(moodValue) || moodValue < 1 || moodValue > 4) return { error: 'Choose a mood from 1 to 4.' };
+    if (!Number.isInteger(moodValue) || moodValue < 1 || moodValue > 5) return { error: 'Choose a mood from 1 to 5.' };
     if (!Number.isInteger(stressLevel) || stressLevel < 1 || stressLevel > 5) return { error: 'Choose how stressed you feel today.' };
     if (!Number.isFinite(sleepHours) || sleepHours < 0 || sleepHours > 12) return { error: 'Enter sleep between 0 and 12 hours.' };
 
@@ -669,11 +684,26 @@ export function useDashboard(userId: string | undefined) {
 
     const applyLocalCheckIn = async () => {
       if (!store.data || store.userId !== userId) return;
+      const selectedPillar = store.data.weakestPillar ?? selectTodayFocus(true, {
+        mind: store.data.mindScore,
+        body: store.data.bodyScore,
+        bond: store.data.bondScore,
+      });
+      const weakestPillar: NonNullable<DashboardData['weakestPillar']> = selectedPillar === 'checkin' ? 'mind' : selectedPillar;
+      const recommendedAction: NonNullable<DashboardData['recommendedAction']> = weakestPillar === 'mind' ? 'mind_breathing'
+        : weakestPillar === 'body' ? 'body_workout'
+          : 'bond_present_mode';
       const nextMoodLogs = [
         ...store.data.moodLogs.filter((log) => log.date !== date),
         { date, mood_value: moodValue },
       ].sort((a, b) => a.date.localeCompare(b.date));
-      const nextData = { ...store.data, moodLogs: nextMoodLogs, checkedInToday: date === todayKey() };
+      const nextData = {
+        ...store.data,
+        moodLogs: nextMoodLogs,
+        checkedInToday: date === todayKey(),
+        weakestPillar,
+        recommendedAction,
+      };
       setStore({ data: nextData, error: null, syncError: null });
       await writeDashboardCache(userId, nextData);
     };

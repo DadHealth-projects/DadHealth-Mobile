@@ -22,15 +22,11 @@ export function getDashboardScore(
   dashboard: DashboardScoreSource | null | undefined,
   hasUser: boolean,
 ): number | null {
-  if (typeof dashboard?.total_score === 'number') return Math.round(dashboard.total_score);
   if (!hasUser) return null;
-  const mind = dashboard?.mind_score;
-  const body = dashboard?.body_score;
-  const bond = dashboard?.bond_score;
-  if (typeof mind === 'number' && typeof body === 'number' && typeof bond === 'number') {
-    return Math.round((mind + body + bond) / 3);
-  }
-  return null;
+  const total = typeof dashboard?.total_score === 'string'
+    ? Number(dashboard.total_score)
+    : dashboard?.total_score;
+  return typeof total === 'number' && Number.isFinite(total) ? Math.round(total) : null;
 }
 
 export function getScoreBreakdown(
@@ -79,7 +75,7 @@ export function getMoodWeek(moodLogs: MoodLog[], dayKeys: string[]): number[] {
   return dayKeys.map((key) => moodMap.get(key) ?? 0);
 }
 
-/** Web wording: Great / Good / Okay / Low, with " (x.x/4)" appended. */
+/** Approved 1–5 mood labels; mood values are not presented as fractional scores. */
 export function getMoodSummary(
   moodWeek: number[],
   hasUser: boolean,
@@ -88,8 +84,8 @@ export function getMoodSummary(
   const recorded = moodWeek.filter((value) => value > 0);
   if (recorded.length === 0) return { label: '0', scoreText: '' };
   const average = recorded.reduce((sum, value) => sum + value, 0) / recorded.length;
-  const label = average >= 3.5 ? 'Great' : average >= 3 ? 'Good' : average >= 2 ? 'Okay' : 'Low';
-  return { label, scoreText: ` (${average.toFixed(1)}/4)` };
+  const label = average >= 4.5 ? 'Fired up' : average >= 3.5 ? 'Great' : average >= 2.5 ? 'Good' : average >= 1.5 ? 'Okay' : 'Stressed';
+  return { label, scoreText: '' };
 }
 
 /** Web weekday labels for the mood chart. */
