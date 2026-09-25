@@ -18,7 +18,6 @@ test('notification taps route every supported destination natively', async () =>
   for (const destination of [
     "navigate('CommunityPostThread'",
     "navigate('SharedCalendar'",
-    "navigate('Progress'",
     "screen: 'Home'",
     "screen: 'Bond'",
     "screen: 'Fit'",
@@ -27,6 +26,7 @@ test('notification taps route every supported destination natively', async () =>
   ]) {
     assert.ok(router.includes(destination), `Missing native route: ${destination}`);
   }
+  assert.ok(router.includes("params: { openScoreDetail: true }"));
 });
 
 test('Expo web never initializes the native OneSignal bridge', async () => {
