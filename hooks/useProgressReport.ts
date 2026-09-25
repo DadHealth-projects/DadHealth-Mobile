@@ -49,7 +49,7 @@ export function useProgressReport(userId?: string) {
       supabase.from('dad_dates').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('source', 'ai_search'),
       supabase.from('sleep_logs').select('hours').eq('user_id', userId).gte('date', monthStart).lte('date', monthEnd),
       supabase.from('user_streaks').select('streak_count').eq('user_id', userId).maybeSingle(),
-      supabase.from('mood_logs').select('mood_value').eq('user_id', userId).gte('date', monthStart).lte('date', monthEnd),
+      supabase.from('mood_logs').select('mood_value,mood_scale_version').eq('user_id', userId).gte('date', monthStart).lte('date', monthEnd),
     ]);
     if (workoutsRes.error || journalRes.error || sleepRes.error || streakRes.error || moodRes.error) {
       setError('We could not load your monthly report. Please try again.');
@@ -59,14 +59,16 @@ export function useProgressReport(userId?: string) {
     const sleepRows = sleepRes.data ?? [];
     const moodRows = moodRes.data ?? [];
     const sleepAverage = sleepRows.length ? sleepRows.reduce((sum, row) => sum + Number(row.hours), 0) / sleepRows.length : null;
-    const moodAverage = moodRows.length ? moodRows.reduce((sum, row) => sum + Number(row.mood_value), 0) / moodRows.length : null;
+    const moodAverage = moodRows.length
+      ? moodRows.reduce((sum, row) => sum + Number(row.mood_value) + (row.mood_scale_version === 1 ? 0 : 1), 0) / moodRows.length
+      : null;
     setReport({
       workouts: workoutsRes.count ?? 0,
       journal: journalRes.count ?? 0,
       dadDates: dadDatesRes.count ?? 0,
       avgSleep: sleepAverage == null ? null : Math.round(sleepAverage * 10) / 10,
       streak: streakRes.data?.streak_count ?? 0,
-      avgMood: moodAverage == null ? null : moodAverage >= 3.5 ? 'Good' : moodAverage >= 2.5 ? 'Okay' : 'Low',
+      avgMood: moodAverage == null ? null : moodAverage >= 4.5 ? 'Fired up' : moodAverage >= 3.5 ? 'Great' : moodAverage >= 2.5 ? 'Good' : moodAverage >= 1.5 ? 'Okay' : 'Stressed',
     });
     setLoading(false);
   }, [isOffline, userId]);
