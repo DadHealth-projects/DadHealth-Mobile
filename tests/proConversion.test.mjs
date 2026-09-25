@@ -42,23 +42,22 @@ test('each upgrade moment keeps the wording from the brief', async () => {
 });
 
 test('approved conversion entry points use the existing Pro prompt', async () => {
-  const [dashboard, checkIn, weekly, aiWorkout, dadDays, progress] = await Promise.all([
+  const [dashboard, checkIn, weekly, aiWorkout, dadDays, scoreDetails] = await Promise.all([
     source('screens/DashboardScreen.tsx'),
     source('components/dashboard/CheckInFollowUp.tsx'),
     source('components/dashboard/WeeklyReportCard.tsx'),
     source('screens/subscreens/AIWorkoutScreen.tsx'),
     source('screens/subscreens/DadDaysSearchScreen.tsx'),
-    source('screens/subscreens/ProgressScreen.tsx'),
+    source('components/dashboard/ScoreDetailSheet.tsx'),
   ]);
 
-  assert.ok(dashboard.includes("setProPrompt('score')"));
   assert.ok(dashboard.includes("setProPrompt('checkIn')"));
   assert.ok(dashboard.includes("setProPrompt('weeklyReport')"));
   assert.ok(checkIn.includes('See what Pro can do'));
   assert.ok(weekly.includes('PRO_MOMENTS.weeklyReport'));
   assert.ok(aiWorkout.includes('PRO_MOMENTS.aiWorkout'));
   assert.ok(dadDays.includes('PRO_MOMENTS.dadDaysCounter'));
-  assert.ok(progress.includes('PRO_MOMENTS.progressTrends'));
+  assert.ok(scoreDetails.includes('PRO_MOMENTS.score'));
 });
 
 test('Moment 2 gives a free recommendation before it mentions Pro', async () => {
@@ -101,16 +100,15 @@ test('Moment 3 keeps one AI workout screen and prompts only at the Free limit', 
 });
 
 test('the weekly Sunday report is a Pro feature and never invents a week', async () => {
-  const [report, card, dashboard, progress] = await Promise.all([
+  const [report, card, dashboard] = await Promise.all([
     source('lib/weeklyReport.ts'),
     source('components/dashboard/WeeklyReportCard.tsx'),
     source('screens/DashboardScreen.tsx'),
-    source('screens/subscreens/ProgressScreen.tsx'),
   ]);
 
   assert.ok(report.includes('date.getDay() === 0'));
   assert.ok(report.includes('if (pillars.every((pillar) => pillar.change === null)) return null;'));
-  assert.ok(report.includes('Next week: Focus on'));
+  assert.ok(report.includes('ACTION_FOCUS[source.recommendedAction]'));
   const freeBranch = card.slice(card.indexOf('if (!isPro)'), card.indexOf('\n  return (', card.indexOf('if (!isPro)')));
   assert.ok(freeBranch.includes('Learn about weekly Dad Health reports'));
   assert.ok(freeBranch.includes('PRO_MOMENTS.weeklyReport.body'));
@@ -120,34 +118,31 @@ test('the weekly Sunday report is a Pro feature and never invents a week', async
   assert.ok(dashboard.includes('isWeeklyReportDay()'));
   assert.ok(dashboard.includes('{showWeeklyReport ? ('));
   assert.ok(dashboard.includes("setProPrompt('weeklyReport')"));
-  assert.ok(progress.includes('<WeeklyReportCard'));
+  assert.ok(dashboard.includes('<WeeklyReportCard'));
 });
 
 test('conversion moments stay compact until the user asks for Pro', async () => {
-  const [prompt, dashboard, aiWorkout, dadDays, weekly, progress] = await Promise.all([
+  const [prompt, dashboard, aiWorkout, dadDays, weekly, scoreDetails] = await Promise.all([
     source('components/ProPromptModal.tsx'),
     source('screens/DashboardScreen.tsx'),
     source('screens/subscreens/AIWorkoutScreen.tsx'),
     source('screens/subscreens/DadDaysSearchScreen.tsx'),
     source('components/dashboard/WeeklyReportCard.tsx'),
-    source('screens/subscreens/ProgressScreen.tsx'),
+    source('components/dashboard/ScoreDetailSheet.tsx'),
   ]);
 
   assert.ok(prompt.includes('Not now'));
   assert.ok(prompt.includes('onRequestClose={onDismiss}'));
   assert.ok(prompt.includes('onPress={onDismiss}'));
-  assert.ok(dashboard.includes('actionLabel="Unlock my insights"'));
-  assert.ok(dashboard.includes("setProPrompt('score')"));
+  assert.ok(dashboard.includes("proTease={!data.isPro ? 'Unlock my insights' : undefined}"));
   assert.ok(aiWorkout.includes("cause.code === 'free_limit_reached'"));
   assert.ok(dadDays.includes('free Dad Days searches used this month.'));
   assert.ok(dadDays.includes('setLimitPromptOpen(true)'));
   assert.equal(dadDays.includes('<ProUpgradeSection'), false);
   assert.ok(weekly.includes('Learn about weekly Dad Health reports'));
-  assert.ok(progress.includes('Want to see how your Body score has changed?'));
-  assert.ok(progress.includes("setProPrompt('progressTrends')"));
-  assert.ok(progress.includes("setProPrompt('weeklyReport')"));
-  assert.ok(progress.includes('<ProPromptModal'));
-  assert.equal(progress.includes('<ProUpgradeSection'), false);
+  assert.ok(scoreDetails.includes('See your score history'));
+  assert.ok(scoreDetails.includes('Your monthly report'));
+  assert.ok(scoreDetails.includes('onUpgrade={onUpgrade}'));
 });
 
 test('streak protection is a Pro benefit and degrades safely', async () => {
@@ -167,12 +162,12 @@ test('streak protection is a Pro benefit and degrades safely', async () => {
 });
 
 test('the free and Pro split matches the brief table', async () => {
-  const [therapist, milestones, tdee, planner, progress, mind, dashboard] = await Promise.all([
+  const [therapist, milestones, tdee, planner, scoreDetails, mind, dashboard] = await Promise.all([
     source('screens/subscreens/TherapistDirectoryScreen.tsx'),
     source('screens/subscreens/MilestoneTrackerScreen.tsx'),
     source('screens/subscreens/TDEECalculatorScreen.tsx'),
     source('screens/subscreens/MealPlannerScreen.tsx'),
-    source('screens/subscreens/ProgressScreen.tsx'),
+    source('components/dashboard/ScoreDetailSheet.tsx'),
     source('screens/MindScreen.tsx'),
     source('screens/DashboardScreen.tsx'),
   ]);
@@ -189,18 +184,12 @@ test('the free and Pro split matches the brief table', async () => {
   assert.ok(tdee.includes('PRO_LOCKS.fullTdee'));
   assert.ok(tdee.includes('const isPro = dashboard?.isPro === true;'));
   assert.ok(planner.includes('PRO_LOCKS.mealPlanner'));
-  assert.equal(progress.includes('lockedValues={!isPro}'), false);
-  assert.equal(progress.includes('<ProLockedPreview'), false);
-  assert.ok(progress.includes('{reportStats.map(([value, label])'));
-  assert.match(progress, /\{isPro \? \([\s\S]*?<WeeklyReportCard report=\{weeklyReport\} isPro/);
-  assert.ok(progress.includes('dashboardData ? dashboardData.bondScore : progressScore.data.breakdown.bond'));
-  assert.ok(progress.includes('[breakdown.mind, breakdown.body, breakdown.bond]'));
-  assert.ok(progress.includes('.every((value) => value === 5 || value === 10)'));
-  assert.ok(progress.includes("warning: allPillarsCritical && weakest === 'mind'"));
-  assert.ok(progress.includes("warning: allPillarsCritical && weakest === 'body'"));
-  assert.ok(progress.includes("warning: allPillarsCritical && weakest === 'bond'"));
-  assert.ok(mind.includes('PRO_LOCKS.moodTrends'));
-  assert.ok(dashboard.includes('PRO_LOCKS.moodTrends'));
+  assert.ok(scoreDetails.includes('{reportStats.map(([value, label])'));
+  assert.ok(scoreDetails.includes('!isPro ?'));
+  assert.ok(scoreDetails.includes('badgeData.earnedCount === 0'));
+  assert.ok(mind.includes('locked'));
+  assert.ok(mind.includes('actionLabel="View mood trends"'));
+  assert.equal(dashboard.includes('PRO_LOCKS.moodTrends'), false);
 });
 
 test('locks show a preview and never lead with the lock icon', async () => {

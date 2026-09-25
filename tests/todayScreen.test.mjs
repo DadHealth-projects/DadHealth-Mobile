@@ -17,7 +17,6 @@ test('Today follows the approved score-led hierarchy', async () => {
     "Today's check-in",
     // One focus is the free recommendation and sits directly after the check-in.
     '<TodayFocusCard',
-    '<MoodWeekCard',
     '<StreakCard',
     '<SupportingTools',
     '<ChallengeCard',
@@ -29,6 +28,9 @@ test('Today follows the approved score-led hierarchy', async () => {
     assert.ok(ordered[index] > ordered[index - 1], 'Today hierarchy is out of order');
   }
   assert.equal(screen.includes('<TodaysPlan'), false);
+  assert.equal(signedIn.includes('<MoodWeekCard'), false);
+  assert.match(screen, /reminders\.length > 0 \?/);
+  assert.ok(screen.includes('<ScoreDetailSheet'));
 });
 
 test('daily check-in includes stress and persists it online and offline', async () => {
@@ -65,7 +67,7 @@ test('lowest-pillar focus uses approved tie order and existing destinations', as
   assert.ok(screen.includes("actionLabel: 'Open Present Dad Mode'"));
 });
 
-test('score card keeps real scores visible but reserves weekly trends for Pro', async () => {
+test('Today score card and detail sheet use canonical values for Free and Pro', async () => {
   const [screen, scoreCard, hook, moments] = await Promise.all([
     source('screens/DashboardScreen.tsx'),
     source('components/dashboard/DadScoreCard.tsx'),
@@ -77,13 +79,24 @@ test('score card keeps real scores visible but reserves weekly trends for Pro', 
   assert.ok(screen.includes("highlighted: weakest === 'mind'"));
   assert.ok(screen.includes("highlighted: weakest === 'body'"));
   assert.ok(screen.includes("highlighted: weakest === 'bond'"));
-  assert.ok(screen.includes('trend: data?.isPro ? data.mindWeekChange ?? null : null'));
-  assert.ok(screen.includes('trend: data?.isPro ? data.bodyWeekChange ?? null : null'));
-  assert.ok(screen.includes('trend: data?.isPro ? data.bondWeekChange ?? null : null'));
-  assert.ok(scoreCard.includes("roundedTrend > 0 ? '↑' : '↓'"));
-  assert.ok(screen.includes('actionLabel="Unlock my insights"'));
+  assert.ok(screen.includes('const trends = [data?.mindWeekChange, data?.bodyWeekChange, data?.bondWeekChange]'));
+  assert.ok(scoreCard.includes("'} {Math.abs(roundedTrend)}%"));
+  assert.ok(screen.includes('trend: data?.isPro ? trends[0] ?? null : null'));
+  assert.ok(screen.includes('trend: data?.isPro ? trends[1] ?? null : null'));
+  assert.ok(screen.includes('trend: data?.isPro ? trends[2] ?? null : null'));
+  assert.ok(screen.includes('const scoreDetailItems = scoreItems'));
+  assert.equal(screen.includes('selectTodayFocus'), false);
+  assert.ok(hook.includes('total_score,weakest_pillar,recommended_action'));
+  assert.ok(scoreCard.includes("roundedTrend > 0 ? '↑' : roundedTrend < 0 ? '↓' : '→'"));
+  assert.ok(screen.includes("proTease={!data.isPro ? 'Unlock my insights' : undefined}"));
+  assert.ok(screen.includes('accessibilityLabel="Open Dad Health Score details"'));
   assert.equal(screen.includes('lockedValues={!data.isPro}'), false);
-  assert.ok(screen.includes('setProPrompt(\'score\')'));
+  const detail = await source('components/dashboard/ScoreDetailSheet.tsx');
+  assert.ok(detail.includes('Score trends'));
+  assert.ok(detail.includes('Share report'));
+  assert.ok(detail.includes('useProgressReport(sheetUserId)'));
+  assert.ok(detail.includes('className="flex-1 rounded-t-[28px] bg-[#111214]"'));
+  assert.ok(detail.includes('{!isPro ? <View className="border-y border-border py-md">'));
   assert.ok(moments.includes('Understand your score'));
   assert.ok(moments.includes('personalised insights, weekly trends and recommendations.'));
   assert.ok(moments.includes("cta: 'Unlock my insights'"));
@@ -97,6 +110,11 @@ test('post-check-in keeps the free recommendation and uses the approved Pro CTA'
 
   assert.ok(screen.includes('isPro={data.isPro}'));
   assert.ok(followUp.includes("isPro ? 'Build my plan' : 'See what Pro can do'"));
+  assert.ok(followUp.includes('<View className="flex-row items-center justify-between">'));
+  assert.equal(followUp.includes('flex-1'), false);
+  assert.equal(followUp.includes('<View className="self-start border-b'), false);
+  assert.equal(followUp.includes('<View className="self-end border-b'), false);
+  assert.equal((followUp.match(/underline decoration-lime/g) ?? []).length, 2);
   assert.ok(screen.includes("setProPrompt('checkIn')"));
 });
 
