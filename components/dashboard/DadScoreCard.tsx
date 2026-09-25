@@ -21,6 +21,7 @@ type DadScoreCardProps = {
   missingItemValue?: string;
   actionLabel?: string;
   onAction?: () => void;
+  proTease?: string;
   lockedValues?: boolean;
   compactBottom?: boolean;
   children?: React.ReactNode;
@@ -37,6 +38,7 @@ function DadScoreCard({
   missingItemValue,
   actionLabel,
   onAction,
+  proTease,
   lockedValues = false,
   compactBottom = false,
   children,
@@ -104,14 +106,14 @@ function DadScoreCard({
                   )
                 ) : (
                   <View className="flex-row items-center gap-xs">
-                    {roundedTrend !== null && roundedTrend !== 0 ? (
-                      <Text className="font-heading-bold text-dark text-[10px]">
-                        {roundedTrend > 0 ? '↑' : '↓'} {Math.abs(roundedTrend)}
-                      </Text>
-                    ) : null}
                     <Text className="font-heading-bold text-dark/60 text-[10px]">
                       {item.value}%
                     </Text>
+                    {roundedTrend !== null ? (
+                      <Text className="font-heading-bold text-dark text-[10px]">
+                        {roundedTrend > 0 ? '↑' : roundedTrend < 0 ? '↓' : '→'} {Math.abs(roundedTrend)}%
+                      </Text>
+                    ) : null}
                   </View>
                 )}
               </View>
@@ -152,6 +154,12 @@ function DadScoreCard({
         >
           <Text className="font-heading-bold text-dark text-[11px] uppercase">{actionLabel}</Text>
         </Pressable>
+      ) : null}
+
+      {proTease ? (
+        <Text className="self-center font-heading-bold text-dark/70 text-[10px] tracking-[1px] uppercase mt-sm">
+          {proTease}
+        </Text>
       ) : null}
 
       <View className="items-center mt-xl">
