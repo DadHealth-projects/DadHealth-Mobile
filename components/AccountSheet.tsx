@@ -145,7 +145,7 @@ export default function AccountSheet({
     { icon: 'wind', title: 'Mind', section: 'MIND' },
     { icon: 'heart', title: 'Bond', section: 'BOND' },
     { icon: 'users', title: 'Community', section: 'COMMUNITY' },
-    { icon: 'bar-chart-2', title: 'Progress', section: 'PROGRESS' },
+    { icon: 'bar-chart-2', title: 'Dad Health Score', section: 'PROGRESS' },
   ];
 
   // Dad Health Pro lives in the account menu only — one entry point across both
