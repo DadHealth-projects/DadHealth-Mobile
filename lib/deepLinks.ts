@@ -27,6 +27,14 @@ export type PendingCoParentInvite = {
 
 const routeConfig = {
   screens: {
+    Tabs: {
+      screens: {
+        Home: {
+          path: 'today',
+          parse: { openScoreDetail: (value: string) => value === 'true' },
+        },
+      },
+    },
     SharedCalendar: 'shared-calendar',
     CommunityPostThread: 'community/:postId',
   },
@@ -51,7 +59,7 @@ function queryValue(path: string, name: string): string | null {
 function supportedDeepLinkPath(rawUrl: string): boolean {
   const path = normalizedPath(rawUrl);
   const pathname = path.split('?', 1)[0]?.replace(/\/+$/, '') ?? '';
-  if (pathname === 'shared-calendar') return true;
+  if (pathname === 'shared-calendar' || pathname === 'progress' || pathname === 'score' || pathname === 'today') return true;
 
   const communityMatch = pathname.match(/^community\/([^/]+)$/);
   if (!communityMatch) return false;
@@ -106,6 +114,12 @@ function safeStateFromPath(
       options,
     );
   }
+
+  if (pathname === 'progress' || pathname === 'score') {
+    return getStateFromPath('today?openScoreDetail=true', options);
+  }
+
+  if (pathname === 'today') return getStateFromPath('today', options);
 
   const communityMatch = pathname.match(/^community\/([^/]+)$/);
   if (communityMatch) {

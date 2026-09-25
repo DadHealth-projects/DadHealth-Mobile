@@ -82,8 +82,8 @@ function navigateFromData(data: NotificationData): boolean {
     return true;
   }
 
-  if (data.type === 'weekly_score' || data.link === '/progress') {
-    navigationRef.navigate('Tabs', { screen: 'Home' });
+  if (data.type === 'weekly_score' || data.type === 'score' || data.link === '/progress' || data.link === '/score') {
+    navigationRef.navigate('Tabs', { screen: 'Home', params: { openScoreDetail: true } });
     return true;
   }
 
