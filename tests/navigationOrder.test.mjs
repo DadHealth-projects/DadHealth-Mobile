@@ -4,44 +4,32 @@ import test from 'node:test';
 
 const root = new URL('../', import.meta.url);
 
-test('bottom navigation follows Today, Mind, Score, Body, Bond and Community order', async () => {
+test('bottom navigation has five tabs in Today, Mind, Body, Bond and Community order', async () => {
   const source = await readFile(new URL('navigation/BottomTabNavigator.tsx', root), 'utf8');
   const registeredTabs = [...source.matchAll(/<Tab\.Screen name="([^"]+)"/g)].map((match) => match[1]);
 
-  assert.deepEqual(registeredTabs, ['Home', 'Mind', 'Score', 'Fit', 'Bond', 'Squad']);
+  assert.deepEqual(registeredTabs, ['Home', 'Mind', 'Fit', 'Bond', 'Squad']);
   assert.match(source, /initialRouteName="Home"/);
   assert.match(source, /Home:\s*\{[\s\S]*?label: 'Today'[\s\S]*?icon: 'home'/);
-  assert.match(source, /Score:\s*\{[\s\S]*?label: 'Score'[\s\S]*?icon: 'bar-chart-2'[\s\S]*?center: true/);
-  assert.match(source, /name="Score" component=\{ScoreTabScreen\} options=\{\{ lazy: true \}\}/);
+  assert.doesNotMatch(source, /name="Score"|ScoreTabScreen/);
+  assert.match(source, /accessibilityLabel="LOG"/);
+  assert.match(source, /state\.routes\.map\(\(route, index\) => renderTab\(route, index\)\)/);
   assert.match(source, /Squad:\s*\{\s*label: 'Community'/);
 });
 
-test('Score reuses Progress content while Progress remains a compatible stack destination', async () => {
-  const [tabs, stack] = await Promise.all([
-    readFile(new URL('navigation/BottomTabNavigator.tsx', root), 'utf8'),
-    readFile(new URL('navigation/AppNavigator.tsx', root), 'utf8'),
-  ]);
-
-  assert.match(tabs, /function ScoreTabScreen\(\)[\s\S]*?<ProgressScreen tabMode \/>/);
-  assert.match(stack, /name="Progress"[\s\S]*?component=\{ProgressScreen\}/);
+test('raised LOG action is separate from tabs and preserves logging destinations and dismissal', async () => {
+  const source = await readFile(new URL('navigation/BottomTabNavigator.tsx', root), 'utf8');
+  assert.match(source, /label: 'Log workout'/);
+  assert.match(source, /label: 'Log Bond time'/);
+  assert.match(source, /label: 'Log Mind activity'/);
+  assert.match(source, /animationType="none"/);
+  assert.match(source, /dismissLogSheet\(item\.action\)/);
+  assert.match(source, /Animated\.timing\(sheetTranslateY/);
 });
 
-test('Score is a raised circular centre button and six labels fit a 320-point tab bar', async () => {
-  const source = await readFile(new URL('navigation/BottomTabNavigator.tsx', root), 'utf8');
-  const tabWidth = 320 / 6;
-  const fittedCommunityWidth = ((9 * 8 * 0.55) + (8 * 0.25) + 4) * 0.85;
-
-  assert.ok(fittedCommunityWidth < tabWidth);
-  assert.doesNotMatch(source, /TAB_FLEX/);
-  assert.match(source, /const compact = width < 380/);
-  assert.match(source, /const spacious = width >= 390/);
-  assert.match(source, /numberOfLines=\{1\}/);
-  assert.match(source, /adjustsFontSizeToFit/);
-  assert.match(source, /const iconSize = compact \? 20 : spacious \? 23 : 21/);
-  assert.match(source, /const labelFontSize = compact \? 8 : spacious \? 10 : 9/);
-  assert.match(source, /const centerButtonSize = compact \? 50 : 56/);
-  assert.match(source, /borderRadius: centerButtonSize \/ 2/);
-  assert.match(source, /\{meta\.label\}/);
+test('legacy Score notification links return to Today after Score leaves the tab navigator', async () => {
+  const source = await readFile(new URL('lib/pushNotifications.ts', root), 'utf8');
+  assert.match(source, /data\.type === 'weekly_score' \|\| data\.link === '\/progress'[\s\S]*?navigate\('Tabs', \{ screen: 'Home' \}\)/);
 });
 
 test('Community naming and Dad Circles copy are consistent in user-facing screens', async () => {
