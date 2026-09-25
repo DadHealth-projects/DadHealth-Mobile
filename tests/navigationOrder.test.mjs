@@ -29,7 +29,7 @@ test('raised LOG action is separate from tabs and preserves logging destinations
 
 test('legacy Score notification links return to Today after Score leaves the tab navigator', async () => {
   const source = await readFile(new URL('lib/pushNotifications.ts', root), 'utf8');
-  assert.match(source, /data\.type === 'weekly_score' \|\| data\.link === '\/progress'[\s\S]*?navigate\('Tabs', \{ screen: 'Home' \}\)/);
+  assert.match(source, /data\.type === 'weekly_score'[\s\S]*?navigate\('Tabs', \{ screen: 'Home', params: \{ openScoreDetail: true \} \}\)/);
 });
 
 test('Community naming and Dad Circles copy are consistent in user-facing screens', async () => {

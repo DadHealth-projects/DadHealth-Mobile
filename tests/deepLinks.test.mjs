@@ -74,6 +74,8 @@ test('the custom-scheme contract accepts only supported, validated routes', () =
     /__invalid_co_parent_invite__/,
   );
   assert.equal(deepLinks.deepLinkingOptions.getStateFromPath(`community/${postId}`).path, `community/${postId}`);
+  assert.equal(deepLinks.deepLinkingOptions.getStateFromPath('score').path, 'today?openScoreDetail=true');
+  assert.equal(deepLinks.deepLinkingOptions.getStateFromPath('progress').path, 'today?openScoreDetail=true');
   assert.equal(deepLinks.deepLinkingOptions.getStateFromPath('community/not-a-uuid'), undefined);
   assert.equal(deepLinks.deepLinkingOptions.getStateFromPath('auth/callback?code=private'), undefined);
   assert.equal(deepLinks.deepLinkingOptions.getStateFromPath('unsupported/path'), undefined);
@@ -177,7 +179,7 @@ test('Shared Calendar maps permanent and temporary invite outcomes without expos
   assert.match(screen, /clearPendingCoParentInvite\(token\)/);
   assert.match(screen, /response\.status === 403/);
   assert.match(screen, /blockPendingCoParentInviteForUser\(token, user\.id\)/);
-  assert.match(screen, /Reconnect to accept this calendar invite\./);
+  assert.match(screen, /We could not accept this calendar invite right now\. Check your connection and try again\./);
   assert.match(
     deepLinks,
     /This calendar invite is invalid or has expired\. Ask your co-parent to send a new invite\./,
@@ -195,7 +197,7 @@ test('notification destinations remain pending through auth remounts and validat
   for (const destination of [
     "navigate('CommunityPostThread'",
     "navigate('SharedCalendar'",
-    "navigate('Progress'",
+    "navigate('Tabs'",
     "screen: 'Home'",
     "screen: 'Bond'",
     "screen: 'Fit'",
