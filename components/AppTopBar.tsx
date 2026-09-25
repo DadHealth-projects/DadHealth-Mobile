@@ -42,7 +42,7 @@ export default function AppTopBar({
       <View className="relative min-h-[44px] flex-row items-center justify-between" accessibilityRole="header">
         {showBrand && brandAlign === 'center' ? (
           <View pointerEvents="none" className="absolute inset-x-0 items-center justify-center">
-            <BrandWordmark source={brandSource} />
+            <BrandWordmark source={brandSource} width={160} height={40} />
           </View>
         ) : null}
         <View className="flex-row items-center gap-sm">
