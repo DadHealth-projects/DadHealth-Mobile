@@ -24,13 +24,12 @@ export default function OfflineStatusBanner({ children }: { children: ReactNode 
   const bannerTopPadding = insets.top > 32 ? insets.top - 10 : insets.top;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.dark }}>
+    <View style={{ flex: 1, backgroundColor: 'transparent' }}>
       {banner ? (
         <View
           accessibilityLiveRegion="polite"
           accessibilityRole="alert"
-          style={{ paddingTop: bannerTopPadding }}
-          className="border-b border-lime/25 bg-[#171A10]"
+          style={{ paddingTop: bannerTopPadding, backgroundColor: 'transparent' }}
         >
           <View className="flex-row items-center gap-sm px-lg py-xs">
             <Feather name="wifi-off" size={14} color={colors.lime} />
@@ -46,4 +45,4 @@ export default function OfflineStatusBanner({ children }: { children: ReactNode 
       </SafeAreaInsetsContext.Provider>
     </View>
   );
-}
+}\r\n

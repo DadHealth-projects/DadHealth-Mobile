@@ -20,6 +20,10 @@ test('the top status banner is reserved for persistent offline state', async () 
   assert.ok(banner.includes('const { banner } = useNetworkStatus()'));
   assert.ok(banner.includes('SafeAreaInsetsContext.Provider'));
   assert.ok(banner.includes('px-lg py-xs'));
+  assert.ok(banner.includes("style={{ flex: 1, backgroundColor: 'transparent' }}"));
+  assert.ok(banner.includes("backgroundColor: 'transparent'"));
+  assert.equal(banner.includes('border-b border-lime/25'), false);
+  assert.equal(banner.includes('bg-[#171A10]'), false);
   assert.ok(banner.includes('insets.top > 32 ? insets.top - 10 : insets.top'));
   // Offline is derived from connectivity, so the banner persists instead of timing out.
   assert.ok(network.includes('state !== null && isOffline ? { message: OFFLINE_BANNER_MESSAGE'));
