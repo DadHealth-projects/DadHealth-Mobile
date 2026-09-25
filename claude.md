@@ -67,16 +67,35 @@ The product should demonstrate the value of Dad Health through the free experien
 Do not introduce unnecessary UI, filler content, artificial recommendations or unrelated redesigns.
 
 ---
-
 # Navigation
 
-The active mobile navigation is:
+## Status: Complete
 
-**Today → Mind → Body → Bond → Community**
+The completed mobile navigation has **five tabs plus a separate raised + LOG action**:
 
-There is **no Score tab**.
+**Today → Mind → Body → + LOG → Bond → Community**
+
+The five navigation tabs are:
+
+* Today
+* Mind
+* Body
+* Bond
+* Community
+
+**+ LOG is a quick-action control, not a navigation tab.**
+
+The **+ LOG** action is a raised centre button and opens:
+
+* Log workout
+* Log Bond time
+* Log Mind activity
+
+The five tab routes remain Today, Mind, Body, Bond and Community. The + LOG button is not a tab and preserves its workout, Bond and Mind logging actions.
 
 ## Score
+
+There is **no Score tab**.
 
 Score is part of Today.
 
@@ -86,25 +105,18 @@ Legacy Score navigation must not be restored.
 
 If an existing deep link, notification or internal route targets the old Score destination, it should resolve to Today with the Score Detail Sheet expanded where technically supported.
 
-## + LOG
+## Navigation Rules
 
-The centre position may contain a raised:
-
-**+ LOG**
-
-quick action.
-
-When confirmed and implemented, it opens:
-
-* Log workout
-* Log Bond time
-* Log Mind activity
-
-Do not implement the + LOG centre action until its inclusion is confirmed.
-
-If + LOG is not confirmed, the navigation uses five equal tabs.
-
-Do not describe Today as the raised centre tab. That was an older navigation state.
+* Today is the first tab.
+* Mind is the second tab.
+* Body is the third tab.
+* + LOG sits between Body and Bond and is not a tab.
+* Bond follows Body.
+* Community is the final tab.
+* + LOG remains the raised centre quick-action button.
+* Score is accessed through Today and must not become a bottom-navigation tab.
+* Do not describe + LOG as a navigation tab.
+* Do not restore the previous six-tab Score navigation.
 
 ---
 

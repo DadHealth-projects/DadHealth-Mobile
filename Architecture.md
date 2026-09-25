@@ -168,17 +168,35 @@ Older milestone briefs and TestFlight feedback are not architecture authority wh
 
 # Navigation Architecture
 
-The current user-facing bottom navigation is:
+The completed mobile bottom navigation has **five tabs plus a separate raised + LOG quick action**:
+
+```text
+Today | Mind | Body | + LOG | Bond | Community
+```
+
+The five navigation tabs are:
 
 ```text
 Today | Mind | Body | Bond | Community
 ```
 
-There is no user-facing Score tab.
+The **+ LOG** button is a raised centre quick-action control, not a navigation tab.
+
+It opens:
+
+* Log workout
+* Log Bond time
+* Log Mind activity
+
+The navigation order is a fixed product decision:
+
+**Today → Mind → Body → Bond → Community**
+
+There is **no user-facing Score tab**.
 
 ## Score
 
-Score is presented from Today.
+Score is accessed through the Today experience.
 
 ```text
 Today
@@ -188,35 +206,23 @@ Today
           └── Score Detail Sheet
 ```
 
-The Score Detail Sheet contains historical and detailed Score information that previously belonged to the Score experience.
+Tapping the Dad Health Score card opens the **Score Detail Sheet**, which contains the detailed Score information previously associated with the standalone Score experience.
 
-Existing internal route names may remain for compatibility where required by:
+Legacy Score navigation must not be restored.
 
-* notifications
-* deep links
-* navigation state
-* existing screen references
+If an existing deep link, notification or internal route targets the old Score destination, it should resolve to Today with the Score Detail Sheet expanded where technically supported.
 
-Internal route names should not be changed casually.
+## Navigation Rules
 
-Legacy Score destinations should resolve to the current Today/Score Detail experience rather than restoring a standalone Score tab.
-
-## + LOG
-
-The centre navigation position may be used for a raised `+ LOG` action.
-
-When enabled:
-
-```text
-+ LOG
-├── Log workout
-├── Log Bond time
-└── Log Mind activity
-```
-
-The centre action is conditional on explicit product confirmation.
-
-It is not a navigation tab.
+* Today is the first tab.
+* Mind is the second tab.
+* Body is the third tab.
+* + LOG sits between Body and Bond and is not a tab.
+* Bond follows Body.
+* Community is the final tab.
+* + LOG is the raised centre quick-action button.
+* Score is not a bottom-navigation tab.
+* Do not restore the previous standalone Score navigation.
 
 ---
 
