@@ -28,21 +28,22 @@ export type WeeklyReportSource = {
   bodyWeekChange: number | null;
   bondWeekChange: number | null;
   monthWorkouts: number;
+  recommendedAction?: 'checkin' | 'mind_breathing' | 'body_workout' | 'bond_present_mode' | null;
 };
 
-/** Where next week's effort goes, per pillar. */
-const FOCUS_AREA: Record<WeeklyReportPillar['label'], string> = {
-  Mind: 'recovery',
-  Body: 'movement',
-  Bond: 'connection',
-};
+const ACTION_FOCUS = {
+  checkin: 'Check in with yourself',
+  mind_breathing: 'Take a two-minute Mind reset',
+  body_workout: 'Move your body',
+  bond_present_mode: 'Make time to connect',
+} as const;
 
 /** Four logged workouts in the month reads as a consistent training habit. */
 const CONSISTENT_WORKOUTS = 4;
 
 /** The brief specifies the report arrives every Sunday. */
 export function isWeeklyReportDay(date: Date = new Date()): boolean {
-  return date.getDay() === 0;
+  return date.getDay() === 0 && date.getHours() >= 8;
 }
 
 function roundedChange(value: number | null): number | null {
@@ -79,12 +80,9 @@ export function buildWeeklyReport(source: WeeklyReportSource): WeeklyReport | nu
     summary = `${trainingClause}Your scores held steady this week.`;
   }
 
-  // Next week points at what fell; if nothing fell, at whatever moved least.
-  const focusPillars = fallen.length > 0
-    ? fallen.slice(0, 2)
-    : [...moved].sort((a, b) => a.change - b.change).slice(0, 1);
-  const areas = focusPillars.map((pillar) => FOCUS_AREA[pillar.label]);
-  const nextWeek = `Next week: Focus on ${areas.length === 2 ? `${areas[0]} and ${areas[1]}` : areas[0]}.`;
+  const nextWeek = source.recommendedAction
+    ? `Next week: ${ACTION_FOCUS[source.recommendedAction]}.`
+    : 'Next week: Choose one small action that supports your wellbeing.';
 
   return { pillars, summary, nextWeek };
 }

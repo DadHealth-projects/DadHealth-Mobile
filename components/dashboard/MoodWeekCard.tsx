@@ -8,7 +8,7 @@ import SectionHeader from './SectionHeader';
 type MoodWeekCardProps = {
   values: number[];
   labels: string[];
-  /** From `getMoodSummary` — e.g. `{ label: 'Good', scoreText: ' (3.2/4)' }`. */
+  /** From `getMoodSummary` — mood is shown as an approved label, not a fraction. */
   summary: { label: string; scoreText: string };
   flat?: boolean;
   actionLabel?: string;
