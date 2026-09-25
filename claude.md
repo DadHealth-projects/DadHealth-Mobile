@@ -38,6 +38,14 @@ Addendum A overrides the relevant navigation, Score and Today decisions from the
 
 Do not use older milestone briefs, TestFlight feedback or historical Jamie decisions as the current product specification when they conflict with these documents.
 
+## Today + Score Merge Status
+
+**Status: Implemented against Addendum A.** Addendum A is the source of truth for the Today hierarchy and Score location. The Score tab is removed; legacy Score/Progress destinations remain compatibility redirects to Today with the Score Detail Sheet opened.
+
+Today stays compact and action-first: the Pro tease is inside the Score card, Mood This Week stays on Mind, Smart Reminders appear only when present, and the weekly card appears only on its configured Sunday release. Historical score history and report details belong in the Score Detail Sheet.
+
+The Today card and Score Detail Sheet consume canonical score values, trends, weakest pillar and recommended action. Preserve current Free/Pro trend gating. Render a trend only when the canonical comparison value exists; never invent a trend for missing history. One Focus uses the canonical recommended action rather than recalculating the weakest pillar on the client.
+
 ---
 
 # Source-of-Truth Hierarchy
@@ -150,11 +158,11 @@ Use the active milestone's agreed comparison window.
 
 Display trends in the approved format:
 
-`MIND 56 ↓27%`
+`MIND 56% ↓ 27%`
 
 The Score appears first, followed by the trend.
 
-When there is insufficient historical data, use the defined zero-state rather than inventing a trend.
+When the canonical trend is null because there is no previous-week data, show no trend.
 
 ## Weakest Pillar
 
@@ -194,6 +202,8 @@ The card contains:
 * weakest-pillar indication
 
 Tapping the card opens the Score Detail Sheet.
+
+Keep the card compact. Preserve current entitlement gating for trends, use canonical trend values, and show each trend after its pillar score only when that value exists.
 
 ## Daily Check-in
 
@@ -236,6 +246,8 @@ Order:
 7. Share report
 
 There should be one Share Report action in this experience.
+
+The sheet is full-height. The Pro insight tease is shown to Free users only. Share Report is available to Free and Pro users; score history and the monthly report retain their specified Pro previews/gating.
 
 Score detail, trends and badges must use the same Score source as Today.
 
@@ -441,23 +453,7 @@ Locked previews should explain what additional value Pro provides.
 
 # Weekly Report
 
-The weekly Sunday report is currently a **Phase 4 specification**, not a general instruction to implement immediately.
-
-The approved specification includes:
-
-* Sunday 8am
-* Mind, Body and Bond Scores
-* trend arrows
-* total activities
-* streak status
-* one observation
-* one focus
-
-Free users receive the defined summary view.
-
-Pro users receive the defined breakdown, observation, next-week focus and previous reports.
-
-Do not begin building the weekly report unless the active task explicitly moves it into implementation scope.
+Today may show the compact weekly card only on its configured report day/time (currently Sunday after 08:00). Free users receive the approved tease; Pro users receive the report summary. Historical score/report content stays in the Score Detail Sheet. Do not add a second weekly report surface to Today.
 
 ---
 
