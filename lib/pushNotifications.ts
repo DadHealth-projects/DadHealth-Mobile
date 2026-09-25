@@ -83,7 +83,7 @@ function navigateFromData(data: NotificationData): boolean {
   }
 
   if (data.type === 'weekly_score' || data.link === '/progress') {
-    navigationRef.navigate('Progress');
+    navigationRef.navigate('Tabs', { screen: 'Home' });
     return true;
   }
 

@@ -6,16 +6,12 @@
     "scheme": "dadhealth",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/DH LOGO_LimeWhite_DarkBG.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0A0A0A"
-    },
     "userInterfaceStyle": "light",
     "backgroundColor": "#0A0A0A",
     "assetBundlePatterns": [
       "**/*"
     ],
+
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "co.uk.dadhealth",
@@ -33,6 +29,7 @@
         ]
       }
     },
+
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
@@ -48,9 +45,11 @@
         "android.permission.health.READ_SLEEP"
       ]
     },
+
     "web": {
       "bundler": "metro"
     },
+
     "plugins": [
       [
         "onesignal-expo-plugin",
@@ -58,6 +57,17 @@
           "mode": "production"
         }
       ],
+
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/DH LOGO_LimeWhite_DarkBG.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0A0A0A",
+          "imageWidth": 200
+        }
+      ],
+
       [
         "@kingstinct/react-native-healthkit",
         {
@@ -66,27 +76,33 @@
           "background": false
         }
       ],
+
       "./plugins/withHealthConnectPrivacy",
       "react-native-health-connect",
       "react-native-iap",
       "expo-font",
       "expo-secure-store",
+
       [
         "expo-local-authentication",
         {
           "faceIDPermission": "Allow Dad Health to use Face ID to log you in."
         }
       ],
+
       "expo-web-browser",
       "expo-apple-authentication",
       "expo-asset",
+
       [
         "expo-location",
         {
           "locationWhenInUsePermission": "Allow Dad Health to use your location to find nearby Dad Days."
         }
       ],
+
       "@react-native-community/datetimepicker",
+
       [
         "expo-build-properties",
         {
@@ -94,13 +110,17 @@
             "minSdkVersion": 26
           }
         }
-      ]
+      ],
+
+      "expo-sharing"
     ],
+
     "extra": {
       "eas": {
         "projectId": "186b0d8f-cfd3-48ce-991f-7bba7cfcba88"
       }
     },
+
     "owner": "dadhealth-01"
   }
 }
