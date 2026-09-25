@@ -9,7 +9,7 @@ import SettingsScreen from '../screens/subscreens/SettingsScreen';
 import WelcomeScreen from '../screens/subscreens/WelcomeScreen';
 import OnboardingGoalsScreen from '../screens/subscreens/OnboardingGoalsScreen';
 import OnboardingCustodyScreen from '../screens/subscreens/OnboardingCustodyScreen';
-import ProgressScreen from '../screens/subscreens/ProgressScreen';
+import LegacyScoreRedirect from '../screens/subscreens/ProgressScreen';
 import ActiveWorkoutScreen from '../screens/subscreens/ActiveWorkoutScreen';
 import AIWorkoutScreen from '../screens/subscreens/AIWorkoutScreen';
 import MealPlannerScreen from '../screens/subscreens/MealPlannerScreen';
@@ -86,7 +86,7 @@ export default function AppNavigator({
       <Stack.Screen name="OnboardingCustody" component={OnboardingCustodyScreen} />
       <Stack.Screen
         name="Progress"
-        component={ProgressScreen}
+        component={LegacyScoreRedirect}
         options={{
           presentation: 'card',
           animation: 'slide_from_right',

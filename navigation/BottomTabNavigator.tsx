@@ -14,7 +14,7 @@ import CommunityScreen from '../screens/CommunityScreen';
 import { colors } from '../theme';
 
 export type BottomTabsParamList = {
-  Home: undefined;
+  Home: { openScoreDetail?: boolean } | undefined;
   Mind: undefined;
   Fit: undefined;
   Bond: undefined;
