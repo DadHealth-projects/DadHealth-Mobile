@@ -166,12 +166,13 @@ export function DashboardScreenContent({
       .every((value) => value === 5 || value === 10);
     const trends = [data?.mindWeekChange, data?.bodyWeekChange, data?.bondWeekChange];
     return [
-      { label: 'Mind', value: breakdown.mind, trend: data?.isPro ? trends[0] ?? null : null, highlighted: weakest === 'mind', warning: allPillarsCritical && weakest === 'mind' },
-      { label: 'Body', value: breakdown.body, trend: data?.isPro ? trends[1] ?? null : null, highlighted: weakest === 'body', warning: allPillarsCritical && weakest === 'body' },
+      { label: 'Mind', value: breakdown.mind, trend: trends[0] ?? null, showNeutralTrend: true, highlighted: weakest === 'mind', warning: allPillarsCritical && weakest === 'mind' },
+      { label: 'Body', value: breakdown.body, trend: trends[1] ?? null, showNeutralTrend: true, highlighted: weakest === 'body', warning: allPillarsCritical && weakest === 'body' },
       {
         label: 'Bond',
         value: breakdown.bond,
-        trend: data?.isPro ? trends[2] ?? null : null,
+        trend: trends[2] ?? null,
+        showNeutralTrend: true,
         highlighted: weakest === 'bond',
         warning: allPillarsCritical && weakest === 'bond',
       },
@@ -245,6 +246,9 @@ export function DashboardScreenContent({
 
   // The report is part of Today on Sunday after its configured 08:00 release.
   const weeklyReport = useMemo(() => data ? buildWeeklyReport({
+    mindScore: data.mindScore,
+    bodyScore: data.bodyScore,
+    bondScore: data.bondScore,
     mindWeekChange: data.mindWeekChange,
     bodyWeekChange: data.bodyWeekChange,
     bondWeekChange: data.bondWeekChange,

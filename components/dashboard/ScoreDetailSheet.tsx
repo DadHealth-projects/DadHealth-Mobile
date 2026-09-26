@@ -93,7 +93,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, items, isPro
                       </View>
                     ))}
                   </View>
-                ) : <Text className="font-body text-muted-text text-[12px]">Your weekly score history will appear here.</Text>
+                ) : <Text className="font-body text-muted-text text-[12px]">Your score history will appear after you have a week with logged activity.</Text>
               ) : <LockedPreview title="See your score history" onUpgrade={onUpgrade} />}
             </View>
 
