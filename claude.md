@@ -255,6 +255,14 @@ Score detail, trends and badges must use the same Score source as Today.
 
 # Mind
 
+## Change 02 + Addendum A A6 Status: COMPLETE
+
+Mind keeps an action-first entry with 4-4-4 breathing, the provisional five-minute reset, the provisional guided reflection, Journal, therapist directory and Community. The two guided sessions use five day-specific reflection prompts; their copy is provisional and must be replaced only with client-approved copy. Crisis help is a single app-wide root action using the existing configured contact, with no login or Pro gate.
+
+Mind Facts and Sleep Quality This Week follow the feeling introduction. Mood This Week remains Free and uses the current 1–5 mood scale. Mood Correlation / Pattern Spotted remains Pro with a locked Free preview. Weekly mood, sleep and correlation data use Monday–Sunday boundaries and normalize legacy mood values.
+
+Free users see the existing Pro upgrade entry for a personalised Mind plan. Pro users see an active entry to a lightweight placeholder sheet. The sheet explains that a future plan will use mood, Dad Health Score and history; no plan generation, recommendations or backend service is implemented until client requirements are supplied.
+
 Mind is **action-first**.
 
 The user should be able to take a useful action immediately.
@@ -268,7 +276,7 @@ Core actions defined by the active milestone include:
 * **I JUST NEED TO TALK — Community**
 * **PRO — personalised plan**
 
-Crisis support must remain visible and accessible without login.
+Crisis support is app-wide and remains visible and accessible without login; Mind must not add a duplicate large crisis card.
 
 Mind owns:
 
@@ -402,7 +410,7 @@ Core Free experience includes:
 
 * basic Dad Health Score
 * daily check-in
-* Mind breathing/journal/crisis support
+* Mind breathing and Journal, with global crisis support available app-wide
 * basic Body workouts
 * manual activity logging
 * limited Dad Days

@@ -4,19 +4,55 @@ import test from 'node:test';
 
 const root = new URL('../', import.meta.url);
 
-test('crisis support remains directly available without login or Pro access', async () => {
-  const [rootNavigator, tabs, mind, crisisSupport] = await Promise.all([
+test('one root crisis control covers signed-in, signed-out and auth routes without gating', async () => {
+  const [rootNavigator, mind, crisisButton] = await Promise.all([
     readFile(new URL('contexts/RootNavigator.tsx', root), 'utf8'),
-    readFile(new URL('navigation/BottomTabNavigator.tsx', root), 'utf8'),
     readFile(new URL('screens/MindScreen.tsx', root), 'utf8'),
-    readFile(new URL('components/mockup/CrisisSupportRow.tsx', root), 'utf8'),
+    readFile(new URL('components/GlobalCrisisHelpButton.tsx', root), 'utf8'),
   ]);
 
-  assert.match(rootNavigator, /if \(!session\)[\s\S]*?<AppNavigator key="tabs" initialRouteName="Tabs" \/>/);
-  assert.match(tabs, /<Tab\.Screen name="Mind" component=\{MindScreen\} \/>/);
-  assert.match(mind, /<CrisisSupportRow \/>/);
-  assert.match(crisisSupport, /const SAMARITANS_PHONE_URL = 'tel:116123'/);
-  assert.match(crisisSupport, /Linking\.openURL\(SAMARITANS_PHONE_URL\)/);
-  assert.match(crisisSupport, /Please dial 116 123 directly to reach Samaritans/);
-  assert.doesNotMatch(crisisSupport, /useAuth|isPro|ProSubscription|navigate\(['"]Login/);
+  assert.equal((rootNavigator.match(/<GlobalCrisisHelpButton\b/g) ?? []).length, 1);
+  assert.match(rootNavigator, /waitingForSession \? <Splash \/> : !session \?/);
+  assert.match(rootNavigator, /<GlobalCrisisHelpButton navigationRef=\{navigationRef\} \/>/);
+  assert.doesNotMatch(mind, /CrisisSupportRow/);
+  assert.match(crisisButton, /BUTTON_SIZE = 48/);
+  assert.match(crisisButton, /PROMPT_INTERVAL_MS = 10 \* 60 \* 1000/);
+  assert.match(crisisButton, /setInterval\(presentPrompt, PROMPT_INTERVAL_MS\)/);
+  assert.match(crisisButton, /Animated\.spring\(buttonScale, \{ toValue: 1\.07/);
+  assert.match(crisisButton, /transform: \[\{ scale: buttonScale \}\]/);
+  assert.match(crisisButton, /PROMPT_VISIBLE_MS = 30 \* 1000/);
+  assert.match(crisisButton, /w-\[230px\]/);
+  assert.match(crisisButton, /w-full text-left/);
+  assert.match(crisisButton, /TAB_NAV_CLEARANCE = 110/);
+  assert.match(crisisButton, /AUTH_SAFE_CLEARANCE = 88/);
+  assert.match(crisisButton, /accessibilityRole="button"/);
+  assert.match(crisisButton, /accessibilityLabel=\{FOOTER\.crisis\.label\}/);
+  assert.match(crisisButton, /accessibilityHint=/);
+  assert.doesNotMatch(crisisButton, /useAuth|isPro|ProSubscription|navigate\(['"]Login/);
+});
+
+test('global crisis control respects keyboard, safe-area, tab-bar and app-state clearances', async () => {
+  const crisisButton = await readFile(new URL('components/GlobalCrisisHelpButton.tsx', root), 'utf8');
+
+  assert.match(crisisButton, /Keyboard\.addListener\('keyboardDidShow'/);
+  assert.match(crisisButton, /if \(keyboardOpen \|\| !appActive\) return null/);
+  assert.match(crisisButton, /AppState\.addEventListener\('change'/);
+  assert.match(crisisButton, /insets\.bottom \+ \(hasBottomNavigation \? TAB_NAV_CLEARANCE : AUTH_SAFE_CLEARANCE\)/);
+  assert.match(crisisButton, /navigationRef\.addListener\('state'/);
+  assert.match(crisisButton, /setTimeout\(\(\) => \{/);
+  assert.match(crisisButton, /if \(keyboardOpenRef\.current \|\| !appActiveRef\.current\) return/);
+  assert.match(crisisButton, /Need to talk to someone\?/);
+});
+
+test('crisis call and fallback derive the existing contact from FOOTER.crisis', async () => {
+  const [config, helper] = await Promise.all([
+    readFile(new URL('lib/homeContent.ts', root), 'utf8'),
+    readFile(new URL('lib/crisisSupport.ts', root), 'utf8'),
+  ]);
+
+  assert.match(config, /crisis: \{ label: 'CRISIS SUPPORT .* tel: '116123' \}/);
+  assert.match(helper, /import \{ FOOTER \} from '\.\/homeContent'/);
+  assert.match(helper, /Linking\.openURL\(`tel:\$\{FOOTER\.crisis\.tel\}`\)/);
+  assert.match(helper, /crisisSupportPhoneDisplay\(\)/);
+  assert.match(helper, /Unable to start the call/);
 });
