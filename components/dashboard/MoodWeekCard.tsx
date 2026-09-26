@@ -28,7 +28,7 @@ function MoodWeekCard({ values, labels, summary, flat = false, locked = false, a
       <MiniBarChart
         values={values}
         labels={labels}
-        maxValue={4}
+        maxValue={5}
         locked={locked}
         lockedAccessibilityLabel="Seven-day mood trend, locked"
       />
