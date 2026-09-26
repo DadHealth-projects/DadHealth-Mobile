@@ -7,6 +7,7 @@ import FadeInView from '../components/FadeInView';
 import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
 import LimeButton from '../components/LimeButton';
 import MiniBarChart from '../components/dashboard/MiniBarChart';
+import PillarScoreRow from '../components/dashboard/PillarScoreRow';
 import PillarScreen from '../components/PillarScreen';
 import PillarSkeleton from '../components/skeleton/PillarSkeleton';
 import ProUpgradeSection from '../components/ProUpgradeSection';
@@ -172,6 +173,8 @@ export default function FitnessScreen({
           <ScreenHero eyebrow="Body" headline={"Today's\nworkout"} />
         )}
       </FadeInView>
+
+      <PillarScoreRow pillar="Body" score={data?.bodyScore ?? null} trend={data?.bodyWeekChange ?? null} />
 
       <FadeInView delay={90}>
         <SectionHeader title="Body this week" className="mb-md" />

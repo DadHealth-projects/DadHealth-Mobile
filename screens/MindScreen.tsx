@@ -8,6 +8,7 @@ import FadeInView from '../components/FadeInView';
 import InlineFormError from '../components/InlineFormError';
 import LimeButton from '../components/LimeButton';
 import MoodWeekCard from '../components/dashboard/MoodWeekCard';
+import PillarScoreRow from '../components/dashboard/PillarScoreRow';
 import MiniBarChart from '../components/dashboard/MiniBarChart';
 import SectionHeader from '../components/dashboard/SectionHeader';
 import MindSessionModal, { type MindSessionKind } from '../components/mind/MindSessionModal';
@@ -104,6 +105,8 @@ export default function MindScreen({
           sub="Opening up about feelings and seeking help is not a sign of weakness, but of strength."
         />
       </FadeInView>
+
+      <PillarScoreRow pillar="Mind" score={data?.mindScore ?? null} trend={data?.mindWeekChange ?? null} />
 
       <FadeInView delay={80}>
         <View className="gap-md">
