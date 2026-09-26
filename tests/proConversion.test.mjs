@@ -107,7 +107,9 @@ test('the weekly Sunday report is a Pro feature and never invents a week', async
   ]);
 
   assert.ok(report.includes('date.getDay() === 0'));
-  assert.ok(report.includes('if (pillars.every((pillar) => pillar.change === null)) return null;'));
+  assert.ok(report.includes('Your scores are here. Week-on-week trends will appear when previous-week data is available.'));
+  assert.ok(report.includes('score: Math.round(source.mindScore ?? 0)'));
+  assert.ok(report.includes('const trend = formatScoreTrend(change);'));
   assert.ok(report.includes('ACTION_FOCUS[source.recommendedAction]'));
   const freeBranch = card.slice(card.indexOf('if (!isPro)'), card.indexOf('\n  return (', card.indexOf('if (!isPro)')));
   assert.ok(freeBranch.includes('Learn about weekly Dad Health reports'));
