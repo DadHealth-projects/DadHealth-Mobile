@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, AppState, Keyboard, Pressable, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import type { NavigationContainerRef } from '@react-navigation/native';
@@ -13,31 +13,39 @@ const AUTH_SAFE_CLEARANCE = 88;
 const BUTTON_SIZE = 48;
 const PROMPT_INTERVAL_MS = 10 * 60 * 1000;
 const PROMPT_VISIBLE_MS = 30 * 1000;
+const HIDDEN_ROUTES = new Set(['Welcome', 'Login', 'OnboardingGoals', 'OnboardingCustody']);
 
 type Props = {
   navigationRef: NavigationContainerRef<AppStackParamList>;
+  screenContentReady: boolean;
 };
 
-export default function GlobalCrisisHelpButton({ navigationRef }: Props) {
+export default function GlobalCrisisHelpButton({ navigationRef, screenContentReady }: Props) {
   const insets = useSafeAreaInsets();
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
   const [rootRouteName, setRootRouteName] = useState<string | undefined>(() => activeRootRoute(navigationRef));
+  const routeAllowed = isCrisisRoute(rootRouteName);
   const [promptVisible, setPromptVisible] = useState(false);
   const promptOpacity = useRef(new Animated.Value(0)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
+  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const initialPromptShownRef = useRef(false);
   const keyboardOpenRef = useRef(keyboardOpen);
   const appActiveRef = useRef(appActive);
+  const routeAllowedRef = useRef(routeAllowed);
+  const screenContentReadyRef = useRef(screenContentReady);
 
   useEffect(() => { keyboardOpenRef.current = keyboardOpen; }, [keyboardOpen]);
   useEffect(() => { appActiveRef.current = appActive; }, [appActive]);
+  useEffect(() => { routeAllowedRef.current = routeAllowed; }, [routeAllowed]);
   useEffect(() => {
-    if (keyboardOpen || !appActive) {
+    if (keyboardOpen || !appActive || !routeAllowed || !screenContentReady) {
       promptOpacity.stopAnimation();
       promptOpacity.setValue(0);
       setPromptVisible(false);
     }
-  }, [appActive, keyboardOpen, promptOpacity]);
+  }, [appActive, keyboardOpen, promptOpacity, routeAllowed, screenContentReady]);
 
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardOpen(true));
@@ -54,41 +62,66 @@ export default function GlobalCrisisHelpButton({ navigationRef }: Props) {
   }, []);
 
   useEffect(() => {
-    const syncRoute = () => setRootRouteName(activeRootRoute(navigationRef));
+    const syncRoute = () => {
+      const routeName = activeRootRoute(navigationRef);
+      routeAllowedRef.current = isCrisisRoute(routeName);
+      setRootRouteName(routeName);
+    };
     syncRoute();
-    const unsubscribe = navigationRef.addListener('state', syncRoute);
-    return unsubscribe;
+    const unsubscribeState = navigationRef.addListener('state', syncRoute);
+    const unsubscribeReady = navigationRef.addListener('ready', syncRoute);
+    return () => {
+      unsubscribeState();
+      unsubscribeReady();
+    };
   }, [navigationRef]);
 
-  useEffect(() => {
-    let collapseTimer: ReturnType<typeof setTimeout> | undefined;
-    const presentPrompt = () => {
-      if (keyboardOpenRef.current || !appActiveRef.current) return;
-      if (collapseTimer) clearTimeout(collapseTimer);
-      promptOpacity.stopAnimation();
-      promptOpacity.setValue(0);
-      setPromptVisible(true);
-      Animated.timing(promptOpacity, { toValue: 1, duration: 240, useNativeDriver: true }).start();
-      Animated.sequence([
-        Animated.spring(buttonScale, { toValue: 1.07, speed: 24, bounciness: 7, useNativeDriver: true }),
-        Animated.spring(buttonScale, { toValue: 1, speed: 20, bounciness: 4, useNativeDriver: true }),
-      ]).start();
-      collapseTimer = setTimeout(() => {
-        Animated.timing(promptOpacity, { toValue: 0, duration: 220, useNativeDriver: true })
-          .start(({ finished }) => { if (finished) setPromptVisible(false); });
-      }, PROMPT_VISIBLE_MS);
-    };
+  const presentPrompt = useCallback(() => {
+    if (
+      keyboardOpenRef.current
+      || !appActiveRef.current
+      || !routeAllowedRef.current
+      || !screenContentReadyRef.current
+    ) return;
+    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+    promptOpacity.stopAnimation();
+    promptOpacity.setValue(0);
+    setPromptVisible(true);
+    Animated.timing(promptOpacity, { toValue: 1, duration: 240, useNativeDriver: true }).start();
+    Animated.sequence([
+      Animated.spring(buttonScale, { toValue: 1.07, speed: 24, bounciness: 7, useNativeDriver: true }),
+      Animated.spring(buttonScale, { toValue: 1, speed: 20, bounciness: 4, useNativeDriver: true }),
+    ]).start();
+    collapseTimerRef.current = setTimeout(() => {
+      Animated.timing(promptOpacity, { toValue: 0, duration: 220, useNativeDriver: true })
+        .start(({ finished }) => { if (finished) setPromptVisible(false); });
+    }, PROMPT_VISIBLE_MS);
+  }, [buttonScale, promptOpacity]);
 
-    presentPrompt();
+  useEffect(() => {
+    screenContentReadyRef.current = screenContentReady;
+    if (
+      screenContentReady
+      && routeAllowed
+      && !keyboardOpen
+      && appActive
+      && !initialPromptShownRef.current
+    ) {
+      initialPromptShownRef.current = true;
+      presentPrompt();
+    }
+  }, [appActive, keyboardOpen, presentPrompt, routeAllowed, screenContentReady]);
+
+  useEffect(() => {
     const interval = setInterval(presentPrompt, PROMPT_INTERVAL_MS);
     return () => {
       clearInterval(interval);
-      if (collapseTimer) clearTimeout(collapseTimer);
+      if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
       promptOpacity.stopAnimation();
     };
-  }, [buttonScale, promptOpacity]);
+  }, [presentPrompt, promptOpacity]);
 
-  if (keyboardOpen || !appActive) return null;
+  if (keyboardOpen || !appActive || !routeAllowed || !screenContentReady) return null;
 
   const hasBottomNavigation = rootRouteName === 'Tabs';
   const bottom = insets.bottom + (hasBottomNavigation ? TAB_NAV_CLEARANCE : AUTH_SAFE_CLEARANCE);
@@ -119,6 +152,11 @@ export default function GlobalCrisisHelpButton({ navigationRef }: Props) {
 }
 
 function activeRootRoute(navigationRef: NavigationContainerRef<AppStackParamList>) {
+  if (!navigationRef.isReady()) return undefined;
   const state = navigationRef.getRootState();
   return state?.routes[state.index]?.name;
+}
+
+function isCrisisRoute(routeName?: string) {
+  return Boolean(routeName && !HIDDEN_ROUTES.has(routeName));
 }

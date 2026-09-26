@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -6,6 +6,7 @@ import AppTopBar from './AppTopBar';
 import type { DashboardSection } from './AccountSheet';
 import GlobalErrorToastReporter from './GlobalErrorToastReporter';
 import { useNetworkStatus } from '../contexts/NetworkContext';
+import { useScreenContentReady } from '../contexts/ScreenContentReadyContext';
 import { colors } from '../theme';
 
 const REFRESH_SKELETON_MAX_MS = 900;
@@ -41,6 +42,7 @@ export default function PillarScreen({
 }: PillarScreenProps) {
   const [refreshSkeletonExpired, setRefreshSkeletonExpired] = useState(false);
   const { dismissToast } = useNetworkStatus();
+  const reportScreenContentReady = useScreenContentReady();
 
   // A pull-to-refresh makes the previous failure notice stale.
   const handleRefresh = useCallback(() => {
@@ -60,6 +62,10 @@ export default function PillarScreen({
   }, [refreshing]);
 
   const showSkeleton = loading || (refreshing && !refreshSkeletonExpired);
+
+  useLayoutEffect(() => {
+    if (showSkeleton) reportScreenContentReady(false);
+  }, [reportScreenContentReady, showSkeleton]);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
@@ -82,7 +88,12 @@ export default function PillarScreen({
 
         <GlobalErrorToastReporter message={error ? errorMessage : null} />
 
-        {showSkeleton && skeleton ? skeleton : children}
+        <View
+          key={showSkeleton ? 'skeleton' : 'content'}
+          onLayout={showSkeleton ? undefined : () => reportScreenContentReady(true)}
+        >
+          {showSkeleton && skeleton ? skeleton : children}
+        </View>
       </ScrollView>
 
     </SafeAreaView>

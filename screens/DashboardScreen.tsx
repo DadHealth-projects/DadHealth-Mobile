@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   type LayoutChangeEvent,
@@ -33,6 +33,7 @@ import TodayFocusCard from '../components/dashboard/TodayFocusCard';
 import WeeklyReportCard from '../components/dashboard/WeeklyReportCard';
 import type { MoodKey } from '../components/mockup/MoodCheckInRow';
 import { useAuth } from '../contexts/AuthContext';
+import { useScreenContentReady } from '../contexts/ScreenContentReadyContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { useNetworkStatus } from '../contexts/NetworkContext';
 import { CAPS } from '../lib/dashboardCaps';
@@ -110,6 +111,7 @@ export function DashboardScreenContent({
   onScoreDetailRequestConsumed?: () => void;
 }) {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
+  const reportScreenContentReady = useScreenContentReady();
   const { data, loading, error: dashboardError, syncError, checkingIn, refresh, saveCheckIn } = useDashboard(user.id);
   const { dismissToast, isOffline } = useNetworkStatus();
   // Web pre-selects mood 3 ("Good") and 7 hours of sleep.
@@ -125,6 +127,11 @@ export function DashboardScreenContent({
   const checkInOffset = useRef(0);
   const [refreshing, setRefreshing] = useState(false);
   const [proPrompt, setProPrompt] = useState<'checkIn' | 'weeklyReport' | null>(null);
+  const showHomeSkeleton = (!data && !dashboardError) || refreshing;
+
+  useLayoutEffect(() => {
+    if (showHomeSkeleton) reportScreenContentReady(false);
+  }, [reportScreenContentReady, showHomeSkeleton]);
 
   const displayName = useMemo(
     () => greetingFirstName(data?.displayName, user),
@@ -371,9 +378,9 @@ export function DashboardScreenContent({
     }
   }, [dismissToast, refresh]);
 
-  if ((!data && !dashboardError) || refreshing) {
+  if (showHomeSkeleton) {
     return (
-      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
+      <SafeAreaView key="home-skeleton" edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
         <View className="px-lg pt-lg">
           <AppTopBar
             showNavigation
@@ -390,7 +397,12 @@ export function DashboardScreenContent({
   }
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
+    <SafeAreaView
+      key="home-content"
+      edges={['top']}
+      onLayout={() => reportScreenContentReady(true)}
+      style={{ flex: 1, backgroundColor: colors.dark }}
+    >
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           ref={scrollRef}
