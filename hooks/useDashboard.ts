@@ -12,7 +12,6 @@ import {
 import { isRetryableOfflineError, persistDailyCheckIn } from '../lib/offlineSync';
 import { supabase } from '../lib/supabase';
 import { isProfilePro } from '../lib/proStatus';
-import { selectTodayFocus } from '../lib/todayFocus';
 
 export type Reminder = {
   id: string;
@@ -684,15 +683,6 @@ export function useDashboard(userId: string | undefined) {
 
     const applyLocalCheckIn = async () => {
       if (!store.data || store.userId !== userId) return;
-      const selectedPillar = store.data.weakestPillar ?? selectTodayFocus(true, {
-        mind: store.data.mindScore,
-        body: store.data.bodyScore,
-        bond: store.data.bondScore,
-      });
-      const weakestPillar: NonNullable<DashboardData['weakestPillar']> = selectedPillar === 'checkin' ? 'mind' : selectedPillar;
-      const recommendedAction: NonNullable<DashboardData['recommendedAction']> = weakestPillar === 'mind' ? 'mind_breathing'
-        : weakestPillar === 'body' ? 'body_workout'
-          : 'bond_present_mode';
       const nextMoodLogs = [
         ...store.data.moodLogs.filter((log) => log.date !== date),
         { date, mood_value: moodValue },
@@ -701,8 +691,9 @@ export function useDashboard(userId: string | undefined) {
         ...store.data,
         moodLogs: nextMoodLogs,
         checkedInToday: date === todayKey(),
-        weakestPillar,
-        recommendedAction,
+        // Weakest pillar and next action remain server-owned. Hide the stale
+        // cached action until the queued check-in syncs and the view refreshes.
+        recommendedAction: null,
       };
       setStore({ data: nextData, error: null, syncError: null });
       await writeDashboardCache(userId, nextData);
