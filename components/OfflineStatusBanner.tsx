@@ -45,4 +45,4 @@ export default function OfflineStatusBanner({ children }: { children: ReactNode 
       </SafeAreaInsetsContext.Provider>
     </View>
   );
-}\r\n
+}
