@@ -44,7 +44,13 @@ Do not use older milestone briefs, TestFlight feedback or historical Jamie decis
 
 Today stays compact and action-first: the Pro tease is inside the Score card, Mood This Week stays on Mind, Smart Reminders appear only when present, and the weekly card appears only on its configured Sunday release. Historical score history and report details belong in the Score Detail Sheet.
 
-The Today card and Score Detail Sheet consume canonical score values, trends, weakest pillar and recommended action. Preserve current Free/Pro trend gating. Render a trend only when the canonical comparison value exists; never invent a trend for missing history. One Focus uses the canonical recommended action rather than recalculating the weakest pillar on the client.
+The Today card and Score Detail Sheet consume canonical score values, trends, weakest pillar and recommended action. Apply the approved Addendum A visibility rules consistently across Today and pillar screens. One Focus uses the canonical recommended action rather than recalculating the weakest pillar on the client.
+
+## Change 03 — Score Trends & Weakest-Pillar Logic
+
+**Status: COMPLETE.** Today, Score Detail, the weekly report, and the Mind, Body and Bond screens consume canonical pillar scores and week-on-week changes. Trend changes are score-point deltas and display after the score (for example, `BODY 37% ↓ 3 pts`). When the previous week has no data, show a neutral arrow without a change amount. Historical charts omit weeks with no pillar data, using the canonical availability flags.
+
+Weakest pillar and recommended action remain server-owned. Ties follow the canonical Mind, then Body, then Bond ordering. Recommendations use the documented pillar mapping and tracked completion state; Mind breathing may repeat because its completion is not persisted.
 
 ---
 
@@ -154,19 +160,21 @@ Score recalculation must follow the current backend/product implementation and a
 
 ## Trends
 
-Use the active milestone's agreed comparison window.
+Use the canonical Monday–Sunday calendar-week comparison window.
 
 Display trends in the approved format:
 
-`MIND 56% ↓ 27%`
+`MIND 56% ↓ 27 pts`
 
 The Score appears first, followed by the trend.
 
-When the canonical trend is null because there is no previous-week data, show no trend.
+Trend values are score-point differences, not percentages. When the canonical trend is null because there is no previous-week data, show a neutral arrow without a change amount. Do not fabricate a positive or negative change.
 
 ## Weakest Pillar
 
 The weakest pillar is the lowest of Mind, Body and Bond.
+
+Ties are resolved canonically in Mind, Body, Bond order.
 
 Recommendations must use the mapping defined in the active milestone.
 
