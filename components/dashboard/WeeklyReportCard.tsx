@@ -66,8 +66,8 @@ function WeeklyReportBody({ report }: { report: WeeklyReport }) {
             <Text className="font-heading-bold text-muted-text text-[10px] tracking-[0.5px] uppercase">
               {pillar.label}
             </Text>
-            <Text className="font-heading text-lime text-[24px] leading-[26px] mt-xs">
-              {formatPillarChange(pillar.change)}
+            <Text className="font-heading text-lime text-[20px] leading-[22px] mt-xs">
+              {pillar.score}% {formatPillarChange(pillar.change)}
             </Text>
           </View>
         ))}

@@ -1,3 +1,5 @@
+import { formatScoreTrend } from './scoreTrends';
+
 /**
  * Weekly Dad Health report — brief Change 04, Moment 5 (checklist item 17).
  *
@@ -7,12 +9,13 @@
  * nothing is blocked without showing what is behind it.
  *
  * Every sentence is derived from the dad's own numbers. Nothing is invented —
- * when there is no week-on-week data yet the report is `null` and the surface
- * says so instead of inferring progress.
+ * when there is no week-on-week data yet the score remains visible with a
+ * neutral arrow and no fabricated change amount.
  */
 
 export type WeeklyReportPillar = {
   label: 'Mind' | 'Body' | 'Bond';
+  score: number;
   /** Week-on-week change in score points, already rounded. `null` = no data. */
   change: number | null;
 };
@@ -24,6 +27,9 @@ export type WeeklyReport = {
 };
 
 export type WeeklyReportSource = {
+  mindScore: number | null;
+  bodyScore: number | null;
+  bondScore: number | null;
   mindWeekChange: number | null;
   bodyWeekChange: number | null;
   bondWeekChange: number | null;
@@ -52,12 +58,10 @@ function roundedChange(value: number | null): number | null {
 
 export function buildWeeklyReport(source: WeeklyReportSource): WeeklyReport | null {
   const pillars: WeeklyReportPillar[] = [
-    { label: 'Mind', change: roundedChange(source.mindWeekChange) },
-    { label: 'Body', change: roundedChange(source.bodyWeekChange) },
-    { label: 'Bond', change: roundedChange(source.bondWeekChange) },
+    { label: 'Mind', score: Math.round(source.mindScore ?? 0), change: roundedChange(source.mindWeekChange) },
+    { label: 'Body', score: Math.round(source.bodyScore ?? 0), change: roundedChange(source.bodyWeekChange) },
+    { label: 'Bond', score: Math.round(source.bondScore ?? 0), change: roundedChange(source.bondWeekChange) },
   ];
-
-  if (pillars.every((pillar) => pillar.change === null)) return null;
 
   const moved = pillars.filter(
     (pillar): pillar is WeeklyReportPillar & { change: number } => pillar.change !== null,
@@ -70,7 +74,9 @@ export function buildWeeklyReport(source: WeeklyReportSource): WeeklyReport | nu
     : '';
 
   let summary: string;
-  if (fallen.length > 0 && risen.length > 0) {
+  if (moved.length === 0) {
+    summary = 'Your scores are here. Week-on-week trends will appear when previous-week data is available.';
+  } else if (fallen.length > 0 && risen.length > 0) {
     summary = `${trainingClause}You've kept your ${risen[0].label} score moving, but your ${fallen[0].label} score has dipped.`;
   } else if (fallen.length > 0) {
     summary = `${trainingClause}Your ${fallen[0].label} score has dipped this week.`;
@@ -87,9 +93,8 @@ export function buildWeeklyReport(source: WeeklyReportSource): WeeklyReport | nu
   return { pillars, summary, nextWeek };
 }
 
-/** `↑ 8%` / `↓ 4%` / `—`, matching the brief's report formatting. */
+/** Format positive, negative, zero, and missing canonical weekly changes. */
 export function formatPillarChange(change: number | null): string {
-  if (change === null) return '—';
-  if (change === 0) return '0%';
-  return `${change > 0 ? '↑' : '↓'} ${Math.abs(change)}%`;
+  const trend = formatScoreTrend(change);
+  return trend.change === null ? trend.arrow : `${trend.arrow} ${trend.change} pts`;
 }
