@@ -59,6 +59,7 @@ test('global crisis control waits for real screen content instead of appearing o
   assert.match(rootNavigator, /screenContentReady=\{screenContentReady\}/);
   assert.match(rootNavigator, /ScreenContentReadyContext\.Provider/);
   assert.match(pillars, /if \(showSkeleton\) reportScreenContentReady\(false\)/);
+  assert.match(pillars, /className="gap-xl"[\s\S]*?showSkeleton && skeleton \? skeleton : children/);
   assert.match(pillars, /showSkeleton \? undefined : \(\) => reportScreenContentReady\(true\)/);
   assert.match(today, /const showHomeSkeleton = \(!data && !dashboardError\) \|\| refreshing/);
   assert.match(today, /if \(showHomeSkeleton\) reportScreenContentReady\(false\)/);

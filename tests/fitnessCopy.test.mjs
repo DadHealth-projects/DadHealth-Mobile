@@ -17,6 +17,16 @@ test('Fitness uses the selected workout name, move count, duration and equipment
   assert.doesNotMatch(source, /workout \+ meal planner hub/i);
 });
 
+test('Fitness calorie calculator teaser keeps its supporting copy above the action', async () => {
+  const source = await readFile(new URL('screens/FitnessScreen.tsx', root), 'utf8');
+  const teaser = source.match(/Calorie calculator[\s\S]*?Calculate[^<]*<\/LimeButton>/)?.[0] ?? '';
+
+  assert.match(teaser, /Know your number/);
+  assert.match(teaser, /Find the daily calories your body needs to perform, recover and feel like yourself\./);
+  assert.match(teaser, /<LimeButton label="Calculate/);
+  assert.doesNotMatch(teaser, /<View className="flex-1">/);
+});
+
 test('Fitness move counts use correct singular and plural copy', async () => {
   const [fitness, activeWorkout] = await Promise.all([
     readFile(new URL('screens/FitnessScreen.tsx', root), 'utf8'),

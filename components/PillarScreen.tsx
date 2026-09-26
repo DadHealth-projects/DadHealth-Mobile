@@ -90,6 +90,7 @@ export default function PillarScreen({
 
         <View
           key={showSkeleton ? 'skeleton' : 'content'}
+          className="gap-xl"
           onLayout={showSkeleton ? undefined : () => reportScreenContentReady(true)}
         >
           {showSkeleton && skeleton ? skeleton : children}

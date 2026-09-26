@@ -354,7 +354,7 @@ export default function FitnessScreen({
 
       <FadeInView delay={240}>
         <FlatSection className="gap-md">
-          <View className="flex-1">
+          <View>
             <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
               Calorie calculator
             </Text>
