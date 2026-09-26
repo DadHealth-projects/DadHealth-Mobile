@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { formatScoreTrend } from '../../lib/scoreTrends';
 
 export type ScoreItem = {
   label: string;
@@ -8,6 +9,7 @@ export type ScoreItem = {
   trend?: number | null;
   highlighted?: boolean;
   warning?: boolean;
+  showNeutralTrend?: boolean;
 };
 
 type DadScoreCardProps = {
@@ -84,7 +86,8 @@ function DadScoreCard({
           ) : null}
 
           {items.map((item) => {
-            const roundedTrend = item.trend == null ? null : Math.round(item.trend);
+            const trend = formatScoreTrend(item.trend);
+            const showTrend = item.trend != null || item.showNeutralTrend;
             return (
             <View
               key={item.label}
@@ -109,9 +112,9 @@ function DadScoreCard({
                     <Text className="font-heading-bold text-dark/60 text-[10px]">
                       {item.value}%
                     </Text>
-                    {roundedTrend !== null ? (
+                    {showTrend ? (
                       <Text className="font-heading-bold text-dark text-[10px]">
-                        {roundedTrend > 0 ? '↑' : roundedTrend < 0 ? '↓' : '→'} {Math.abs(roundedTrend)}%
+                        {trend.arrow}{trend.change == null ? '' : ` ${trend.change} pts`}
                       </Text>
                     ) : null}
                   </View>
