@@ -273,7 +273,6 @@ export default function WeeklyChallengeScreen() {
         contentContainerClassName="px-lg pt-lg pb-[80px] gap-xl"
       >
         <AppTopBar
-          showBrand
           leftAccessory={(
             <Pressable
               onPress={() => navigation.goBack()}
