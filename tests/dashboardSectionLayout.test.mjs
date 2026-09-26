@@ -42,13 +42,18 @@ test('Body uses divider-led sections instead of tall dark cards', async () => {
   assert.ok(body.indexOf('<SectionHeader title="Body this week"') < body.indexOf('Active workout'));
 });
 
-test('Mind preserves compact information and feature cards while flattening the tall mood panel', async () => {
+test('Mind places facts and sleep below the feeling description without duplicating sections', async () => {
   const mind = await source('screens/MindScreen.tsx');
 
-  assert.equal(mind.includes('<StatTile'), false);
+  assert.ok(mind.includes('<StatTile'));
   assert.ok(mind.includes('summary={moodSummary} flat'));
   assert.ok(mind.includes("rounded-button border px-md py-md ${featured ? 'border-lime/25 bg-lime/5' : 'border-border bg-card'}"));
   assert.ok(mind.includes('gap-md border-b border-border pb-md'));
+  assert.ok(mind.indexOf('<StatTile value="1 in 8"') > mind.indexOf('Opening up about feelings'));
+  assert.ok(mind.indexOf('title="Sleep quality this week"') > mind.indexOf('<StatTile value="1 in 8"'));
+  assert.ok(mind.indexOf('title="4-4-4 Breathing"') > mind.indexOf('title="Sleep quality this week"'));
+  assert.equal((mind.match(/<SectionHeader title="Mind facts"/g) ?? []).length, 1);
+  assert.equal((mind.match(/<SectionHeader title="Sleep quality this week"/g) ?? []).length, 1);
 });
 
 test('Bond keeps its existing green score and compact action cards', async () => {
