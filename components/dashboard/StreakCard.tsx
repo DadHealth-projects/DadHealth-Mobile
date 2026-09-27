@@ -14,10 +14,14 @@ import { colors } from '../../theme';
 function StreakCard({
   streak,
   isPro = false,
+  freezeUsedThisWeek = null,
+  freezesRemaining = null,
   onUpgrade,
 }: {
   streak: number | null;
   isPro?: boolean;
+  freezeUsedThisWeek?: boolean | null;
+  freezesRemaining?: number | null;
   onUpgrade?: () => void;
 }) {
   const count = Math.max(0, streak ?? 0);
@@ -38,14 +42,16 @@ function StreakCard({
         </View>
       </View>
 
-      {isPro ? (
+      {isPro && freezeUsedThisWeek !== null && freezesRemaining !== null ? (
         <View className="flex-row items-center gap-sm">
           <Feather name="shield" size={14} color={colors.lime} />
           <Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">
-            Streak protected — one missed day won't reset it
+            {freezeUsedThisWeek
+              ? 'Freeze used · Resets Monday'
+              : `Streak protected · ${freezesRemaining} ${freezesRemaining === 1 ? 'freeze' : 'freezes'} left this week`}
           </Text>
         </View>
-      ) : onUpgrade ? (
+      ) : !isPro && onUpgrade ? (
         <View className="gap-sm">
           <Text className="font-body text-tertiary-text text-[12px] leading-[18px]">
             Pro members keep their streak through one missed day.

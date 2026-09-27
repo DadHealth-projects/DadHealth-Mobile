@@ -8,7 +8,7 @@ import SectionHeader from './SectionHeader';
 import { useProgressBadges } from '../../hooks/useProgressBadges';
 import { useProgressReport } from '../../hooks/useProgressReport';
 import { useDadScoreHistory } from '../../hooks/useDadScoreHistory';
-import { PRO_MOMENTS } from '../../lib/proMoments';
+import { PRO_MOMENTS, proScoreTease } from '../../lib/proMoments';
 import { shareDadHealthReport } from '../../lib/reportSharing';
 import { colors } from '../../theme';
 
@@ -24,11 +24,20 @@ type Props = {
 
 export default function ScoreDetailSheet({ visible, onClose, score, items, isPro, userId, onUpgrade }: Props) {
   const sheetUserId = visible ? userId : undefined;
-  const report = useProgressReport(sheetUserId);
+  const report = useProgressReport(sheetUserId, isPro);
   const badgeData = useProgressBadges(sheetUserId);
   const history = useDadScoreHistory(isPro ? sheetUserId : undefined);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const month = useMemo(() => new Date().toLocaleDateString('en-US', { month: 'long' }), []);
+  const scoreContextItem = useMemo(
+    () => items
+      .filter((item) => item.value !== null && item.trend != null && item.trend > 0)
+      .sort((left, right) => (right.trend ?? 0) - (left.trend ?? 0))[0] ?? null,
+    [items],
+  );
+  const scoreTrendTease = scoreContextItem?.trend == null
+    ? null
+    : proScoreTease([scoreContextItem.label, scoreContextItem.trend] as const);
   const reportStats = report.report ? [
     [String(report.report.workouts), 'Workouts'],
     [String(report.report.journal), 'Journal entries'],
@@ -39,11 +48,11 @@ export default function ScoreDetailSheet({ visible, onClose, score, items, isPro
   ] : [];
 
   const shareReport = async () => {
-    if (!report.report) {
+    if (isPro && !report.report) {
       setShareMessage('Your monthly report is not available yet.');
       return;
     }
-    setShareMessage(await shareDadHealthReport(month, score ?? 0, report.report));
+    setShareMessage(await shareDadHealthReport(month, score ?? 0, isPro ? report.report : null));
   };
 
   return (
@@ -74,16 +83,20 @@ export default function ScoreDetailSheet({ visible, onClose, score, items, isPro
             {!isPro ? <View className="border-y border-border py-md">
               <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">{PRO_MOMENTS.score.eyebrow}</Text>
               <Text className="font-heading-bold text-white text-[16px] uppercase mt-xs">{PRO_MOMENTS.score.heading}</Text>
-              <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">{PRO_MOMENTS.score.body}</Text>
+              <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">
+                {scoreTrendTease ?? PRO_MOMENTS.score.body}
+              </Text>
               <Pressable onPress={onUpgrade} accessibilityRole="button" className="min-h-[42px] self-start justify-center border-b border-lime mt-sm">
-                <Text className="font-heading-bold text-lime text-[11px] uppercase">{PRO_MOMENTS.score.cta}</Text>
+                <Text className="font-heading-bold text-lime text-[11px] uppercase">
+                  {scoreTrendTease ? "See what's driving your score →" : PRO_MOMENTS.score.cta}
+                </Text>
               </Pressable>
             </View> : null}
 
             <View>
               <SectionHeader title="Score trends" className="mb-sm" />
               {isPro ? (
-                history.loading ? <Text className="font-body text-muted-text text-[12px]">Loading your score history…</Text> : history.points.length > 0 ? (
+                history.loading ? <Text className="font-body text-muted-text text-[12px]">Loading your score history…</Text> : history.error ? <Text className="font-body text-muted-text text-[12px]">Your score history is unavailable right now. Please try again.</Text> : history.points.length > 0 ? (
                   <View className="h-[90px] flex-row items-end justify-between gap-xs border-b border-border pb-xs">
                     {history.points.slice(-8).map((point) => (
                       <View key={point.week_start} className="flex-1 items-center justify-end gap-xs">
@@ -100,7 +113,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, items, isPro
             <View>
               <SectionHeader title={`${month} report`} className="mb-sm" />
               {isPro ? (
-                report.loading ? <Text className="font-body text-muted-text text-[12px]">Loading your report…</Text> : (
+                report.loading ? <Text className="font-body text-muted-text text-[12px]">Loading your report…</Text> : report.error ? <Text className="font-body text-muted-text text-[12px]">Your report is unavailable right now. Please try again.</Text> : (
                   <View className="flex-row flex-wrap gap-sm">
                     {reportStats.map(([value, label]) => (
                       <View key={label} className="min-h-[72px] basis-[31%] grow border border-border px-sm py-sm">
