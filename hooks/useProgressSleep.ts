@@ -3,10 +3,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNetworkStatus } from '../contexts/NetworkContext';
 import { supabase } from '../lib/supabase';
 import { getCurrentWeekDayKeys } from '../lib/dashboard.utils';
+import { fetchProInsight } from '../lib/proInsights';
 
 export type ProgressSleepDay = { key: string; label: string; hours: number | null; mood: number | null };
 
-export function useProgressSleep(userId?: string) {
+export function useProgressSleep(userId?: string, isPro = false) {
   const { isOffline } = useNetworkStatus();
   const [days, setDays] = useState<ProgressSleepDay[]>([]);
   const [pattern, setPattern] = useState('Log more mood and sleep check-ins to unlock pattern insights.');
@@ -36,9 +37,12 @@ export function useProgressSleep(userId?: string) {
       key,
       label: new Date(`${key}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short' }),
     }));
-    const [sleepResult, moodResult] = await Promise.all([
+    const [sleepResult, moodResult, proPattern] = await Promise.all([
       supabase.from('sleep_logs').select('date,hours').eq('user_id', userId).gte('date', dates[0].key).lte('date', dates[6].key),
       supabase.from('mood_logs').select('date,mood_value,mood_scale_version').eq('user_id', userId).gte('date', dates[0].key).lte('date', dates[6].key),
+      isPro
+        ? fetchProInsight<{ pattern: string; weekStart: string; weekEnd: string }>('mood-correlation').catch(() => null)
+        : Promise.resolve(null),
     ]);
     if (requestId !== latestRequest.current) return;
     if (sleepResult.error || moodResult.error) {
@@ -52,20 +56,13 @@ export function useProgressSleep(userId?: string) {
       Number(row.mood_value) + (row.mood_scale_version === 1 ? 0 : 1),
     ]));
     const nextDays = dates.map((date) => ({ ...date, hours: sleepMap.get(date.key) ?? null, mood: moodMap.get(date.key) ?? null }));
-    const pairs = nextDays.filter((day): day is ProgressSleepDay & { hours: number; mood: number } => day.hours != null && day.hours > 0 && day.mood != null && day.mood > 0);
-    const highSleep = pairs.filter((day) => day.hours >= 7);
-    const lowSleep = pairs.filter((day) => day.hours < 7);
-    const highMood = averageMood(highSleep);
-    const lowMood = averageMood(lowSleep);
-    setPattern(highMood != null && lowMood != null && lowMood > 0
-      ? `Your mood score is ${Math.round(((highMood - lowMood) / lowMood) * 100)}% higher on days after 7+ hours sleep.`
+    setPattern(isPro
+      ? proPattern?.pattern ?? 'Pattern insights are unavailable right now. Please try again.'
       : 'Log more mood and sleep check-ins to unlock pattern insights.');
     setDays(nextDays);
     setLoading(false);
-  }, [isOffline, userId]);
+  }, [isOffline, isPro, userId]);
 
   useEffect(() => { void refresh(); }, [refresh]);
   return { days, pattern, loading, error, refresh };
 }
-
-function averageMood(days: Array<{ mood: number }>) { return days.length ? days.reduce((sum, day) => sum + day.mood, 0) / days.length : null; }

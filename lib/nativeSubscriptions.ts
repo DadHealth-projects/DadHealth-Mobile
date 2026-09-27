@@ -23,6 +23,8 @@ export interface NativeSubscriptionStatus {
   productId: string | null;
   currentPeriodEnd: string | null;
   canPurchase: boolean;
+  freezeUsedThisWeek?: boolean;
+  freezesRemaining?: number;
 }
 
 export interface NativePlanProduct {
