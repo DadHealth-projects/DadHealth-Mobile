@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useNetworkStatus } from '../contexts/NetworkContext';
-import { isProfilePro } from '../lib/proStatus';
+import { loadNativeSubscriptionStatus } from '../lib/nativeSubscriptions';
 import { supabase } from '../lib/supabase';
 
 export type FitnessWorkoutExercise = {
@@ -67,7 +67,7 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
       return;
     }
 
-    const [adminResult, generatedResult, profileResult] = await Promise.all([
+    const [adminResult, generatedResult, subscriptionStatus] = await Promise.all([
       adminQuery,
       supabase
         .from('workouts')
@@ -75,11 +75,7 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
         .eq('user_id', userId)
         .eq('source', 'ai_generated')
         .order('created_at', { ascending: false }),
-      supabase
-        .from('user_profile')
-        .select('is_pro,subscription_status')
-        .eq('user_id', userId)
-        .maybeSingle(),
+      loadNativeSubscriptionStatus().catch(() => null),
     ]);
 
     if (adminResult.error || generatedResult.error) {
@@ -89,11 +85,11 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
       return;
     }
 
-    const pro = isProfilePro(profileResult.data);
+    const pro = subscriptionStatus?.isPro === true;
     const adminWorkouts = (adminResult.data ?? []) as FitnessWorkout[];
     const generatedWorkouts = (generatedResult.data ?? []) as FitnessWorkout[];
-    setProError(profileResult.error ? 'Unable to confirm Dad Health Pro access.' : null);
-    setIsPro(profileResult.error ? false : pro);
+    setProError(subscriptionStatus ? null : 'Unable to confirm Dad Health Pro access.');
+    setIsPro(pro);
     // Pro controls how a workout is generated, not ownership of a workout the
     // user has already created. Keep those workouts available after refresh or
     // an entitlement change.
