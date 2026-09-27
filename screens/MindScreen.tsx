@@ -50,7 +50,7 @@ export default function MindScreen({
   const { isOffline } = useNetworkStatus();
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { data, loading, error, refresh } = useDashboard(user?.id);
-  const sleepInsights = useProgressSleep(user?.id);
+  const sleepInsights = useProgressSleep(user?.id, data?.isPro === true);
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [mindSession, setMindSession] = useState<MindSessionKind | null>(null);

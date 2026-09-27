@@ -10,6 +10,7 @@ import AppTopBar from '../../components/AppTopBar';
 import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
 import ProPromptModal from '../../components/ProPromptModal';
+import ProUpgradeSection from '../../components/ProUpgradeSection';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
@@ -65,7 +66,7 @@ export default function DadDaysSearchScreen() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<{ name: string; message: string } | null>(null);
   const [openFilter, setOpenFilter] = useState<'budget' | 'radius' | 'age' | null>(null);
-  const [limitPromptOpen, setLimitPromptOpen] = useState(false);
+  const [proPromptMoment, setProPromptMoment] = useState<'dadDays' | 'dadDaysCounter' | null>(null);
 
   useEffect(() => {
     void SecureStore.getItemAsync(RADIUS_KEY).then((saved) => {
@@ -157,7 +158,7 @@ export default function DadDaysSearchScreen() {
     if (!user || !session?.access_token) { navigation.navigate('Login'); return; }
     if (isOffline) { showOfflineAction('dad_days_search'); return; }
     if (!coords) { setLocationError('Use your location or enter a postcode first.'); return; }
-    if (limitReached) { setLimitPromptOpen(true); return; }
+    if (limitReached) { setProPromptMoment('dadDaysCounter'); return; }
     setSearching(true); setSearchError(null); setResults([]);
     try {
       const response = await fetch(`${WEB_URL}/api/dad_days_searches`, {
@@ -167,7 +168,7 @@ export default function DadDaysSearchScreen() {
       });
       const body = await response.json() as { results?: SearchResult[]; searchesUsed?: number; error?: string };
       if (response.status === 401) { setSearchError('Your session has expired. Please log in again.'); return; }
-      if (body.error === 'search_limit_reached' || response.status === 403) { setSearchesUsed(FREE_LIMIT); setLimitPromptOpen(true); trackEvent('dad_days_search_limit_reached', { searchesUsed: FREE_LIMIT }, user.id); return; }
+      if (body.error === 'search_limit_reached' || response.status === 403) { setSearchesUsed(FREE_LIMIT); setProPromptMoment('dadDaysCounter'); trackEvent('dad_days_search_limit_reached', { searchesUsed: FREE_LIMIT }, user.id); return; }
       if (!response.ok) { setSearchError(response.status === 429 ? "You're searching too quickly. Wait a moment and try again." : 'We could not search for Dad Days. Please try again.'); return; }
       const nextResults = body.results ?? [];
       setResults(nextResults);
@@ -194,10 +195,10 @@ export default function DadDaysSearchScreen() {
   }, [budget, isOffline, refreshDashboard, showOfflineAction, user?.id]);
 
   const locationLabel = coords ? (postcode ? postcode : 'Current location') : 'No location set';
-  // Moment 7 wording is the used count, not the remaining count.
+  // The usage counter reports searches already used, not searches remaining.
   const searchesUsedLabel = `${Math.min(searchesUsed, FREE_LIMIT)} of ${FREE_LIMIT} free Dad Days searches used this month.`;
   const openPro = () => {
-    setLimitPromptOpen(false);
+    setProPromptMoment(null);
     navigation.navigate('ProSubscription');
   };
   const openResultWebsite = (url: string) => {
@@ -242,7 +243,7 @@ export default function DadDaysSearchScreen() {
             <InlineFormError message={isOffline ? null : searchError} />
 
             {limitReached ? (
-              /* Moment 7 — the free counter, at the limit. */
+              /* The existing Free counter remains visible after the limit. */
               <>
                 <LimeButton label="Search for Dad Days" onPress={() => void search()} loading={searching} />
                 <Text className="font-body text-tertiary-text text-[11px] leading-[16px] text-center">
@@ -252,11 +253,19 @@ export default function DadDaysSearchScreen() {
             ) : (
               <>
                 <LimeButton label="Search for Dad Days" onPress={() => void search()} loading={searching} />
-                {/* Moment 7 — the free counter, while searches remain. */}
+                {/* Keep the existing Free usage counter while searches remain. */}
                 {accessReady && !isPro ? (
                   <Text className="font-body text-tertiary-text text-[11px] leading-[16px] text-center">
                     {searchesUsedLabel}
                   </Text>
+                ) : null}
+                {accessReady && !isPro && searchesUsed === FREE_LIMIT - 1 ? (
+                  <ProUpgradeSection
+                    moment={PRO_MOMENTS.dadDays}
+                    lead={`${searchesUsed} of ${FREE_LIMIT} free searches used. Pro gives you unlimited searches personalised for your child.`}
+                    onPress={() => setProPromptMoment('dadDays')}
+                    size="sm"
+                  />
                 ) : null}
               </>
             )}
@@ -266,11 +275,11 @@ export default function DadDaysSearchScreen() {
         {results.length > 0 ? <View className="gap-md border-t border-border pt-xl"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Activities found ({results.length})</Text><FeaturedResult result={results[0]} saving={savingName === results[0].name} error={!isOffline && saveError?.name === results[0].name ? saveError.message : null} onOpen={() => openResultWebsite(results[0].websiteUrl)} onSave={() => void save(results[0])} /><View className="gap-md">{results.slice(1).map((result) => <ResultRow key={result.name} result={result} saving={savingName === result.name} error={!isOffline && saveError?.name === result.name ? saveError.message : null} onOpen={() => openResultWebsite(result.websiteUrl)} onSave={() => void save(result)} />)}</View></View> : null}
       </ScrollView>
       <ProPromptModal
-        visible={limitPromptOpen}
-        moment={PRO_MOMENTS.dadDaysCounter}
-        lead={`${searchesUsedLabel} Your allowance resets on the first of next month.`}
+        visible={proPromptMoment !== null}
+        moment={PRO_MOMENTS[proPromptMoment ?? 'dadDaysCounter']}
+        lead={proPromptMoment === 'dadDaysCounter' ? `${searchesUsedLabel} Your allowance resets on the first of next month.` : null}
         onUpgrade={openPro}
-        onDismiss={() => setLimitPromptOpen(false)}
+        onDismiss={() => setProPromptMoment(null)}
       />
     </SafeAreaView>
   );
