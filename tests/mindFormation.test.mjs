@@ -57,7 +57,8 @@ test('weekly sleep and mood correlation use Monday-Sunday keys and normalize leg
   assert.match(hook, /getCurrentWeekDayKeys\(\)/);
   assert.match(hook, /mood_scale_version/);
   assert.match(hook, /mood_scale_version === 1 \? 0 : 1/);
-  assert.match(hook, /day\.hours >= 7/);
+  assert.match(hook, /fetchProInsight<\{ pattern: string; weekStart: string; weekEnd: string \}>\('mood-correlation'\)/);
+  assert.match(hook, /isPro\s*\?/);
 });
 
 test('Free sees a locked preview for mood correlation and Pro sees the pattern', async () => {

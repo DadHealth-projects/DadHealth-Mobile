@@ -17,7 +17,7 @@ import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { useDashboard } from '../../hooks/useDashboard';
 import { trackEvent } from '../../lib/analytics';
 import { PRO_LOCKS } from '../../lib/proMoments';
-import { isProfilePro } from '../../lib/proStatus';
+import { loadNativeSubscriptionStatus } from '../../lib/nativeSubscriptions';
 import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -54,15 +54,15 @@ export default function MilestoneTrackerScreen() {
     if (!user?.id) { setLoading(false); return; }
     if (isOffline) { setLoading(false); return; }
     setLoading(true);
-    const [profileResult, milestoneResult, storageResult] = await Promise.all([
-      supabase.from('user_profile').select('is_pro,subscription_status').eq('user_id', user.id).maybeSingle(),
+    const [subscriptionStatus, milestoneResult, storageResult] = await Promise.all([
+      loadNativeSubscriptionStatus().catch(() => null),
       supabase.from('milestones').select('id,date,text,tag,photo_url').eq('user_id', user.id).order('date', { ascending: false }),
       supabase.storage.from('milestone-photos').list(user.id, { limit: 1000 }),
     ]);
-    if (profileResult.error) setFormError('We could not confirm your Dad Health Pro access. Please try again.');
-    else if (milestoneResult.error) setFormError('We could not load your milestones. Please try again.');
+    if (milestoneResult.error) setFormError('We could not load your milestones. Please try again.');
     else {
-      setIsPro(isProfilePro(profileResult.data));
+      setIsPro(subscriptionStatus?.isPro === true);
+      if (!subscriptionStatus) setFormError('We could not confirm your Dad Health Pro access. Please try again.');
       setMilestones((milestoneResult.data ?? []) as Milestone[]);
       setStorageBytes((storageResult.data ?? []).reduce((sum, item) => sum + (Number(item.metadata?.size) || 0), 0));
     }
