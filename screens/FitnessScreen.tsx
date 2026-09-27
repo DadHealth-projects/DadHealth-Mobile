@@ -21,7 +21,7 @@ import { useFitnessLibrary } from '../hooks/useFitnessLibrary';
 import { useFitnessSummary } from '../hooks/useFitnessSummary';
 import { MOOD_WEEK_LABELS } from '../lib/dashboard.utils';
 import { DAD_STRENGTH_MOVES } from '../lib/homeContent';
-import { PRO_LOCKS } from '../lib/proMoments';
+import { PRO_LOCKS, PRO_MOMENTS } from '../lib/proMoments';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 import { syncAppleHealthIfConnected } from '../lib/appleHealth';
 
@@ -213,6 +213,17 @@ export default function FitnessScreen({
           </View>
         </View>
       </FadeInView>
+
+      {standalone && hasUser && fitnessSummary.monthWorkouts > 0 && data?.isPro === false ? (
+        <FadeInView delay={115}>
+          <ProUpgradeSection
+            moment={PRO_MOMENTS.progressTrends}
+            lead={`${fitnessSummary.monthWorkouts} ${fitnessSummary.monthWorkouts === 1 ? 'workout' : 'workouts'} logged this month. Want to see how your Body score has changed?`}
+            onPress={() => navigation.navigate('ProSubscription')}
+            size="sm"
+          />
+        </FadeInView>
+      ) : null}
 
       <FadeInView delay={120}>
         {standalone ? (

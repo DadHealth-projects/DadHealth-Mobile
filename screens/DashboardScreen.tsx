@@ -44,7 +44,8 @@ import {
 import type { CheckInAction } from '../lib/checkInRecommendation';
 import { PRO_MOMENTS } from '../lib/proMoments';
 import { greetingFirstName } from '../lib/userDisplay';
-import { buildWeeklyReport, isWeeklyReportDay } from '../lib/weeklyReport';
+import { isWeeklyReportDay } from '../lib/weeklyReport';
+import { useWeeklyReport } from '../hooks/useWeeklyReport';
 import { colors } from '../theme';
 import BondScreen from './BondScreen';
 import CommunityScreen from './CommunityScreen';
@@ -245,17 +246,8 @@ export function DashboardScreenContent({
   }, [data?.bodyScore, data?.bondScore, data?.checkedInToday, data?.mindScore, data?.recommendedAction]);
 
   // The report is part of Today on Sunday after its configured 08:00 release.
-  const weeklyReport = useMemo(() => data ? buildWeeklyReport({
-    mindScore: data.mindScore,
-    bodyScore: data.bodyScore,
-    bondScore: data.bondScore,
-    mindWeekChange: data.mindWeekChange,
-    bodyWeekChange: data.bodyWeekChange,
-    bondWeekChange: data.bondWeekChange,
-    monthWorkouts: data.monthWorkouts,
-    recommendedAction: data.recommendedAction,
-  }) : null, [data]);
   const showWeeklyReport = isWeeklyReportDay();
+  const { report: weeklyReport, loading: weeklyReportLoading, error: weeklyReportError } = useWeeklyReport(user?.id, data?.isPro === true, showWeeklyReport);
 
   // After a reload the stress answer is no longer in session, so the follow-up
   // reads today's logged mood rather than the panel's pre-selected default.
@@ -539,7 +531,13 @@ export function DashboardScreenContent({
               </FadeInView>
 
               <FadeInView delay={240}>
-                <StreakCard streak={data.streak} isPro={data.isPro} onUpgrade={openPro} />
+                <StreakCard
+                  streak={data.streak}
+                  isPro={data.isPro}
+                  freezeUsedThisWeek={data.freezeUsedThisWeek}
+                  freezesRemaining={data.freezesRemaining}
+                  onUpgrade={openPro}
+                />
               </FadeInView>
 
               {showWeeklyReport ? (
@@ -547,6 +545,8 @@ export function DashboardScreenContent({
                   <WeeklyReportCard
                     report={weeklyReport}
                     isPro={data.isPro}
+                    loading={weeklyReportLoading}
+                    error={weeklyReportError}
                     onUpgrade={() => setProPrompt('weeklyReport')}
                   />
                 </FadeInView>
