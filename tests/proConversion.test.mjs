@@ -56,7 +56,7 @@ test('approved conversion entry points use the existing Pro prompt', async () =>
   assert.ok(checkIn.includes('See what Pro can do'));
   assert.ok(weekly.includes('PRO_MOMENTS.weeklyReport'));
   assert.ok(aiWorkout.includes('PRO_MOMENTS.aiWorkout'));
-  assert.ok(dadDays.includes('PRO_MOMENTS.dadDaysCounter'));
+  assert.ok(dadDays.includes("PRO_MOMENTS[proPromptMoment ?? 'dadDaysCounter']"));
   assert.ok(scoreDetails.includes('PRO_MOMENTS.score'));
 });
 
@@ -83,6 +83,51 @@ test('Moment 7 counts searches used, as the brief words it', async () => {
   assert.ok(dadDays.includes('free Dad Days searches used this month.'));
   assert.equal(dadDays.includes('free searches remaining'), false);
   assert.ok(dadDays.includes('FREE_LIMIT = 3'));
+});
+
+test('Moment 4 shows contextual Dad Days Pro value at two of three searches without changing the quota', async () => {
+  const dadDays = await source('screens/subscreens/DadDaysSearchScreen.tsx');
+
+  assert.ok(dadDays.includes("searchesUsed === FREE_LIMIT - 1"));
+  assert.ok(dadDays.includes('moment={PRO_MOMENTS.dadDays}'));
+  assert.ok(dadDays.includes('Pro gives you unlimited searches personalised for your child.'));
+  assert.ok(dadDays.includes("setProPromptMoment('dadDays')"));
+  assert.ok(dadDays.includes("if (limitReached) { setProPromptMoment('dadDaysCounter'); return; }"));
+  assert.ok(dadDays.includes('const FREE_LIMIT = 3;'));
+  assert.ok(dadDays.includes("body.error === 'search_limit_reached' || response.status === 403"));
+});
+
+test('Moment 5 follows Body progress context and keeps the canonical score row free', async () => {
+  const [body, row] = await Promise.all([
+    source('screens/FitnessScreen.tsx'),
+    source('components/dashboard/PillarScoreRow.tsx'),
+  ]);
+
+  assert.ok(body.includes('<PillarScoreRow pillar="Body" score={data?.bodyScore ?? null} trend={data?.bodyWeekChange ?? null} />'));
+  assert.ok(body.indexOf('<StatCard value={stats[3].value}') < body.indexOf('moment={PRO_MOMENTS.progressTrends}'));
+  assert.ok(body.includes('fitnessSummary.monthWorkouts > 0'));
+  assert.ok(body.includes('data?.isPro === false'));
+  assert.ok(body.includes('Want to see how your Body score has changed?'));
+  assert.ok(body.includes("onPress={() => navigation.navigate('ProSubscription')}"));
+  assert.ok(row.includes('{Math.round(score ?? 0)}%'));
+  assert.ok(row.includes('formattedTrend.arrow'));
+});
+
+test('Moment 6 uses canonical positive score-point movement and labels it in points', async () => {
+  const details = await source('components/dashboard/ScoreDetailSheet.tsx');
+  const moments = await source('lib/proMoments.ts');
+
+  assert.ok(details.includes('.filter((item) => item.value !== null && item.trend != null && item.trend > 0)'));
+  assert.ok(details.includes('proScoreTease([scoreContextItem.label, scoreContextItem.trend] as const)'));
+  assert.ok(moments.includes('by ${rounded} pts this week.'));
+  assert.ok(moments.includes('score-point improvement'));
+  assert.ok(details.includes('scoreContextItem.label'));
+  assert.ok(details.includes("See what's driving your score →"));
+  assert.ok(details.includes(': PRO_MOMENTS.score.cta'));
+  assert.ok(details.includes('onPress={onUpgrade}'));
+  assert.ok(details.includes('history = useDadScoreHistory(isPro ? sheetUserId : undefined)'));
+  assert.ok(details.includes('<LockedPreview title="Your monthly report" onUpgrade={onUpgrade} />'));
+  assert.equal(moments.includes('score by ${rounded}% this week.'), false);
 });
 
 test('Moment 3 keeps one AI workout screen and prompts only at the Free limit', async () => {
@@ -139,28 +184,36 @@ test('conversion moments stay compact until the user asks for Pro', async () => 
   assert.ok(dashboard.includes("proTease={!data.isPro ? 'Unlock my insights' : undefined}"));
   assert.ok(aiWorkout.includes("cause.code === 'free_limit_reached'"));
   assert.ok(dadDays.includes('free Dad Days searches used this month.'));
-  assert.ok(dadDays.includes('setLimitPromptOpen(true)'));
-  assert.equal(dadDays.includes('<ProUpgradeSection'), false);
+  assert.ok(dadDays.includes("setProPromptMoment('dadDaysCounter')"));
+  assert.ok(dadDays.includes('<ProUpgradeSection'));
   assert.ok(weekly.includes('Learn about weekly Dad Health reports'));
   assert.ok(scoreDetails.includes('See your score history'));
   assert.ok(scoreDetails.includes('Your monthly report'));
   assert.ok(scoreDetails.includes('onUpgrade={onUpgrade}'));
 });
 
-test('streak protection is a Pro benefit and degrades safely', async () => {
+test('streak protection keeps its approved presentation and uses server-owned state', async () => {
   const [sync, card] = await Promise.all([
     source('lib/offlineSync.ts'),
     source('components/dashboard/StreakCard.tsx'),
   ]);
 
-  assert.ok(sync.includes('export function countStreakDays('));
-  // Exactly one missed day is forgiven, and only for protected members.
-  assert.ok(sync.includes('protectionAvailable && !graceUsed && date === previousDate(expected)'));
-  assert.ok(sync.includes('graceUsed = true;'));
-  // A failed profile read must never fail the check-in save.
-  assert.ok(sync.includes('profile.error ? false : isProfilePro(profile.data)'));
+  assert.doesNotMatch(sync, /countStreakDays/);
+  assert.doesNotMatch(sync, /from\('user_streaks'\)[\s\S]{0,180}\.upsert/);
   assert.ok(card.includes('Streak protected'));
   assert.ok(card.includes('Protect my streak'));
+});
+
+test('Share Report remains available to Free without including Pro monthly report details', async () => {
+  const [sheet, sharing] = await Promise.all([
+    source('components/dashboard/ScoreDetailSheet.tsx'),
+    source('lib/reportSharing.ts'),
+  ]);
+  assert.match(sheet, /<Text[^>]*>Share report<\/Text>/);
+  assert.doesNotMatch(sheet, /\{isPro \? <View>[\s\S]*?Share report/);
+  assert.match(sheet, /isPro \? report\.report : null/);
+  assert.match(sharing, /report\?: ProgressReport \| null/);
+  assert.match(sharing, /\.\.\.\(report \?/);
 });
 
 test('the free and Pro split matches the brief table', async () => {
