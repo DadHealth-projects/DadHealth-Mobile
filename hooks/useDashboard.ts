@@ -11,7 +11,7 @@ import {
 } from '../lib/offlineStorage';
 import { isRetryableOfflineError, persistDailyCheckIn } from '../lib/offlineSync';
 import { supabase } from '../lib/supabase';
-import { isProfilePro } from '../lib/proStatus';
+import { loadNativeSubscriptionStatus } from '../lib/nativeSubscriptions';
 
 export type Reminder = {
   id: string;
@@ -99,7 +99,10 @@ export type DashboardData = {
   dadsCount: number;
   /** `user_streaks.streak_count` — the web sidebar's "N-day streak". */
   streak: number | null;
-  /** Derived from `user_profile.subscription_status` (active | trialing). */
+  /** From the authenticated status API; null when no fresh server value is available. */
+  freezeUsedThisWeek?: boolean | null;
+  freezesRemaining?: number | null;
+  /** Canonical Pro access from the authenticated subscription-status API. */
   isPro: boolean;
 
   // ── Fitness (web dashboardPreview/FitnessScreen.tsx) ──
@@ -273,6 +276,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     supabase.from('earned_badges').select('badges(icon,name)').eq('user_id', userId),
     supabase.from('posts').select('id,content,tag,anonymous,author_initials,author_name').order('created_at', { ascending: false }).limit(20),
   ]);
+  const subscriptionStatus = await loadNativeSubscriptionStatus().catch(() => null);
 
   if (profileResult.error) throw profileResult.error;
   // Scores and shared collections are nonessential. A restrictive policy should
@@ -465,7 +469,13 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     challenge: challengeResult.error ? null : challengeResult.data ?? null,
     dadsCount: countResult.count ?? 0,
     streak: typeof streakResult.data?.streak_count === 'number' ? streakResult.data.streak_count : null,
-    isPro: isProfilePro(profile),
+    freezeUsedThisWeek: typeof subscriptionStatus?.freezeUsedThisWeek === 'boolean'
+      ? subscriptionStatus.freezeUsedThisWeek
+      : null,
+    freezesRemaining: typeof subscriptionStatus?.freezesRemaining === 'number'
+      ? subscriptionStatus.freezesRemaining
+      : null,
+    isPro: subscriptionStatus?.isPro === true,
 
     monthWorkouts,
     weightDisplay,
@@ -535,6 +545,8 @@ async function runFetch(userId: string): Promise<void> {
             ...cached,
             moodLogs,
             checkedInToday: moodLogs.some((log) => log.date === todayKey()),
+            freezeUsedThisWeek: null,
+            freezesRemaining: null,
           },
           error: null,
         });
@@ -560,6 +572,8 @@ async function hydrateDashboardCache(userId: string, clearWhenMissing: boolean):
           ...cached,
           moodLogs,
           checkedInToday: moodLogs.some((log) => log.date === todayKey()),
+          freezeUsedThisWeek: null,
+          freezesRemaining: null,
         },
         error: null,
       });
@@ -654,7 +668,10 @@ export function useDashboard(userId: string | undefined) {
   }), [userId]);
 
   // Never hand a screen another account's cached rows.
-  const data = snapshot.userId === userId ? snapshot.data : null;
+  const snapshotData = snapshot.userId === userId ? snapshot.data : null;
+  const data = isOffline && snapshotData
+    ? { ...snapshotData, freezeUsedThisWeek: null, freezesRemaining: null }
+    : snapshotData;
   const loading = snapshot.userId === userId ? snapshot.loading : Boolean(userId);
   const error = snapshot.userId === userId ? snapshot.error : null;
   const syncError = snapshot.userId === userId ? snapshot.syncError : null;
@@ -694,6 +711,8 @@ export function useDashboard(userId: string | undefined) {
         // Weakest pillar and next action remain server-owned. Hide the stale
         // cached action until the queued check-in syncs and the view refreshes.
         recommendedAction: null,
+        freezeUsedThisWeek: null,
+        freezesRemaining: null,
       };
       setStore({ data: nextData, error: null, syncError: null });
       await writeDashboardCache(userId, nextData);

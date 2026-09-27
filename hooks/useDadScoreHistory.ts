@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { useNetworkStatus } from '../contexts/NetworkContext';
-import { supabase } from '../lib/supabase';
-import { hasScoreHistory } from '../lib/scoreTrends';
+import { fetchProInsight } from '../lib/proInsights';
 
 export type DadScoreHistoryPoint = {
   week_start: string;
@@ -19,29 +18,25 @@ export function useDadScoreHistory(userId?: string) {
   const { isOffline } = useNetworkStatus();
   const [points, setPoints] = useState<DadScoreHistoryPoint[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let active = true;
     if (!userId || isOffline) {
       setPoints([]);
       setLoading(false);
+      setError(false);
       return () => { active = false; };
     }
-
+    setPoints([]);
     setLoading(true);
-    void supabase
-      .from('dad_score_history_view')
-      .select('week_start,total_score,mind_score,body_score,bond_score,mind_has_data,body_has_data,bond_has_data')
-      .eq('user_id', userId)
-      .order('week_start', { ascending: true })
-      .then(({ data }) => {
-        if (!active) return;
-        setPoints(((data ?? []) as DadScoreHistoryPoint[]).filter(hasScoreHistory));
-        setLoading(false);
-      });
-
+    setError(false);
+    void fetchProInsight<{ points: DadScoreHistoryPoint[] }>('score-history')
+      .then((result) => { if (active) setPoints(result.points); })
+      .catch(() => { if (active) { setPoints([]); setError(true); } })
+      .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [isOffline, userId]);
 
-  return { points, loading };
+  return { points, loading, error };
 }
