@@ -4,7 +4,7 @@ import * as Sharing from 'expo-sharing';
 
 import type { ProgressReport } from '../hooks/useProgressReport';
 
-export async function shareDadHealthReport(month: string, score: number, report: ProgressReport): Promise<string> {
+export async function shareDadHealthReport(month: string, score: number, report?: ProgressReport | null): Promise<string> {
   const table = buildReportTable(month, score, report);
   try {
     const { uri } = await Print.printToFileAsync({ html: buildReportHtml(month, score, report) });
@@ -28,15 +28,17 @@ export async function shareDadHealthReport(month: string, score: number, report:
   }
 }
 
-function buildReportTable(month: string, score: number, report: ProgressReport) {
+function buildReportTable(month: string, score: number, report?: ProgressReport | null) {
   const rows = [
     ['Dad Health Score', `${score}/100`],
-    ['Workouts', String(report.workouts)],
-    ['Journal entries', String(report.journal)],
-    ['Dad dates', String(report.dadDates)],
-    ['Average sleep', report.avgSleep == null ? 'Not available' : `${report.avgSleep}h`],
-    ['Day streak', String(report.streak)],
-    ['Average mood', report.avgMood ?? 'Not available'],
+    ...(report ? [
+      ['Workouts', String(report.workouts)],
+      ['Journal entries', String(report.journal)],
+      ['Dad dates', String(report.dadDates)],
+      ['Average sleep', report.avgSleep == null ? 'Not available' : `${report.avgSleep}h`],
+      ['Day streak', String(report.streak)],
+      ['Average mood', report.avgMood ?? 'Not available'],
+    ] : []),
   ];
   const labelWidth = Math.max('Metric'.length, ...rows.map(([label]) => label.length));
   const valueWidth = Math.max('Value'.length, ...rows.map(([, value]) => value.length));
@@ -49,15 +51,15 @@ function buildReportTable(month: string, score: number, report: ProgressReport) 
   ].join('\n');
 }
 
-function buildReportHtml(month: string, score: number, report: ProgressReport) {
-  const rows = [
+function buildReportHtml(month: string, score: number, report?: ProgressReport | null) {
+  const rows = report ? [
     ['Workouts', String(report.workouts)],
     ['Journal entries', String(report.journal)],
     ['Dad dates', String(report.dadDates)],
     ['Average sleep', report.avgSleep == null ? 'Not available' : `${report.avgSleep}h`],
     ['Day streak', String(report.streak)],
     ['Average mood', report.avgMood ?? 'Not available'],
-  ];
+  ] : [];
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     @page { size: A4 portrait; margin: 0; } * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     html, body { margin: 0; padding: 0; background-color: #080808 !important; color: #f7f7f2; font-family: Arial, sans-serif; }
