@@ -138,15 +138,14 @@ export const PRO_LOCKS: Record<ProLockId, ProMoment> = {
 };
 
 /**
- * Brief Change 02, position 3: the Home Pro tease leads with the dad's own
- * improvement, not with the lock — "You've improved your Body score by 6% this
- * week." Returns `null` when nothing improved, so the tease falls back to the
- * Moment 1 wording instead of inventing progress.
+ * Change 04, Moment 6: lead with the dad's own score-point improvement, not
+ * with the lock. Returns `null` when nothing improved, so the tease falls back
+ * to the generic Score detail copy instead of inventing progress.
  */
 export function proScoreTease(trend: readonly [string, number] | null): string | null {
   if (!trend) return null;
   const [pillar, change] = trend;
   const rounded = Math.round(change);
   if (rounded <= 0) return null;
-  return `You've improved your ${pillar} score by ${rounded}% this week.`;
+  return `You've improved your ${pillar} score by ${rounded} pts this week.`;
 }
