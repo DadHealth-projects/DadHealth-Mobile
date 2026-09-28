@@ -30,6 +30,9 @@ import TermsPrivacyScreen from '../screens/subscreens/TermsPrivacyScreen';
 import HealthPermissionsScreen from '../screens/subscreens/HealthPermissionsScreen';
 import ProSubscriptionScreen from '../screens/subscreens/ProSubscriptionScreen';
 import WeeklyChallengeScreen from '../screens/subscreens/WeeklyChallengeScreen';
+import ManualActivityLogScreen from '../screens/subscreens/ManualActivityLogScreen';
+import ManualActivityHistoryScreen from '../screens/subscreens/ManualActivityHistoryScreen';
+import type { ManualActivityPillar } from '../lib/manualActivities';
 import { colors } from '../theme';
 
 export type AppStackParamList = {
@@ -61,6 +64,8 @@ export type AppStackParamList = {
   HealthPermissions: undefined;
   ProSubscription: undefined;
   WeeklyChallenge: { challengeId: string };
+  ManualActivityLog: { pillar: ManualActivityPillar };
+  ManualActivityHistory: { pillar: ManualActivityPillar };
 };
 
 const Stack = createNativeStackNavigator<AppStackParamList>();
@@ -205,6 +210,16 @@ export default function AppNavigator({
       <Stack.Screen
         name="Tabs"
         component={BottomTabNavigator}
+      />
+      <Stack.Screen
+        name="ManualActivityLog"
+        component={ManualActivityLogScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
+      />
+      <Stack.Screen
+        name="ManualActivityHistory"
+        component={ManualActivityHistoryScreen}
+        options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
       />
 
       {/* Authentication */}

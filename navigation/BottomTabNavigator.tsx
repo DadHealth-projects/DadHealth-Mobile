@@ -12,6 +12,8 @@ import MindScreen from '../screens/MindScreen';
 import BondScreen from '../screens/BondScreen';
 import CommunityScreen from '../screens/CommunityScreen';
 import { colors } from '../theme';
+import type { AppStackParamList } from './AppNavigator';
+import type { NavigationProp } from '@react-navigation/native';
 
 export type BottomTabsParamList = {
   Home: { openScoreDetail?: boolean } | undefined;
@@ -38,12 +40,14 @@ const TAB_META: Record<keyof BottomTabsParamList, TabMeta> = {
 
 const INACTIVE = 'rgba(200,245,90,0.9)';
 
-function MockupTabBar({ state, navigation }: BottomTabBarProps) {
-  const centerButtonSize = 54;
+function MockupTabBar({ state, navigation, insets }: BottomTabBarProps) {
+  const centerButtonSize = 58;
+  const bottomSpacing = 8;
   const [logSheetOpen, setLogSheetOpen] = useState(false);
   const closingRef = useRef(false);
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(400)).current;
+  const rootNavigation = navigation.getParent<NavigationProp<AppStackParamList>>();
 
   useEffect(() => {
     if (!logSheetOpen) return;
@@ -123,18 +127,18 @@ function MockupTabBar({ state, navigation }: BottomTabBarProps) {
         className="min-w-0 flex-1 items-center justify-center active:opacity-75"
       >
         <View
-          className="relative h-[60px] w-full max-w-[68px] items-center justify-center gap-[3px] rounded-[14px] bg-transparent"
+          className="relative h-[64px] w-full max-w-[76px] items-center justify-center gap-[4px] rounded-[14px] bg-transparent"
         >
           <Feather
             name={meta.icon}
-            size={21}
-            color={focused ? colors.lime : INACTIVE}
+            size={23}
+            color="#FFFFFF"
           />
           <Text
             numberOfLines={1}
             adjustsFontSizeToFit
             minimumFontScale={0.85}
-            className={`w-full px-[2px] text-center font-body-semibold text-[9px] tracking-[0.5px] uppercase ${focused ? 'text-lime' : 'text-[rgba(200,245,90,0.9)]'}`}
+            className="w-full px-[2px] text-center font-body-semibold text-[10px] tracking-[0.3px] uppercase text-white"
           >
             {meta.label}
           </Text>
@@ -148,23 +152,24 @@ function MockupTabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <View
-      className="absolute bottom-0 left-0 right-0 z-50 bg-transparent px-5 pt-[48px]"
+      className="absolute left-0 right-0 z-50 bg-transparent px-5 pt-[48px]"
+      style={{ bottom: bottomSpacing }}
       pointerEvents="box-none"
     >
-      <View className="relative h-[82px] overflow-visible rounded-[36px] bg-[#111214]">
+      <View className="relative h-[86px] overflow-visible rounded-[36px] bg-[#111214]">
         <View className="flex-1 flex-row items-center">
           {state.routes.map((route, index) => renderTab(route, index))}
         </View>
         <View
           pointerEvents="none"
-          className="absolute top-0 h-[11px] w-[54px] rounded-b-[18px] bg-dark"
+          className="absolute top-0 h-[13px] w-[58px] rounded-b-[18px] bg-dark"
           style={{ left: '50%', transform: [{ translateX: -centerButtonSize / 2 }] }}
         />
         <Pressable
           onPress={openLogSheet}
           accessibilityRole="button"
           accessibilityLabel="LOG"
-          className="absolute top-[-43px] z-10 h-[54px] w-[54px] items-center justify-center rounded-[18px] bg-lime"
+          className="absolute top-[-45px] z-10 h-[58px] w-[58px] items-center justify-center rounded-[18px] bg-lime"
           style={{
             left: '50%',
             transform: [{ translateX: -centerButtonSize / 2 }],
@@ -175,7 +180,7 @@ function MockupTabBar({ state, navigation }: BottomTabBarProps) {
             elevation: 8,
           }}
         >
-          <Feather name="plus" size={24} color={colors.dark} />
+          <Feather name="plus" size={26} color={colors.dark} />
         </Pressable>
       </View>
 
@@ -200,7 +205,7 @@ function MockupTabBar({ state, navigation }: BottomTabBarProps) {
           </Pressable>
           <Animated.View
             className="rounded-t-[26px] border border-white/10 bg-[#151618] px-[22px] pt-3"
-            style={{ transform: [{ translateY: sheetTranslateY }] }}
+            style={{ paddingBottom: Math.max(insets.bottom, 12), transform: [{ translateY: sheetTranslateY }] }}
           >
             <View className="mb-[15px] h-1 w-[38px] self-center rounded-full bg-white/25" />
             <Text className="font-body-semibold text-[13px] tracking-[1.1px] text-lime">
@@ -213,17 +218,17 @@ function MockupTabBar({ state, navigation }: BottomTabBarProps) {
               {
                 label: 'Log workout',
                 icon: 'activity' as const,
-                action: () => navigation.getParent()?.navigate('ActiveWorkout' as never),
+                action: () => rootNavigation?.navigate('ManualActivityLog', { pillar: 'body' }),
               },
               {
                 label: 'Log Bond time',
                 icon: 'heart' as const,
-                action: () => navigation.navigate('Bond' as never),
+                action: () => rootNavigation?.navigate('ManualActivityLog', { pillar: 'bond' }),
               },
               {
                 label: 'Log Mind activity',
                 icon: 'wind' as const,
-                action: () => navigation.navigate('Mind' as never),
+                action: () => rootNavigation?.navigate('ManualActivityLog', { pillar: 'mind' }),
               },
             ].map((item) => (
               <Pressable
