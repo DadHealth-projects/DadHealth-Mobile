@@ -1,38 +1,22 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
-import ActivityCard from '../components/mockup/ActivityCard';
 import BondScoreCard from '../components/bond/BondScoreCard';
 import ManualActivitySection from '../components/manualActivities/ManualActivitySection';
+import PresentDadMode from '../components/bond/PresentDadMode';
 import type { DashboardSection } from '../components/AccountSheet';
 import FadeInView from '../components/FadeInView';
 import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
-import LimeButton from '../components/LimeButton';
 import PillarScreen from '../components/PillarScreen';
 import PillarSkeleton from '../components/skeleton/PillarSkeleton';
 import ScreenHero from '../components/mockup/ScreenHero';
-import FilterChips from '../components/mockup/FilterChips';
-import SectionHeader from '../components/dashboard/SectionHeader';
-import ToggleRow from '../components/mockup/ToggleRow';
-import ProUpgradeSection from '../components/ProUpgradeSection';
 import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '../hooks/useDashboard';
-import { usePresentDadMode } from '../hooks/usePresentDadMode';
-import { dashboardIcon } from '../lib/dashboardIcons';
-import { trackEvent } from '../lib/analytics';
-import { supabase } from '../lib/supabase';
 import { colors } from '../theme';
-import { PRO_LOCKS } from '../lib/proMoments';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 
-/**
- * Bond tab — the web dashboard BOND screen's features
- * (`dashboardPreview/BondScreen.tsx`: dad date ideas, cook together, milestones,
- * conversation starter) plus the web Bond page's Present Dad Mode, in Mockup 3's
- * layout (lime Bond-score bar → feature rows → toggle → content).
- */
 export default function BondScreen({
   dashboardSection,
   onSelectDashboardSection,
@@ -43,110 +27,52 @@ export default function BondScreen({
   const { user } = useAuth();
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { data, loading, error, refresh } = useDashboard(user?.id);
-  const presentDadMode = usePresentDadMode(user?.id);
-  const [dateFilter, setDateFilter] = useState('all');
-  const [dadDatesOpen, setDadDatesOpen] = useState(false);
-  const [startersOpen, setStartersOpen] = useState(false);
-  const [conversationStarters, setConversationStarters] = useState<string[]>([]);
-  const [startersLoading, setStartersLoading] = useState(Boolean(user?.id));
-  const [startersError, setStartersError] = useState(false);
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  const hasUser = Boolean(user?.id);
-  const togglePresentMode = useCallback(async () => {
-    const enabled = await presentDadMode.toggle();
-    if (enabled != null) trackEvent('present_dad_mode_toggled', { enabled }, user?.id);
-  }, [presentDadMode.toggle, user?.id]);
-
-  const loadConversationStarters = useCallback(async () => {
-    if (!user?.id) {
-      setConversationStarters([]);
-      setStartersLoading(false);
-      return;
-    }
-    setStartersLoading(true);
-    setStartersError(false);
-    const { data: prompts, error: promptError } = await supabase.from('age_prompts').select('prompt');
-    if (promptError) {
-      setStartersError(true);
-      setConversationStarters([]);
-    } else {
-      setConversationStarters((prompts ?? []).flatMap((row: { prompt: unknown }) => typeof row.prompt === 'string' && row.prompt.trim() ? [row.prompt] : []));
-    }
-    setStartersLoading(false);
-  }, [user?.id]);
-
-  const onRefresh = useCallback(async () => {
-    if (!hasUser || refreshInFlight.current) return;
-    refreshInFlight.current = true;
-    setRefreshing(true);
-    try {
-      await Promise.all([
-        refresh(),
-        loadConversationStarters(),
-        presentDadMode.refresh(),
-      ]);
-    } finally {
-      refreshInFlight.current = false;
-      setRefreshing(false);
-    }
-  }, [hasUser, loadConversationStarters, presentDadMode.refresh, refresh]);
-
-  useEffect(() => {
-    void loadConversationStarters();
-  }, [loadConversationStarters]);
-
   const bondScore = useMemo(
     () => (typeof data?.bondScore === 'number' ? Math.round(data.bondScore) : null),
     [data?.bondScore],
   );
 
-  const dadDates = useMemo(() => data?.dadDates ?? [], [data?.dadDates]);
-  const dateFilters = useMemo(() => {
-    const options = [{ value: 'all', label: 'All' }];
-    if (dadDates.some((item) => item.budget?.toLowerCase() === 'free')) options.push({ value: 'free', label: 'Free' });
-    if (dadDates.some((item) => item.budget?.includes('£') && Number.parseInt(item.budget, 10) <= 15)) options.push({ value: 'under-15', label: 'Under £15' });
-    if (dadDates.some((item) => item.time?.includes('1 hr'))) options.push({ value: 'one-hour', label: '1 hr' });
-    if (dadDates.some((item) => item.time?.toLowerCase().includes('evening'))) options.push({ value: 'evening', label: 'Evening' });
-    return options;
-  }, [dadDates]);
-  const filteredDadDates = useMemo(() => dadDates.filter((item) => {
-    if (dateFilter === 'all') return true;
-    if (dateFilter === 'free') return item.budget?.toLowerCase() === 'free';
-    if (dateFilter === 'under-15') return item.budget?.includes('£') && Number.parseInt(item.budget, 10) <= 15;
-    if (dateFilter === 'one-hour') return item.time?.includes('1 hr');
-    if (dateFilter === 'evening') return item.time?.toLowerCase().includes('evening');
-    return true;
-  }), [dadDates, dateFilter]);
+  const onRefresh = useCallback(async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
+    try { await refresh(); } finally { refreshInFlight.current = false; setRefreshing(false); }
+  }, [refresh]);
+
+  const onViewBondScore = useCallback(() => {
+    navigation.navigate('Tabs', {
+      screen: 'Home',
+      params: { openScoreDetail: true },
+    });
+  }, [navigation]);
 
   return (
     <PillarScreen
       loading={loading && !data}
       skeleton={<PillarSkeleton score cards={3} />}
       refreshing={refreshing}
-      onRefresh={hasUser ? onRefresh : undefined}
+      onRefresh={user?.id ? onRefresh : undefined}
       error={data ? null : error}
-      errorMessage="We couldn't bring in your parenting tools, Dad Dates and family activity. Try again in a moment."
+      errorMessage="We couldn't load your Bond tools. Please try again."
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}
     >
-      <GlobalErrorToastReporter message={startersError ? 'Conversation starters are unavailable.' : null} />
+      <GlobalErrorToastReporter message={error} />
       <FadeInView>
-        <ScreenHero
-          eyebrow="The Bond"
-          headline="Parenting"
-          sub="Built for dads, by dads. Kill the old version of you."
-        />
+        <ScreenHero eyebrow="The Bond" headline="Parenting" sub="Built for dads, by dads. Kill the old version of you." />
       </FadeInView>
 
       <FadeInView delay={90}>
         <BondScoreCard score={bondScore} trend={data?.bondWeekChange ?? null} />
       </FadeInView>
 
-      <ManualActivitySection pillar="bond" userId={user?.id} />
+      <FadeInView delay={130}>
+        <PresentDadMode userId={user?.id} onScoreRefresh={() => void refresh()} onViewBondScore={onViewBondScore} />
+      </FadeInView>
 
-      <FadeInView delay={140}>
+      <FadeInView delay={180}>
         <Pressable
           onPress={() => navigation.navigate('DadDaysSearch')}
           accessibilityRole="button"
@@ -164,119 +90,18 @@ export default function BondScreen({
         </Pressable>
       </FadeInView>
 
-      <FadeInView delay={190}>
-        <Pressable onPress={() => setDadDatesOpen((open) => !open)} accessibilityRole="button" accessibilityState={{ expanded: dadDatesOpen }} accessibilityLabel="Dad date ideas" className="min-h-[44px] flex-row items-center justify-between mb-md active:opacity-75">
-          <Text className="font-heading-bold text-white text-[22px] leading-[24px] tracking-[0.5px] uppercase">Dad date ideas</Text>
-          <Feather name={dadDatesOpen ? 'chevron-down' : 'chevron-right'} size={22} color={colors.lime} />
-        </Pressable>
-        {dadDatesOpen ? (
-          <View>
-            {dateFilters.length > 1 ? <View className="mb-md"><FilterChips options={dateFilters} selected={dateFilter} onSelect={setDateFilter} /></View> : null}
-            {filteredDadDates.length === 0 ? (
-              <Text className="font-body text-muted-text text-[14px]">No dad dates yet</Text>
-            ) : (
-              <View className="gap-sm">
-                {filteredDadDates.map((dadDate) => (
-                  <Pressable key={dadDate.id} onPress={() => trackEvent('dad_date_clicked', { name: dadDate.name, age_range: dadDate.age_range, budget: dadDate.budget }, user?.id)} accessibilityRole="button" accessibilityLabel={dadDate.name} className="active:opacity-75">
-                    <ActivityCard
-                      leading={<Feather name={dashboardIcon(dadDate.icon ?? 'gaming')} size={20} color={colors.lime} />}
-                      name={dadDate.name}
-                      badges={[`Age ${dadDate.age_range ?? 0}`, dadDate.budget ?? '0', ...(dadDate.time ? [dadDate.time] : [])]}
-                    />
-                  </Pressable>
-                ))}
-              </View>
-            )}
-          </View>
-        ) : null}
+      <FadeInView delay={230}>
+        <View>
+          <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase mb-md">Cook Together</Text>
+          <Pressable onPress={() => navigation.navigate('CookTogether')} accessibilityRole="button" accessibilityLabel="Open Cook Together recipes" className="min-h-[92px] flex-row items-center gap-md rounded-button border border-lime/25 bg-card px-md py-md active:opacity-75">
+            <View className="h-[42px] w-[42px] rounded-full bg-lime items-center justify-center"><Feather name="coffee" size={19} color={colors.dark} /></View>
+            <View className="flex-1"><Text className="font-heading-bold text-white text-[17px] uppercase">Meals that matter</Text><Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">Cook with your kids and build connection.</Text></View>
+            <Feather name="chevron-right" size={20} color={colors.lime} />
+          </Pressable>
+        </View>
       </FadeInView>
 
-      <FadeInView delay={240}>
-        <SectionHeader title="Cook together" className="mb-md" />
-        <Pressable onPress={() => navigation.navigate('CookTogether')} accessibilityRole="button" accessibilityLabel="Open Cook Together recipes" className="min-h-[92px] flex-row items-center gap-md rounded-button border border-lime/25 bg-card px-md py-md active:opacity-75">
-          <View className="h-[42px] w-[42px] rounded-full bg-lime items-center justify-center"><Feather name="coffee" size={19} color={colors.dark} /></View>
-          <View className="flex-1"><Text className="font-heading-bold text-white text-[17px] uppercase">Meals that matter</Text><Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">Cook with your kids and build connection.</Text></View>
-          <Feather name="chevron-right" size={20} color={colors.lime} />
-        </Pressable>
-      </FadeInView>
-
-      <FadeInView delay={290}>
-        <BondFeatureSection
-          eyebrow="Bond tools"
-          headline="Co-parenting calendar"
-          description="Every day, 50/50, weekends — Bond score adapts to your situation"
-          actionLabel="Open co-parenting calendar"
-          onPress={() => navigation.navigate('SharedCalendar')}
-        />
-      </FadeInView>
-
-      <FadeInView delay={320}>
-        <BondFeatureSection
-          eyebrow="Bond tools"
-          headline="Milestone tracker"
-          description="Log the moments that matter. First bike ride. Said I love you unprompted."
-          actionLabel="Open milestone tracker"
-          onPress={() => navigation.navigate('MilestoneTracker')}
-        />
-      </FadeInView>
-
-      {hasUser && !data?.isPro ? (
-        <FadeInView delay={335}>
-          <ProUpgradeSection
-            moment={PRO_LOCKS.familyActivityPlans}
-            onPress={() => navigation.navigate('ProSubscription')}
-            size="sm"
-          />
-        </FadeInView>
-      ) : null}
-
-      <FadeInView delay={350}>
-        <ToggleRow
-          title="Present Dad Mode"
-          subtitle="Block distractions for 60 minutes"
-          value={presentDadMode.enabled}
-          onToggle={() => void togglePresentMode()}
-          disabled={presentDadMode.busy}
-        />
-      </FadeInView>
-
-      <FadeInView delay={380}>
-        <Pressable onPress={() => setStartersOpen((open) => !open)} accessibilityRole="button" accessibilityState={{ expanded: startersOpen }} accessibilityLabel="Conversation starters" className="min-h-[44px] flex-row items-center justify-between active:opacity-75">
-          <Text className="font-heading-bold text-white text-[22px] leading-[24px] uppercase">Conversation starters</Text>
-          <Feather name={startersOpen ? 'chevron-down' : 'chevron-right'} size={22} color={colors.lime} />
-        </Pressable>
-        {startersOpen ? <View className="mt-md gap-sm">{startersLoading ? <View className="h-[56px] bg-white/5" /> : conversationStarters.length === 0 ? <Text className="font-body text-muted-text text-[14px]">No conversation starters yet.</Text> : conversationStarters.map((prompt) => <View key={prompt} className="border-b border-border border-l-[3px] border-l-lime py-md pl-md"><Text className="font-body text-tertiary-text text-[14px] leading-[20px] italic">"{prompt}"</Text></View>)}</View> : null}
-      </FadeInView>
+      <ManualActivitySection pillar="bond" userId={user?.id} />
     </PillarScreen>
-  );
-}
-
-/**
- * Flat feature section: label → heading → supporting copy → action → divider.
- * Same composition the Body screen uses for AI Workout and Meal Planner, so
- * these features are never wrapped in a bordered card.
- */
-function BondFeatureSection({
-  eyebrow,
-  headline,
-  description,
-  actionLabel,
-  onPress,
-}: {
-  eyebrow: string;
-  headline: string;
-  description: string;
-  actionLabel: string;
-  onPress: () => void;
-}) {
-  return (
-    <View className="gap-md border-b border-border pb-lg">
-      <View>
-        <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">{eyebrow}</Text>
-        <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">{headline}</Text>
-        <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">{description}</Text>
-      </View>
-      <LimeButton label={actionLabel} onPress={onPress} />
-    </View>
   );
 }

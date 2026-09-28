@@ -39,7 +39,7 @@ export default function CommunityScreen({
   const { data, loading, error, refresh } = useDashboard(user?.id);
   const feed = useCommunityFeed(user?.id);
   const [membersCount, setMembersCount] = useState(0);
-  const [communityCircles, setCommunityCircles] = useState<Array<{ id: string; icon: string | null; name: string; members_count: number | null; joined: boolean }>>([]);
+  const [communityCircles, setCommunityCircles] = useState<Array<{ id: string; icon: string | null; name: string; description: string | null; members_count: number | null; joined: boolean }>>([]);
   const [circlesLoading, setCirclesLoading] = useState(true);
   const [circleError, setCircleError] = useState<string | null>(null);
   const [busyCircleId, setBusyCircleId] = useState<string | null>(null);
@@ -75,13 +75,13 @@ export default function CommunityScreen({
       return;
     }
     const [circleResult, membershipResult] = await Promise.all([
-      supabase.from('circles').select('id,icon,name,members_count'),
+      supabase.from('circles').select('id,icon,name,description,members_count'),
       user?.id ? supabase.from('user_circles').select('circle_id').eq('user_id', user.id) : Promise.resolve({ data: [], error: null }),
     ]);
     if (circleResult.error || membershipResult.error) setCircleError('We could not load Dad Circles. Please try again.');
     else {
       const joinedIds = new Set((membershipResult.data ?? []).map((row: { circle_id: string }) => row.circle_id));
-      setCommunityCircles((circleResult.data ?? []).map((circle) => ({ id: String(circle.id), icon: typeof circle.icon === 'string' ? circle.icon : null, name: String(circle.name), members_count: typeof circle.members_count === 'number' ? circle.members_count : null, joined: joinedIds.has(String(circle.id)) })));
+      setCommunityCircles((circleResult.data ?? []).map((circle) => ({ id: String(circle.id), icon: typeof circle.icon === 'string' ? circle.icon : null, name: String(circle.name), description: typeof circle.description === 'string' ? circle.description : null, members_count: typeof circle.members_count === 'number' ? circle.members_count : null, joined: joinedIds.has(String(circle.id)) })));
     }
     if (!silent) setCirclesLoading(false);
   }, [isOffline, user?.id]);
@@ -202,31 +202,35 @@ export default function CommunityScreen({
       <FadeInView delay={90}>
         <SectionHeader title="Your Dad Circles" className="mb-xs" />
         <Text className="mb-md font-body text-muted-text text-[14px] leading-[20px]">
-          Find dads going through the same chapter as you.
+          Your Dad Circles — find dads going through the same chapter as you
         </Text>
         {circlesLoading ? (
           <View className="flex-row flex-wrap gap-sm">{[0, 1, 2, 3].map((item) => <View key={item} className="h-[132px] w-[48%] rounded-card bg-white/5" />)}</View>
         ) : communityCircles.length === 0 ? (
           <Text className="font-body text-muted-text text-[14px]">No circles yet</Text>
         ) : (
-          <View className="flex-row flex-wrap gap-sm">
-            {communityCircles.map((circle) => (
-              <View key={circle.id} className="w-[48%]">
-                <CircleCard
-                  id={circle.id}
-                  leading={
-                    <Feather
-                      name={dashboardIcon(circle.icon ?? 'community')}
-                      size={18}
-                      color={colors.lime}
-                    />
-                  }
-                  name={circle.name}
-                  membersCount={circle.members_count}
-                  joined={circle.joined}
-                  onToggle={hasUser ? onToggleCircle : undefined}
-                  busy={busyCircleId === circle.id}
-                />
+          <View className="gap-sm">
+            {Array.from({ length: Math.ceil(communityCircles.length / 2) }, (_, rowIndex) => (
+              <View key={rowIndex} className="flex-row items-stretch gap-sm">
+                {communityCircles.slice(rowIndex * 2, rowIndex * 2 + 2).map((circle) => (
+                  <CircleCard
+                    key={circle.id}
+                    id={circle.id}
+                    leading={
+                      <Feather
+                        name={dashboardIcon(circle.icon ?? 'community')}
+                        size={18}
+                        color={colors.lime}
+                      />
+                    }
+                    name={circle.name}
+                    description={circle.description}
+                    membersCount={circle.members_count}
+                    joined={circle.joined}
+                    onToggle={hasUser ? onToggleCircle : undefined}
+                    busy={busyCircleId === circle.id}
+                  />
+                ))}
               </View>
             ))}
           </View>
