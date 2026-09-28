@@ -64,7 +64,7 @@ export default function BreathingSessionScreen() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-lg pt-lg pb-xl gap-xl flex-grow">
-        <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Close breathing session" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
+        <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />
         <ScreenHero eyebrow="4-4-4 breathing" headline={'Slow down.\nBreathe.'} sub="Inhale for 4. Hold for 4. Exhale for 4." />
         <View className="items-center justify-center flex-1 py-xl">
           <Animated.View style={{ transform: [{ scale }] }} className="h-[220px] w-[220px] rounded-full border-[4px] border-lime items-center justify-center bg-lime/5">

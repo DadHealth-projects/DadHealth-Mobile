@@ -99,7 +99,7 @@ export default function NotificationSettingsScreen() {
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-dark">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-lg pt-lg pb-[120px] gap-xl">
-        <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Close push notifications" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
+        <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />
         <ScreenHero eyebrow="Settings" headline={'Push\nnotifications'} sub="All notifications are opt-in. Times are based on your dad timezone." />
         <ScreenErrorNotice message={settings.error} />
 

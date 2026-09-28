@@ -30,8 +30,8 @@ export default function TermsPrivacyScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-lg pt-lg pb-[120px] gap-xl">
         <AppTopBar
           leftAccessory={
-            <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Close terms and privacy" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70">
-              <Feather name="x" size={20} color={colors.text} />
+            <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70">
+              <Feather name="chevron-left" size={20} color={colors.text} />
             </Pressable>
           }
         />

@@ -37,8 +37,8 @@ export default function TherapistDirectoryScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-lg pt-lg pb-xl gap-xl">
         <AppTopBar
           leftAccessory={
-            <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close therapist directory" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70">
-              <Feather name="x" size={20} color={colors.text} />
+            <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70">
+              <Feather name="chevron-left" size={20} color={colors.text} />
             </Pressable>
           }
         />

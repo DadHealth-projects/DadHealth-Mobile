@@ -124,11 +124,11 @@ export default function AIWorkoutScreen() {
             <Pressable
               onPress={close}
               accessibilityRole="button"
-              accessibilityLabel="Close AI workout generator"
+              accessibilityLabel="Go back"
               hitSlop={8}
               className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"
             >
-              <Feather name="x" size={20} color={colors.text} />
+              <Feather name="chevron-left" size={20} color={colors.text} />
             </Pressable>
           }
         />

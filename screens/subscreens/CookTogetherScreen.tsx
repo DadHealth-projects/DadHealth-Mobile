@@ -78,10 +78,10 @@ export default function CookTogetherScreen() {
             <Pressable
               onPress={() => navigation.goBack()}
               accessibilityRole="button"
-              accessibilityLabel="Close Cook Together"
+              accessibilityLabel="Go back"
               className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"
             >
-              <Feather name="x" size={20} color={colors.text} />
+              <Feather name="chevron-left" size={20} color={colors.text} />
             </Pressable>
           }
         />

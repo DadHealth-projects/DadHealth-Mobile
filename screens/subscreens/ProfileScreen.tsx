@@ -85,7 +85,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-dark">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-lg pt-lg pb-[120px] gap-xl">
-        <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Close profile" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
+        <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />
         {!session ? (
           <View className="gap-md border-y border-border py-xl"><Text className="font-body text-muted-text text-[14px]">You're not signed in.</Text><Pressable onPress={() => navigation.navigate('Login')} className="min-h-[44px] self-start justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[12px] uppercase">Sign in</Text></Pressable></View>
         ) : (

@@ -131,8 +131,8 @@ export default function MindSessionModal({ kind, onClose, onWriteToJournal }: Mi
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerClassName="flex-grow gap-xl px-lg pt-lg pb-xl">
         <View className="mt-xl">
           <AppTopBar leftAccessory={(
-            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close Mind session" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70">
-              <Feather name="x" size={20} color={colors.text} />
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70">
+              <Feather name="chevron-left" size={20} color={colors.text} />
             </Pressable>
           )} />
         </View>

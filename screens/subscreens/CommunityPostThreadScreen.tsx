@@ -110,7 +110,7 @@ export default function CommunityPostThreadScreen() {
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-dark">
       <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" automaticallyAdjustKeyboardInsets contentContainerClassName="px-lg pt-lg pb-xl gap-xl">
-        <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center" accessibilityLabel="Close post thread"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
+        <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center" accessibilityLabel="Go back"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />
         <GlobalErrorToastReporter message={error} />
         {loading ? <View className="h-[240px] bg-white/5" /> : post ? <>
           <View className="border-b border-border pb-xl"><View className="flex-row items-center gap-sm"><View className="h-[36px] w-[36px] rounded-full border border-lime/40 bg-lime/10 items-center justify-center"><Text className="font-heading-bold text-lime text-[14px]">{post.anonymous ? 'A' : post.author_name.charAt(0).toUpperCase()}</Text></View><Text className="font-heading-bold text-white text-[14px]">{post.author_name}</Text></View><Text className="font-body text-white text-[18px] leading-[27px] mt-md">{post.content}</Text></View>

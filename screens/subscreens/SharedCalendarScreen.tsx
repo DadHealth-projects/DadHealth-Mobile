@@ -463,9 +463,9 @@ export default function SharedCalendarScreen() {
             <Pressable
               onPress={() => navigation.goBack()}
               className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"
-              accessibilityLabel="Close co-parenting calendar"
+              accessibilityLabel="Go back"
             >
-              <Feather name="x" size={20} color={colors.text} />
+              <Feather name="chevron-left" size={20} color={colors.text} />
             </Pressable>
           }
         />

@@ -108,7 +108,7 @@ export default function ManualActivityLogScreen() {
     <SafeAreaView edges={['top']} className="flex-1 bg-dark">
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerClassName="px-lg pt-lg pb-xl gap-lg">
-          <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Close activity logger" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
+          <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />
           <View className="gap-xs">
             <Text className="font-heading text-white text-[34px] uppercase">Log {pillar} activity</Text>
             <Text className="font-body text-muted-text text-[14px] leading-[20px]">Manual activity logging is free. Your activity date determines its score week.</Text>

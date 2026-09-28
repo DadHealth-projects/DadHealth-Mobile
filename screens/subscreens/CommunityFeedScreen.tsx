@@ -57,7 +57,7 @@ export default function CommunityFeedScreen() {
         contentContainerClassName="px-lg pt-lg pb-xl"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.lime} />}
       >
-        <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityLabel="Close recent posts" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="x" size={20} color={colors.text} /></Pressable>} />
+        <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityLabel="Go back" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />
         <View className="mt-xl"><ScreenHero eyebrow="Dad Health Community" headline="Recent Posts" /></View>
         <ScreenErrorNotice message={message ?? (feed.posts.length === 0 ? feed.error : null)} />
         <Pressable onPress={openComposer} accessibilityRole="button" className="min-h-[58px] flex-row items-center gap-md border-y border-border mt-xl px-sm active:opacity-75">
