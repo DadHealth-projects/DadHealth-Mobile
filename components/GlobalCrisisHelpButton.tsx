@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, AppState, Keyboard, Pressable, Text, View } from 'react-native';
+import { Animated, AppState, Easing, Keyboard, Pressable, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,7 +28,7 @@ export default function GlobalCrisisHelpButton({ navigationRef, screenContentRea
   const routeAllowed = isCrisisRoute(rootRouteName);
   const [promptVisible, setPromptVisible] = useState(false);
   const promptOpacity = useRef(new Animated.Value(0)).current;
-  const buttonScale = useRef(new Animated.Value(1)).current;
+  const buttonBounce = useRef(new Animated.Value(0)).current;
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const initialPromptShownRef = useRef(false);
   const keyboardOpenRef = useRef(keyboardOpen);
@@ -39,6 +39,34 @@ export default function GlobalCrisisHelpButton({ navigationRef, screenContentRea
   useEffect(() => { keyboardOpenRef.current = keyboardOpen; }, [keyboardOpen]);
   useEffect(() => { appActiveRef.current = appActive; }, [appActive]);
   useEffect(() => { routeAllowedRef.current = routeAllowed; }, [routeAllowed]);
+  useEffect(() => {
+    if (!promptVisible) return;
+
+    // Start after the prompt has mounted so its first appearance includes the bounce.
+    const frame = requestAnimationFrame(() => {
+      buttonBounce.setValue(0);
+      Animated.sequence([
+        Animated.timing(buttonBounce, {
+          toValue: 1,
+          duration: 180,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.spring(buttonBounce, {
+          toValue: 0,
+          speed: 16,
+          bounciness: 6,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      buttonBounce.stopAnimation();
+      buttonBounce.setValue(0);
+    };
+  }, [buttonBounce, promptVisible]);
   useEffect(() => {
     if (keyboardOpen || !appActive || !routeAllowed || !screenContentReady) {
       promptOpacity.stopAnimation();
@@ -88,15 +116,11 @@ export default function GlobalCrisisHelpButton({ navigationRef, screenContentRea
     promptOpacity.setValue(0);
     setPromptVisible(true);
     Animated.timing(promptOpacity, { toValue: 1, duration: 240, useNativeDriver: true }).start();
-    Animated.sequence([
-      Animated.spring(buttonScale, { toValue: 1.07, speed: 24, bounciness: 7, useNativeDriver: true }),
-      Animated.spring(buttonScale, { toValue: 1, speed: 20, bounciness: 4, useNativeDriver: true }),
-    ]).start();
     collapseTimerRef.current = setTimeout(() => {
       Animated.timing(promptOpacity, { toValue: 0, duration: 220, useNativeDriver: true })
         .start(({ finished }) => { if (finished) setPromptVisible(false); });
     }, PROMPT_VISIBLE_MS);
-  }, [buttonScale, promptOpacity]);
+  }, [promptOpacity]);
 
   useEffect(() => {
     screenContentReadyRef.current = screenContentReady;
@@ -130,11 +154,28 @@ export default function GlobalCrisisHelpButton({ navigationRef, screenContentRea
     <View pointerEvents="box-none" className="absolute inset-0 z-[1000]" style={{ elevation: 20 }}>
       <View pointerEvents="box-none" className="absolute right-lg items-end" style={{ bottom }}>
         {promptVisible ? (
-          <Animated.View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ opacity: promptOpacity, transform: [{ translateY: promptOpacity.interpolate({ inputRange: [0, 1], outputRange: [5, 0] }) }] }} className="absolute bottom-[58px] right-0 w-[230px] rounded-button border border-red-400/30 bg-[#171A10] px-md py-sm">
+          <Animated.View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ opacity: promptOpacity, transform: [{ translateY: promptOpacity.interpolate({ inputRange: [0, 1], outputRange: [5, 0] }) }] }} className="absolute bottom-[56px] right-0 w-[230px] rounded-button border border-red-400/30 bg-[#171A10] px-md py-sm">
+            <View
+              style={{
+                position: 'absolute',
+                right: (BUTTON_SIZE - 14) / 2,
+                bottom: -7,
+                width: 14,
+                height: 14,
+                backgroundColor: '#171A10',
+                borderRightWidth: 1,
+                borderBottomWidth: 1,
+                borderColor: 'rgba(248,113,113,0.3)',
+                transform: [{ rotate: '45deg' }],
+              }}
+            />
             <Text className="w-full text-left font-body-semibold text-white text-[12px] leading-[17px]">Need to talk to someone?</Text>
           </Animated.View>
         ) : null}
-        <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+        <Animated.View style={{ transform: [
+          { translateY: buttonBounce.interpolate({ inputRange: [0, 1], outputRange: [0, -6] }) },
+          { scale: buttonBounce.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) },
+        ] }}>
           <Pressable
             onPress={() => void openCrisisSupport()}
             accessibilityRole="button"

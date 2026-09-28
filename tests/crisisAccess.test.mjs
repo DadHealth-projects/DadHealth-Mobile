@@ -18,8 +18,12 @@ test('one root crisis control covers signed-in, signed-out and auth routes witho
   assert.match(crisisButton, /BUTTON_SIZE = 48/);
   assert.match(crisisButton, /PROMPT_INTERVAL_MS = 10 \* 60 \* 1000/);
   assert.match(crisisButton, /setInterval\(presentPrompt, PROMPT_INTERVAL_MS\)/);
-  assert.match(crisisButton, /Animated\.spring\(buttonScale, \{ toValue: 1\.07/);
-  assert.match(crisisButton, /transform: \[\{ scale: buttonScale \}\]/);
+  assert.match(crisisButton, /if \(!promptVisible\) return;[\s\S]*?requestAnimationFrame/);
+  assert.match(crisisButton, /Animated\.spring\(buttonBounce, \{\s*toValue: 0/);
+  assert.match(crisisButton, /\[buttonBounce, promptVisible\]/);
+  assert.match(crisisButton, /translateY: buttonBounce\.interpolate/);
+  assert.match(crisisButton, /scale: buttonBounce\.interpolate/);
+  assert.doesNotMatch(crisisButton, /Animated\.loop/);
   assert.match(crisisButton, /PROMPT_VISIBLE_MS = 30 \* 1000/);
   assert.match(crisisButton, /w-\[230px\]/);
   assert.match(crisisButton, /w-full text-left/);
