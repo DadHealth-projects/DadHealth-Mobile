@@ -5,7 +5,7 @@ import test from 'node:test';
 const root = new URL('../', import.meta.url);
 
 test('screens never refresh automatically on focus and refresh indicators are pull-driven', async () => {
-  const [mind, bond, fitness, community, communityFeed, home, dashboard, legacyScore, presentDad] = await Promise.all([
+  const [mind, bond, fitness, community, communityFeed, home, dashboard, legacyScore, presentDad, presentDadUI] = await Promise.all([
     readFile(new URL('screens/MindScreen.tsx', root), 'utf8'),
     readFile(new URL('screens/BondScreen.tsx', root), 'utf8'),
     readFile(new URL('screens/FitnessScreen.tsx', root), 'utf8'),
@@ -15,6 +15,7 @@ test('screens never refresh automatically on focus and refresh indicators are pu
     readFile(new URL('screens/DashboardScreen.tsx', root), 'utf8'),
     readFile(new URL('screens/subscreens/ProgressScreen.tsx', root), 'utf8'),
     readFile(new URL('hooks/usePresentDadMode.ts', root), 'utf8'),
+    readFile(new URL('components/bond/PresentDadMode.tsx', root), 'utf8'),
   ]);
 
   for (const source of [mind, bond, fitness, community, communityFeed, home, dashboard]) {
@@ -23,10 +24,10 @@ test('screens never refresh automatically on focus and refresh indicators are pu
     assert.match(source, /refreshInFlight\.current/);
   }
   assert.match(legacyScore, /navigation\.replace\('Tabs'/);
-  assert.match(bond, /useEffect\(\(\) => \{[\s\S]*?loadConversationStarters\(\)/);
-  assert.match(bond, /loadConversationStarters\(\)/);
-  assert.match(bond, /presentDadMode\.refresh\(\)/);
-  assert.match(presentDad, /toggle, refresh/);
+  assert.match(bond, /const refreshInFlight = useRef\(false\)/);
+  assert.match(presentDadUI, /const existing = await mode\.refresh\(\)/);
+  assert.match(presentDad, /const refresh = useCallback/);
+  assert.match(presentDad, /finish_present_dad_session/);
 });
 
 test('tab and dashboard-menu navigation use short native-friendly transitions', async () => {
