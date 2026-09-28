@@ -131,10 +131,11 @@ test('network-only feature actions use connectivity notices rather than feature 
   }
 });
 
-test('Body and Bond features compose as flat sections instead of bordered cards', async () => {
-  const [fitness, bond] = await Promise.all([
+test('Body sections remain flat and Bond keeps its approved Present Dad feature card', async () => {
+  const [fitness, bond, presentDad] = await Promise.all([
     source('screens/FitnessScreen.tsx'),
     source('screens/BondScreen.tsx'),
+    source('components/bond/PresentDadMode.tsx'),
   ]);
 
   // label → heading → supporting copy → action → divider
@@ -145,8 +146,9 @@ test('Body and Bond features compose as flat sections instead of bordered cards'
   assert.equal(fitness.includes('rounded-card'), false);
   assert.equal(fitness.includes("from '../components/Card'"), false);
 
-  assert.ok(bond.includes('function BondFeatureSection'));
-  assert.ok(bond.includes('border-b border-border pb-lg'));
+  assert.ok(bond.includes('<PresentDadMode'));
+  assert.ok(bond.includes('border border-lime/25 bg-card'));
+  assert.ok(presentDad.includes('Present Dad Mode'));
   assert.equal(bond.includes('PillarCard'), false);
 });
 
