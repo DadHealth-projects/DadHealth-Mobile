@@ -5,6 +5,7 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import ActivityCard from '../components/mockup/ActivityCard';
 import BondScoreCard from '../components/bond/BondScoreCard';
+import ManualActivitySection from '../components/manualActivities/ManualActivitySection';
 import type { DashboardSection } from '../components/AccountSheet';
 import FadeInView from '../components/FadeInView';
 import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
@@ -142,6 +143,8 @@ export default function BondScreen({
       <FadeInView delay={90}>
         <BondScoreCard score={bondScore} trend={data?.bondWeekChange ?? null} />
       </FadeInView>
+
+      <ManualActivitySection pillar="bond" userId={user?.id} />
 
       <FadeInView delay={140}>
         <Pressable

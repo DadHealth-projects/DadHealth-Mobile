@@ -14,6 +14,7 @@ import ProUpgradeSection from '../components/ProUpgradeSection';
 import ScreenHero from '../components/mockup/ScreenHero';
 import SectionHeader from '../components/dashboard/SectionHeader';
 import StatCard from '../components/dashboard/StatCard';
+import ManualActivitySection from '../components/manualActivities/ManualActivitySection';
 import TagPill from '../components/dashboard/TagPill';
 import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '../hooks/useDashboard';
@@ -175,6 +176,7 @@ export default function FitnessScreen({
       </FadeInView>
 
       <PillarScoreRow pillar="Body" score={data?.bodyScore ?? null} trend={data?.bodyWeekChange ?? null} />
+      <ManualActivitySection pillar="body" userId={user?.id} />
 
       <FadeInView delay={90}>
         <SectionHeader title="Body this week" className="mb-md" />
