@@ -24,23 +24,21 @@ M4 is the latest completed milestone and the current implementation baseline.
 
 Do not reopen or rebuild M4 work unless a new task explicitly requires a regression fix or change.
 
-## Active Milestone
+## Completed Milestone
 
-**Next Milestone Brief — Dad Health Journey & Personalisation Formation**
+**DadHealth_NextMilestone_Brief_v2 — Dad Health Journey & Personalisation Formation: IMPLEMENTATION COMPLETE**
 
-This is the current active product milestone.
+All approved implementation changes in the milestone are complete, including Changes 01–08. Jamie-owned content inputs listed below remain content follow-ups and do not reopen the completed implementation scope.
 
-The latest amendment is:
+**DadHealth_Brief_Addendum_A_Merge_Score_into_Today: IMPLEMENTED AND COMPLETE**
 
-**Brief Addendum A — Merge Score into Today**
+Addendum A was implemented as the final source of truth for the Today + Score merge and supersedes conflicting standalone Score/tab requirements in the original brief.
 
-Addendum A overrides the relevant navigation, Score and Today decisions from the main milestone brief.
-
-Do not use older milestone briefs, TestFlight feedback or historical Jamie decisions as the current product specification when they conflict with these documents.
+Do not restore the deprecated standalone Score screen/tab or the old Progress architecture.
 
 ## Today + Score Merge Status
 
-**Status: Implemented against Addendum A.** Addendum A is the source of truth for the Today hierarchy and Score location. The Score tab is removed; legacy Score/Progress destinations remain compatibility redirects to Today with the Score Detail Sheet opened.
+**Status: COMPLETE against Addendum A.** Addendum A is the source of truth for the Today hierarchy and Score location. The Score tab is removed; legacy Score/Progress destinations remain compatibility redirects to Today with the Score Detail Sheet opened.
 
 Today stays compact and action-first: the Pro tease is inside the Score card, Mood This Week stays on Mind, Smart Reminders appear only when present, and the weekly card appears only on its configured Sunday release. Historical score history and report details belong in the Score Detail Sheet.
 
@@ -51,6 +49,14 @@ The Today card and Score Detail Sheet consume canonical score values, trends, we
 **Status: COMPLETE.** Today, Score Detail, the weekly report, and the Mind, Body and Bond screens consume canonical pillar scores and week-on-week changes. Trend changes are score-point deltas and display after the score (for example, `BODY 37% ↓ 3 pts`). When the previous week has no data, show a neutral arrow without a change amount. Historical charts omit weeks with no pillar data, using the canonical availability flags.
 
 Weakest pillar and recommended action remain server-owned. Ties follow the canonical Mind, then Body, then Bond ordering. Recommendations use the documented pillar mapping and tracked completion state; Mind breathing may repeat because its completion is not persisted.
+
+## Changes 04–08 — Conversion, Entitlements, Body, Manual Logging, Bond & Community
+
+**Status: COMPLETE.** Change 04 contextual Pro conversion moments use the approved Addendum A locations. Change 05 uses the canonical entitlement boundary for Pro-derived outputs and server-authoritative weekly streak freezes. Change 06 Body pillar-card formatting is the approved baseline. Change 07 manual activity logging feeds canonical scoring under the approved per-day and 70/30 rules. Change 08 implements the approved Bond tools, Present Dad session lifecycle, Admin-managed Circle descriptions, and Community Circle layout.
+
+Present Dad completion remains server-authoritative. Sessions under five minutes are retained without Bond Score credit; sessions of five minutes or more count through canonical Bond scoring. iOS Focus is user-controlled: the app does not activate Do Not Disturb or claim that Focus is enabled.
+
+Remaining Jamie-owned content follow-ups are the Cook Together first-completion badge definition, final Community Circle descriptions entered through Admin, and 5–10 approved Community prompts per Circle. Do not invent these items or treat them as missing app behavior.
 
 ---
 
