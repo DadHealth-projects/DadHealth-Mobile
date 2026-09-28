@@ -8,6 +8,7 @@ import FadeInView from '../components/FadeInView';
 import InlineFormError from '../components/InlineFormError';
 import LimeButton from '../components/LimeButton';
 import MoodWeekCard from '../components/dashboard/MoodWeekCard';
+import ManualActivitySection from '../components/manualActivities/ManualActivitySection';
 import PillarScoreRow from '../components/dashboard/PillarScoreRow';
 import MiniBarChart from '../components/dashboard/MiniBarChart';
 import SectionHeader from '../components/dashboard/SectionHeader';
@@ -107,6 +108,7 @@ export default function MindScreen({
       </FadeInView>
 
       <PillarScoreRow pillar="Mind" score={data?.mindScore ?? null} trend={data?.mindWeekChange ?? null} />
+      <ManualActivitySection pillar="mind" userId={user?.id} />
 
       <FadeInView delay={80}>
         <View className="gap-md">

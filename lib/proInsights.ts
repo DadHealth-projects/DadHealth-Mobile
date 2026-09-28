@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 
 const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL ?? 'https://www.dadhealth.co.uk').replace(/\/$/, '');
 
-export type ProInsightKind = 'score-history' | 'mood-correlation' | 'weekly-report' | 'monthly-report';
+export type ProInsightKind = 'score-history' | 'manual-activity-trends' | 'mood-correlation' | 'weekly-report' | 'monthly-report';
 
 export async function fetchProInsight<T>(kind: ProInsightKind, params?: Record<string, string>): Promise<T> {
   const { data, error } = await supabase.auth.getSession();
