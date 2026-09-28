@@ -38,24 +38,26 @@ test('Expo web never initializes the native OneSignal bridge', async () => {
   );
 });
 
-test('Present Dad completion is no longer written by the mobile client', async () => {
+test('Present Dad completion is requested through the server RPC, not a direct row update', async () => {
   const hook = await readFile(new URL('hooks/usePresentDadMode.ts', root), 'utf8');
 
-  assert.doesNotMatch(hook, /status:\s*'completed'/);
-  assert.doesNotMatch(hook, /completed_at/);
+  assert.match(hook, /supabase\.rpc\('finish_present_dad_session'/);
+  assert.doesNotMatch(hook, /from\('present_dad_sessions'\)\.update/);
+  assert.match(hook, /completed_at/);
   assert.match(hook, /ends_at/);
 });
 
-test('Present Dad waits for server completion without allowing a duplicate session', async () => {
-  const [hook, screen, toggle] = await Promise.all([
+test('Present Dad resumes active sessions and delegates duplicate prevention to the server constraint', async () => {
+  const [hook, screen, experience, migration] = await Promise.all([
     readFile(new URL('hooks/usePresentDadMode.ts', root), 'utf8'),
     readFile(new URL('screens/BondScreen.tsx', root), 'utf8'),
-    readFile(new URL('components/mockup/ToggleRow.tsx', root), 'utf8'),
+    readFile(new URL('components/bond/PresentDadMode.tsx', root), 'utf8'),
+    readFile(new URL('../dadHealth/supabase/migrations/20260928150000_change08_present_dad_and_circle_descriptions.sql', root), 'utf8'),
   ]);
 
-  assert.match(hook, /busy \|\| finishing/);
-  assert.match(hook, /if \(!userId \|\| busy \|\| finishing\) return null/);
-  assert.doesNotMatch(hook, /expireLocally/);
-  assert.match(screen, /disabled=\{presentDadMode\.busy\}/);
-  assert.match(toggle, /disabled=\{disabled\}/);
+  assert.match(hook, /\.eq\('status', 'active'\)/);
+  assert.match(experience, /if \(existing\?\.status === 'active'\)/);
+  assert.match(experience, /setPhase\('timer'\)/);
+  assert.match(screen, /<PresentDadMode/);
+  assert.match(migration, /idx_present_dad_one_active_per_user/);
 });

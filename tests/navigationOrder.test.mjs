@@ -40,7 +40,7 @@ test('Community naming and Dad Circles copy are consistent in user-facing screen
   ]);
 
   assert.match(community, /title="Your Dad Circles"/);
-  assert.match(community, /Find dads going through the same chapter as you\./);
+  assert.match(community, /Your Dad Circles — find dads going through the same chapter as you/);
   assert.match(community, /Be the first to share with the community\./);
   assert.match(createPost, /with the community/);
   assert.match(notificationSettings, /linkLabel: 'Community'/);
