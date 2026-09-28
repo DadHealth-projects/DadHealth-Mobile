@@ -18,6 +18,7 @@ import { useDashboard } from '../../hooks/useDashboard';
 import { trackEvent } from '../../lib/analytics';
 import { PRO_MOMENTS } from '../../lib/proMoments';
 import { supabase } from '../../lib/supabase';
+import { withLocationDeadline } from '../../lib/locationDeadline';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
 
@@ -103,13 +104,14 @@ export default function DadDaysSearchScreen() {
   useEffect(() => { void loadAccess(); }, [loadAccess]);
 
   const useLocation = useCallback(async () => {
+    if (locating) return;
     setLocating(true); setLocationError(null); setSearchError(null);
     try {
-      const currentPermission = await Location.getForegroundPermissionsAsync();
+      const currentPermission = await withLocationDeadline(Location.getForegroundPermissionsAsync());
       const permission = currentPermission.status === 'granted'
         ? currentPermission
         : currentPermission.canAskAgain
-          ? await Location.requestForegroundPermissionsAsync()
+          ? await withLocationDeadline(Location.requestForegroundPermissionsAsync(), 60000)
           : currentPermission;
       if (permission.status !== 'granted') {
         setLocationError('Location access was not allowed. Enter a postcode instead.');
@@ -125,32 +127,34 @@ export default function DadDaysSearchScreen() {
         }
         return;
       }
-      const recent = await Location.getLastKnownPositionAsync({ maxAge: 300000, requiredAccuracy: 5000 });
-      const current = recent ?? await Promise.race([
+      const recent = await withLocationDeadline(
+        Location.getLastKnownPositionAsync({ maxAge: 300000, requiredAccuracy: 5000 }), 2000,
+      ).catch(() => null);
+      const current = recent ?? await withLocationDeadline(
         Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('location_timeout')), 15000)),
-      ]);
+      );
       setCoords({ latitude: current.coords.latitude, longitude: current.coords.longitude });
       setPostcode(''); setPostcodeInput('');
     } catch {
-      setLocationError('We could not get your location. Enter a postcode instead.');
+      setLocationError('We could not get your location. Try again or enter a postcode.');
     } finally { setLocating(false); }
-  }, []);
+  }, [locating]);
 
   const usePostcode = useCallback(async () => {
+    if (locating) return;
     if (isOffline) { showOfflineAction('dad_days_search'); return; }
     if (!postcodeInput.trim()) { setLocationError('Enter a UK postcode.'); return; }
     setLocating(true); setLocationError(null); setSearchError(null);
     try {
-      const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcodeInput.trim())}`);
-      const body = await response.json() as { result?: { latitude?: number; longitude?: number } };
+      const response = await withLocationDeadline(fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcodeInput.trim())}`));
+      const body = await withLocationDeadline(response.json()) as { result?: { latitude?: number; longitude?: number } };
       if (!response.ok || typeof body.result?.latitude !== 'number' || typeof body.result.longitude !== 'number') throw new Error('invalid_postcode');
       setCoords({ latitude: body.result.latitude, longitude: body.result.longitude });
       setPostcode(postcodeInput.trim().toUpperCase());
     } catch {
       setLocationError("We couldn't find that postcode. Check it and try again.");
     } finally { setLocating(false); }
-  }, [isOffline, postcodeInput, showOfflineAction]);
+  }, [isOffline, locating, postcodeInput, showOfflineAction]);
 
   const remaining = Math.max(0, FREE_LIMIT - searchesUsed);
   const limitReached = accessReady && !isPro && remaining === 0;
