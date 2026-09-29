@@ -61,7 +61,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/DH LOGO_LimeWhite_DarkBG.png",
+          "image": "./assets/02. DAD HEALTH LOGO_COLOR_Dark BG.png",
           "resizeMode": "contain",
           "backgroundColor": "#0A0A0A",
           "imageWidth": 200

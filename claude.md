@@ -2,626 +2,470 @@
 
 ## Project
 
-DadHealth is a React Native / Expo application for iOS and Android.
+DadHealth is a React Native / Expo app for iOS and Android.
 
-The mobile app shares the DadHealth Supabase backend, authentication, business data and product rules with the web application.
-
-The mobile client is responsible for native presentation and native platform capabilities. It must not duplicate privileged backend logic or independently implement canonical product calculations.
-
-Repository:
-
+Mobile repo:
 `E:\client-projects\dadhealth-mobile`
 
----
+Shared web/backend repo:
+`E:\client-projects\dadHealth`
 
-# Current Status
+The mobile app shares Supabase authentication, business data, backend services and canonical product rules with the web application.
 
-## M4 — Phase 3 Native Integration & Refinement Pass
+The mobile client owns native presentation and native platform capabilities.
 
-**Status: COMPLETED, APPROVED AND PAID**
-
-M4 is the latest completed milestone and the current implementation baseline.
-
-Do not reopen or rebuild M4 work unless a new task explicitly requires a regression fix or change.
-
-## Completed Milestone
-
-**DadHealth_NextMilestone_Brief_v2 — Dad Health Journey & Personalisation Formation: IMPLEMENTATION COMPLETE**
-
-All approved implementation changes in the milestone are complete, including Changes 01–08. Jamie-owned content inputs listed below remain content follow-ups and do not reopen the completed implementation scope.
-
-**DadHealth_Brief_Addendum_A_Merge_Score_into_Today: IMPLEMENTED AND COMPLETE**
-
-Addendum A was implemented as the final source of truth for the Today + Score merge and supersedes conflicting standalone Score/tab requirements in the original brief.
-
-Do not restore the deprecated standalone Score screen/tab or the old Progress architecture.
-
-## Today + Score Merge Status
-
-**Status: COMPLETE against Addendum A.** Addendum A is the source of truth for the Today hierarchy and Score location. The Score tab is removed; legacy Score/Progress destinations remain compatibility redirects to Today with the Score Detail Sheet opened.
-
-Today stays compact and action-first: the Pro tease is inside the Score card, Mood This Week stays on Mind, Smart Reminders appear only when present, and the weekly card appears only on its configured Sunday release. Historical score history and report details belong in the Score Detail Sheet.
-
-The Today card and Score Detail Sheet consume canonical score values, trends, weakest pillar and recommended action. Apply the approved Addendum A visibility rules consistently across Today and pillar screens. One Focus uses the canonical recommended action rather than recalculating the weakest pillar on the client.
-
-## Change 03 — Score Trends & Weakest-Pillar Logic
-
-**Status: COMPLETE.** Today, Score Detail, the weekly report, and the Mind, Body and Bond screens consume canonical pillar scores and week-on-week changes. Trend changes are score-point deltas and display after the score (for example, `BODY 37% ↓ 3 pts`). When the previous week has no data, show a neutral arrow without a change amount. Historical charts omit weeks with no pillar data, using the canonical availability flags.
-
-Weakest pillar and recommended action remain server-owned. Ties follow the canonical Mind, then Body, then Bond ordering. Recommendations use the documented pillar mapping and tracked completion state; Mind breathing may repeat because its completion is not persisted.
-
-## Changes 04–08 — Conversion, Entitlements, Body, Manual Logging, Bond & Community
-
-**Status: COMPLETE.** Change 04 contextual Pro conversion moments use the approved Addendum A locations. Change 05 uses the canonical entitlement boundary for Pro-derived outputs and server-authoritative weekly streak freezes. Change 06 Body pillar-card formatting is the approved baseline. Change 07 manual activity logging feeds canonical scoring under the approved per-day and 70/30 rules. Change 08 implements the approved Bond tools, Present Dad session lifecycle, Admin-managed Circle descriptions, and Community Circle layout.
-
-Present Dad completion remains server-authoritative. Sessions under five minutes are retained without Bond Score credit; sessions of five minutes or more count through canonical Bond scoring. iOS Focus is user-controlled: the app does not activate Do Not Disturb or claim that Focus is enabled.
-
-Remaining Jamie-owned content follow-ups are the Cook Together first-completion badge definition, final Community Circle descriptions entered through Admin, and 5–10 approved Community prompts per Circle. Do not invent these items or treat them as missing app behavior.
+Do not duplicate privileged backend logic or independently calculate canonical product values in mobile code.
 
 ---
 
-# Source-of-Truth Hierarchy
+# CURRENT PRODUCT STATUS
 
-When deciding what to build, use this order:
+## M4 — Phase 3
+**COMPLETE / APPROVED / PAID**
 
-1. **Latest approved milestone brief**
-2. **Latest approved addendum/amendment**
-3. **Existing web/backend product behavior**
-4. **Current mobile implementation**
-5. **Approved native UI/mockups**
+M4 is the native-integration baseline.
 
-Older briefs and feedback documents are historical context only.
+Do not reopen M4 work unless an explicitly approved task requires a regression fix or new change.
 
-If two current sources genuinely conflict and the conflict cannot be resolved from the documents, stop and ask rather than guessing.
+## Dad Health Journey & Personalisation Formation
+**IMPLEMENTATION COMPLETE**
+
+The Next Milestone Brief, Addendum A and approved Changes 01–08 have been implemented.
+
+Addendum A is the final source of truth where it supersedes the original Today/Score requirements.
+
+### FROZEN SCOPE
+
+Treat the following as completed product scope:
+
+- Today + Score merge
+- Mind rebuild
+- Change 03 — Score trends / weakest pillar
+- Change 04 — Pro conversion
+- Change 05 — Free vs Pro
+- Change 06 — Body pillar presentation
+- Change 07 — Manual activity logging / scoring
+- Change 08 — Bond / Present Dad / Community
+- completed navigation architecture
+
+Do not reopen, redesign, restore deprecated behavior, or make opportunistic changes to these areas unless the user explicitly approves a new task or a verified regression requires correction.
+
+Historical briefs and TestFlight feedback are context only and must not override later approved requirements.
 
 ---
 
-# Product Principle
+# SOURCE OF TRUTH
 
-The active milestone is centered around one question:
+When requirements differ, use the most recent approved product decision.
 
-> Does this help the dad understand how he is doing, decide what matters today, and take one simple action?
+Priority:
 
-The product should demonstrate the value of Dad Health through the free experience rather than aggressively selling Pro.
+1. Latest approved addendum/amendment or explicit Jamie decision
+2. Latest approved milestone requirement not superseded by #1
+3. Canonical backend/product behavior
+4. Current completed mobile implementation
+5. Approved UI/mockups
 
-Do not introduce unnecessary UI, filler content, artificial recommendations or unrelated redesigns.
+Older briefs, old TestFlight feedback and superseded requirements must not be treated as active work.
+
+If current approved sources genuinely conflict, report the conflict and ask before changing behavior.
 
 ---
-# Navigation
 
-## Status: Complete
+# NAVIGATION — FROZEN
 
-The completed mobile navigation has **five tabs plus a separate raised + LOG action**:
+Current navigation:
 
 **Today → Mind → Body → + LOG → Bond → Community**
 
-The five navigation tabs are:
+There are five navigation tabs:
 
-* Today
-* Mind
-* Body
-* Bond
-* Community
+- Today
+- Mind
+- Body
+- Bond
+- Community
 
-**+ LOG is a quick-action control, not a navigation tab.**
+`+ LOG` is a raised quick-action control, not a navigation tab.
 
-The **+ LOG** action is a raised centre button and opens:
+It opens:
 
-* Log workout
-* Log Bond time
-* Log Mind activity
+- Log workout
+- Log Bond time
+- Log Mind activity
 
-The five tab routes remain Today, Mind, Body, Bond and Community. The + LOG button is not a tab and preserves its workout, Bond and Mind logging actions.
+There is no Score tab.
 
-## Score
+Score lives inside Today. Tapping the Dad Health Score card opens the Score Detail Sheet.
 
-There is **no Score tab**.
+Legacy Score/Progress routes may redirect to Today + Score Detail for compatibility.
 
-Score is part of Today.
-
-Tapping the Dad Health Score card opens the **Score Detail Sheet**.
-
-Legacy Score navigation must not be restored.
-
-If an existing deep link, notification or internal route targets the old Score destination, it should resolve to Today with the Score Detail Sheet expanded where technically supported.
-
-## Navigation Rules
-
-* Today is the first tab.
-* Mind is the second tab.
-* Body is the third tab.
-* + LOG sits between Body and Bond and is not a tab.
-* Bond follows Body.
-* Community is the final tab.
-* + LOG remains the raised centre quick-action button.
-* Score is accessed through Today and must not become a bottom-navigation tab.
-* Do not describe + LOG as a navigation tab.
-* Do not restore the previous six-tab Score navigation.
+Never restore the old Score/Progress navigation without explicit approval.
 
 ---
 
-# Dad Health Score
+# CANONICAL SCORE
 
 Dad Health Score contains:
 
-* Mind
-* Body
-* Bond
+- Mind
+- Body
+- Bond
 
-All Score values must come from one canonical source.
+One canonical backend source owns:
 
-This includes:
+- total score
+- pillar scores
+- week-on-week trends
+- weakest pillar
+- recommended action
 
-* total Score
-* pillar Scores
-* week-on-week trends
-* weakest pillar
-* recommended action
+Mobile screens must consume these values rather than independently calculating them.
 
-Do not calculate the Score independently inside individual mobile screens.
-
-Do not hardcode fake Score or trend values.
-
-Score recalculation must follow the current backend/product implementation and active milestone rules.
+Do not hardcode or fabricate scores, trends, weakest-pillar results or recommendations.
 
 ## Trends
 
-Use the canonical Monday–Sunday calendar-week comparison window.
+Week comparison is Monday–Sunday.
 
-Display trends in the approved format:
+Trend values are score-point differences, not relative percentages.
 
-`MIND 56% ↓ 27 pts`
+Example:
 
-The Score appears first, followed by the trend.
+`BODY 37% ↓ 3 pts`
 
-Trend values are score-point differences, not percentages. When the canonical trend is null because there is no previous-week data, show a neutral arrow without a change amount. Do not fabricate a positive or negative change.
+If the canonical previous-week comparison is unavailable, display the neutral state without inventing a change value.
 
-## Weakest Pillar
+### Change 07 transition
 
-The weakest pillar is the lowest of Mind, Body and Bond.
+Change 07 introduced the new manual-activity scoring model.
 
-Ties are resolved canonically in Mind, Body, Bond order.
+The first effective Change 07 week intentionally has no comparable previous-week trend because the previous week used the old scoring model.
 
-Recommendations must use the mapping defined in the active milestone.
+Do not “fix” this by fabricating or restoring a cross-model trend.
 
-Do not create competing recommendation logic inside Today, Mind, Body or Bond.
+Once two comparable weeks exist under the new model, canonical numeric point trends can resume where data exists.
 
 ---
 
-# Today
+# TODAY — COMPLETE / FROZEN
 
-Today is the primary daily hub.
+Today is the daily hub.
 
-The active hierarchy is:
+Approved hierarchy:
 
 1. Greeting
-2. Dad Health Score card
-3. Pro tease / upgrade moment
+2. Dad Health Score
+3. contextual Pro tease
 4. Daily check-in
-5. Your One Focus
+5. One Focus
 6. Streak
-7. Weekly card on report day
+7. Weekly card when applicable
 8. Supporting tools
 9. This week's challenge
 
-## Dad Health Score Card
+One Focus consumes the canonical recommended action.
 
-The card contains:
+After a completed check-in, it must not recommend completing the same check-in again.
 
-* Score ring
-* Mind
-* Body
-* Bond
-* trend values
-* weakest-pillar indication
+Mood belongs on Mind.
 
-Tapping the card opens the Score Detail Sheet.
+Historical Score information belongs in Score Detail or the relevant pillar.
 
-Keep the card compact. Preserve current entitlement gating for trends, use canonical trend values, and show each trend after its pillar score only when that value exists.
-
-## Daily Check-in
-
-The check-in contains the three approved daily questions.
-
-After submission, the relevant Mind value should update using the canonical Score source.
-
-If the check-in is already complete, **Your One Focus must not tell the user to complete the check-in again**.
-
-## Your One Focus
-
-The action is based on the weakest pillar and the current day's state.
-
-Use only the recommendation/action mapping defined in the active milestone.
-
-## Today Content Removed / Moved
-
-Mood information belongs on Mind.
-
-Historical Score information belongs in the Score Detail Sheet or the relevant pillar.
-
-Empty Smart Reminder content should not appear as an empty row.
+Do not show empty Smart Reminder rows.
 
 ---
 
-# Score Detail Sheet
+# SCORE DETAIL — COMPLETE / FROZEN
 
-The Score Detail Sheet replaces the old Score tab.
+Score Detail replaces the old Score tab.
 
-It is opened from the Today Score card.
+It contains the approved:
 
-Order:
+- score/pillars
+- explanation of pillar inputs
+- contextual Pro insight
+- history
+- monthly report preview
+- badges
+- Share Report
 
-1. Score + pillars
-2. What feeds each pillar
-3. Pro improvement/insight tease
-4. Score trend history
-5. Monthly report card preview
-6. Badges
-7. Share report
+There is one Share Report action.
 
-There should be one Share Report action in this experience.
+Share Report is available to Free and Pro users.
 
-The sheet is full-height. The Pro insight tease is shown to Free users only. Share Report is available to Free and Pro users; score history and the monthly report retain their specified Pro previews/gating.
+Historical/deeper Pro outputs retain their approved gating.
 
-Score detail, trends and badges must use the same Score source as Today.
-
----
-
-# Mind
-
-## Change 02 + Addendum A A6 Status: COMPLETE
-
-Mind keeps an action-first entry with 4-4-4 breathing, the provisional five-minute reset, the provisional guided reflection, Journal, therapist directory and Community. The two guided sessions use five day-specific reflection prompts; their copy is provisional and must be replaced only with client-approved copy. Crisis help is a single app-wide root action using the existing configured contact, with no login or Pro gate.
-
-Mind Facts and Sleep Quality This Week follow the feeling introduction. Mood This Week remains Free and uses the current 1–5 mood scale. Mood Correlation / Pattern Spotted remains Pro with a locked Free preview. Weekly mood, sleep and correlation data use Monday–Sunday boundaries and normalize legacy mood values.
-
-Free users see the existing Pro upgrade entry for a personalised Mind plan. Pro users see an active entry to a lightweight placeholder sheet. The sheet explains that a future plan will use mood, Dad Health Score and history; no plan generation, recommendations or backend service is implemented until client requirements are supplied.
-
-Mind is **action-first**.
-
-The user should be able to take a useful action immediately.
-
-Core actions defined by the active milestone include:
-
-* **2 MINUTES — Breathing reset (4-4-4)**
-* **5 MINUTES — Reset exercise**
-* **10 MINUTES — Guided reflection**
-* **TALK TO SOMEONE — Therapist directory**
-* **I JUST NEED TO TALK — Community**
-* **PRO — personalised plan**
-
-Crisis support is app-wide and remains visible and accessible without login; Mind must not add a duplicate large crisis card.
-
-Mind owns:
-
-* Mood This Week
-* Sleep Quality This Week
-* Mood Correlation / Pattern Spotted
-* Journal
-* Mood Trends
-
-Mood uses the current approved 1–5 model.
-
-The UI should use the approved mood labels rather than displaying the mood as a fractional score.
+All values consume the canonical Score source.
 
 ---
 
-# Body
+# MIND — COMPLETE / FROZEN
 
-Body owns physical activity, workouts, nutrition tools and wearable activity.
+Mind is action-first.
 
-Current feature areas include:
+Current approved experience includes:
 
-* AI Workout
-* Meal Planner
-* TDEE / calorie calculator
-* Workout Library
-* wearable activity
-* manual workout logging
+- 2-minute 4-4-4 breathing
+- 5-minute Reset
+- 10-minute Guided Reflection
+- Journal
+- therapist directory
+- Community entry
+- Mood This Week
+- Sleep Quality This Week
+- Pro Mood Correlation / Pattern insight
+- Pro Mind Plan placeholder
 
-Follow the current active brief for feature availability and Free/Pro entitlements.
+Mood uses the approved 1–5 model.
 
-Do not bring old Body-specific decisions back simply because they exist in historical TestFlight feedback.
+Reset/Reflection copy remains provisional until Jamie supplies replacement copy.
 
-## Wearables
+The Pro Mind Plan is intentionally a lightweight placeholder. Do not invent a plan-generation engine or backend recommendations.
 
-Wearable information belongs below the primary Body feature cards.
+Crisis Support is a single app-wide action available regardless of login or subscription.
 
-When no wearable is connected, show the approved Connect Apple Health state.
+Do not restore a duplicate large Crisis card inside Mind.
 
-Do not display empty Steps/Active Minutes rows.
+---
 
-When connected, supported data can include:
+# BODY — COMPLETE / FROZEN
 
-* Steps
-* Active Minutes
+Body owns:
+
+- workouts
+- AI Workout
+- Meal Planner
+- calorie/TDEE tools
+- Workout Library
+- wearable activity
+- manual workout logging
+
+Basic approved Body functionality remains Free according to the completed entitlement implementation.
+
+Wearable activity belongs below the primary Body experience.
+
+Do not show empty wearable metric rows when no data/device is available.
 
 Sync status belongs in Settings.
 
----
-
-# Bond
-
-Bond is one of the three Score pillars.
-
-Current active features include:
-
-* Present Dad Mode
-* Dad Days
-* Cook Together
-* Manual Bond logging
-
-Features explicitly removed by the current milestone must not be restored without a new approved requirement.
-
-Manual Bond activity contributes to the Bond Score according to the canonical backend rules.
+Do not restore old Body behavior from historical feedback unless explicitly approved.
 
 ---
 
-# Community
+# BOND — COMPLETE / FROZEN
 
-The current Community direction uses:
+The active Bond product contains:
 
-**Every Kind of Dad**
+- Present Dad Mode
+- Dad Days
+- Cook Together
+- Manual Bond logging
+
+Do not restore:
+
+- Dad Dates
+- Co-parenting Calendar
+- Milestone Tracker
+- Conversation Starters
+- other deprecated Bond tools
+
+Present Dad sessions are server-authoritative.
+
+Under 5 minutes:
+- retained
+- no Bond Score credit
+
+5+ minutes:
+- eligible for canonical Bond scoring
+
+iOS Focus/Do Not Disturb remains user-controlled.
+
+Never claim the app automatically enabled system Focus.
+
+---
+
+# COMMUNITY — COMPLETE / FROZEN
 
 Community is available to Free and Pro users.
 
-The community structure and initial seeded content are governed by the active product brief and Jamie-provided content.
+Current Circles:
 
-Do not invent production community content when Jamie is responsible for supplying it.
+- New Dad Crew
+- Single Dads
+- Dad Strength
+- Every Kind of Dad
 
----
+Do not restore Teen Dad Club.
 
-# Manual Activity Logging
+Jamie owns final production Community seed content.
 
-Manual logging is part of the active milestone.
-
-## Body
-
-Support:
-
-* activity type
-* duration
-* intensity
-* date
-* notes
-
-Backdating is supported up to seven days.
-
-## Bond
-
-Support the approved Bond activity types, including:
-
-* routine
-* play
-* active
-* out & about
-* remote
-* other
-
-Support contact-day state where defined by the product.
-
-## Mind
-
-Support:
-
-* professional support
-* mindfulness
-* social connection
-* nature/recovery
-* other
-
-Use the backend activity-log contract rather than creating a separate mobile-only data model.
-
-New logs must trigger the approved Score recalculation behavior.
+Do not invent launch posts/prompts.
 
 ---
 
-# Free and Pro
+# MANUAL ACTIVITY LOGGING — COMPLETE / FROZEN
 
-Use the active milestone's entitlement rules.
+Manual logging exists for:
 
-Core Free experience includes:
+- Body
+- Mind
+- Bond
 
-* basic Dad Health Score
-* daily check-in
-* Mind breathing and Journal, with global crisis support available app-wide
-* basic Body workouts
-* manual activity logging
-* limited Dad Days
-* Community
+Backdating is supported up to 7 days.
 
-Pro adds defined personalisation and historical insight such as:
+Use the existing `activity_logs` backend contract.
 
-* weekly Score trends
-* pillar insights
-* personalised recommendations
-* mood history/pattern insights
-* personalised Mind plan
-* personalised AI Workout
-* deeper progress/trend history
-* expanded Dad Days
-* personalised Bond insights
-* weekly report
-* streak protection
-* monthly report card
+Do not create a competing mobile-only activity model.
 
-The active milestone is authoritative for exact limits and entitlement behavior.
+Manual logs contribute to canonical scoring according to the completed Change 07 backend rules.
 
-Do not invent new paywalls or quotas.
+Important scoring principles:
+
+- highest-scoring manual log per pillar/day contributes
+- all valid logs remain stored
+- manual activity contributes up to 70 points
+- existing inputs provide the remaining 30-point component
+- minimum-duration and activity weighting rules remain backend-owned
+- Mini Partners contributes to Body and Bond according to canonical rules
+
+Do not reproduce these calculations independently in mobile UI.
 
 ---
 
-# Pro Conversion
+# FREE / PRO — FROZEN
 
-Pro should appear at contextual moments where the user has already experienced value.
+Do not invent new paywalls, quotas or entitlement rules.
 
-The active upgrade moments are:
+Free includes the approved core product experience, including:
 
-1. After Score
-2. After check-in
-3. AI Workout
-4. Dad Days usage
-5. Progress/trend insight
-6. Score Detail Sheet
-7. Weekly report tease
+- current Dad Health Score
+- current canonical pillar scores/trends where available
+- daily check-in
+- basic Mind actions
+- Mood This Week
+- Sleep This Week
+- basic workouts
+- manual activity logging
+- Community
+- limited Dad Days
+- Share Report
+- global Crisis Support
 
-Do not make a paywall the first element of a feature.
+Pro owns the approved deeper/personalised outputs, including:
 
-Do not use aggressive or repetitive upselling.
+- deeper/historical Score insights
+- extended Score history
+- monthly report
+- Mood Correlation / Pattern insight
+- Mind Plan placeholder
+- approved AI Workout personalisation
+- weekly report
+- streak protection
+- unlimited Dad Days
 
-Locked previews should explain what additional value Pro provides.
-
----
-
-# Weekly Report
-
-Today may show the compact weekly card only on its configured report day/time (currently Sunday after 08:00). Free users receive the approved tease; Pro users receive the report summary. Historical score/report content stays in the Score Detail Sheet. Do not add a second weekly report surface to Today.
-
----
-
-# Native Integrations
-
-M4 established the current native integration baseline.
-
-Maintain existing approved functionality for:
-
-* Apple HealthKit
-* Google Health Connect
-* native subscriptions
-* OneSignal push
-* deep links
-* native authentication
-* biometrics
-* offline support
-
-Do not replace working native integrations with unrelated alternatives without approval.
+Preserve the completed Change 05 entitlement implementation.
 
 ---
 
-# Authentication
+# WEEKLY REPORT / STREAK
 
-Supabase Auth is shared between web and mobile.
+Week boundaries are Monday–Sunday.
 
-Mobile supports:
+Weekly report release is Sunday after 08:00 according to the existing implementation.
 
-* email/password
-* Google OAuth using PKCE
-* native Apple Sign In
-* biometric convenience login
-* auth-aware deep-link continuation
+Free receives the approved teaser/basic information.
 
-Rules:
+Pro receives the approved deeper report.
 
-* never store passwords
-* never expose service-role credentials
-* never display raw provider/internal auth errors
-* preserve session isolation during sign-out/account switching
+Streak state and freeze usage are server-authoritative.
+
+Pro receives the implemented one-freeze-per-week behavior.
+
+Do not create client-side competing streak calculations.
 
 ---
 
-# Offline
+# JAMIE-OWNED OUTSTANDING CONTENT
 
-Offline support is mobile-only and user-scoped.
+These do not reopen the completed engineering milestone:
 
-Maintain:
+1. Cook Together first-completion badge definition/content
+2. approved Community production prompts / seed content
+3. any final replacement copy Jamie supplies for provisional guided Mind content
 
-* per-user cached data
-* queued writes where supported
-* replay on reconnect
-* no cross-account cache leakage
-* cache/queue clearing on sign-out
-* guarded network-only writes
-
-Use the existing centralized connectivity experience.
-
-Do not create additional permanent connectivity banners.
+Do not invent these requirements.
 
 ---
 
-# Push Notifications
+# NATIVE / BACKEND BASELINE
 
-Server-side dispatch belongs to the web/backend layer.
+Preserve the existing approved implementations for:
 
-Mobile handles:
+- Supabase Auth
+- Apple Sign In
+- Google OAuth / PKCE
+- biometrics
+- Apple HealthKit
+- Google Health Connect
+- native subscriptions
+- OneSignal
+- deep links
+- offline support
 
-* OneSignal device/user linking
-* notification-open routing
-* auth/loading-aware pending navigation
-* destination compatibility
-* production-safe messaging
+Server/backend responsibilities stay in the shared backend.
 
-Push notifications are not a replacement for a future in-app activity/notification centre.
+Never expose:
 
----
-
-# Error Handling
-
-Production user-facing errors must:
-
-* name the affected feature/action
-* provide a useful next step
-* avoid raw provider/database/API details
-* never expose stack traces, tokens or environment variables
-* avoid vague placeholder messages
-
-Use the existing centralized error/connectivity patterns.
-
-Do not create a new error surface for every screen.
-
----
-
-# Database and Security
+- service-role credentials
+- passwords
+- raw tokens
+- internal provider/database errors
 
 Use targeted Supabase migrations.
 
-Do not reapply the full schema to production.
+Never apply the entire schema to production as a substitute for a migration.
 
-Rules:
-
-* no secrets in source control
-* no service-role keys in mobile
-* no raw tokens in logs or UI
-* least privilege for database functions and RLS
-* preserve idempotency for retries, webhooks and queued writes
-* prefer targeted changes over broad refactors
-
-New third-party dependencies require review.
-
-Do not add a dependency when platform/runtime functionality already solves the problem cleanly.
+Avoid new dependencies unless genuinely necessary.
 
 ---
 
-# Development Workflow
+# SCOPE CONTROL — MANDATORY
 
-For active product formation/refinement:
+For every requested change:
 
-1. Inspect existing web/backend behavior.
-2. Inspect the current mobile implementation.
-3. Read the active milestone requirement.
-4. Apply the latest addendum where it overrides the milestone.
-5. Identify:
+1. Inspect the relevant implementation.
+2. Review the current requirement/source of truth.
+3. Report what you found.
+4. Identify the exact files that would need modification.
+5. Explain the smallest proposed change.
+6. STOP and ask for approval.
+7. Edit only after explicit approval.
+8. Test only the approved change and relevant regressions.
+9. Report results.
 
-   * Keep
-   * Modify
-   * Remove
-   * Add
-6. Separate UI changes from backend/schema/product changes.
-7. Flag genuinely undefined behavior instead of guessing.
-8. Wait for approval where required.
-9. Change only the approved unit.
-10. Run focused regression tests and typecheck.
-11. Return to review mode.
+**Review does not grant permission to edit.**
 
-Do not turn a focused product request into an unrelated architecture refactor.
+Never modify unrelated files, features, UI, backend behavior, scoring, navigation, entitlements or completed milestone work simply because you notice something that could be improved.
+
+Never perform opportunistic cleanup/refactoring outside approved scope.
+
+If another issue is discovered during implementation, report it separately and leave it unchanged unless approval is given.
+
+When the user says **review only**, absolutely no repository files may be created, edited, deleted, reformatted or moved.
 
 ---
 
-# Documentation Rule
+# DOCUMENTATION
 
-This file describes the **current development rules and product architecture relevant to the mobile client**.
+This file records current product truth and permanent development constraints.
 
-M4 is recorded only as the completed baseline.
+Do not accumulate completed implementation diaries, temporary debugging notes, commit history or obsolete requirements here.
 
-Historical TestFlight briefs, old milestone checklists and superseded Jamie decisions must not be treated as current requirements.
+When a later approved decision supersedes an existing rule:
 
-When a new approved milestone or addendum changes product behavior, update this file so outdated rules are removed or clearly superseded.
+- replace the obsolete rule;
+- do not keep both versions;
+- keep this document concise.
+
+Completed/frozen milestone areas remain frozen until an explicitly approved task changes them.
