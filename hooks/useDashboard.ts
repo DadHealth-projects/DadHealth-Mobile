@@ -12,6 +12,7 @@ import {
 import { isRetryableOfflineError, persistDailyCheckIn } from '../lib/offlineSync';
 import { supabase } from '../lib/supabase';
 import { loadNativeSubscriptionStatus } from '../lib/nativeSubscriptions';
+import { getCurrentWeekDayKeys, toLocalDateKey } from '../lib/dashboard.utils';
 
 export type Reminder = {
   id: string;
@@ -199,12 +200,12 @@ function bodyMinutesToBucket(minutes: number): number {
 
 async function fetchDashboard(userId: string): Promise<DashboardData> {
   const today = todayKey();
-  const weekStartDate = new Date();
-  weekStartDate.setDate(weekStartDate.getDate() - 6);
-  const weekStart = weekStartDate.toISOString().slice(0, 10);
-
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const currentWeekDayKeys = getCurrentWeekDayKeys();
+  const weekStart = currentWeekDayKeys[0];
+  const [weekYear, weekMonth, weekDay] = weekStart.split('-').map(Number);
+  const bodyWeekStart = new Date(weekYear, weekMonth - 1, weekDay);
+  const bodyWeekEnd = new Date(bodyWeekStart);
+  bodyWeekEnd.setDate(bodyWeekEnd.getDate() + 7);
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
@@ -267,7 +268,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     supabase.from('dad_dates').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('source', 'ai_search'),
     supabase.from('body_metrics').select('value').eq('user_id', userId).eq('metric_type', 'weight').order('recorded_at', { ascending: false }).limit(2),
     supabase.from('workout_sessions').select('duration_minutes').eq('user_id', userId).gte('performed_at', todayStart.toISOString()).lte('performed_at', todayEnd.toISOString()),
-    supabase.from('workout_sessions').select('performed_at,duration_minutes').eq('user_id', userId).gte('performed_at', sevenDaysAgo.toISOString()),
+    supabase.from('workout_sessions').select('performed_at,duration_minutes').eq('user_id', userId).gte('performed_at', bodyWeekStart.toISOString()).lt('performed_at', bodyWeekEnd.toISOString()),
     supabase.from('workout_sessions').select('exercise_name,duration_minutes,calories,performed_at').eq('user_id', userId).order('performed_at', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('workouts').select('id,title,duration_mins,equipment,exercises').eq('source', 'admin').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('meal_plans').select('id,plan,created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(1),
@@ -313,15 +314,11 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
 
   const bodyTotals = new Map<string, number>();
   for (const row of (bodyWeekResult.error ? [] : (bodyWeekResult.data ?? [])) as Array<{ performed_at: string; duration_minutes: number | null }>) {
-    const dayKey = row.performed_at?.slice(0, 10);
-    if (!dayKey) continue;
+    if (!row.performed_at) continue;
+    const dayKey = toLocalDateKey(new Date(row.performed_at));
     bodyTotals.set(dayKey, (bodyTotals.get(dayKey) ?? 0) + (row.duration_minutes ?? 0));
   }
-  const bodyWeekSeries = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - index));
-    return bodyMinutesToBucket(bodyTotals.get(date.toISOString().slice(0, 10)) ?? 0);
-  });
+  const bodyWeekSeries = currentWeekDayKeys.map((dayKey) => bodyMinutesToBucket(bodyTotals.get(dayKey) ?? 0));
 
   const latestWorkout = latestWorkoutResult.error ? null : latestWorkoutResult.data;
   const featuredWorkoutTitle = textOrNull(latestWorkout?.exercise_name);

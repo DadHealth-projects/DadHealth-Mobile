@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { formatScoreTrend, hasScoreHistory } from '../lib/scoreTrends.js';
+import { getCurrentWeekDayKeys } from '../lib/calendarWeek.js';
 
 const root = new URL('../', import.meta.url);
 
@@ -22,6 +23,39 @@ test('empty generated weeks are filtered while weeks with any pillar data remain
   assert.equal(hasScoreHistory({ mind_has_data: true, body_has_data: false, bond_has_data: false }), true);
   assert.equal(hasScoreHistory({ mind_has_data: false, body_has_data: true, bond_has_data: false }), true);
   assert.equal(hasScoreHistory({ mind_has_data: false, body_has_data: false, bond_has_data: true }), true);
+});
+
+test('Mind and Body weekday graphs share fixed Monday-to-Sunday calendar keys', async () => {
+  const read = (path) => readFile(new URL(path, root), 'utf8');
+  const [dashboardUtils, dashboardHook, mind, sleepHook, body] = await Promise.all([
+    read('lib/dashboard.utils.ts'),
+    read('hooks/useDashboard.ts'),
+    read('screens/MindScreen.tsx'),
+    read('hooks/useProgressSleep.ts'),
+    read('screens/FitnessScreen.tsx'),
+  ]);
+
+  assert.match(dashboardUtils, /export \{ getCurrentWeekDayKeys, toLocalDateKey \} from '\.\/calendarWeek'/);
+  assert.match(mind, /getMoodWeek\(data\?\.moodLogs \?\? \[\], getCurrentWeekDayKeys\(\)\)/);
+  assert.match(sleepHook, /const dates = getCurrentWeekDayKeys\(\)/);
+  assert.match(dashboardHook, /const currentWeekDayKeys = getCurrentWeekDayKeys\(\)/);
+  assert.match(dashboardHook, /\.gte\('performed_at', bodyWeekStart\.toISOString\(\)\)\.lt\('performed_at', bodyWeekEnd\.toISOString\(\)\)/);
+  assert.match(dashboardHook, /toLocalDateKey\(new Date\(row\.performed_at\)\)/);
+  assert.match(dashboardHook, /currentWeekDayKeys\.map\(\(dayKey\) => bodyMinutesToBucket\(bodyTotals\.get\(dayKey\) \?\? 0\)\)/);
+  assert.match(body, /labels=\{MOOD_WEEK_LABELS\}/);
+  assert.match(body, /values=\{data\?\.bodyWeekSeries \?\? EMPTY_BODY_WEEK\}/);
+  assert.doesNotMatch(dashboardHook, /date\.setDate\(date\.getDate\(\) - \(6 - index\)\)/);
+});
+
+test('calendar week keys stay Monday through Sunday for Monday, Thursday, and Sunday', () => {
+  const expected = ['2026-09-21', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-25', '2026-09-26', '2026-09-27'];
+  assert.deepEqual(getCurrentWeekDayKeys(new Date(2026, 8, 24, 12)), expected); // Thursday
+  assert.deepEqual(getCurrentWeekDayKeys(new Date(2026, 8, 21, 12)), expected); // Monday
+  assert.deepEqual(getCurrentWeekDayKeys(new Date(2026, 8, 27, 12)), expected); // Sunday
+
+  const valuesByDate = new Map([['2026-09-24', 2]]);
+  const values = getCurrentWeekDayKeys(new Date(2026, 8, 24, 12)).map((dayKey) => valuesByDate.get(dayKey) ?? 0);
+  assert.deepEqual(values, [0, 0, 0, 2, 0, 0, 0]); // Thursday's value stays under Thursday; future days retain their slots
 });
 
 test('all score consumers read the canonical pillar fields and share one trend formatter', async () => {

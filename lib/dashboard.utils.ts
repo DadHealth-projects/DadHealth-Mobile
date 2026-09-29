@@ -1,3 +1,5 @@
+export { getCurrentWeekDayKeys, toLocalDateKey } from './calendarWeek';
+
 /**
  * Port of `dadHealth/src/lib/dashboard.utils.ts`.
  *
@@ -45,31 +47,12 @@ export function getScoreBreakdown(
   };
 }
 
-function toLocalDateKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 /**
  * The mood chart is a calendar week, Monday through Sunday. Its labels are
  * fixed in that order, so the data keys must use the same order rather than a
  * trailing seven-day window. Local date parts also keep a check-in on the
  * weekday the dad sees on their device.
  */
-export function getCurrentWeekDayKeys(now = new Date()): string[] {
-  const monday = new Date(now);
-  monday.setHours(0, 0, 0, 0);
-  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + index);
-    return toLocalDateKey(date);
-  });
-}
-
 export function getMoodWeek(moodLogs: MoodLog[], dayKeys: string[]): number[] {
   const moodMap = new Map(moodLogs.map((log) => [log.date, log.mood_value]));
   return dayKeys.map((key) => moodMap.get(key) ?? 0);
