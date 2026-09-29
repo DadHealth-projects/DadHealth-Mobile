@@ -67,12 +67,14 @@ test('Present Dad content keeps first-use, timer, completion, and honest Focus b
   const bond = await read('screens/BondScreen.tsx');
   assert.match(bond, /navigation\.navigate\('Tabs', \{\s*screen: 'Home',\s*params: \{ openScoreDetail: true \}/);
   assert.match(bond, /onViewBondScore=\{onViewBondScore\}/);
+  assert.match(bond, /Log a Bond activity below to start contributing to your score\./);
 });
 
 test('Community uses Admin-managed descriptions and the approved subtitle', async () => {
-  const [mobile, card, mockup, migrations] = await Promise.all([
+  const [mobile, card, home, mockup, migrations] = await Promise.all([
     read('screens/CommunityScreen.tsx'),
     read('components/mockup/CircleCard.tsx'),
+    read('screens/HomeScreen.tsx'),
     read('mockups/DadHealth_AppStore_Screenshots (1).html'),
     readdir(new URL('../../dadHealth/supabase/migrations/', import.meta.url)),
   ]);
@@ -89,6 +91,9 @@ test('Community uses Admin-managed descriptions and the approved subtitle', asyn
   assert.match(card, /flex-1 flex-col rounded-card p-md/);
   assert.match(card, /grow font-body text-muted-text/);
   assert.match(card, /mt-auto flex-row items-center justify-between pt-md/);
+  assert.match(mobile, /membersCount === 1 \? 'member' : 'members'/);
+  assert.match(card, /\(membersCount \?\? 0\) === 1 \? 'dad' : 'dads'/);
+  assert.match(home, /data\.dadsCount === 1 \? 'dad' : 'dads'/);
   assert.match(migration, /add column if not exists description text/);
   assert.match(mockup, /Every Kind of Dad/);
   const sourceFiles = [

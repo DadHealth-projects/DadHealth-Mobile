@@ -102,7 +102,9 @@ export default function HomeScreen() {
               </Text>
 
               <Text className="font-heading-bold text-white text-[13px] leading-[18px] uppercase tracking-[0.8px]">
-                {data.dadsCount > 0 ? 'dads already improving' : 'the Dad Health community'}
+                {data.dadsCount > 0
+                  ? `${data.dadsCount === 1 ? 'dad' : 'dads'} already improving`
+                  : 'the Dad Health community'}
               </Text>
             </View>
 

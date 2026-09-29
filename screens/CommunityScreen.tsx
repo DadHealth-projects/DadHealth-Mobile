@@ -194,7 +194,7 @@ export default function CommunityScreen({
         <View className="mt-md flex-row items-center gap-sm">
           <View className="h-[7px] w-[7px] rounded-full bg-lime" />
           <Text className="font-heading-bold text-lime text-[11px] uppercase">
-            {membersCount.toLocaleString()} members
+            {membersCount.toLocaleString()} {membersCount === 1 ? 'member' : 'members'}
           </Text>
         </View>
       </FadeInView>

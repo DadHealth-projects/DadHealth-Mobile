@@ -45,7 +45,7 @@ function CircleCard({ id, leading, name, description, membersCount, joined, onTo
 
       <View className="mt-auto flex-row items-center justify-between pt-md">
         <Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.5px] uppercase">
-          {membersCount ?? 0} dads
+          {membersCount ?? 0} {(membersCount ?? 0) === 1 ? 'dad' : 'dads'}
         </Text>
         <Text
           className={`font-heading-bold text-[9px] tracking-[1px] uppercase ${

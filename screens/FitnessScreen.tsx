@@ -83,9 +83,6 @@ export default function FitnessScreen({
   const moveCount = selectedWorkout?.exercises?.length || DAD_STRENGTH_MOVES.length;
   const moveCountLabel = formatMoveCount(moveCount);
   const workoutName = selectedWorkout?.title.trim() || 'Dad Strength';
-  const workoutSummary = selectedWorkout
-    ? `${workoutName} · ${moveCountLabel} · ${selectedWorkout.duration_mins} min`
-    : `${workoutName} · ${moveCountLabel}`;
   const workoutMeta = selectedWorkout
     ? `${moveCountLabel} · ${selectedWorkout.duration_mins} min · ${EQUIPMENT_LABEL[selectedWorkout.equipment]}`
     : moveCountLabel;
@@ -187,14 +184,16 @@ export default function FitnessScreen({
             maxValue={4}
             height={72}
           />
+          {data && data.bodyWeekSeries.every((value) => value === 0) ? (
+            <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
+              Your weekly activity will appear here as you complete workouts.
+            </Text>
+          ) : null}
         </FlatSection>
       </FadeInView>
 
       {standalone ? (
         <FadeInView delay={100}>
-          <Text className="font-body text-muted-text text-[14px] leading-[20px]">
-            {workoutSummary}
-          </Text>
           {fitnessSummary.latestLoggedDate ? (
             <Text className="font-heading-semibold text-tertiary-text text-[11px] tracking-[1px] uppercase mt-sm">
               Last logged {fitnessSummary.latestLoggedDate}

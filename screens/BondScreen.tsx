@@ -66,6 +66,11 @@ export default function BondScreen({
 
       <FadeInView delay={90}>
         <BondScoreCard score={bondScore} trend={data?.bondWeekChange ?? null} />
+        {bondScore == null || bondScore === 0 ? (
+          <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
+            Log a Bond activity below to start contributing to your score.
+          </Text>
+        ) : null}
       </FadeInView>
 
       <FadeInView delay={130}>

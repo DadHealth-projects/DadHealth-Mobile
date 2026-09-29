@@ -37,8 +37,8 @@ test('Body uses divider-led sections instead of tall dark cards', async () => {
   assert.ok(body.includes('<ScreenHero eyebrow="Body"'));
   assert.ok(account.includes("title: 'Body', section: 'FITNESS'"));
   assert.ok(body.indexOf('<SectionHeader title="Body this week"') < body.indexOf('<StatCard value={stats[0].value}'));
-  assert.ok(body.indexOf('{workoutSummary}') > body.indexOf('<SectionHeader title="Body this week"'));
-  assert.ok(body.indexOf('{workoutSummary}') < body.indexOf('<StatCard value={stats[0].value}'));
+  assert.equal(body.includes('workoutSummary'), false);
+  assert.ok(body.includes('Your weekly activity will appear here as you complete workouts.'));
   assert.ok(body.indexOf('<SectionHeader title="Body this week"') < body.indexOf('Active workout'));
 });
 
