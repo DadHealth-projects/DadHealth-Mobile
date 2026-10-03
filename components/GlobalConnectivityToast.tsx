@@ -10,19 +10,22 @@ import { colors } from '../theme';
 const BOTTOM_NAV_CLEARANCE = 78;
 
 /**
- * The one transient notice surface: a small bottom snackbar that auto-dismisses.
- * Temporary request failures and short connectivity transitions land here.
- * Persistent offline state uses the top banner; form validation stays inline.
+ * Shared bottom snackbar for connectivity and short-lived request notices.
+ * Offline state stays visible until connectivity returns; form errors stay inline.
  */
 export default function GlobalConnectivityToast() {
-  const { toast } = useNetworkStatus();
+  const { toast, isOffline } = useNetworkStatus();
   const insets = useSafeAreaInsets();
 
-  if (!toast) return null;
+  const message = isOffline
+    ? toast && toast.tone !== 'online' ? toast.message : "You're offline. Some features may be unavailable."
+    : toast?.message ?? null;
+  if (!message) return null;
 
-  const icon = toast.tone === 'online' ? 'check-circle' : 'alert-circle';
-  const accent = toast.tone === 'error' ? '#F87171' : colors.lime;
-  const border = toast.tone === 'error' ? 'border-[#F87171]/40' : 'border-lime/30';
+  const tone = toast?.tone ?? 'neutral';
+  const icon = tone === 'online' ? 'check-circle' : tone === 'error' ? 'alert-circle' : 'wifi-off';
+  const accent = tone === 'error' ? '#F87171' : colors.lime;
+  const border = tone === 'error' ? 'border-[#F87171]/40' : 'border-lime/30';
 
   return (
     <View
@@ -34,7 +37,7 @@ export default function GlobalConnectivityToast() {
     >
       <View className={`max-w-[520px] flex-row items-center gap-sm rounded-button border bg-[#171A10] px-md py-sm shadow-lg ${border}`}>
         <Feather name={icon} size={15} color={accent} />
-        <Text className="flex-1 font-body text-white text-[13px] leading-[18px]">{toast.message}</Text>
+        <Text className="flex-1 font-body text-white text-[13px] leading-[18px]">{message}</Text>
       </View>
     </View>
   );
