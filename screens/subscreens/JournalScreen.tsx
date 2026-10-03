@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
@@ -8,6 +8,7 @@ import AppTopBar from '../../components/AppTopBar';
 import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
 import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
+import MultilineTextInput from '../../components/MultilineTextInput';
 import { useAuth } from '../../contexts/AuthContext';
 import { type JournalEntry, useJournalEntries } from '../../hooks/useJournalEntries';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
@@ -128,12 +129,11 @@ export default function JournalScreen() {
                 </ScrollView>
               </View>
               {selectedPrompt ? <View className="border-l-2 border-lime pl-md"><Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">Selected prompt</Text><Text className="font-body text-white text-[13px] leading-[19px] mt-xs">{selectedPrompt}</Text></View> : null}
-              <TextInput
+              <MultilineTextInput
                 value={content}
                 onChangeText={(value) => { setContent(value); setError(null); }}
                 placeholder="Write freely..."
                 placeholderTextColor="rgba(255,255,255,0.25)"
-                multiline
                 textAlignVertical="top"
                 accessibilityLabel="Private journal entry"
                 className="min-h-[420px] rounded-button border border-border bg-card p-md font-body text-white text-[15px] leading-[23px]"

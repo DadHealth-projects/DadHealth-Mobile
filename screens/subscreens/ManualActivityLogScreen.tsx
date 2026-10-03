@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@r
 import AppTopBar from '../../components/AppTopBar';
 import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
+import MultilineTextInput from '../../components/MultilineTextInput';
 import { useAuth } from '../../contexts/AuthContext';
 import { refreshDashboardForUser } from '../../hooks/useDashboard';
 import {
@@ -140,12 +141,12 @@ export default function ManualActivityLogScreen() {
 
               {activityType === 'other' ? (
                 <Field label="Describe the activity">
-                <TextInput value={otherText} onChangeText={setOtherText} placeholder="Add a short description" placeholderTextColor={colors.mutedText} className="min-h-[48px] rounded-button border border-border bg-card px-md font-body text-white" />
+                <TextInput value={otherText} onChangeText={setOtherText} placeholder="Add a short description" placeholderTextColor={colors.mutedText} returnKeyType="done" onSubmitEditing={() => Keyboard.dismiss()} className="min-h-[48px] rounded-button border border-border bg-card px-md font-body text-white" />
                 </Field>
               ) : null}
 
               <Field label={needsDuration ? 'Duration (minutes) · required' : 'Duration (minutes) · optional'}>
-                <TextInput value={durationText} onChangeText={(value) => setDurationText(value.replace(/[^0-9]/g, ''))} placeholder={needsDuration ? 'e.g. 30' : 'Add duration if known'} placeholderTextColor={colors.mutedText} keyboardType="number-pad" className="min-h-[48px] rounded-button border border-border bg-card px-md font-body text-white" />
+                <TextInput value={durationText} onChangeText={(value) => setDurationText(value.replace(/[^0-9]/g, ''))} placeholder={needsDuration ? 'e.g. 30' : 'Add duration if known'} placeholderTextColor={colors.mutedText} keyboardType="numbers-and-punctuation" returnKeyType="done" onSubmitEditing={() => Keyboard.dismiss()} className="min-h-[48px] rounded-button border border-border bg-card px-md font-body text-white" />
               </Field>
 
               {pillar === 'body' ? (
@@ -174,11 +175,11 @@ export default function ManualActivityLogScreen() {
                   <Text className="font-body text-white text-[14px]">{activityDate}{activityDate === today ? ' · Today' : ''}</Text>
                   <Feather name="calendar" size={17} color={colors.lime} />
                 </Pressable>
-                {datePickerOpen ? <DateTimePicker value={dateKeyToPickerDate(activityDate)} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} minimumDate={dateKeyToPickerDate(earliestDate)} maximumDate={dateKeyToPickerDate(today)} onChange={onDateChange} /> : null}
+                {datePickerOpen ? <View className="bg-card"><DateTimePicker value={dateKeyToPickerDate(activityDate)} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} themeVariant="dark" minimumDate={dateKeyToPickerDate(earliestDate)} maximumDate={dateKeyToPickerDate(today)} onChange={onDateChange} /></View> : null}
               </Field>
 
               <Field label="Notes · optional">
-                <TextInput value={notes} onChangeText={setNotes} placeholder="Anything you'd like to remember?" placeholderTextColor={colors.mutedText} multiline textAlignVertical="top" className="min-h-[92px] rounded-button border border-border bg-card px-md py-sm font-body text-white" />
+                <MultilineTextInput value={notes} onChangeText={setNotes} placeholder="Anything you'd like to remember?" placeholderTextColor={colors.mutedText} textAlignVertical="top" className="min-h-[92px] rounded-button border border-border bg-card px-md py-sm font-body text-white" />
               </Field>
 
               {showShortDurationNote ? (
