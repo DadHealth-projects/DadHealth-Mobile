@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
@@ -135,7 +135,7 @@ export default function MealPlannerScreen() {
           {openFilter === 'diet' ? <DropdownOptions options={DIETS} value={dietaryPreference} onChange={(value) => { setDietaryPreference(value); setOpenFilter(null); setError(null); }} /> : null}
           <View className="gap-xs">
             <Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.8px] uppercase">Preferences</Text>
-            <TextInput value={preferences} onChangeText={(value) => { setPreferences(value); setError(null); }} placeholder="e.g. high-protein, no fish" placeholderTextColor="rgba(255,255,255,0.25)" accessibilityLabel="Other meal preferences" className="min-h-[48px] border-b border-border font-body text-white text-[14px] py-sm" />
+            <TextInput value={preferences} onChangeText={(value) => { setPreferences(value); setError(null); }} placeholder="e.g. high-protein, no fish" placeholderTextColor="rgba(255,255,255,0.25)" accessibilityLabel="Other meal preferences" returnKeyType="done" onSubmitEditing={() => Keyboard.dismiss()} className="min-h-[48px] border-b border-border font-body text-white text-[14px] py-sm" />
           </View>
         </View>
 

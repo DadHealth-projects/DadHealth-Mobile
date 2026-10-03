@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
@@ -159,7 +159,7 @@ function SegmentedControl<T extends string>({ options, value, onChange }: { opti
 }
 
 function NumberField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (value: string) => void; placeholder: string }) {
-  return <View className="flex-1 gap-xs"><Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.8px] uppercase">{label}</Text><TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor="rgba(255,255,255,0.25)" keyboardType="numeric" accessibilityLabel={label} className="min-h-[48px] border-b border-border font-heading-bold text-white text-[17px] py-sm" /></View>;
+  return <View className="flex-1 gap-xs"><Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.8px] uppercase">{label}</Text><TextInput value={value} onChangeText={(next) => onChange(next.replace(/[^0-9.]/g, ''))} placeholder={placeholder} placeholderTextColor="rgba(255,255,255,0.25)" keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'} returnKeyType="done" onSubmitEditing={() => Keyboard.dismiss()} accessibilityLabel={label} className="min-h-[48px] border-b border-border font-heading-bold text-white text-[17px] py-sm" /></View>;
 }
 
 function DropdownTrigger({ label, value, open, onPress }: { label: string; value: string; open: boolean; onPress: () => void }) {
