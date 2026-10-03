@@ -15,18 +15,12 @@ export type ConnectivityToast = {
 };
 
 /**
- * Persistent top status banner. Reserved for global conditions that stay true
- * until the device state changes — currently offline mode only.
+ * Legacy offline state shape retained for compatibility; rendered by the
+ * global bottom connectivity toast now.
  */
-export type StatusBanner = {
-  message: string;
-  tone: 'offline';
-};
-
 type NetworkContextValue = {
   isOffline: boolean;
   isKnown: boolean;
-  banner: StatusBanner | null;
   toast: ConnectivityToast | null;
   showSyncingNotice: () => void;
   showCaughtUpNotice: () => void;
@@ -37,7 +31,6 @@ type NetworkContextValue = {
   dismissToast: () => void;
 };
 
-const OFFLINE_BANNER_MESSAGE = "You're offline. Some features may be unavailable.";
 const TOAST_DISMISS_MS = 4000;
 
 const OFFLINE_ACTION_MESSAGES: Record<OfflineAction, string> = {
@@ -64,7 +57,6 @@ const OFFLINE_ACTION_MESSAGES: Record<OfflineAction, string> = {
 const NetworkContext = createContext<NetworkContextValue>({
   isOffline: false,
   isKnown: false,
-  banner: null,
   toast: null,
   showSyncingNotice: () => undefined,
   showCaughtUpNotice: () => undefined,
@@ -153,7 +145,6 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({
     isOffline,
     isKnown: state !== null,
-    banner: state !== null && isOffline ? { message: OFFLINE_BANNER_MESSAGE, tone: 'offline' as const } : null,
     toast,
     screenError,
     showSyncingNotice,

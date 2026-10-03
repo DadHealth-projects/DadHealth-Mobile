@@ -40,7 +40,7 @@ export default function OfflineSyncManager() {
     if (!isKnown) return;
     if (isOffline) {
       if (confirmedOffline.current || offlineNoticeTimer.current) return;
-      // The offline state itself is shown by the persistent top banner. This
+      // The offline state itself is shown by the persistent bottom toast. This
       // debounce only decides when a drop is real enough to warrant the
       // "back online — syncing" follow-up once connectivity returns.
       offlineNoticeTimer.current = setTimeout(() => {
