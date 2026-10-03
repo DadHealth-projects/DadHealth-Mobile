@@ -68,7 +68,7 @@ export default function CommunityFeedScreen() {
         <View className="mt-lg">
           {feed.loading || refreshing ? [0, 1, 2].map((item) => <View key={item} className="h-[170px] border-b border-border bg-white/[0.02]" />)
             : feed.posts.length === 0 ? <Text className="font-body text-muted-text text-[14px]">No posts yet. Be the first to share.</Text>
-              : feed.posts.map((post) => <InteractiveFeedPost key={post.id} post={post} liked={feed.likedIds.has(post.id)} saved={feed.savedIds.has(post.id)} owner={Boolean(user?.id && (post.user_id === user.id || feed.anonymousOwnedIds.has(post.id)))} busy={feed.busyId === post.id} onLike={() => runUpdate(() => feed.toggleLike(post.id))} onSave={() => runUpdate(() => feed.toggleSave(post.id))} onThread={() => openThread(post.id)} onDelete={() => runUpdate(() => feed.deletePost(post.id))} />)}
+              : feed.posts.map((post) => <InteractiveFeedPost key={post.id} post={post} liked={feed.likedIds.has(post.id)} saved={feed.savedIds.has(post.id)} owner={Boolean(user?.id && (post.user_id === user.id || feed.anonymousOwnedIds.has(post.id)))} busy={feed.busyId === post.id || feed.likeBusyIds.has(post.id)} onLike={() => runUpdate(() => feed.toggleLike(post.id))} onSave={() => runUpdate(() => feed.toggleSave(post.id))} onThread={() => openThread(post.id)} onDelete={() => runUpdate(() => feed.deletePost(post.id))} />)}
         </View>
       </ScrollView>
     </SafeAreaView>

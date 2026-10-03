@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 export type CommunityFeedPost = { id: string; user_id: string | null; content: string; tag: string; anonymous: boolean; author_initials: string; author_name: string; author_meta: string; created_at: string; likes_count: number; replies_count: number };
 
 let communityFeedChannelSequence = 0;
+const postLikeMutationLocks = new Set<string>();
 
 export function useCommunityFeed(userId?: string) {
   const { isOffline } = useNetworkStatus();
@@ -17,6 +18,7 @@ export function useCommunityFeed(userId?: string) {
   const [anonymousOwnedIds, setAnonymousOwnedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [likeBusyIds, setLikeBusyIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [showingCached, setShowingCached] = useState(false);
   const cacheOwner = useRef<string | null>(userId ?? null);
@@ -126,11 +128,34 @@ export function useCommunityFeed(userId?: string) {
   const toggleLike = useCallback(async (postId: string) => {
     if (!userId) return 'Log in to like posts.';
     if (isOffline) return null;
-    const liked = likedIds.has(postId); setBusyId(postId);
+    const mutationKey = `${userId}:${postId}`;
+    if (postLikeMutationLocks.has(mutationKey)) return null;
+    postLikeMutationLocks.add(mutationKey);
+    const liked = likedIds.has(postId);
+    setLikeBusyIds((current) => new Set(current).add(postId));
     setLikedIds((current) => { const next = new Set(current); liked ? next.delete(postId) : next.add(postId); return next; });
     setPosts((current) => current.map((post) => post.id === postId ? { ...post, likes_count: Math.max(0, post.likes_count + (liked ? -1 : 1)) } : post));
-    const result = liked ? await supabase.from('likes').delete().eq('user_id', userId).eq('post_id', postId) : await supabase.from('likes').insert({ user_id: userId, post_id: postId });
-    setBusyId(null); if (result.error) { await refresh(true); return 'We could not update this like.'; } return null;
+    try {
+      const result = liked
+        ? await supabase.from('likes').delete().eq('user_id', userId).eq('post_id', postId).select('post_id')
+        : await supabase.from('likes').upsert(
+            { user_id: userId, post_id: postId },
+            { onConflict: 'user_id,post_id', ignoreDuplicates: true },
+          ).select('post_id');
+      if (result.error) {
+        await refresh(true);
+        return 'We could not update this like.';
+      }
+      if (result.data?.length === 0) await refresh(true);
+      return null;
+    } finally {
+      postLikeMutationLocks.delete(mutationKey);
+      setLikeBusyIds((current) => {
+        const next = new Set(current);
+        next.delete(postId);
+        return next;
+      });
+    }
   }, [isOffline, likedIds, refresh, userId]);
 
   const toggleSave = useCallback(async (postId: string) => {
@@ -153,7 +178,7 @@ export function useCommunityFeed(userId?: string) {
     return null;
   }, [isOffline, refresh, userId]);
 
-  return { posts, likedIds, savedIds, anonymousOwnedIds, loading, busyId, error, showingCached, isOffline, refresh, toggleLike, toggleSave, deletePost };
+  return { posts, likedIds, savedIds, anonymousOwnedIds, loading, busyId, likeBusyIds, error, showingCached, isOffline, refresh, toggleLike, toggleSave, deletePost };
 }
 
 function countByPost(rows: Array<{ post_id: string }>) { const counts = new Map<string, number>(); rows.forEach((row) => { const id = String(row.post_id); counts.set(id, (counts.get(id) ?? 0) + 1); }); return counts; }
