@@ -52,7 +52,6 @@ export default function ProSubscriptionScreen() {
     <SafeAreaView edges={['top']} className="flex-1 bg-dark">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-lg pt-lg pb-[80px] gap-xl">
         <AppTopBar
-          showBrand
           leftAccessory={(
             <Pressable
               onPress={() => navigation.goBack()}

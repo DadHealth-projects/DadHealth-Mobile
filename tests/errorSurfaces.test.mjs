@@ -8,25 +8,24 @@ async function source(path) {
   return readFile(new URL(path, root), 'utf8');
 }
 
-test('the top status banner is reserved for persistent offline state', async () => {
-  const [app, banner, network, topBar] = await Promise.all([
+test('persistent offline state uses the bottom connectivity toast without changing screen safe areas', async () => {
+  const [app, banner, network, toast, topBar] = await Promise.all([
     source('App.js'),
     source('components/OfflineStatusBanner.tsx'),
     source('contexts/NetworkContext.tsx'),
+    source('components/GlobalConnectivityToast.tsx'),
     source('components/AppTopBar.tsx'),
   ]);
 
   assert.ok(app.includes('<OfflineStatusBanner>'));
-  assert.ok(banner.includes('const { banner } = useNetworkStatus()'));
-  assert.ok(banner.includes('SafeAreaInsetsContext.Provider'));
-  assert.ok(banner.includes('px-lg py-xs'));
+  assert.equal(banner.includes('SafeAreaInsetsContext.Provider'), false);
+  assert.equal(banner.includes('const { banner }'), false);
   assert.ok(banner.includes("style={{ flex: 1, backgroundColor: 'transparent' }}"));
-  assert.ok(banner.includes("backgroundColor: 'transparent'"));
-  assert.equal(banner.includes('border-b border-lime/25'), false);
-  assert.equal(banner.includes('bg-[#171A10]'), false);
-  assert.ok(banner.includes('insets.top > 32 ? insets.top - 10 : insets.top'));
-  // Offline is derived from connectivity, so the banner persists instead of timing out.
-  assert.ok(network.includes('state !== null && isOffline ? { message: OFFLINE_BANNER_MESSAGE'));
+  assert.equal(network.includes('StatusBanner'), false);
+  assert.ok(toast.includes('toast && toast.tone !== \'online\''));
+  assert.ok(toast.includes('toast?.message ?? null'));
+  assert.ok(toast.includes("You're offline. Some features may be unavailable."));
+  assert.ok(toast.includes('bottom: insets.bottom + BOTTOM_NAV_CLEARANCE'));
   assert.equal(network.includes('showOfflineNotice'), false);
   assert.equal(topBar.includes('banner'), false);
 });
