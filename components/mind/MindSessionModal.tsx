@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
 import AppTopBar from '../AppTopBar';
 import InlineFormError from '../InlineFormError';
 import LimeButton from '../LimeButton';
+import MultilineTextInput from '../MultilineTextInput';
 import { useAuth } from '../../contexts/AuthContext';
 import { useJournalEntries } from '../../hooks/useJournalEntries';
 import { colors } from '../../theme';
@@ -179,12 +180,11 @@ export default function MindSessionModal({ kind, onClose, onWriteToJournal }: Mi
                 </View>
                 <View className="gap-md">
                   <Text className="font-heading-bold text-white text-[22px] leading-[28px] uppercase">{reflectionPrompts[promptIndex]}</Text>
-                  <TextInput
+                  <MultilineTextInput
                     value={answers[promptIndex]}
                     onChangeText={(value) => setAnswers((current) => current.map((answer, index) => index === promptIndex ? value : answer))}
                     placeholder="Write a note, or leave this blank..."
                     placeholderTextColor="rgba(255,255,255,0.35)"
-                    multiline
                     textAlignVertical="top"
                     accessibilityLabel={reflectionPrompts[promptIndex]}
                     className="min-h-[180px] rounded-button border border-border bg-card p-md font-body text-white text-[15px] leading-[23px]"
