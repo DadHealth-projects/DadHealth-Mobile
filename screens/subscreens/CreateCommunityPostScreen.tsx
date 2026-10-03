@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AppTopBar from '../../components/AppTopBar';
 import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
+import MultilineTextInput from '../../components/MultilineTextInput';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
@@ -53,7 +54,7 @@ export default function CreateCommunityPostScreen() {
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />
         <ScreenHero eyebrow="Dad Health Community" headline={'Share it\nwith the community'} />
         <>
-          <TextInput value={body} onChangeText={(value) => { setBody(value); setError(null); }} autoFocus multiline textAlignVertical="top" placeholder="Share something with the community…" placeholderTextColor={colors.tertiaryText} className="min-h-[220px] rounded-button border border-border bg-card p-md font-body text-white text-[16px] leading-[24px]" />
+          <MultilineTextInput value={body} onChangeText={(value) => { setBody(value); setError(null); }} autoFocus textAlignVertical="top" placeholder="Share something with the community…" placeholderTextColor={colors.tertiaryText} className="min-h-[220px] rounded-button border border-border bg-card p-md font-body text-white text-[16px] leading-[24px]" />
           <View className="gap-sm">
             <Text className="font-heading-bold text-lime text-[10px] uppercase">Topic</Text>
             <View className="flex-row border-y border-border">

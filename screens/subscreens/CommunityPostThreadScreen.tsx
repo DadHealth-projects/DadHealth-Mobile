@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import AppTopBar from '../../components/AppTopBar';
 import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
 import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
+import MultilineTextInput from '../../components/MultilineTextInput';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { trackEvent } from '../../lib/analytics';
@@ -116,7 +117,7 @@ export default function CommunityPostThreadScreen() {
           <View className="border-b border-border pb-xl"><View className="flex-row items-center gap-sm"><View className="h-[36px] w-[36px] rounded-full border border-lime/40 bg-lime/10 items-center justify-center"><Text className="font-heading-bold text-lime text-[14px]">{post.anonymous ? 'A' : post.author_name.charAt(0).toUpperCase()}</Text></View><Text className="font-heading-bold text-white text-[14px]">{post.author_name}</Text></View><Text className="font-body text-white text-[18px] leading-[27px] mt-md">{post.content}</Text></View>
           <View className="gap-md"><Text className="font-heading-bold text-lime text-[11px] uppercase">Replies</Text>{roots.length === 0 ? <Text className="font-body text-muted-text">No replies yet.</Text> : roots.map((comment) => <View key={comment.id} className="border-b border-border pb-md"><CommentRow comment={comment} owner={comment.user_id === user?.id} busy={respectBusyId === comment.id} onRespect={() => void toggleRespect(comment)} onDelete={() => remove(comment)} onReply={() => { setReplyTo(comment.id); setDraft(''); setComposerError(null); }} />{(replies.get(comment.id) ?? []).map((reply) => <View key={reply.id} className="ml-xl mt-md border-l-2 border-l-lime/30 pl-md"><CommentRow comment={reply} owner={reply.user_id === user?.id} busy={respectBusyId === reply.id} onRespect={() => void toggleRespect(reply)} onDelete={() => remove(reply)} /></View>)}</View>)}</View>
           {replyTo ? <View className="flex-row items-center justify-between"><Text className="font-body text-muted-text text-[12px]">Replying to {comments.find((comment) => comment.id === replyTo)?.author}</Text><Pressable onPress={() => { setReplyTo(null); setComposerError(null); }}><Text className="font-heading-bold text-lime text-[10px] uppercase">Cancel</Text></Pressable></View> : null}
-          <TextInput value={draft} onChangeText={(value) => { setDraft(value); setComposerError(null); }} multiline placeholder={replyTo ? 'Write a reply…' : 'Add a comment…'} placeholderTextColor={colors.tertiaryText} className="min-h-[90px] rounded-button border border-border bg-card p-md font-body text-white" />
+          <MultilineTextInput value={draft} onChangeText={(value) => { setDraft(value); setComposerError(null); }} placeholder={replyTo ? 'Write a reply…' : 'Add a comment…'} placeholderTextColor={colors.tertiaryText} className="min-h-[90px] rounded-button border border-border bg-card p-md font-body text-white" />
           <InlineFormError message={isOffline ? null : composerError} />
           <LimeButton label={replyTo ? 'Reply' : 'Post comment'} onPress={() => void submit()} loading={saving} disabled={!draft.trim()} />
         </> : null}
