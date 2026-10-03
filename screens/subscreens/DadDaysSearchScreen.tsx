@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Keyboard, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -221,7 +221,7 @@ export default function DadDaysSearchScreen() {
             <View className="gap-md">
               <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Location</Text>
               <Pressable onPress={() => void useLocation()} disabled={locating} accessibilityRole="button" accessibilityState={{ busy: locating }} className="min-h-[48px] flex-row items-center justify-center gap-sm rounded-button bg-lime px-lg active:opacity-80 disabled:opacity-60"><Feather name="crosshair" size={17} color={colors.dark} /><Text className="font-heading-bold text-dark text-[14px] uppercase">{locating ? 'Getting location...' : 'Use my location'}</Text></Pressable>
-              <View className="flex-row gap-sm"><TextInput value={postcodeInput} onChangeText={(value) => { setPostcodeInput(value); setLocationError(null); }} autoCapitalize="characters" placeholder="e.g. SW1A 1AA" placeholderTextColor={colors.tertiaryText} className="flex-1 min-h-[48px] rounded-button border border-border bg-card px-md text-white font-body" /><Pressable onPress={() => void usePostcode()} className="min-h-[48px] px-lg rounded-button border border-white/25 items-center justify-center"><Text className="font-heading-bold text-white text-[12px] uppercase">Use</Text></Pressable></View>
+              <View className="flex-row gap-sm"><TextInput value={postcodeInput} onChangeText={(value) => { setPostcodeInput(value); setLocationError(null); }} autoCapitalize="characters" placeholder="e.g. SW1A 1AA" placeholderTextColor={colors.tertiaryText} returnKeyType="search" onSubmitEditing={() => { Keyboard.dismiss(); void usePostcode(); }} className="flex-1 min-h-[48px] rounded-button border border-border bg-card px-md text-white font-body" /><Pressable onPress={() => void usePostcode()} className="min-h-[48px] px-lg rounded-button border border-white/25 items-center justify-center"><Text className="font-heading-bold text-white text-[12px] uppercase">Use</Text></Pressable></View>
               <InlineFormError message={isOffline ? null : locationError} />
               <View className="flex-row items-center gap-sm"><Feather name={coords ? 'check-circle' : 'map-pin'} size={15} color={coords ? colors.lime : colors.tertiaryText} /><Text className="font-body text-muted-text text-[12px]">{locationLabel}</Text></View>
             </View>

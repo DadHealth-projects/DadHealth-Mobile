@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
 import MoodCheckInRow, { type MoodKey } from '../mockup/MoodCheckInRow';
 import InlineFormError from '../InlineFormError';
@@ -80,10 +80,12 @@ function CheckInPanel({
           </Text>
           <TextInput
             value={sleep}
-            onChangeText={onChangeSleep}
+            onChangeText={(value) => onChangeSleep(value.replace(/[^0-9.]/g, ''))}
             placeholder="7.5"
             placeholderTextColor="rgba(10,10,10,0.35)"
-            keyboardType="decimal-pad"
+            keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'decimal-pad'}
+            returnKeyType="done"
+            onSubmitEditing={() => Keyboard.dismiss()}
             editable={!saving}
             maxLength={4}
             accessibilityLabel="Hours slept last night"
