@@ -25,7 +25,7 @@ test('offline foundation detects connectivity and runs a user-scoped foreground 
   assert.ok(app.includes('<GlobalConnectivityToast />'));
   assert.ok(network.includes('NetInfo.addEventListener'));
   assert.ok(network.includes('isInternetReachable === false'));
-  assert.ok(network.includes("You're offline. Some features may be unavailable."));
+  assert.ok(toast.includes("You're offline. Some features may be unavailable."));
   assert.ok(network.includes('Back online — syncing changes…'));
   assert.ok(network.includes('All caught up'));
   assert.ok(network.includes('setTimeout'));
@@ -36,7 +36,8 @@ test('offline foundation detects connectivity and runs a user-scoped foreground 
   assert.ok(manager.includes('remaining.length === 0'));
   assert.ok(manager.includes("state === 'active'"));
   assert.equal(topBar.includes('OfflineStatusNotice'), false);
-  assert.ok(toast.includes('toast.message'));
+  assert.ok(toast.includes('toast?.message'));
+  assert.ok(toast.includes('isOffline'));
   assert.ok(toast.includes('pointerEvents="none"'));
 });
 

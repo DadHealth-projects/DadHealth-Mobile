@@ -13,12 +13,17 @@
     },
     "production": {
       "autoIncrement": true,
-      "credentialsSource": "local"
+      "ios": {
+        "credentialsSource": "local"
+      },
+      "android": {
+        "credentialsSource": "remote"
+      }
     }
   },
   "submit": {
     "production": {
-       "ios": {
+      "ios": {
         "ascAppId": "6795453684"
       }
     }
