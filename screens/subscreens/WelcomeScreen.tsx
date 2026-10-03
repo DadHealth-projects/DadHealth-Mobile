@@ -5,7 +5,6 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import FadeInView from '../../components/FadeInView';
-import BrandWordmark from '../../components/BrandWordmark';
 import LimeButton from '../../components/LimeButton';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -18,12 +17,6 @@ export default function WelcomeScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.dark }}>
       <View className="flex-1 px-lg pt-xl pb-xl justify-between">
-        <FadeInView>
-          <View className="items-center">
-            <BrandWordmark width={240} height={156} />
-          </View>
-        </FadeInView>
-
         <FadeInView delay={120}>
           <Text className="font-heading-semibold text-lime text-[13px] tracking-label uppercase mb-md">
             Built for the everyday

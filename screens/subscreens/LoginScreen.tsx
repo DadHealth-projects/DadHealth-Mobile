@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   ActivityIndicator,
 } from 'react-native';
@@ -22,7 +23,6 @@ import {
 import { isAppleAuthAvailable, signInWithApple, signInWithGoogle } from '../../lib/oauth';
 import { colors } from '../../theme';
 import { useNavigation } from '@react-navigation/native';
-import BrandWordmark from '../../components/BrandWordmark';
 
 type LoadingKind =
   | 'in'
@@ -80,6 +80,7 @@ export default function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const passwordInputRef = useRef<TextInput>(null);
 
   const [loading, setLoading] = useState<null | LoadingKind>(null);
   const [error, setError] = useState<string | null>(null);
@@ -303,7 +304,6 @@ export default function LoginScreen() {
               </Text>
             </View>
 
-            <BrandWordmark width={190} height={72} />
 
             <Text className="font-body text-muted-text text-[15px] leading-[24px] mt-md">
               Continue your health journey.
@@ -364,6 +364,8 @@ export default function LoginScreen() {
             autoCorrect={false}
             keyboardType="email-address"
             textContentType="emailAddress"
+            returnKeyType="next"
+            onSubmitEditing={() => passwordInputRef.current?.focus()}
             editable={!busy}
             className="bg-muted/40 border border-border rounded-button px-md py-md text-white text-[16px] font-body focus:border-lime mb-md"
           />
@@ -374,6 +376,7 @@ export default function LoginScreen() {
           </Text>
 
           <TextInput
+            ref={passwordInputRef}
             value={password}
             onChangeText={setPassword}
             placeholder="••••••••"
@@ -381,6 +384,8 @@ export default function LoginScreen() {
             secureTextEntry
             autoCapitalize="none"
             textContentType="password"
+            returnKeyType="done"
+            onSubmitEditing={() => { Keyboard.dismiss(); void handleSignIn(); }}
             editable={!busy}
             className="bg-muted/40 border border-border rounded-button px-md py-md text-white text-[16px] font-body focus:border-lime"
           />
