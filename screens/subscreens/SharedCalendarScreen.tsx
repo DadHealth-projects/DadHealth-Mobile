@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Keyboard,
   Pressable,
   ScrollView,
   Text,
@@ -21,6 +22,7 @@ import AppTopBar from "../../components/AppTopBar";
 import GlobalErrorToastReporter from "../../components/GlobalErrorToastReporter";
 import InlineFormError from "../../components/InlineFormError";
 import LimeButton from "../../components/LimeButton";
+import MultilineTextInput from "../../components/MultilineTextInput";
 import ScreenHero from "../../components/mockup/ScreenHero";
 import { useAuth } from "../../contexts/AuthContext";
 import { useNetworkStatus } from "../../contexts/NetworkContext";
@@ -572,6 +574,8 @@ export default function SharedCalendarScreen() {
                         }}
                         autoCapitalize="none"
                         keyboardType="email-address"
+                        returnKeyType="done"
+                        onSubmitEditing={() => Keyboard.dismiss()}
                         placeholder="co-parent@example.com"
                         placeholderTextColor={colors.tertiaryText}
                         className="min-h-[48px] border-b border-border font-body text-white"
@@ -650,7 +654,7 @@ export default function SharedCalendarScreen() {
                       onPress={() => { setEventType("school"); setEventError(null); }}
                     />
                   </View>
-                  <TextInput
+                  <MultilineTextInput
                     value={eventNotes}
                     onChangeText={(value) => {
                       setEventNotes(value);
@@ -658,7 +662,6 @@ export default function SharedCalendarScreen() {
                     }}
                     placeholder="Notes visible to both parents"
                     placeholderTextColor={colors.tertiaryText}
-                    multiline
                     className="min-h-[88px] rounded-button border border-border bg-card p-md font-body text-white"
                   />
                   <InlineFormError message={isOffline ? null : eventError} />
