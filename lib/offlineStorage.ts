@@ -39,9 +39,11 @@ export type OfflineDailyCheckInItem = QueueItemBase & {
   payload: {
     date: string;
     moodValue: number;
-    /** Optional only for queues created before the stress question shipped. */
+    /** Optional for older queued check-ins. */
     stressLevel?: number;
-    sleepHours: number;
+    energyLevel?: number;
+    connectionLevel?: number;
+    sleepHours?: number | null;
   };
 };
 
@@ -66,12 +68,12 @@ const queueLocks = new Map<string, Promise<void>>();
 const privateWriteLocks = new Map<string, Promise<void>>();
 const blockedPrivateUsers = new Set<string>();
 
-function privateKey(userId: string, name: 'dashboard' | 'journal' | 'community' | 'queue') {
+function privateKey(userId: string, name: 'dashboard' | 'journal' | 'community' | 'community_v2' | 'community_v3' | 'queue') {
   return `${PREFIX}.private.${userId}.${name}`;
 }
 
 function communityKey(userId?: string) {
-  return userId ? privateKey(userId, 'community') : `${PREFIX}.public.community`;
+  return userId ? privateKey(userId, 'community_v3') : `${PREFIX}.public.community.v3`;
 }
 
 async function readEnvelope<T>(key: string): Promise<T | null> {
@@ -244,6 +246,8 @@ export async function clearPrivateOfflineData(userId: string): Promise<void> {
     privateKey(userId, 'dashboard'),
     privateKey(userId, 'journal'),
     privateKey(userId, 'community'),
+    privateKey(userId, 'community_v2'),
+    privateKey(userId, 'community_v3'),
     privateKey(userId, 'queue'),
   ]);
   emitOfflineSync({ userId, kind: 'all', status: 'cleared' });

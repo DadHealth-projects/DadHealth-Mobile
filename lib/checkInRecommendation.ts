@@ -1,7 +1,6 @@
 /**
- * The free recommendation shown straight after the daily check-in — brief
- * Change 04, Moment 2: "You're feeling stressed today. [One useful free
- * recommendation]" followed by the Pro tease.
+ * The free recommendation shown straight after the daily check-in. Historic
+ * check-ins may still include Stress; new check-ins fall back to Mood.
  *
  * Free members get one genuinely useful next step here, chosen from what they
  * just reported. That is what makes the Pro line beside it land: Pro is the
@@ -21,7 +20,8 @@ export type CheckInRecommendation = {
 
 /**
  * @param moodValue 1–5, as selected by the current check-in.
- * @param stressLevel 1–5, as collected by the check-in panel.
+ * @param stressLevel 1–5 when present on a historical/current record; null
+ *   uses Mood as the fallback for the new check-in.
  */
 export function checkInRecommendation(
   moodValue: number,
