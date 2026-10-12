@@ -18,6 +18,7 @@ import { dashboardIcon } from '../lib/dashboardIcons';
 import { supabase } from '../lib/supabase';
 import { trackEvent } from '../lib/analytics';
 import { useCommunityFeed } from '../hooks/useCommunityFeed';
+import { communityTagLabel } from '../lib/communityLabels';
 import { colors } from '../theme';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 
@@ -39,7 +40,7 @@ export default function CommunityScreen({
   const { data, loading, error, refresh } = useDashboard(user?.id);
   const feed = useCommunityFeed(user?.id);
   const [membersCount, setMembersCount] = useState(0);
-  const [communityCircles, setCommunityCircles] = useState<Array<{ id: string; icon: string | null; name: string; description: string | null; members_count: number | null; joined: boolean }>>([]);
+  const [communityCircles, setCommunityCircles] = useState<Array<{ id: string; icon: string | null; name: string; description: string | null; members_count: number | null; visibility: 'public' | 'private'; joined: boolean }>>([]);
   const [circlesLoading, setCirclesLoading] = useState(true);
   const [circleError, setCircleError] = useState<string | null>(null);
   const [busyCircleId, setBusyCircleId] = useState<string | null>(null);
@@ -48,6 +49,7 @@ export default function CommunityScreen({
   const [liveSessionsLoading, setLiveSessionsLoading] = useState(true);
   const [liveSessionsError, setLiveSessionsError] = useState<string | null>(null);
   const [trendingTags, setTrendingTags] = useState<Array<{ tag: string; count: number }>>([]);
+  const [trendingCirclePosts, setTrendingCirclePosts] = useState<Array<{ circle_id: string; circle_name: string; post_id: string; content: string; tag: string }>>([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [trendingError, setTrendingError] = useState<string | null>(null);
   const refreshInFlight = useRef(false);
@@ -75,13 +77,13 @@ export default function CommunityScreen({
       return;
     }
     const [circleResult, membershipResult] = await Promise.all([
-      supabase.from('circles').select('id,icon,name,description,members_count'),
+      supabase.from('circles').select('id,icon,name,description,members_count,visibility'),
       user?.id ? supabase.from('user_circles').select('circle_id').eq('user_id', user.id) : Promise.resolve({ data: [], error: null }),
     ]);
     if (circleResult.error || membershipResult.error) setCircleError('We could not load Dad Circles. Please try again.');
     else {
       const joinedIds = new Set((membershipResult.data ?? []).map((row: { circle_id: string }) => row.circle_id));
-      setCommunityCircles((circleResult.data ?? []).map((circle) => ({ id: String(circle.id), icon: typeof circle.icon === 'string' ? circle.icon : null, name: String(circle.name), description: typeof circle.description === 'string' ? circle.description : null, members_count: typeof circle.members_count === 'number' ? circle.members_count : null, joined: joinedIds.has(String(circle.id)) })));
+      setCommunityCircles((circleResult.data ?? []).map((circle) => ({ id: String(circle.id), icon: typeof circle.icon === 'string' ? circle.icon : null, name: String(circle.name), description: typeof circle.description === 'string' ? circle.description : null, members_count: typeof circle.members_count === 'number' ? circle.members_count : null, visibility: circle.visibility === 'private' ? 'private' : 'public', joined: joinedIds.has(String(circle.id)) })));
     }
     if (!silent) setCirclesLoading(false);
   }, [isOffline, user?.id]);
@@ -113,35 +115,45 @@ export default function CommunityScreen({
     setTrendingError(null);
     if (isOffline) {
       const counts = new Map<string, number>();
-      feed.posts.forEach((post) => { if (post.tag) { const tag = `#${post.tag.replace(/^#/, '')}`; counts.set(tag, (counts.get(tag) ?? 0) + 1); } });
+      feed.posts.forEach((post) => { if (post.tag) { const tag = communityTagLabel(`#${post.tag.replace(/^#/, '')}`); counts.set(tag, (counts.get(tag) ?? 0) + 1); } });
       setTrendingTags([...counts.entries()].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count).slice(0, 5));
       setTrendingLoading(false);
       return;
     }
     const { data: trends, error: trendError } = await supabase.rpc('trending_post_tags', { limit_n: 5 });
     if (!trendError && Array.isArray(trends) && trends.length > 0) {
-      setTrendingTags(trends.slice(0, 5).map((trend: { tag: unknown; count: unknown }) => ({ tag: `#${String(trend.tag).replace(/^#/, '')}`, count: Number(trend.count) || 0 })));
+      setTrendingTags(trends.slice(0, 5).map((trend: { tag: unknown; count: unknown }) => ({ tag: communityTagLabel(`#${String(trend.tag).replace(/^#/, '')}`), count: Number(trend.count) || 0 })));
     } else if (feed.error) {
       setTrendingError('We could not load trending topics. Please try again.');
     } else {
       const counts = new Map<string, number>();
-      feed.posts.forEach((post) => { if (post.tag) { const tag = `#${post.tag.replace(/^#/, '')}`; counts.set(tag, (counts.get(tag) ?? 0) + 1); } });
+      feed.posts.forEach((post) => { if (post.tag) { const tag = communityTagLabel(`#${post.tag.replace(/^#/, '')}`); counts.set(tag, (counts.get(tag) ?? 0) + 1); } });
       setTrendingTags([...counts.entries()].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count).slice(0, 5));
     }
     setTrendingLoading(false);
   }, [feed.error, feed.posts, isOffline]);
+
+  const loadTrendingCirclePosts = useCallback(async () => {
+    if (isOffline) { setTrendingCirclePosts([]); return; }
+    const { data: rows, error: trendingError } = await supabase.rpc('get_trending_circle_posts');
+    if (!trendingError && Array.isArray(rows)) {
+      setTrendingCirclePosts(rows.map((row: { circle_id: unknown; circle_name: unknown; post_id: unknown; content: unknown; tag: unknown }) => ({
+        circle_id: String(row.circle_id), circle_name: String(row.circle_name), post_id: String(row.post_id), content: String(row.content), tag: String(row.tag),
+      })));
+    } else setTrendingCirclePosts([]);
+  }, [isOffline]);
 
   const onRefresh = useCallback(async () => {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
     setRefreshing(true);
     try {
-      await Promise.all([refresh(), loadCircles(), loadCirclePrompts(), feed.refresh(), loadLiveSessions(), loadTrending()]);
+      await Promise.all([refresh(), loadCircles(), loadCirclePrompts(), feed.refresh(), loadLiveSessions(), loadTrending(), loadTrendingCirclePosts()]);
     } finally {
       refreshInFlight.current = false;
       setRefreshing(false);
     }
-  }, [feed.refresh, loadCirclePrompts, loadCircles, loadLiveSessions, loadTrending, refresh]);
+  }, [feed.refresh, loadCirclePrompts, loadCircles, loadLiveSessions, loadTrending, loadTrendingCirclePosts, refresh]);
   const onToggleCircle = useCallback(async (circleId: string, joined: boolean) => {
     if (!user?.id || busyCircleId) return;
     if (isOffline) { showOfflineAction('community_update'); return; }
@@ -150,9 +162,27 @@ export default function CommunityScreen({
       ? await supabase.from('user_circles').delete().eq('user_id', user.id).eq('circle_id', circleId)
       : await supabase.from('user_circles').insert({ user_id: user.id, circle_id: circleId });
     if (result.error) setCircleError(`We could not ${joined ? 'leave' : 'join'} this circle. Please try again.`);
-    else { if (!joined) trackEvent('circle_joined', { circle_id: circleId }, user.id); await loadCircles(true); }
+    else {
+      if (!joined) trackEvent('circle_joined', { circle_id: circleId }, user.id);
+      feed.clearCirclePosts();
+      setCirclePrompts([]);
+      setTrendingCirclePosts([]);
+      await Promise.all([loadCircles(true), loadCirclePrompts(), feed.refresh(true), loadTrendingCirclePosts()]);
+    }
     setBusyCircleId(null);
-  }, [busyCircleId, isOffline, loadCircles, showOfflineAction, user?.id]);
+  }, [busyCircleId, feed.clearCirclePosts, feed.refresh, isOffline, loadCirclePrompts, loadCircles, loadTrendingCirclePosts, showOfflineAction, user?.id]);
+
+  useEffect(() => {
+    if (isOffline || !user?.id) return;
+    const channel = supabase.channel(`community-circle-memberships-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_circles', filter: `user_id=eq.${user.id}` }, () => {
+        feed.clearCirclePosts();
+        setCirclePrompts([]);
+        setTrendingCirclePosts([]);
+        void Promise.all([loadCircles(true), loadCirclePrompts(), loadTrendingCirclePosts()]);
+      }).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [feed.clearCirclePosts, isOffline, loadCirclePrompts, loadCircles, loadTrendingCirclePosts, user?.id]);
 
   useEffect(() => {
     if (isOffline) return;
@@ -165,6 +195,7 @@ export default function CommunityScreen({
   }, [isOffline]);
 
   useEffect(() => { void loadTrending(); }, [loadTrending]);
+  useEffect(() => { void loadTrendingCirclePosts(); }, [loadTrendingCirclePosts]);
 
   useEffect(() => { void loadCircles(); }, [loadCircles]);
   useEffect(() => { void loadCirclePrompts(); }, [loadCirclePrompts]);
@@ -227,6 +258,7 @@ export default function CommunityScreen({
                     description={circle.description}
                     membersCount={circle.members_count}
                     joined={circle.joined}
+                    visibility={circle.visibility}
                     onToggle={hasUser ? onToggleCircle : undefined}
                     busy={busyCircleId === circle.id}
                   />
@@ -241,7 +273,7 @@ export default function CommunityScreen({
         <SectionHeader title="Start a conversation" className="mb-md" />
         <View className="gap-sm">
           {circlePrompts.filter((item) => item.is_official).slice(0, 1).map((item) => (
-            <Pressable key={`${item.circle_id}-${item.prompt}`} onPress={() => navigation.navigate('CreateCommunityPost')} accessibilityRole="button" className="border-l-2 border-l-lime bg-lime/[0.04] px-md py-md active:opacity-75">
+            <Pressable key={`${item.circle_id}-${item.prompt}`} onPress={() => navigation.navigate('CreateCommunityPost', { circleId: item.circle_id })} accessibilityRole="button" className="border-l-2 border-l-lime bg-lime/[0.04] px-md py-md active:opacity-75">
               <Text className="font-heading-bold text-lime text-[10px] uppercase">Dad Health weekly prompt</Text>
               <Text className="font-body text-white text-[14px] leading-[20px] mt-xs">{item.prompt}</Text>
             </Pressable>
@@ -249,13 +281,34 @@ export default function CommunityScreen({
           {communityCircles.map((circle) => {
             const prompt = circlePrompts.find((item) => item.circle_id === circle.id && !item.is_official);
             return prompt ? (
-              <Pressable key={`${circle.id}-${prompt.prompt}`} onPress={() => navigation.navigate('CreateCommunityPost')} accessibilityRole="button" className="border-b border-border py-sm active:opacity-75">
+              <Pressable key={`${circle.id}-${prompt.prompt}`} onPress={() => navigation.navigate('CreateCommunityPost', { circleId: circle.id })} accessibilityRole="button" className="border-b border-border py-sm active:opacity-75">
                 <Text className="font-heading-bold text-tertiary-text text-[10px] uppercase">{circle.name}</Text>
                 <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">{prompt.prompt}</Text>
               </Pressable>
             ) : null;
           })}
         </View>
+      </FadeInView>
+
+      <FadeInView delay={135}>
+        <SectionHeader title="Trending in Dad Circles" className="mb-md" />
+        {trendingCirclePosts.length === 0 ? <Text className="font-body text-muted-text text-[13px]">No trending Circle posts yet.</Text> : <View>{trendingCirclePosts.map((post) => (
+          <Pressable key={post.circle_id} onPress={() => navigation.navigate('CommunityPostThread', { postId: post.post_id })} accessibilityRole="button" className="border-b border-border py-md gap-xs active:opacity-75">
+            <View className="flex-row flex-wrap items-center gap-xs">
+  <View className="bg-lime px-sm py-[2px] max-w-[120px]">
+    <Text numberOfLines={1} className="font-heading-bold text-dark text-[10px] uppercase">
+      {post.circle_name}
+    </Text>
+  </View>
+  <View className="bg-lime px-sm py-[2px]">
+    <Text className="font-heading-bold text-dark text-[10px] uppercase">
+      {communityTagLabel(post.tag)}
+    </Text>
+  </View>
+</View>
+            <Text numberOfLines={2} className="font-body text-muted-text text-[13px] leading-[19px]">{post.content}</Text>
+          </Pressable>
+        ))}</View>}
       </FadeInView>
 
       <FadeInView delay={140}>
