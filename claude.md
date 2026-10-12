@@ -223,9 +223,9 @@ Reset/Reflection copy remains provisional until Jamie supplies replacement copy.
 
 The Pro Mind Plan is intentionally a lightweight placeholder. Do not invent a plan-generation engine or backend recommendations.
 
-Crisis Support is a single app-wide action available regardless of login or subscription.
+Mind has one 44pt “Need urgent help?” link near the top. It shows Samaritans details before a separate call action.
 
-Do not restore a duplicate large Crisis card inside Mind.
+Do not add a global floating Crisis Support button or duplicate Mind entry point.
 
 ---
 
@@ -350,7 +350,7 @@ Free includes the approved core product experience, including:
 - Community
 - limited Dad Days
 - Share Report
-- global Crisis Support
+- Mind Crisis Support link
 
 Pro owns the approved deeper/personalised outputs, including:
 
