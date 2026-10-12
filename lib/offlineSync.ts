@@ -37,11 +37,13 @@ export function isRetryableOfflineError(error: unknown) {
 }
 
 function assertDailyCheckIn(item: OfflineDailyCheckInItem) {
-  const { date, moodValue, stressLevel, sleepHours } = item.payload;
+  const { date, moodValue, stressLevel, energyLevel, connectionLevel, sleepHours } = item.payload;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('invalid_checkin_date');
   if (!Number.isInteger(moodValue) || moodValue < 1 || moodValue > 5) throw new Error('invalid_mood');
   if (stressLevel != null && (!Number.isInteger(stressLevel) || stressLevel < 1 || stressLevel > 5)) throw new Error('invalid_stress');
-  if (!Number.isFinite(sleepHours) || sleepHours < 0 || sleepHours > 12) throw new Error('invalid_sleep');
+  if (energyLevel != null && (!Number.isInteger(energyLevel) || energyLevel < 1 || energyLevel > 5)) throw new Error('invalid_energy');
+  if (connectionLevel != null && (!Number.isInteger(connectionLevel) || connectionLevel < 1 || connectionLevel > 5)) throw new Error('invalid_connection');
+  if (sleepHours != null && (!Number.isFinite(sleepHours) || sleepHours < 0 || sleepHours > 12)) throw new Error('invalid_sleep');
 }
 
 async function saveManualSleep(userId: string, date: string, hours: number) {
@@ -92,19 +94,50 @@ async function saveManualSleep(userId: string, date: string, hours: number) {
 
 export async function persistDailyCheckIn(item: OfflineDailyCheckInItem) {
   assertDailyCheckIn(item);
-  const { date, moodValue, stressLevel, sleepHours } = item.payload;
+  const { date, moodValue, stressLevel, energyLevel, connectionLevel, sleepHours } = item.payload;
   const moodPayload = {
-    user_id: item.userId,
-    date,
     mood_value: moodValue,
     mood_scale_version: 1,
+    ...(energyLevel == null ? {} : { energy_level: energyLevel }),
+    ...(connectionLevel == null ? {} : { connection_level: connectionLevel }),
     ...(stressLevel == null ? {} : { stress_level: stressLevel }),
   };
-  const mood = await supabase
+
+  // Upsert would set omitted optional columns to NULL on conflict. Update only
+  // supplied fields; insert when no same-day row exists.
+  const existingMood = await supabase
     .from('mood_logs')
-    .upsert(moodPayload, { onConflict: 'user_id,date' });
-  if (mood.error) throw mood.error;
-  await saveManualSleep(item.userId, date, sleepHours);
+    .select('date')
+    .eq('user_id', item.userId)
+    .eq('date', date)
+    .maybeSingle();
+  if (existingMood.error) throw existingMood.error;
+
+  if (existingMood.data) {
+    const updated = await supabase
+      .from('mood_logs')
+      .update(moodPayload)
+      .eq('user_id', item.userId)
+      .eq('date', date);
+    if (updated.error) throw updated.error;
+  } else {
+    const inserted = await supabase
+      .from('mood_logs')
+      .insert({ user_id: item.userId, date, ...moodPayload });
+    if (inserted.error) {
+      if (inserted.error.code !== '23505') throw inserted.error;
+      // Another device may create today's row after the lookup. Retry as a
+      // partial update so absent optional values remain unchanged.
+      const racedUpdate = await supabase
+        .from('mood_logs')
+        .update(moodPayload)
+        .eq('user_id', item.userId)
+        .eq('date', date);
+      if (racedUpdate.error) throw racedUpdate.error;
+    }
+  }
+
+  if (sleepHours != null) await saveManualSleep(item.userId, date, sleepHours);
 }
 
 export async function persistJournalEntry(item: OfflineJournalCreateItem) {

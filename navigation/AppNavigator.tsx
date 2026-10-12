@@ -55,9 +55,9 @@ export type AppStackParamList = {
   MilestoneTracker: undefined;
   CookTogether: undefined;
   SharedCalendar: { token?: string } | undefined;
-  CreateCommunityPost: undefined;
+  CreateCommunityPost: { circleId?: string } | undefined;
   CommunityPostThread: { postId: string };
-  CommunityFeed: undefined;
+  CommunityFeed: { circleId?: string } | undefined;
   NotificationSettings: undefined;
   PrivacySecurity: undefined;
   TermsPrivacy: undefined;
