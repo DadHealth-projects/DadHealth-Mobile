@@ -1,16 +1,16 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 
 import type { DashboardSection } from '../components/AccountSheet';
 import FadeInView from '../components/FadeInView';
+import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
 import InlineFormError from '../components/InlineFormError';
 import LimeButton from '../components/LimeButton';
 import MoodWeekCard from '../components/dashboard/MoodWeekCard';
 import ManualActivitySection from '../components/manualActivities/ManualActivitySection';
 import PillarScoreRow from '../components/dashboard/PillarScoreRow';
-import MiniBarChart from '../components/dashboard/MiniBarChart';
 import SectionHeader from '../components/dashboard/SectionHeader';
 import MindSessionModal, { type MindSessionKind } from '../components/mind/MindSessionModal';
 import PersonalisedMindPlanSheet from '../components/mind/PersonalisedMindPlanSheet';
@@ -27,6 +27,7 @@ import { PRO_LOCKS } from '../lib/proMoments';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 import { colors } from '../theme';
 import { STATS_EXTENDED } from '../lib/homeContent';
+import { crisisSupportPhoneDisplay, openCrisisSupport } from '../lib/crisisSupport';
 import {
   MOOD_WEEK_LABELS,
   getCurrentWeekDayKeys,
@@ -99,6 +100,7 @@ export default function MindScreen({
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}
     >
+      <GlobalErrorToastReporter message={data?.scoreError} />
       <FadeInView>
         <ScreenHero
           eyebrow="Mental health"
@@ -107,36 +109,24 @@ export default function MindScreen({
         />
       </FadeInView>
 
-      <PillarScoreRow pillar="Mind" score={data?.mindScore ?? null} trend={data?.mindWeekChange ?? null} />
-      <ManualActivitySection pillar="mind" userId={user?.id} />
-
-      <FadeInView delay={80}>
-        <View className="gap-md">
-          <SectionHeader title="Mind facts" />
-          <View className="flex-row gap-md">
-            <StatTile value="1 in 8" label="UK men have experienced mental health symptoms" />
-            <StatTile value={STATS_EXTENDED[2].value} label={STATS_EXTENDED[2].label} />
-          </View>
-        </View>
-      </FadeInView>
-
-      {user ? (
-        <FadeInView delay={110}>
-          <View className="gap-md border-b border-border pb-lg">
-            <SectionHeader title="Sleep quality this week" />
-            <MiniBarChart
-              values={sleepInsights.days.map((day) => day.hours ?? 0)}
-              labels={MOOD_WEEK_LABELS}
-              maxValue={12}
-            />
-            <Text className="font-body text-muted-text text-[14px]">
-              {sleepInsights.days.some((day) => day.hours != null)
-                ? `Average sleep: ${(sleepInsights.days.reduce((sum, day) => sum + (day.hours ?? 0), 0) / Math.max(1, sleepInsights.days.filter((day) => day.hours != null).length)).toFixed(1)} hours`
-                : 'Log sleep with your daily check-in to see this week.'}
-            </Text>
-          </View>
-        </FadeInView>
-      ) : null}
+      <Pressable
+        onPress={() =>
+          Alert.alert(
+            'Need urgent help?',
+            `Call Samaritans free on ${crisisSupportPhoneDisplay()}.`,
+            [
+              { text: 'Not now', style: 'cancel' },
+              { text: 'Call Samaritans', onPress: () => void openCrisisSupport() },
+            ],
+          )
+        }
+        accessibilityRole="button"
+        accessibilityLabel="Need urgent help?"
+        accessibilityHint={`Opens Samaritans support details. Call ${crisisSupportPhoneDisplay()} only after choosing Call Samaritans.`}
+        className="min-h-[44px] self-start justify-center px-xs active:opacity-70"
+      >
+        <Text className="font-body-semibold text-lime text-[14px] underline">Need urgent help?</Text>
+      </Pressable>
 
       <FadeInView delay={140}>
         <View className="gap-sm">
@@ -166,14 +156,6 @@ export default function MindScreen({
             accessibilityLabel="Start the ten-minute guided reflection"
           />
           <MindFeatureRow
-            icon="edit-3"
-            eyebrow="Private journal"
-            title="Journal"
-            description="Daily prompts. Private entries. Just for you."
-            onPress={() => navigation.navigate('Journal')}
-            accessibilityLabel="Open private journal"
-          />
-          <MindFeatureRow
             icon="heart"
             eyebrow="Talk to someone"
             title="Find a therapist"
@@ -188,6 +170,14 @@ export default function MindScreen({
             description="Connect with dads going through the same chapter as you."
             onPress={() => navigation.navigate('CommunityFeed')}
             accessibilityLabel="Open Dad Health Community"
+          />
+          <MindFeatureRow
+            icon="edit-3"
+            eyebrow="Private journal"
+            title="Journal"
+            description="Daily prompts. Private entries. Just for you."
+            onPress={() => navigation.navigate('Journal')}
+            accessibilityLabel="Open private journal"
           />
         </View>
       </FadeInView>
@@ -265,6 +255,19 @@ export default function MindScreen({
           </View>
         </FadeInView>
       ) : null}
+
+      <PillarScoreRow pillar="Mind" score={data?.mindScore ?? null} trend={data?.mindWeekChange ?? null} scoreUnavailable={Boolean(data?.scoreError)} />
+      <ManualActivitySection pillar="mind" userId={user?.id} />
+
+      <FadeInView delay={300}>
+        <View className="gap-md border-b border-border pb-lg">
+          <SectionHeader title="Mind facts" />
+          <View className="flex-row gap-md">
+            <StatTile value="1 in 8" label="UK men have experienced mental health symptoms" />
+            <StatTile value={STATS_EXTENDED[2].value} label={STATS_EXTENDED[2].label} />
+          </View>
+        </View>
+      </FadeInView>
 
     </PillarScreen>
   );

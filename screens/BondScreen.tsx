@@ -59,14 +59,14 @@ export default function BondScreen({
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}
     >
-      <GlobalErrorToastReporter message={error} />
+      <GlobalErrorToastReporter message={data?.scoreError ?? error} />
       <FadeInView>
         <ScreenHero eyebrow="The Bond" headline="Parenting" sub="Built for dads, by dads. Kill the old version of you." />
       </FadeInView>
 
       <FadeInView delay={90}>
-        <BondScoreCard score={bondScore} trend={data?.bondWeekChange ?? null} />
-        {bondScore == null || bondScore === 0 ? (
+        <BondScoreCard score={bondScore} trend={data?.bondWeekChange ?? null} scoreUnavailable={Boolean(data?.scoreError)} />
+        {!data?.scoreError && (bondScore == null || bondScore === 0) ? (
           <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
             Log a Bond activity below to start contributing to your score.
           </Text>
