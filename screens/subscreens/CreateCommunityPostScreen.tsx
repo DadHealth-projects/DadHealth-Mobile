@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from '../../components/AppTopBar';
@@ -12,6 +12,7 @@ import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { trackEvent } from '../../lib/analytics';
+import { communityTagLabel } from '../../lib/communityLabels';
 import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -20,10 +21,13 @@ const TAGS = ['FITNESS', 'MIND', 'BOND'] as const;
 
 export default function CreateCommunityPostScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
+  const route = useRoute<RouteProp<AppStackParamList, 'CreateCommunityPost'>>();
   const { user } = useAuth();
   const { isOffline, showOfflineAction } = useNetworkStatus();
   const [body, setBody] = useState('');
   const [tag, setTag] = useState<(typeof TAGS)[number]>('FITNESS');
+  const [memberCircles, setMemberCircles] = useState<Array<{ id: string; name: string; visibility: 'public' | 'private' }>>([]);
+  const [circleId, setCircleId] = useState<string | null>(route.params?.circleId ?? null);
   const [anonymous, setAnonymous] = useState(true);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -34,15 +38,41 @@ export default function CreateCommunityPostScreen() {
     void supabase.from('user_profile').select('display_name').eq('user_id', user.id).maybeSingle().then(({ data }) => setDisplayName(typeof data?.display_name === 'string' ? data.display_name : null));
   }, [isOffline, user?.id]);
 
+  useEffect(() => {
+    if (!user?.id || isOffline) { setMemberCircles([]); setCircleId(null); return; }
+    let active = true;
+    void (async () => {
+      const { data: memberships, error: membershipError } = await supabase.from('user_circles').select('circle_id').eq('user_id', user.id);
+      if (!active) return;
+      const ids = (memberships ?? []).map((row) => String(row.circle_id));
+      const { data: circles, error: circlesError } = ids.length
+        ? await supabase.from('circles').select('id,name,visibility').in('id', ids)
+        : { data: [], error: null };
+      if (!active) return;
+      if (membershipError || circlesError) { setError('We could not load your Dad Circles. Please try again.'); return; }
+      const available = (circles ?? []).map((circle) => ({ id: String(circle.id), name: String(circle.name), visibility: circle.visibility === 'private' ? 'private' as const : 'public' as const }));
+      setMemberCircles(available);
+      const requested = route.params?.circleId;
+      if (requested && !available.some((circle) => circle.id === requested)) {
+        setCircleId(null);
+        setError('Join this Dad Circle before posting in it.');
+      } else {
+        setCircleId((current) => requested ?? (current && available.some((circle) => circle.id === current) ? current : available[0]?.id ?? null));
+      }
+    })();
+    return () => { active = false; };
+  }, [isOffline, route.params?.circleId, user?.id]);
+
   const resolvedName = useMemo(() => resolveDisplayName(displayName, user), [displayName, user]);
   const submit = async () => {
     const content = body.trim();
     if (!user) { navigation.navigate('Login'); return; }
     if (isOffline) { showOfflineAction('community_post'); return; }
     if (!content || saving) return;
+    if (!circleId) { setError('Join a Dad Circle before creating a post.'); return; }
     setSaving(true); setError(null);
     const authorName = anonymous ? 'Anonymous' : resolvedName;
-    const { error: insertError } = await supabase.from('posts').insert({ user_id: anonymous ? null : user.id, content, tag, anonymous, author_initials: anonymous ? '?' : initialsFromDisplayName(authorName, user.email), author_name: authorName, author_meta: anonymous ? 'Anonymous · ' : 'Member · ' });
+    const { error: insertError } = await supabase.from('posts').insert({ user_id: anonymous ? null : user.id, circle_id: circleId, content, tag, anonymous, author_initials: anonymous ? '?' : initialsFromDisplayName(authorName, user.email), author_name: authorName, author_meta: anonymous ? 'Anonymous · ' : 'Member · ' });
     if (insertError) { setError('We could not publish your post. Please try again.'); setSaving(false); return; }
     trackEvent('community_post_created', { tag, anonymous, content_length: content.length }, user.id);
     setBody(''); setSaving(false); navigation.goBack();
@@ -56,9 +86,13 @@ export default function CreateCommunityPostScreen() {
         <>
           <MultilineTextInput value={body} onChangeText={(value) => { setBody(value); setError(null); }} autoFocus textAlignVertical="top" placeholder="Share something with the community…" placeholderTextColor={colors.tertiaryText} className="min-h-[220px] rounded-button border border-border bg-card p-md font-body text-white text-[16px] leading-[24px]" />
           <View className="gap-sm">
+            <Text className="font-heading-bold text-lime text-[10px] uppercase">Circle</Text>
+            {memberCircles.length === 0 ? <Text className="font-body text-muted-text text-[12px]">Join a Dad Circle before posting.</Text> : <View className="flex-row flex-wrap gap-xs">{memberCircles.map((circle) => <Pressable key={circle.id} onPress={() => { setCircleId(circle.id); setError(null); }} accessibilityRole="button" accessibilityState={{ selected: circleId === circle.id }} className={`min-h-[40px] justify-center rounded-full border px-md ${circleId === circle.id ? 'border-lime bg-lime/10' : 'border-border bg-card'}`}><Text className={`font-heading-bold text-[10px] uppercase ${circleId === circle.id ? 'text-lime' : 'text-white/60'}`}>{circle.name}{circle.visibility === 'private' ? ' · Private' : ''}</Text></Pressable>)}</View>}
+          </View>
+          <View className="gap-sm">
             <Text className="font-heading-bold text-lime text-[10px] uppercase">Topic</Text>
             <View className="flex-row border-y border-border">
-              {TAGS.map((option) => <Pressable key={option} onPress={() => { setTag(option); setError(null); }} accessibilityRole="button" accessibilityState={{ selected: tag === option }} className={`flex-1 min-h-[46px] items-center justify-center border-b-2 ${tag === option ? 'border-lime' : 'border-transparent'}`}><Text className={`font-heading-bold text-[11px] uppercase ${tag === option ? 'text-lime' : 'text-white/40'}`}>{option}</Text></Pressable>)}
+              {TAGS.map((option) => <Pressable key={option} onPress={() => { setTag(option); setError(null); }} accessibilityRole="button" accessibilityState={{ selected: tag === option }} className={`flex-1 min-h-[46px] items-center justify-center border-b-2 ${tag === option ? 'border-lime' : 'border-transparent'}`}><Text className={`font-heading-bold text-[11px] uppercase ${tag === option ? 'text-lime' : 'text-white/40'}`}>{communityTagLabel(option)}</Text></Pressable>)}
             </View>
           </View>
           <View className="min-h-[58px] flex-row items-center justify-between border-y border-border">
@@ -67,7 +101,7 @@ export default function CreateCommunityPostScreen() {
           </View>
           <View className="gap-sm">
             <InlineFormError message={isOffline ? null : error} />
-            <LimeButton label={user ? 'Post' : 'Log in to post'} onPress={() => void submit()} loading={saving} disabled={Boolean(user) && !body.trim()} />
+            <LimeButton label={user ? 'Post' : 'Log in to post'} onPress={() => void submit()} loading={saving} disabled={Boolean(user) && (!body.trim() || !circleId)} />
           </View>
         </>
       </ScrollView>
