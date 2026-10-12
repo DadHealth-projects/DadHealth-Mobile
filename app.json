@@ -71,7 +71,7 @@
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "Dad Health reads your steps, exercise minutes, resting heart rate and sleep to update your Fitness and Progress data.",
+          "NSHealthShareUsageDescription": "Dad Health reads your steps, exercise minutes, resting heart rate and sleep to update your Body and Progress data.",
           "NSHealthUpdateUsageDescription": "Dad Health does not write data to Apple Health.",
           "background": false
         }
