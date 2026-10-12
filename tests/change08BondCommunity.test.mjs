@@ -80,7 +80,7 @@ test('Community uses Admin-managed descriptions and the approved subtitle', asyn
   ]);
   const migration = await read(`../dadHealth/supabase/migrations/${migrations.find((name) => name.includes('change08_present_dad_and_circle_descriptions'))}`);
   assert.match(mobile, /Your Dad Circles — find dads going through the same chapter as you/);
-  assert.match(mobile, /select\('id,icon,name,description,members_count'\)/);
+  assert.match(mobile, /select\('id,icon,name,description,members_count,visibility'\)/);
   assert.match(mobile, /description=\{circle\.description\}/);
   assert.match(mobile, /Array\.from\(\{ length: Math\.ceil\(communityCircles\.length \/ 2\) \}/);
   assert.match(mobile, /flex-row items-stretch gap-sm/);
@@ -91,6 +91,7 @@ test('Community uses Admin-managed descriptions and the approved subtitle', asyn
   assert.match(card, /flex-1 flex-col rounded-card p-md/);
   assert.match(card, /grow font-body text-muted-text/);
   assert.match(card, /mt-auto flex-row items-center justify-between pt-md/);
+  assert.match(card, /View Posts/);
   assert.match(mobile, /membersCount === 1 \? 'member' : 'members'/);
   assert.match(card, /\(membersCount \?\? 0\) === 1 \? 'dad' : 'dads'/);
   assert.match(home, /data\.dadsCount === 1 \? 'dad' : 'dads'/);
