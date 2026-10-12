@@ -7,8 +7,11 @@ const root = new URL('../', import.meta.url);
 test('Fitness summary dates include synced health metrics', async () => {
   const hook = await readFile(new URL('hooks/useFitnessSummary.ts', root), 'utf8');
 
-  assert.match(hook, /workouts\[0\]\?\.performed_at, metrics\[0\]\?\.recorded_at/);
-  assert.match(hook, /latestLoggedDate: latestLoggedAt\?\.slice\(0, 10\)/);
+  assert.match(hook, /\.from\('activity_logs'\)[\s\S]*?\.eq\('pillar', 'body'\)[\s\S]*?\.gte\('activity_date', startDate\)/);
+  assert.match(hook, /latestBodyActivityDate\(workouts, manualActivities, metrics\)/);
+  const dateHelper = await readFile(new URL('lib/bodyActivityWeek.js', root), 'utf8');
+  assert.match(dateHelper, /row\.activity_date/);
+  assert.match(dateHelper, /localDateKey\(row\.performed_at\)/);
 });
 
 test('Active Today only uses a metric recorded today', async () => {

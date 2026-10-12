@@ -1,86 +1,50 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const root = new URL('../', import.meta.url);
 
-test('one root crisis control covers signed-in, signed-out and auth routes without gating', async () => {
-  const [rootNavigator, mind, crisisButton] = await Promise.all([
-    readFile(new URL('contexts/RootNavigator.tsx', root), 'utf8'),
-    readFile(new URL('screens/MindScreen.tsx', root), 'utf8'),
-    readFile(new URL('components/GlobalCrisisHelpButton.tsx', root), 'utf8'),
-  ]);
+async function sourceFiles(directory) {
+  const entries = await readdir(new URL(`${directory}/`, root), { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const path = `${directory}/${entry.name}`;
+    if (entry.isDirectory()) files.push(...await sourceFiles(path));
+    else if (/\.(?:[cm]?[jt]sx?)$/i.test(entry.name)) files.push(path);
+  }
+  return files;
+}
 
-  assert.equal((rootNavigator.match(/<GlobalCrisisHelpButton\b/g) ?? []).length, 1);
-  assert.match(rootNavigator, /waitingForSession \? <Splash \/> : !session \?/);
-  assert.match(rootNavigator, /!waitingForSession \? \([\s\S]*?<GlobalCrisisHelpButton[\s\S]*?screenContentReady=\{screenContentReady\}[\s\S]*?\) : null/);
-  assert.doesNotMatch(mind, /CrisisSupportRow/);
-  assert.match(crisisButton, /BUTTON_SIZE = 48/);
-  assert.match(crisisButton, /PROMPT_INTERVAL_MS = 10 \* 60 \* 1000/);
-  assert.match(crisisButton, /setInterval\(presentPrompt, PROMPT_INTERVAL_MS\)/);
-  assert.match(crisisButton, /if \(!promptVisible\) return;[\s\S]*?requestAnimationFrame/);
-  assert.match(crisisButton, /Animated\.spring\(buttonBounce, \{\s*toValue: 0/);
-  assert.match(crisisButton, /\[buttonBounce, promptVisible\]/);
-  assert.match(crisisButton, /translateY: buttonBounce\.interpolate/);
-  assert.match(crisisButton, /scale: buttonBounce\.interpolate/);
-  assert.doesNotMatch(crisisButton, /Animated\.loop/);
-  assert.match(crisisButton, /PROMPT_VISIBLE_MS = 30 \* 1000/);
-  assert.match(crisisButton, /w-\[230px\]/);
-  assert.match(crisisButton, /w-full text-left/);
-  assert.match(crisisButton, /TAB_NAV_CLEARANCE = 110/);
-  assert.match(crisisButton, /AUTH_SAFE_CLEARANCE = 88/);
-  assert.match(crisisButton, /HIDDEN_ROUTES = new Set\(\['Welcome', 'Login', 'OnboardingGoals', 'OnboardingCustody'\]\)/);
-  assert.match(crisisButton, /if \(keyboardOpen \|\| !appActive \|\| !routeAllowed \|\| !screenContentReady\) return null/);
-  assert.match(crisisButton, /!routeAllowedRef\.current/);
-  assert.match(crisisButton, /accessibilityRole="button"/);
-  assert.match(crisisButton, /accessibilityLabel=\{FOOTER\.crisis\.label\}/);
-  assert.match(crisisButton, /accessibilityHint=/);
-  assert.doesNotMatch(crisisButton, /useAuth|isPro|ProSubscription|navigate\(['"]Login/);
+test('global floating crisis button is unmounted and absent from app screens', async () => {
+  const rootNavigator = await readFile(new URL('contexts/RootNavigator.tsx', root), 'utf8');
+  assert.doesNotMatch(rootNavigator, /GlobalCrisisHelpButton|ScreenContentReadyContext/);
+  await assert.rejects(readFile(new URL('components/GlobalCrisisHelpButton.tsx', root)), { code: 'ENOENT' });
+  await assert.rejects(readFile(new URL('contexts/ScreenContentReadyContext.tsx', root)), { code: 'ENOENT' });
+
+  const files = (await Promise.all(['components', 'contexts', 'navigation', 'screens'].map(sourceFiles))).flat();
+  const matches = await Promise.all(files.map(async (file) => [file, await readFile(new URL(file, root), 'utf8')]));
+  assert.deepEqual(matches.filter(([, source]) => /GlobalCrisisHelpButton|Need to talk to someone\?/.test(source)).map(([file]) => file), []);
 });
 
-test('global crisis control respects keyboard, safe-area, tab-bar and app-state clearances', async () => {
-  const crisisButton = await readFile(new URL('components/GlobalCrisisHelpButton.tsx', root), 'utf8');
-
-  assert.match(crisisButton, /Keyboard\.addListener\('keyboardDidShow'/);
-  assert.match(crisisButton, /if \(keyboardOpen \|\| !appActive \|\| !routeAllowed \|\| !screenContentReady\) return null/);
-  assert.match(crisisButton, /AppState\.addEventListener\('change'/);
-  assert.match(crisisButton, /insets\.bottom \+ \(hasBottomNavigation \? TAB_NAV_CLEARANCE : AUTH_SAFE_CLEARANCE\)/);
-  assert.match(crisisButton, /navigationRef\.addListener\('state'/);
-  assert.match(crisisButton, /navigationRef\.addListener\('ready'/);
-  assert.match(crisisButton, /setTimeout\(\(\) => \{/);
-  assert.match(crisisButton, /keyboardOpenRef\.current[\s\S]*?appActiveRef\.current[\s\S]*?routeAllowedRef\.current[\s\S]*?screenContentReadyRef\.current/);
-  assert.match(crisisButton, /Need to talk to someone\?/);
+test('Mind has one accessible 44pt urgent-help link with a separate call action', async () => {
+  const mind = await readFile(new URL('screens/MindScreen.tsx', root), 'utf8');
+  assert.equal((mind.match(/accessibilityLabel="Need urgent help\?"/g) ?? []).length, 1);
+  assert.match(mind, /accessibilityHint=.*Opens Samaritans support details/);
+  assert.match(mind, /min-h-\[44px\]/);
+  assert.match(mind, /Alert\.alert\(\s*'Need urgent help\?'[\s\S]*?crisisSupportPhoneDisplay\(\)[\s\S]*?\{ text: 'Not now', style: 'cancel' \}[\s\S]*?\{ text: 'Call Samaritans', onPress: \(\) => void openCrisisSupport\(\) \}/);
+  assert.doesNotMatch(mind, /CrisisSupportRow|CrisisSupportCard|Crisis Support|Linking\.openURL/);
 });
 
-test('global crisis control waits for real screen content instead of appearing over skeletons', async () => {
-  const [rootNavigator, pillars, today, activeWorkout] = await Promise.all([
-    readFile(new URL('contexts/RootNavigator.tsx', root), 'utf8'),
-    readFile(new URL('components/PillarScreen.tsx', root), 'utf8'),
-    readFile(new URL('screens/DashboardScreen.tsx', root), 'utf8'),
-    readFile(new URL('screens/subscreens/ActiveWorkoutScreen.tsx', root), 'utf8'),
-  ]);
-
-  assert.match(rootNavigator, /screenContentReady=\{screenContentReady\}/);
-  assert.match(rootNavigator, /ScreenContentReadyContext\.Provider/);
-  assert.match(pillars, /if \(showSkeleton\) reportScreenContentReady\(false\)/);
-  assert.match(pillars, /className="gap-xl"[\s\S]*?showSkeleton && skeleton \? skeleton : children/);
-  assert.match(pillars, /showSkeleton \? undefined : \(\) => reportScreenContentReady\(true\)/);
-  assert.match(today, /const showHomeSkeleton = \(!data && !dashboardError\) \|\| refreshing/);
-  assert.match(today, /if \(showHomeSkeleton\) reportScreenContentReady\(false\)/);
-  assert.match(today, /onLayout=\{\(\) => reportScreenContentReady\(true\)\}/);
-  assert.match(activeWorkout, /if \(library\.loading\) reportScreenContentReady\(false\)/);
-  assert.match(activeWorkout, /library\.loading \? undefined : \(\) => reportScreenContentReady\(true\)/);
-});
-
-test('crisis call and fallback derive the existing contact from FOOTER.crisis', async () => {
-  const [config, helper] = await Promise.all([
+test('Mind support uses existing Samaritans contact and mockup has no legacy crisis card', async () => {
+  const [config, helper, mockup] = await Promise.all([
     readFile(new URL('lib/homeContent.ts', root), 'utf8'),
     readFile(new URL('lib/crisisSupport.ts', root), 'utf8'),
+    readFile(new URL('mockups/DadHealth_AppStore_Screenshots (1).html', root), 'utf8'),
   ]);
 
   assert.match(config, /crisis: \{ label: 'CRISIS SUPPORT .* tel: '116123' \}/);
   assert.match(helper, /import \{ FOOTER \} from '\.\/homeContent'/);
   assert.match(helper, /Linking\.openURL\(`tel:\$\{FOOTER\.crisis\.tel\}`\)/);
-  assert.match(helper, /crisisSupportPhoneDisplay\(\)/);
   assert.match(helper, /Unable to start the call/);
+  assert.doesNotMatch(mockup, /Crisis support|Samaritans.*CALM.*Mind/);
 });
