@@ -2,11 +2,11 @@ import React, { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 export const MOOD_OPTIONS = [
-  { key: 'stressed', emoji: '😤', label: 'Stressed', value: 1 },
-  { key: 'okay', emoji: '😐', label: 'Okay', value: 2 },
-  { key: 'good', emoji: '🙂', label: 'Good', value: 3 },
-  { key: 'great', emoji: '😄', label: 'Great', value: 4 },
-  { key: 'fired-up', emoji: '⚡', label: 'Fired up', value: 5 },
+  { key: 'very-low', emoji: '😣', label: 'Very low', value: 1 },
+  { key: 'low', emoji: '🙁', label: 'Low', value: 2 },
+  { key: 'okay', emoji: '😐', label: 'Okay', value: 3 },
+  { key: 'good', emoji: '🙂', label: 'Good', value: 4 },
+  { key: 'great', emoji: '😄', label: 'Great', value: 5 },
 ] as const;
 
 export type MoodKey = (typeof MOOD_OPTIONS)[number]['key'];

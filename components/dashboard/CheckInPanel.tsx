@@ -8,8 +8,10 @@ import { colors } from '../../theme';
 type CheckInPanelProps = {
   selectedKey: MoodKey;
   onSelectMood: (key: MoodKey, value: number) => void;
-  stressLevel: number | null;
-  onSelectStress: (value: number) => void;
+  energyLevel: number | null;
+  onSelectEnergy: (value: number) => void;
+  connectionLevel: number | null;
+  onSelectConnection: (value: number) => void;
   sleep: string;
   onChangeSleep: (value: string) => void;
   onSave: () => void;
@@ -17,16 +19,14 @@ type CheckInPanelProps = {
   error: string | null;
 };
 
-/**
- * The web daily check-in (mood + sleep hours + save) laid out the way Mockup 1
- * does it: inside the lime score card, under a `DAILY CHECK-IN` label, with the
- * 5-emotion row. Controls invert to dark-on-lime because the surface is lime.
- */
+/** Three required 1–5 answers, followed by optional Sleep hours. */
 function CheckInPanel({
   selectedKey,
   onSelectMood,
-  stressLevel,
-  onSelectStress,
+  energyLevel,
+  onSelectEnergy,
+  connectionLevel,
+  onSelectConnection,
   sleep,
   onChangeSleep,
   onSave,
@@ -35,53 +35,34 @@ function CheckInPanel({
 }: CheckInPanelProps) {
   return (
     <View>
-      <Text className="font-heading-bold text-dark/60 text-[11px] tracking-[0.5px] uppercase mb-sm">
-        How are you feeling today?
-      </Text>
+      <Text className="font-heading-bold text-dark/60 text-[11px] tracking-[0.5px] uppercase mb-sm">Mood</Text>
       <MoodCheckInRow selectedKey={selectedKey} onSelect={onSelectMood} disabled={saving} />
 
       <Text className="font-heading-bold text-dark/60 text-[11px] tracking-[0.5px] uppercase mt-lg mb-sm">
-        How stressed do you feel today?
+        Energy
       </Text>
-      <View accessibilityRole="radiogroup" className="flex-row gap-1">
-        {[
-          [1, 'Not at all'],
-          [2, 'A little'],
-          [3, 'Moderate'],
-          [4, 'Very'],
-          [5, 'Overwhelmed'],
-        ].map(([value, label]) => {
-          const level = value as number;
-          const selected = stressLevel === level;
-          return (
-            <Pressable
-              key={level}
-              disabled={saving}
-              onPress={() => onSelectStress(level)}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: selected }}
-              accessibilityLabel={String(label)}
-              className={`flex-1 min-h-[52px] rounded-[8px] border px-1 py-2 items-center justify-center ${
-                selected ? 'border-dark bg-dark' : 'border-dark/20'
-              }`}
-            >
-              <Text className={`font-heading-bold text-[9px] leading-[11px] uppercase text-center ${selected ? 'text-lime' : 'text-dark/60'}`}>
-                {label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <CheckInScaleRow
+        options={['Exhausted', 'Low', 'Okay', 'Good', 'Full of energy']}
+        selectedValue={energyLevel}
+        onSelect={onSelectEnergy}
+        disabled={saving}
+      />
+
+      <Text className="font-heading-bold text-dark/60 text-[11px] tracking-[0.5px] uppercase mt-lg mb-sm">Connection</Text>
+      <CheckInScaleRow
+        options={['Disconnected', 'Distant', 'Neutral', 'Connected', 'Very connected']}
+        selectedValue={connectionLevel}
+        onSelect={onSelectConnection}
+        disabled={saving}
+      />
 
       <View className="flex-row items-end gap-sm mt-md">
-        <View className="w-[92px]">
-          <Text className="font-heading-bold text-dark/50 text-[10px] tracking-[0.5px] uppercase mb-xs">
-            Sleep (h)
-          </Text>
+        <View className="flex-1">
+          <Text className="font-heading-bold text-dark/50 text-[10px] tracking-[0.5px] uppercase mb-xs">Sleep (optional)</Text>
           <TextInput
             value={sleep}
             onChangeText={(value) => onChangeSleep(value.replace(/[^0-9.]/g, ''))}
-            placeholder="7.5"
+            placeholder="Add sleep hours"
             placeholderTextColor="rgba(10,10,10,0.35)"
             keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'decimal-pad'}
             returnKeyType="done"
@@ -113,6 +94,42 @@ function CheckInPanel({
       </View>
 
       <InlineFormError message={error} surface="lime" className="mt-md" />
+    </View>
+  );
+}
+
+function CheckInScaleRow({
+  options,
+  selectedValue,
+  onSelect,
+  disabled,
+}: {
+  options: string[];
+  selectedValue: number | null;
+  onSelect: (value: number) => void;
+  disabled: boolean;
+}) {
+  return (
+    <View accessibilityRole="radiogroup" className="flex-row gap-1">
+      {options.map((label, index) => {
+        const value = index + 1;
+        const selected = selectedValue === value;
+        return (
+          <Pressable
+            key={label}
+            disabled={disabled}
+            onPress={() => onSelect(value)}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: selected }}
+            accessibilityLabel={label}
+            className={`flex-1 min-h-[52px] rounded-[8px] border px-1 py-2 items-center justify-center ${selected ? 'border-dark bg-dark' : 'border-dark/20'}`}
+          >
+            <Text className={`font-heading-bold text-[9px] leading-[11px] uppercase text-center ${selected ? 'text-lime' : 'text-dark/60'}`}>
+              {label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
