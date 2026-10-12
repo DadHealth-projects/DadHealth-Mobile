@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   type LayoutChangeEvent,
@@ -33,7 +33,6 @@ import TodayFocusCard from '../components/dashboard/TodayFocusCard';
 import WeeklyReportCard from '../components/dashboard/WeeklyReportCard';
 import type { MoodKey } from '../components/mockup/MoodCheckInRow';
 import { useAuth } from '../contexts/AuthContext';
-import { useScreenContentReady } from '../contexts/ScreenContentReadyContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { useNetworkStatus } from '../contexts/NetworkContext';
 import { CAPS } from '../lib/dashboardCaps';
@@ -112,14 +111,14 @@ export function DashboardScreenContent({
   onScoreDetailRequestConsumed?: () => void;
 }) {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
-  const reportScreenContentReady = useScreenContentReady();
   const { data, loading, error: dashboardError, syncError, checkingIn, refresh, saveCheckIn } = useDashboard(user.id);
   const { dismissToast, isOffline } = useNetworkStatus();
   // Web pre-selects mood 3 ("Good") and 7 hours of sleep.
   const [moodKey, setMoodKey] = useState<MoodKey>('good');
-  const [moodValue, setMoodValue] = useState(3);
-  const [stressLevel, setStressLevel] = useState<number | null>(null);
-  const [sleep, setSleep] = useState('7');
+  const [moodValue, setMoodValue] = useState(4);
+  const [energyLevel, setEnergyLevel] = useState<number | null>(null);
+  const [connectionLevel, setConnectionLevel] = useState<number | null>(null);
+  const [sleep, setSleep] = useState('');
   const [checkInError, setCheckInError] = useState<string | null>(null);
   const [checkInMessage, setCheckInMessage] = useState<string | null>(null);
   const [showCheckInSuccess, setShowCheckInSuccess] = useState(false);
@@ -129,10 +128,6 @@ export function DashboardScreenContent({
   const [refreshing, setRefreshing] = useState(false);
   const [proPrompt, setProPrompt] = useState<'checkIn' | 'weeklyReport' | null>(null);
   const showHomeSkeleton = (!data && !dashboardError) || refreshing;
-
-  useLayoutEffect(() => {
-    if (showHomeSkeleton) reportScreenContentReady(false);
-  }, [reportScreenContentReady, showHomeSkeleton]);
 
   const displayName = useMemo(
     () => greetingFirstName(data?.displayName, user),
@@ -200,8 +195,14 @@ export function DashboardScreenContent({
     setCheckInMessage(null);
   }, []);
 
-  const handleSelectStress = useCallback((value: number) => {
-    setStressLevel(value);
+  const handleSelectEnergy = useCallback((value: number) => {
+    setEnergyLevel(value);
+    setCheckInError(null);
+    setCheckInMessage(null);
+  }, []);
+
+  const handleSelectConnection = useCallback((value: number) => {
+    setConnectionLevel(value);
     setCheckInError(null);
     setCheckInMessage(null);
   }, []);
@@ -215,16 +216,20 @@ export function DashboardScreenContent({
   const handleCheckIn = useCallback(async () => {
     setCheckInError(null);
     setCheckInMessage(null);
-    const sleepHours = Number(sleep);
-    if (!sleep.trim() || !Number.isFinite(sleepHours)) {
-      setCheckInError('Enter the hours you slept last night.');
+    const sleepHours = sleep.trim() ? Number(sleep) : null;
+    if (sleep.trim() && (sleepHours == null || !Number.isFinite(sleepHours) || sleepHours < 0 || sleepHours > 12)) {
+      setCheckInError('Enter sleep between 0 and 12 hours, or leave it blank.');
       return;
     }
-    if (stressLevel === null) {
-      setCheckInError('Choose how stressed you feel today.');
+    if (energyLevel === null) {
+      setCheckInError('Choose your energy level.');
       return;
     }
-    const result = await saveCheckIn(moodValue, stressLevel, sleepHours);
+    if (connectionLevel === null) {
+      setCheckInError('Choose your connection level.');
+      return;
+    }
+    const result = await saveCheckIn(moodValue, energyLevel, connectionLevel, sleepHours);
     if (result.error) setCheckInError(result.error);
     else if (result.queued) {
       setCheckInMessage("Saved — will sync when you're back online. Once synced, this check-in contributes to your Mind score.");
@@ -235,7 +240,7 @@ export function DashboardScreenContent({
         : `Check-in saved. Your Mind score is now ${Math.round(result.mindScore)}.`);
       setShowCheckInSuccess(true);
     }
-  }, [moodValue, saveCheckIn, sleep, stressLevel]);
+  }, [connectionLevel, energyLevel, moodValue, saveCheckIn, sleep]);
 
   const todayFocus = useMemo(() => {
     if (data?.recommendedAction === 'checkin') return 'checkin';
@@ -249,12 +254,15 @@ export function DashboardScreenContent({
   const showWeeklyReport = isWeeklyReportDay();
   const { report: weeklyReport, loading: weeklyReportLoading, error: weeklyReportError } = useWeeklyReport(user?.id, data?.isPro === true, showWeeklyReport);
 
-  // After a reload the stress answer is no longer in session, so the follow-up
-  // reads today's logged mood rather than the panel's pre-selected default.
+  // Read today's persisted Mood and legacy Stress for the follow-up fallback.
   const checkedInMood = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     return data?.moodLogs.find((log) => log.date === today)?.mood_value ?? moodValue;
   }, [data?.moodLogs, moodValue]);
+  const checkedInStress = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return data?.moodLogs.find((log) => log.date === today)?.stress_level ?? null;
+  }, [data?.moodLogs]);
 
   const openCheckInAction = useCallback((action: CheckInAction) => {
     if (action === 'breathing') navigation.navigate('BreathingSession');
@@ -396,7 +404,6 @@ export function DashboardScreenContent({
     <SafeAreaView
       key="home-content"
       edges={['top']}
-      onLayout={() => reportScreenContentReady(true)}
       style={{ flex: 1, backgroundColor: colors.dark }}
     >
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -417,7 +424,7 @@ export function DashboardScreenContent({
             activeSection={activeSection}
             onSelectSection={onSelectSection}
           />
-          <GlobalErrorToastReporter message={dashboardError && !data && !isOffline ? "We couldn't bring in today's check-in, score and plan. Try again in a moment." : null} />
+          <GlobalErrorToastReporter message={dashboardError && !data && !isOffline ? "We couldn't bring in today's check-in, score and plan. Try again in a moment." : data?.scoreError} />
           <GlobalErrorToastReporter message={syncError} />
 
           {!data ? (
@@ -439,8 +446,10 @@ export function DashboardScreenContent({
                     <CheckInPanel
                       selectedKey={moodKey}
                       onSelectMood={handleSelectMood}
-                      stressLevel={stressLevel}
-                      onSelectStress={handleSelectStress}
+                      energyLevel={energyLevel}
+                      onSelectEnergy={handleSelectEnergy}
+                      connectionLevel={connectionLevel}
+                      onSelectConnection={handleSelectConnection}
                       sleep={sleep}
                       onChangeSleep={handleChangeSleep}
                       onSave={() => void handleCheckIn()}
@@ -465,6 +474,7 @@ export function DashboardScreenContent({
                 <View className="relative">
                   <DadScoreCard
                     score={score}
+                    scoreUnavailable={Boolean(data.scoreError)}
                     items={scoreItems}
                     title="Dad Health Score"
                     scoreLabel="of 100"
@@ -490,8 +500,10 @@ export function DashboardScreenContent({
                     <CheckInPanel
                       selectedKey={moodKey}
                       onSelectMood={handleSelectMood}
-                      stressLevel={stressLevel}
-                      onSelectStress={handleSelectStress}
+                      energyLevel={energyLevel}
+                      onSelectEnergy={handleSelectEnergy}
+                      connectionLevel={connectionLevel}
+                      onSelectConnection={handleSelectConnection}
                       sleep={sleep}
                       onChangeSleep={handleChangeSleep}
                       onSave={() => void handleCheckIn()}
@@ -518,7 +530,7 @@ export function DashboardScreenContent({
                 <FadeInView delay={190}>
                   <CheckInFollowUp
                     moodValue={checkedInMood}
-                    stressLevel={stressLevel}
+                    stressLevel={checkedInStress}
                     isPro={data.isPro}
                     onAction={openCheckInAction}
                     onPlan={openCheckInPlan}
@@ -575,6 +587,7 @@ export function DashboardScreenContent({
                 visible={scoreSheetOpen}
                 onClose={closeScoreSheet}
                 score={score}
+                scoreUnavailable={Boolean(data.scoreError)}
                 items={scoreDetailItems}
                 isPro={data.isPro}
                 userId={user.id}

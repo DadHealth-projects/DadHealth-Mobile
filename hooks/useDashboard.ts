@@ -13,6 +13,10 @@ import { isRetryableOfflineError, persistDailyCheckIn } from '../lib/offlineSync
 import { supabase } from '../lib/supabase';
 import { loadNativeSubscriptionStatus } from '../lib/nativeSubscriptions';
 import { getCurrentWeekDayKeys, toLocalDateKey } from '../lib/dashboard.utils';
+import { buildBodyWeekSeries } from '../lib/bodyActivityWeek';
+import { refreshAfterInFlight } from '../lib/refreshAfterInFlight';
+
+const SCORE_QUERY_ERROR = "Dad Health Score couldn't load. Pull to refresh.";
 
 export type Reminder = {
   id: string;
@@ -85,10 +89,11 @@ export type DashboardData = {
   mindWeekChange: number | null;
   bodyWeekChange: number | null;
   bondWeekChange: number | null;
+  scoreError: string | null;
   totalScore: number | null;
   weakestPillar: 'mind' | 'body' | 'bond' | null;
   recommendedAction: 'checkin' | 'mind_breathing' | 'body_workout' | 'bond_present_mode' | null;
-  moodLogs: Array<{ date: string; mood_value: number }>;
+  moodLogs: Array<{ date: string; mood_value: number; stress_level: number | null }>;
   checkedInToday: boolean;
   reminders: Reminder[];
   challenge: {
@@ -189,15 +194,6 @@ async function withTimeout<T>(promise: Promise<T>, ms = 12000): Promise<T> {
   ]);
 }
 
-/** Web bucketing for the "body this week" chart (useDashboard.ts). */
-function bodyMinutesToBucket(minutes: number): number {
-  if (minutes >= 40) return 4;
-  if (minutes >= 25) return 3;
-  if (minutes >= 10) return 2;
-  if (minutes > 0) return 1;
-  return 0;
-}
-
 async function fetchDashboard(userId: string): Promise<DashboardData> {
   const today = todayKey();
   const currentWeekDayKeys = getCurrentWeekDayKeys();
@@ -237,6 +233,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     weightResult,
     todayWorkoutsResult,
     bodyWeekResult,
+    bodyManualWeekResult,
     latestWorkoutResult,
     suggestedWorkoutResult,
     mealPlansResult,
@@ -247,7 +244,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
   ] = await Promise.all([
     supabase.from('user_profile').select('display_name,goals,is_pro,subscription_status').eq('user_id', userId).maybeSingle(),
     supabase.from('dad_score_view').select('mind_score,body_score,bond_score,mind_week_change,body_week_change,bond_week_change,total_score,weakest_pillar,recommended_action').eq('user_id', userId).maybeSingle(),
-    supabase.from('mood_logs').select('date,mood_value,mood_scale_version').eq('user_id', userId).gte('date', weekStart).order('date'),
+    supabase.from('mood_logs').select('date,mood_value,mood_scale_version,stress_level').eq('user_id', userId).gte('date', weekStart).order('date'),
     supabase
       .from('weekly_challenges')
       .select('id,title,description,participants_count')
@@ -268,7 +265,8 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     supabase.from('dad_dates').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('source', 'ai_search'),
     supabase.from('body_metrics').select('value').eq('user_id', userId).eq('metric_type', 'weight').order('recorded_at', { ascending: false }).limit(2),
     supabase.from('workout_sessions').select('duration_minutes').eq('user_id', userId).gte('performed_at', todayStart.toISOString()).lte('performed_at', todayEnd.toISOString()),
-    supabase.from('workout_sessions').select('performed_at,duration_minutes').eq('user_id', userId).gte('performed_at', bodyWeekStart.toISOString()).lt('performed_at', bodyWeekEnd.toISOString()),
+    supabase.from('workout_sessions').select('exercise_name,performed_at,duration_minutes').eq('user_id', userId).gte('performed_at', bodyWeekStart.toISOString()).lt('performed_at', bodyWeekEnd.toISOString()),
+    supabase.from('activity_logs').select('activity_date,activity_type,other_activity_text,duration_minutes').eq('user_id', userId).eq('pillar', 'body').gte('activity_date', weekStart).lt('activity_date', toLocalDateKey(bodyWeekEnd)),
     supabase.from('workout_sessions').select('exercise_name,duration_minutes,calories,performed_at').eq('user_id', userId).order('performed_at', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('workouts').select('id,title,duration_mins,equipment,exercises').eq('source', 'admin').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('meal_plans').select('id,plan,created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(1),
@@ -290,6 +288,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
   const moodLogs = (moodsResult.data ?? []).map((log) => ({
     date: log.date,
     mood_value: log.mood_scale_version === 1 ? log.mood_value : log.mood_value + 1,
+    stress_level: log.stress_level ?? null,
   }));
 
   // Prefer the `reminders` table (web's source). If the table is missing or the
@@ -312,13 +311,11 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
   const activeTodayMin = ((todayWorkoutsResult.data ?? []) as Array<{ duration_minutes: number | null }>)
     .reduce((sum, row) => sum + (row.duration_minutes ?? 0), 0);
 
-  const bodyTotals = new Map<string, number>();
-  for (const row of (bodyWeekResult.error ? [] : (bodyWeekResult.data ?? [])) as Array<{ performed_at: string; duration_minutes: number | null }>) {
-    if (!row.performed_at) continue;
-    const dayKey = toLocalDateKey(new Date(row.performed_at));
-    bodyTotals.set(dayKey, (bodyTotals.get(dayKey) ?? 0) + (row.duration_minutes ?? 0));
-  }
-  const bodyWeekSeries = currentWeekDayKeys.map((dayKey) => bodyMinutesToBucket(bodyTotals.get(dayKey) ?? 0));
+  const bodyWeekSeries = buildBodyWeekSeries(
+    currentWeekDayKeys,
+    bodyWeekResult.error ? [] : bodyWeekResult.data ?? [],
+    bodyManualWeekResult.error ? [] : bodyManualWeekResult.data ?? [],
+  );
 
   const latestWorkout = latestWorkoutResult.error ? null : latestWorkoutResult.data;
   const featuredWorkoutTitle = textOrNull(latestWorkout?.exercise_name);
@@ -447,6 +444,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     mindScore: nullableScore(scoresResult.data?.mind_score),
     bodyScore: nullableScore(scoresResult.data?.body_score),
     bondScore: nullableScore(scoresResult.data?.bond_score),
+    scoreError: scoresResult.error ? SCORE_QUERY_ERROR : null,
     mindWeekChange: nullableScore(scoresResult.data?.mind_week_change),
     bodyWeekChange: nullableScore(scoresResult.data?.body_week_change),
     bondWeekChange: nullableScore(scoresResult.data?.bond_week_change),
@@ -617,7 +615,7 @@ function loadDashboard(userId: string): Promise<void> {
 }
 
 export function refreshDashboardForUser(userId: string): Promise<void> {
-  return loadDashboard(userId);
+  return refreshAfterInFlight(inFlightByUser, userId, loadDashboard);
 }
 
 export function useDashboard(userId: string | undefined) {
@@ -679,11 +677,17 @@ export function useDashboard(userId: string | undefined) {
     else await loadDashboard(userId);
   }, [isOffline, userId]);
 
-  const saveCheckIn = useCallback(async (moodValue: number, stressLevel: number, sleepHours: number): Promise<{ error: string | null; queued?: boolean; mindScore?: number | null }> => {
+  const saveCheckIn = useCallback(async (
+    moodValue: number,
+    energyLevel: number,
+    connectionLevel: number,
+    sleepHours: number | null,
+  ): Promise<{ error: string | null; queued?: boolean; mindScore?: number | null }> => {
     if (!userId) return { error: "You're not signed in. Please sign in again to save your check-in." };
     if (!Number.isInteger(moodValue) || moodValue < 1 || moodValue > 5) return { error: 'Choose a mood from 1 to 5.' };
-    if (!Number.isInteger(stressLevel) || stressLevel < 1 || stressLevel > 5) return { error: 'Choose how stressed you feel today.' };
-    if (!Number.isFinite(sleepHours) || sleepHours < 0 || sleepHours > 12) return { error: 'Enter sleep between 0 and 12 hours.' };
+    if (!Number.isInteger(energyLevel) || energyLevel < 1 || energyLevel > 5) return { error: 'Choose your energy level.' };
+    if (!Number.isInteger(connectionLevel) || connectionLevel < 1 || connectionLevel > 5) return { error: 'Choose your connection level.' };
+    if (sleepHours != null && (!Number.isFinite(sleepHours) || sleepHours < 0 || sleepHours > 12)) return { error: 'Enter sleep between 0 and 12 hours.' };
 
     setCheckingIn(true);
     const date = todayKey();
@@ -692,14 +696,15 @@ export function useDashboard(userId: string | undefined) {
       userId,
       kind: 'daily_checkin',
       createdAt: new Date().toISOString(),
-      payload: { date, moodValue, stressLevel, sleepHours },
+      payload: { date, moodValue, energyLevel, connectionLevel, sleepHours },
     };
 
     const applyLocalCheckIn = async () => {
       if (!store.data || store.userId !== userId) return;
+      const previousTodayMood = store.data.moodLogs.find((log) => log.date === date);
       const nextMoodLogs = [
         ...store.data.moodLogs.filter((log) => log.date !== date),
-        { date, mood_value: moodValue },
+        { date, mood_value: moodValue, stress_level: previousTodayMood?.stress_level ?? null },
       ].sort((a, b) => a.date.localeCompare(b.date));
       const nextData = {
         ...store.data,
