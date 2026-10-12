@@ -17,6 +17,7 @@ type DadScoreCardProps = {
   items: ScoreItem[];
   title?: string;
   scoreLabel?: string;
+  scoreUnavailable?: boolean;
   ring?: boolean;
   missingScore?: number | string;
   lockedLabel?: string;
@@ -34,6 +35,7 @@ function DadScoreCard({
   items,
   title = "This week's health",
   scoreLabel = 'Dad Score',
+  scoreUnavailable = false,
   ring = true,
   missingScore = 0,
   lockedLabel,
@@ -51,7 +53,7 @@ function DadScoreCard({
         {ring ? (
           <View className="h-[100px] w-[100px] rounded-full border-[5px] border-dark items-center justify-center">
             <Text className="font-heading text-dark text-[40px] leading-[40px]">
-              {lockedValues ? <Feather name="lock" size={22} color="#080808" /> : score ?? missingScore}
+              {lockedValues ? <Feather name="lock" size={22} color="#080808" /> : scoreUnavailable ? '—' : score ?? missingScore}
             </Text>
 
             <Text className="font-heading-bold text-dark/50 text-[9px] tracking-[1.5px] uppercase">
@@ -61,7 +63,7 @@ function DadScoreCard({
         ) : (
           <View>
             <Text className="font-heading text-dark text-[56px] leading-[52px]">
-              {lockedValues ? <Feather name="lock" size={28} color="#080808" /> : score ?? missingScore}
+              {lockedValues ? <Feather name="lock" size={28} color="#080808" /> : scoreUnavailable ? '—' : score ?? missingScore}
             </Text>
             <Text className="font-heading-bold text-dark/50 text-[10px] tracking-[1.5px] uppercase">
               {scoreLabel}
@@ -101,6 +103,8 @@ function DadScoreCard({
 
                 {lockedValues ? (
                   <Feather name="lock" size={11} color="#080808" />
+                ) : scoreUnavailable ? (
+                  <Text className="font-heading-bold text-dark/60 text-[10px]">—</Text>
                 ) : item.value === null ? (
                   missingItemValue ? (
                     <Text className="font-heading-bold text-dark/60 text-[10px]">{missingItemValue}</Text>
@@ -112,7 +116,7 @@ function DadScoreCard({
                     <Text className="font-heading-bold text-dark/60 text-[10px]">
                       {item.value}%
                     </Text>
-                    {showTrend ? (
+                    {showTrend && !scoreUnavailable ? (
                       <Text className="font-heading-bold text-dark text-[10px]">
                         {trend.arrow}{trend.change == null ? '' : ` ${trend.change} pts`}
                       </Text>
@@ -122,7 +126,7 @@ function DadScoreCard({
               </View>
 
               <View className="h-[5px] rounded-full bg-dark/10 overflow-hidden">
-                {item.value !== null ? (
+                {item.value !== null && !scoreUnavailable ? (
                   <View
                     className="h-full rounded-full bg-dark"
                     style={{
@@ -137,6 +141,12 @@ function DadScoreCard({
           )}
         </View>
       </View>
+
+      {scoreUnavailable ? (
+        <Text accessibilityLiveRegion="polite" className="font-body text-dark/60 text-[11px] mt-sm text-center">
+          Dad Health Score unavailable. Pull to refresh.
+        </Text>
+      ) : null}
 
       {children && (
         <>
