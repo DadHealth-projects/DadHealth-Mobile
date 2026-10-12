@@ -1,7 +1,7 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from '../../components/AppTopBar';
@@ -13,15 +13,28 @@ import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { useCommunityFeed } from '../../hooks/useCommunityFeed';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
+import { supabase } from '../../lib/supabase';
 
 export default function CommunityFeedScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
+  const route = useRoute<RouteProp<AppStackParamList, 'CommunityFeed'>>();
   const { user } = useAuth();
   const { showOfflineAction } = useNetworkStatus();
-  const feed = useCommunityFeed(user?.id);
+  const circleId = route.params?.circleId;
+  const feed = useCommunityFeed(user?.id, circleId);
+  const [circleName, setCircleName] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (!circleId) { setCircleName(null); return; }
+    let active = true;
+    void supabase.from('circles').select('name').eq('id', circleId).maybeSingle().then(({ data }) => {
+      if (active) setCircleName(typeof data?.name === 'string' ? data.name : null);
+    });
+    return () => { active = false; };
+  }, [circleId]);
 
   const onRefresh = useCallback(async () => {
     if (refreshInFlight.current) return;
@@ -37,7 +50,7 @@ export default function CommunityFeedScreen() {
 
   const openComposer = () => {
     if (feed.isOffline) { showOfflineAction('community_post'); return; }
-    navigation.navigate('CreateCommunityPost');
+    navigation.navigate('CreateCommunityPost', circleId ? { circleId } : undefined);
   };
 
   const openThread = (postId: string) => {
@@ -58,7 +71,7 @@ export default function CommunityFeedScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.lime} />}
       >
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityLabel="Go back" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />
-        <View className="mt-xl"><ScreenHero eyebrow="Dad Health Community" headline="Recent Posts" /></View>
+        <View className="mt-xl"><ScreenHero eyebrow={circleName ?? 'Dad Health Community'} headline={circleId ? 'Circle Posts' : 'Recent Posts'} /></View>
         <ScreenErrorNotice message={message ?? (feed.posts.length === 0 ? feed.error : null)} />
         <Pressable onPress={openComposer} accessibilityRole="button" className="min-h-[58px] flex-row items-center gap-md border-y border-border mt-xl px-sm active:opacity-75">
           <View className="h-[34px] w-[34px] rounded-full bg-lime/10 items-center justify-center"><Feather name="edit-3" size={16} color={colors.lime} /></View>
