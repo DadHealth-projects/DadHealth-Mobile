@@ -157,6 +157,7 @@ export default function FitnessScreen({
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}
     >
+      <GlobalErrorToastReporter message={data?.scoreError} />
       <GlobalErrorToastReporter message={fitnessLibrary.error} />
       <GlobalErrorToastReporter message={fitnessLibrary.proError} />
       <FadeInView>
@@ -172,7 +173,7 @@ export default function FitnessScreen({
         )}
       </FadeInView>
 
-      <PillarScoreRow pillar="Body" score={data?.bodyScore ?? null} trend={data?.bodyWeekChange ?? null} />
+      <PillarScoreRow pillar="Body" score={data?.bodyScore ?? null} trend={data?.bodyWeekChange ?? null} scoreUnavailable={Boolean(data?.scoreError)} />
       <ManualActivitySection pillar="body" userId={user?.id} />
 
       <FadeInView delay={90}>
