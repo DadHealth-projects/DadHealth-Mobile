@@ -7,7 +7,7 @@ export type OnboardingProfile = {
 export const GOALS = [
   { icon: '🧠', title: 'I want to be more present', sub: 'Phone down, eyes up — actually there' },
   { icon: '💚', title: "I'm struggling and not saying so", sub: 'Mental health, stress, or just running on empty' },
-  { icon: '💪', title: 'I want to get physically healthier', sub: 'Lose weight, build fitness, feel better' },
+  { icon: '💪', title: 'I want to get physically healthier', sub: 'Lose weight, build strength, feel better' },
   { icon: '💔', title: "I'm going through a tough chapter", sub: 'Separation, co-parenting, or doing it alone' },
   { icon: '🗓️', title: 'I want to find things to do with my kids', sub: 'Activities, days out, quality time ideas' },
   { icon: '⭐', title: 'I just want to be a better dad', sub: "No specific reason. That's enough." },

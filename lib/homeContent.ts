@@ -80,7 +80,7 @@ export const PILLARS: ReadonlyArray<{
     image: IMAGES.gym,
   },
   {
-    tag: 'FITNESS',
+    tag: 'BODY',
     description: 'It is not too late to start, honestly',
     tab: 'Fit',
     image: IMAGES.run,
@@ -126,7 +126,7 @@ export const DAD_STRENGTH = {
   startCta: 'START →',
   nextCta: 'NEXT EXERCISE',
   progressLabel: 'PROGRESS THIS MONTH',
-  viewCta: 'VIEW FULL FITNESS →',
+  viewCta: 'VIEW FULL BODY →',
   statLabels: ['WORKOUTS', 'WEIGHT', 'STEPS', 'ACTIVE TODAY'] as const,
 } as const;
 
@@ -136,7 +136,7 @@ export const FOOTER = {
   /** Web `FOOTER_LINKS.platform`, mapped to mobile tabs where one exists. */
   platform: [
     { label: 'Home', tab: 'Home' },
-    { label: 'Fitness', tab: 'Fit' },
+    { label: 'Body', tab: 'Fit' },
     { label: 'Mental health', tab: 'Mind' },
     { label: 'Bond', tab: 'Bond' },
     { label: 'Community', tab: 'Squad' },
