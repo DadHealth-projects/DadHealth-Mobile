@@ -33,22 +33,79 @@ test('Today follows the approved score-led hierarchy', async () => {
   assert.ok(screen.includes('<ScoreDetailSheet'));
 });
 
-test('daily check-in includes stress and persists it online and offline', async () => {
-  const [panel, dashboard, storage, sync] = await Promise.all([
+test('daily check-in uses Mood, Energy, Connection, with optional Sleep', async () => {
+  const [panel, moods, dashboard] = await Promise.all([
     source('components/dashboard/CheckInPanel.tsx'),
+    source('components/mockup/MoodCheckInRow.tsx'),
+    source('hooks/useDashboard.ts'),
+  ]);
+
+  for (const label of ['Very low', 'Low', 'Okay', 'Good', 'Great']) assert.ok(moods.includes(`label: '${label}'`));
+  for (const label of ['Exhausted', 'Low', 'Okay', 'Good', 'Full of energy', 'Disconnected', 'Distant', 'Neutral', 'Connected', 'Very connected']) {
+    assert.ok(panel.includes(`'${label}'`), `Missing check-in option: ${label}`);
+  }
+  assert.equal(panel.includes('Overwhelmed'), false);
+  assert.equal(panel.includes('How stressed do you feel today?'), false);
+  assert.ok(panel.includes('Sleep (optional)'));
+  assert.ok(dashboard.includes('payload: { date, moodValue, energyLevel, connectionLevel, sleepHours }'));
+  assert.ok(dashboard.includes('stress_level: log.stress_level ?? null'));
+  assert.ok(dashboard.includes('saveCheckIn(moodValue, energyLevel, connectionLevel, sleepHours)'));
+});
+
+test('online and offline check-in saves preserve omitted fields and replay old queue payloads', async () => {
+  const [dashboard, storage, sync, recommendation] = await Promise.all([
     source('hooks/useDashboard.ts'),
     source('lib/offlineStorage.ts'),
     source('lib/offlineSync.ts'),
+    source('lib/checkInRecommendation.ts'),
   ]);
 
-  for (const copy of ['How stressed do you feel today?', 'Not at all', 'A little', 'Moderate', 'Very', 'Overwhelmed']) {
-    assert.ok(panel.includes(copy), `Missing stress option: ${copy}`);
-  }
-  assert.ok(dashboard.includes('payload: { date, moodValue, stressLevel, sleepHours }'));
+  assert.ok(dashboard.includes('payload: { date, moodValue, energyLevel, connectionLevel, sleepHours }'));
   assert.ok(storage.includes('stressLevel?: number'));
-  assert.ok(sync.includes("stress_level: stressLevel"));
-  assert.ok(sync.includes("throw new Error('invalid_stress')"));
-  assert.ok(sync.includes('stressLevel == null ? {}'));
+  assert.ok(storage.includes('energyLevel?: number'));
+  assert.ok(storage.includes('connectionLevel?: number'));
+  assert.ok(storage.includes('sleepHours?: number | null'));
+  assert.ok(sync.includes(".update(moodPayload)"));
+  assert.ok(sync.includes(".insert({ user_id: item.userId, date, ...moodPayload })"));
+  assert.ok(sync.includes("if (inserted.error.code !== '23505') throw inserted.error"));
+  assert.ok(sync.includes('if (existingMood.data)'));
+  assert.ok(sync.includes("if (sleepHours != null) await saveManualSleep(item.userId, date, sleepHours)"));
+  assert.ok(sync.includes('stressLevel == null ? {} : { stress_level: stressLevel }'));
+  assert.ok(sync.includes('energyLevel == null ? {} : { energy_level: energyLevel }'));
+  assert.ok(sync.includes('connectionLevel == null ? {} : { connection_level: connectionLevel }'));
+  assert.equal(sync.includes(".upsert(moodPayload"), false);
+  assert.ok(dashboard.includes('stress_level: previousTodayMood?.stress_level ?? null'));
+  assert.match(recommendation, /stressLevel !== null && stressLevel >= 4/);
+  assert.match(recommendation, /if \(moodValue <= 2\)/);
+  assert.match(recommendation, /stressLevel !== null && stressLevel === 3/);
+});
+
+test('Phase 2B migration is additive, nullable, constrained, and leaves RLS/history intact', async () => {
+  const migration = await source('../dadHealth/supabase/migrations/20261012120000_daily_checkin_energy_connection.sql');
+  const schema = await source('../dadHealth/supabase/schema.sql');
+  const scoreMigration = await source('../dadHealth/supabase/migrations/20260925120000_score_detail_canonical_fields.sql');
+  const manualScoreMigration = await source('../dadHealth/supabase/migrations/20260928140000_manual_activity_logging.sql');
+
+  assert.match(migration, /add column if not exists energy_level smallint/);
+  assert.match(migration, /add column if not exists connection_level smallint/);
+  assert.match(migration, /check \(energy_level between 1 and 5\)/);
+  assert.match(migration, /check \(connection_level between 1 and 5\)/);
+  assert.match(migration, /Null for historical or older-client records/);
+  assert.match(migration, /before update on public\.mood_logs[\s\S]*preserve_mood_checkin_optional_values/);
+  for (const field of ['stress_level', 'energy_level', 'connection_level']) {
+    assert.match(migration, new RegExp(`new\\.${field} is null then new\\.${field} := old\\.${field}`));
+  }
+  assert.equal(/\b(update|delete|truncate)\s+(public\.)?mood_logs\b/i.test(migration), false);
+  assert.equal(/create\s+policy|drop\s+policy|disable\s+row\s+level\s+security/i.test(migration), false);
+  assert.match(schema, /energy_level smallint,/);
+  assert.match(schema, /connection_level smallint,/);
+  assert.match(scoreMigration, /when m\.stress_level is null then/);
+  assert.match(scoreMigration, /mood_value - case when m\.mood_scale_version = 1 then 1 else 0 end/);
+  assert.match(manualScoreMigration, /from public\.sleep_logs s/);
+  assert.match(manualScoreMigration, /from public\.workout_sessions w/);
+  assert.match(manualScoreMigration, /from public\.bond_logs bl/);
+  assert.doesNotMatch(manualScoreMigration, /energy_level|connection_level/);
+  assert.doesNotMatch(migration, /calculate_dad_score_period|sleep_logs|workout_sessions|bond_logs/);
 });
 
 test('lowest-pillar focus uses approved tie order and existing destinations', async () => {

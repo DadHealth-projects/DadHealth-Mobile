@@ -40,8 +40,8 @@ test('Mind and Body weekday graphs share fixed Monday-to-Sunday calendar keys', 
   assert.match(sleepHook, /const dates = getCurrentWeekDayKeys\(\)/);
   assert.match(dashboardHook, /const currentWeekDayKeys = getCurrentWeekDayKeys\(\)/);
   assert.match(dashboardHook, /\.gte\('performed_at', bodyWeekStart\.toISOString\(\)\)\.lt\('performed_at', bodyWeekEnd\.toISOString\(\)\)/);
-  assert.match(dashboardHook, /toLocalDateKey\(new Date\(row\.performed_at\)\)/);
-  assert.match(dashboardHook, /currentWeekDayKeys\.map\(\(dayKey\) => bodyMinutesToBucket\(bodyTotals\.get\(dayKey\) \?\? 0\)\)/);
+  assert.match(dashboardHook, /\.gte\('activity_date', weekStart\)\.lt\('activity_date', toLocalDateKey\(bodyWeekEnd\)\)/);
+  assert.match(dashboardHook, /buildBodyWeekSeries\(\s*currentWeekDayKeys/);
   assert.match(body, /labels=\{MOOD_WEEK_LABELS\}/);
   assert.match(body, /values=\{data\?\.bodyWeekSeries \?\? EMPTY_BODY_WEEK\}/);
   assert.doesNotMatch(dashboardHook, /date\.setDate\(date\.getDate\(\) - \(6 - index\)\)/);
@@ -60,7 +60,7 @@ test('calendar week keys stay Monday through Sunday for Monday, Thursday, and Su
 
 test('all score consumers read the canonical pillar fields and share one trend formatter', async () => {
   const read = (path) => readFile(new URL(path, root), 'utf8');
-  const [hook, today, card, details, weekly, mind, body, bond, history] = await Promise.all([
+  const [hook, today, card, details, weekly, mind, body, bond, bondCard, history] = await Promise.all([
     read('hooks/useDashboard.ts'),
     read('screens/DashboardScreen.tsx'),
     read('components/dashboard/DadScoreCard.tsx'),
@@ -69,22 +69,25 @@ test('all score consumers read the canonical pillar fields and share one trend f
     read('screens/MindScreen.tsx'),
     read('screens/FitnessScreen.tsx'),
     read('screens/BondScreen.tsx'),
+    read('components/bond/BondScoreCard.tsx'),
     read('hooks/useDadScoreHistory.ts'),
   ]);
 
   assert.match(hook, /mind_score,body_score,bond_score,mind_week_change,body_week_change,bond_week_change/);
   assert.match(today, /const scoreDetailItems = scoreItems/);
   assert.match(card, /formatScoreTrend\(item\.trend\)/);
-  assert.match(details, /<DadScoreCard score=\{score\} items=\{items\}/);
-  assert.match(weekly, /formatPillarChange\(pillar\.change\)/);
+  assert.match(details, /<DadScoreCard score=\{score\} scoreUnavailable=\{scoreUnavailable\} items=\{items\}/);
+  assert.match(weekly, /export function formatPillarChange\(change: number \| null\): string/);
+  assert.match(weekly, /trend\.change === null \? trend\.arrow : `\$\{trend\.arrow\} \$\{trend\.change\} pts`/);
   assert.match(weekly, /formatScoreTrend\(change\)/);
   assert.match(weekly, /\$\{trend\.change\} pts/);
   assert.match(card, /\$\{trend\.change\} pts/);
   assert.match(mind, /PillarScoreRow/);
   assert.match(body, /PillarScoreRow/);
-  assert.match(bond, /\$\{formattedTrend\.change\} pts/);
-  assert.match(mind, /PillarScoreRow pillar="Mind" score=\{data\?\.mindScore \?\? null\} trend=\{data\?\.mindWeekChange \?\? null\}/);
-  assert.match(body, /PillarScoreRow pillar="Body" score=\{data\?\.bodyScore \?\? null\} trend=\{data\?\.bodyWeekChange \?\? null\}/);
-  assert.match(bond, /BondScoreCard score=\{bondScore\} trend=\{data\?\.bondWeekChange \?\? null\}/);
-  assert.match(history, /mind_has_data,body_has_data,bond_has_data/);
+  assert.match(bondCard, /\$\{formattedTrend\.change\} pts/);
+  assert.match(mind, /PillarScoreRow pillar="Mind" score=\{data\?\.mindScore \?\? null\} trend=\{data\?\.mindWeekChange \?\? null\} scoreUnavailable=\{Boolean\(data\?\.scoreError\)\}/);
+  assert.match(body, /PillarScoreRow pillar="Body" score=\{data\?\.bodyScore \?\? null\} trend=\{data\?\.bodyWeekChange \?\? null\} scoreUnavailable=\{Boolean\(data\?\.scoreError\)\}/);
+  assert.match(bond, /BondScoreCard score=\{bondScore\} trend=\{data\?\.bondWeekChange \?\? null\} scoreUnavailable=\{Boolean\(data\?\.scoreError\)\}/);
+  assert.match(history, /mind_has_data: boolean;[\s\S]*body_has_data: boolean;[\s\S]*bond_has_data: boolean/);
+  assert.match(history, /fetchProInsight<\{ points: DadScoreHistoryPoint\[\] \}>\('score-history'\)/);
 });
