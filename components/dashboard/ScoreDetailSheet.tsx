@@ -16,13 +16,14 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   score: number | null;
+  scoreUnavailable?: boolean;
   items: ScoreItem[];
   isPro: boolean;
   userId: string;
   onUpgrade: () => void;
 };
 
-export default function ScoreDetailSheet({ visible, onClose, score, items, isPro, userId, onUpgrade }: Props) {
+export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavailable = false, items, isPro, userId, onUpgrade }: Props) {
   const sheetUserId = visible ? userId : undefined;
   const report = useProgressReport(sheetUserId, isPro);
   const badgeData = useProgressBadges(sheetUserId);
@@ -58,8 +59,8 @@ export default function ScoreDetailSheet({ visible, onClose, score, items, isPro
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end bg-black/55">
-        <Pressable accessibilityRole="button" accessibilityLabel="Close score details" onPress={onClose} className="flex-1" />
-        <SafeAreaView edges={['bottom']} className="flex-1 rounded-t-[28px] bg-[#111214]">
+        <Pressable accessibilityRole="button" accessibilityLabel="Close score details" onPress={onClose} className="h-[10%]" />
+        <SafeAreaView edges={['bottom']} className="h-[70%] rounded-t-[28px] bg-[#111214]">
           <View className="flex-row items-center justify-between px-lg pt-lg pb-sm">
             <View>
               <Text className="font-heading-bold text-lime text-[19px] tracking-[1px] uppercase">Score details</Text>
@@ -71,13 +72,13 @@ export default function ScoreDetailSheet({ visible, onClose, score, items, isPro
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-lg pb-xl gap-lg">
-            <DadScoreCard score={score} items={items} title="Dad Health Score" scoreLabel="of 100" compactBottom />
+            <DadScoreCard score={score} scoreUnavailable={scoreUnavailable} items={items} title="Dad Health Score" scoreLabel="of 100" compactBottom />
 
             <View>
               <SectionHeader title="What feeds each pillar" className="mb-sm" />
-              <PillarSource name="Mind" detail="Daily mood and stress check-ins." />
-              <PillarSource name="Body" detail="Workouts, sleep and connected activity." />
-              <PillarSource name="Bond" detail="Bond logs, journaling and Present Dad sessions." />
+              <PillarSource name="Mind" detail="Daily mood and stress check-ins, journal entries and manual Mind activity logs." />
+              <PillarSource name="Body" detail="Workout sessions, manual Body activity logs, sleep and connected activity." />
+              <PillarSource name="Bond" detail="Manual Bond activity logs, journaling and completed Present Dad sessions." />
             </View>
 
             {!isPro ? <View className="border-y border-border py-md">
