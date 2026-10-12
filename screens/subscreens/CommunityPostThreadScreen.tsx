@@ -12,6 +12,7 @@ import MultilineTextInput from '../../components/MultilineTextInput';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { trackEvent } from '../../lib/analytics';
+import { communityTagLabel } from '../../lib/communityLabels';
 import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -23,7 +24,7 @@ export default function CommunityPostThreadScreen() {
   const route = useRoute<RouteProp<AppStackParamList, 'CommunityPostThread'>>();
   const { user } = useAuth();
   const { isOffline, showOfflineAction } = useNetworkStatus();
-  const [post, setPost] = useState<{ content: string; author_name: string; anonymous: boolean; tag: string } | null>(null);
+  const [post, setPost] = useState<{ content: string; author_name: string; anonymous: boolean; tag: string; circle_name: string | null } | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [draft, setDraft] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
@@ -37,11 +38,15 @@ export default function CommunityPostThreadScreen() {
     if (isOffline) { setLoading(false); setError(null); return; }
     setLoading(true);
     const [postResult, commentResult] = await Promise.all([
-      supabase.from('posts').select('content,author_name,anonymous,tag').eq('id', route.params.postId).maybeSingle(),
+      supabase.from('posts').select('content,author_name,anonymous,tag,circle_id').eq('id', route.params.postId).maybeSingle(),
       supabase.from('comments').select('id,user_id,content,parent_id,created_at,anonymous,author_name').eq('post_id', route.params.postId).order('created_at', { ascending: true }),
     ]);
     if (postResult.error || commentResult.error || !postResult.data) { setError('We could not load this conversation. Please try again.'); setLoading(false); return; }
     const rows = commentResult.data ?? [];
+    const circleResult = postResult.data.circle_id
+      ? await supabase.from('circles').select('name').eq('id', String(postResult.data.circle_id)).maybeSingle()
+      : { data: null, error: null };
+    if (circleResult.error) { setError('We could not load this Circle. Please try again.'); setLoading(false); return; }
     const commentIds = rows.map((row) => String(row.id));
     const commentLikesResult = commentIds.length
       ? await supabase.from('comment_likes').select('comment_id,user_id').in('comment_id', commentIds)
@@ -63,7 +68,7 @@ export default function CommunityPostThreadScreen() {
         if (profile.display_name?.trim()) names.set(String(profile.user_id), profile.display_name.trim());
       });
     }
-    setPost({ content: String(postResult.data.content), author_name: postResult.data.anonymous ? 'Anonymous' : String(postResult.data.author_name ?? 'Member'), anonymous: postResult.data.anonymous === true, tag: String(postResult.data.tag ?? '') });
+    setPost({ content: String(postResult.data.content), author_name: postResult.data.anonymous ? 'Anonymous' : String(postResult.data.author_name ?? 'Member'), anonymous: postResult.data.anonymous === true, tag: String(postResult.data.tag ?? ''), circle_name: typeof circleResult.data?.name === 'string' ? circleResult.data.name : null });
     setComments(rows.map((row) => {
       const commentId = String(row.id);
       const storedAuthor = String(row.author_name ?? '').trim();
@@ -114,7 +119,19 @@ export default function CommunityPostThreadScreen() {
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center" accessibilityLabel="Go back"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />
         <GlobalErrorToastReporter message={error} />
         {loading ? <View className="h-[240px] bg-white/5" /> : post ? <>
-          <View className="border-b border-border pb-xl"><View className="flex-row items-center gap-sm"><View className="h-[36px] w-[36px] rounded-full border border-lime/40 bg-lime/10 items-center justify-center"><Text className="font-heading-bold text-lime text-[14px]">{post.anonymous ? 'A' : post.author_name.charAt(0).toUpperCase()}</Text></View><Text className="font-heading-bold text-white text-[14px]">{post.author_name}</Text></View><Text className="font-body text-white text-[18px] leading-[27px] mt-md">{post.content}</Text></View>
+          <View className="border-b border-border pb-xl"><View className="flex-row flex-wrap items-center gap-xs"><View className="h-[36px] w-[36px] rounded-full border border-lime/40 bg-lime/10 items-center justify-center"><Text className="font-heading-bold text-lime text-[14px]">{post.anonymous ? 'A' : post.author_name.charAt(0).toUpperCase()}</Text></View><Text className="font-heading-bold text-white text-[14px]">{post.author_name}</Text>{post.circle_name ? (
+            <View className="bg-lime px-sm py-[2px] max-w-[120px]">
+              <Text numberOfLines={1} className="font-heading-bold text-dark text-[10px] uppercase">
+                {post.circle_name}
+              </Text>
+            </View>
+          ) : null}{post.tag ? (
+            <View className="bg-lime px-sm py-[2px]">
+              <Text className="font-heading-bold text-dark text-[10px] uppercase">
+                {communityTagLabel(post.tag)}
+              </Text>
+            </View>
+          ) : null}</View><Text className="font-body text-white text-[18px] leading-[27px] mt-md">{post.content}</Text></View>
           <View className="gap-md"><Text className="font-heading-bold text-lime text-[11px] uppercase">Replies</Text>{roots.length === 0 ? <Text className="font-body text-muted-text">No replies yet.</Text> : roots.map((comment) => <View key={comment.id} className="border-b border-border pb-md"><CommentRow comment={comment} owner={comment.user_id === user?.id} busy={respectBusyId === comment.id} onRespect={() => void toggleRespect(comment)} onDelete={() => remove(comment)} onReply={() => { setReplyTo(comment.id); setDraft(''); setComposerError(null); }} />{(replies.get(comment.id) ?? []).map((reply) => <View key={reply.id} className="ml-xl mt-md border-l-2 border-l-lime/30 pl-md"><CommentRow comment={reply} owner={reply.user_id === user?.id} busy={respectBusyId === reply.id} onRespect={() => void toggleRespect(reply)} onDelete={() => remove(reply)} /></View>)}</View>)}</View>
           {replyTo ? <View className="flex-row items-center justify-between"><Text className="font-body text-muted-text text-[12px]">Replying to {comments.find((comment) => comment.id === replyTo)?.author}</Text><Pressable onPress={() => { setReplyTo(null); setComposerError(null); }}><Text className="font-heading-bold text-lime text-[10px] uppercase">Cancel</Text></Pressable></View> : null}
           <MultilineTextInput value={draft} onChangeText={(value) => { setDraft(value); setComposerError(null); }} placeholder={replyTo ? 'Write a reply…' : 'Add a comment…'} placeholderTextColor={colors.tertiaryText} className="min-h-[90px] rounded-button border border-border bg-card p-md font-body text-white" />
