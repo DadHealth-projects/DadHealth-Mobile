@@ -71,6 +71,9 @@ test('Moment 2 gives a free recommendation before it mentions Pro', async () => 
   assert.ok(advice.includes('stressLevel >= 4'));
   assert.ok(followUp.indexOf('advice.recommendation') < followUp.indexOf("isPro ? 'Build my plan' : 'See what Pro can do'"));
   assert.ok(followUp.includes("isPro ? 'Build my plan' : 'See what Pro can do'"));
+  assert.ok(followUp.includes('{!isPro ? ('));
+  assert.ok(followUp.includes('accessibilityLabel="Pro feature"'));
+  assert.ok(followUp.includes('>PRO</Text>'));
   assert.ok(dashboard.includes('<CheckInFollowUp'));
   assert.ok(dashboard.includes('isPro={data.isPro}'));
   assert.ok(dashboard.includes("setProPrompt('checkIn')"));

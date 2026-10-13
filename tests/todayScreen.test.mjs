@@ -185,7 +185,8 @@ test('Today supporting tools use existing workout, meal, and Bond routes', async
   assert.ok(screen.includes("key: 'workout'"));
   assert.ok(screen.includes("key: 'meal'"));
   assert.ok(screen.includes("key: 'bond'"));
-  assert.ok(screen.includes("navigation.navigate('MealPlanner')"));
+  assert.ok(screen.includes("title: 'Cook Together'"));
+  assert.ok(screen.includes("navigation.navigate('CookTogether')"));
 });
 
 test('completed check-in retains a visible Mind-score result', async () => {

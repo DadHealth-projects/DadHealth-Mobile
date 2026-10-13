@@ -1,4 +1,5 @@
 import React, { memo, useMemo } from 'react';
+import { Feather } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
 
 import { checkInRecommendation, type CheckInAction } from '../../lib/checkInRecommendation';
@@ -50,16 +51,28 @@ function CheckInFollowUp({
               {advice.actionLabel}
             </Text>
           </Pressable>
-          <Pressable
-            onPress={onPlan}
-            accessibilityRole="button"
-            accessibilityLabel={isPro ? 'Build my plan' : 'See what Pro can do'}
-            className="min-h-[44px] justify-center active:opacity-70"
-          >
-            <Text className="font-heading-bold text-lime text-[11px] uppercase text-right underline decoration-lime">
-              {isPro ? 'Build my plan' : 'See what Pro can do'}
-            </Text>
-          </Pressable>
+          <View className="flex-row items-center gap-xs">
+            <Pressable
+              onPress={onPlan}
+              accessibilityRole="button"
+              accessibilityLabel={isPro ? 'Build my plan' : 'See what Pro can do'}
+              className="min-h-[44px] justify-center active:opacity-70"
+            >
+              <Text className="font-heading-bold text-lime text-[11px] uppercase text-right underline decoration-lime">
+                {isPro ? 'Build my plan' : 'See what Pro can do'}
+              </Text>
+            </Pressable>
+            {!isPro ? (
+              <View
+                accessible
+                accessibilityLabel="Pro feature"
+                className="flex-row items-center gap-[3px] rounded-full bg-lime px-xs py-[3px]"
+              >
+                <Feather name="lock" size={9} color="#0A0A0A" />
+                <Text className="font-heading-bold text-dark text-[8px] uppercase">PRO</Text>
+              </View>
+            ) : null}
+          </View>
         </View>
       </View>
     </View>

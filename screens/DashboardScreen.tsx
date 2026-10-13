@@ -351,9 +351,9 @@ export function DashboardScreenContent({
     {
       key: 'meal',
       icon: 'coffee',
-      title: data?.mealPlan?.title ?? 'Meal plan',
-      detail: data?.mealPlan?.time ?? 'Plan something straightforward for the family.',
-      onPress: () => navigation.navigate('MealPlanner'),
+      title: 'Cook Together',
+      detail: 'Cook with your kids and build connection.',
+      onPress: () => navigation.navigate('CookTogether'),
     },
     {
       key: 'bond',
