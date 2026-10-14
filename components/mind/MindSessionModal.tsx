@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -11,22 +11,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useJournalEntries } from '../../hooks/useJournalEntries';
 import { colors } from '../../theme';
 
-export type MindSessionKind = 'reset' | 'reflection';
-
 type MindSessionModalProps = {
-  kind: MindSessionKind;
   onClose: () => void;
   onWriteToJournal: () => void;
 };
-
-// Provisional copy lives here so client-approved replacements do not change the flow.
-const RESET_STEPS = [
-  { title: 'Settle', instruction: 'Take a moment to settle. Let your breathing slow at a comfortable pace.' },
-  { title: 'Release tension', instruction: 'Notice any physical tension. If it feels comfortable, relax your shoulders, jaw and hands.' },
-  { title: 'Ground yourself', instruction: 'Notice what you can see, hear and feel around you.' },
-  { title: 'Name what is here', instruction: 'Name what is taking up your attention, without judging it.' },
-  { title: 'Choose one next step', instruction: 'Choose one small thing you can do next.' },
-] as const;
 
 const WEEKLY_REFLECTION_PROMPTS = [
   { day: 'Sunday', prompts: [
@@ -80,33 +68,22 @@ const WEEKLY_REFLECTION_PROMPTS = [
   ] },
 ] as const;
 
-export default function MindSessionModal({ kind, onClose, onWriteToJournal }: MindSessionModalProps) {
+export default function MindSessionModal({ onClose, onWriteToJournal }: MindSessionModalProps) {
   const { user } = useAuth();
   const journal = useJournalEntries(user?.id);
   const reflectionSet = WEEKLY_REFLECTION_PROMPTS[new Date().getDay()];
   const reflectionPrompts = reflectionSet.prompts;
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [resetStarted, setResetStarted] = useState(false);
   const [promptIndex, setPromptIndex] = useState(0);
   const [answers, setAnswers] = useState<string[]>(() => reflectionPrompts.map(() => ''));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isReset = kind === 'reset';
-  const resetStepIndex = Math.min(Math.floor(elapsedSeconds / 60), RESET_STEPS.length - 1);
-  const resetComplete = elapsedSeconds >= 5 * 60;
   const reflectionComplete = promptIndex === reflectionPrompts.length;
   const hasReflectionAnswer = answers.some((answer) => answer.trim().length > 0);
   const reflectionContent = useMemo(() => reflectionPrompts
     .map((prompt, index) => answers[index].trim() ? `${prompt}\n${answers[index].trim()}` : null)
     .filter((answer): answer is string => Boolean(answer))
     .join('\n\n'), [answers, reflectionPrompts]);
-
-  useEffect(() => {
-    if (!isReset || !resetStarted || resetComplete) return;
-    const timer = setInterval(() => setElapsedSeconds((seconds) => Math.min(seconds + 1, 5 * 60)), 1000);
-    return () => clearInterval(timer);
-  }, [isReset, resetStarted, resetComplete]);
 
   const saveReflection = async () => {
     if (!user?.id) {
@@ -140,38 +117,14 @@ export default function MindSessionModal({ kind, onClose, onWriteToJournal }: Mi
 
         <View className="gap-sm">
           <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
-          {isReset ? '5 minutes' : `10 minutes · ${reflectionSet.day}`}
+          {`10 minutes · ${reflectionSet.day}`}
           </Text>
           <Text className="font-heading text-white text-[38px] leading-[40px] uppercase">
-            {isReset ? 'Reset exercise' : 'Guided reflection'}
+            Guided reflection
           </Text>
         </View>
 
-        {isReset ? (
-          <View className="flex-1 justify-center gap-xl">
-            <View className="rounded-button border border-lime/25 bg-lime/5 p-lg gap-md">
-              <Text className="font-heading-bold text-lime text-[12px] tracking-label uppercase">
-                {`${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, '0')} / 5:00`}
-              </Text>
-              <Text className="font-heading-bold text-white text-[24px] uppercase">{RESET_STEPS[resetStepIndex].title}</Text>
-              <Text className="font-body text-muted-text text-[16px] leading-[24px]">{RESET_STEPS[resetStepIndex].instruction}</Text>
-              <View className="h-[4px] overflow-hidden rounded-full bg-white/10">
-                <View className="h-full rounded-full bg-lime" style={{ width: `${(elapsedSeconds / 300) * 100}%` }} />
-              </View>
-            </View>
-            {!resetStarted ? (
-              <LimeButton label="Begin reset" onPress={() => setResetStarted(true)} />
-            ) : resetComplete ? (
-              <View className="gap-md">
-                <LimeButton label="Done" onPress={onClose} />
-                <SecondaryAction label="Write it down" onPress={onWriteToJournal} />
-              </View>
-            ) : (
-              <Text accessibilityLiveRegion="polite" className="font-body text-tertiary-text text-[13px] text-center">Stay with this step until the next minute.</Text>
-            )}
-          </View>
-        ) : (
-          <View className="flex-1 gap-lg">
+        <View className="flex-1 gap-lg">
             {!reflectionComplete ? (
               <View className="flex-1 gap-lg">
                 <View className="flex-row items-center justify-between">
@@ -212,8 +165,7 @@ export default function MindSessionModal({ kind, onClose, onWriteToJournal }: Mi
                 </View>
               </View>
             )}
-          </View>
-        )}
+        </View>
         </ScrollView>
       </SafeAreaView>
     </Modal>

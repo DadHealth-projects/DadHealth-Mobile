@@ -39,7 +39,7 @@ export type WeeklyReportSource = {
 
 const ACTION_FOCUS = {
   checkin: 'Check in with yourself',
-  mind_breathing: 'Take a two-minute Mind reset',
+  mind_breathing: 'Take a five-minute Mind Reset',
   body_workout: 'Move your body',
   bond_present_mode: 'Make time to connect',
 } as const;

@@ -11,6 +11,8 @@ import PillarScoreRow from '../components/dashboard/PillarScoreRow';
 import PillarScreen from '../components/PillarScreen';
 import PillarSkeleton from '../components/skeleton/PillarSkeleton';
 import ProUpgradeSection from '../components/ProUpgradeSection';
+import BodyProLockedCard from '../components/body/BodyProLockedCard';
+import ProBadge from '../components/dashboard/ProBadge';
 import ScreenHero from '../components/mockup/ScreenHero';
 import SectionHeader from '../components/dashboard/SectionHeader';
 import StatCard from '../components/dashboard/StatCard';
@@ -173,7 +175,13 @@ export default function FitnessScreen({
         )}
       </FadeInView>
 
-      <PillarScoreRow pillar="Body" score={data?.bodyScore ?? null} trend={data?.bodyWeekChange ?? null} scoreUnavailable={Boolean(data?.scoreError)} />
+      <PillarScoreRow
+        pillar="Body"
+        score={data?.bodyScore ?? null}
+        trend={data?.bodyWeekChange ?? null}
+        scoreUnavailable={Boolean(data?.scoreError)}
+        baselineBuilding={Boolean(data && !data.scoreError && !data.baselineAvailable)}
+      />
       <ManualActivitySection pillar="body" userId={user?.id} />
 
       <FadeInView delay={90}>
@@ -317,44 +325,68 @@ export default function FitnessScreen({
 
       {standalone ? (
         <FadeInView delay={190}>
-          <FlatSection className="gap-md">
-            <View className="flex-row items-start justify-between gap-md">
-              <View className="flex-1">
-                <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
-                  AI workout
-                </Text>
-                <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">
-                  Built around your day
-                </Text>
-                <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
-                  Choose your time, equipment and focus. Generate a workout you can start immediately.
-                </Text>
+          {fitnessLibrary.isPro ? (
+            <FlatSection className="gap-md">
+              <View className="flex-row items-start justify-between gap-md">
+                <View className="flex-1">
+                  <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
+                    AI workout
+                  </Text>
+                  <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">
+                    Built around your day
+                  </Text>
+                  <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
+                    Choose your time, equipment and focus. Generate a workout you can start immediately.
+                  </Text>
+                </View>
+                <ProBadge />
               </View>
-              <TagPill label={fitnessLibrary.isPro ? 'Unlimited' : '3 free / month'} />
-            </View>
-            <LimeButton
-              label={generatedWorkout ? 'View workout' : 'Generate workout'}
-              onPress={openAIWorkout}
+              <LimeButton
+                label={generatedWorkout ? 'View workout' : 'Generate workout'}
+                onPress={openAIWorkout}
+              />
+            </FlatSection>
+          ) : (
+            <BodyProLockedCard
+              eyebrow="AI Workout"
+              title="Built around your day."
+              description="Choose your time, equipment and focus. Generate a workout you can start immediately."
+              preview={require('../assets/body-ai-workout-blurred-preview.png')}
+              previewLabel="Blurred preview of Pro AI workout features"
+              buttonLabel="Unlock AI workouts →"
+              onUnlock={() => navigation.navigate('ProSubscription')}
             />
-          </FlatSection>
+          )}
         </FadeInView>
       ) : null}
 
       {standalone ? (
         <FadeInView delay={225}>
-          <FlatSection className="gap-md">
-            <View className="flex-row items-start justify-between gap-md">
-              <View className="flex-1">
-                <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Meal planner</Text>
-                <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">Eat like you train</Text>
-                <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
-                  A personalised 5-day plan with recipes, macros and a shopping list — built around your goals.
-                </Text>
+          {fitnessLibrary.isPro ? (
+            <FlatSection className="gap-md">
+              <View className="flex-row items-start justify-between gap-md">
+                <View className="flex-1">
+                  <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Meal planner</Text>
+                  <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">Eat like you train</Text>
+                  <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
+                    A personalised 5-day plan with recipes, macros and a shopping list — built around your goals.
+                  </Text>
+                </View>
+                <ProBadge />
               </View>
-              <TagPill label={fitnessLibrary.isPro ? 'Pro' : 'Preview'} />
-            </View>
-            <LimeButton label="Open meal planner" onPress={openMealPlanner} />
-          </FlatSection>
+              <LimeButton label="Open meal planner" onPress={openMealPlanner} />
+            </FlatSection>
+          ) : (
+            <BodyProLockedCard
+              eyebrow="Meal Planner"
+              title="Eat like you train."
+              description="A personalised 5-day plan with recipes, macros and a shopping list — built around your goals."
+              preview={require('../assets/body-meal-planner-blurred-preview.png')}
+              previewLabel="Blurred decorative day-of-meals preview"
+              buttonLabel="Unlock meal planner →"
+              onUnlock={() => navigation.navigate('ProSubscription')}
+            />
+          )}
         </FadeInView>
       ) : null}
 

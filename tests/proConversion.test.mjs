@@ -60,7 +60,7 @@ test('approved conversion entry points use the existing Pro prompt', async () =>
   assert.ok(scoreDetails.includes('PRO_MOMENTS.score'));
 });
 
-test('Moment 2 gives a free recommendation before it mentions Pro', async () => {
+test('Moment 2 keeps free recommendation and Build My Plan Pro row', async () => {
   const [advice, followUp, dashboard] = await Promise.all([
     source('lib/checkInRecommendation.ts'),
     source('components/dashboard/CheckInFollowUp.tsx'),
@@ -69,11 +69,13 @@ test('Moment 2 gives a free recommendation before it mentions Pro', async () => 
 
   assert.ok(advice.includes("state: \"You're feeling stressed today.\""));
   assert.ok(advice.includes('stressLevel >= 4'));
-  assert.ok(followUp.indexOf('advice.recommendation') < followUp.indexOf("isPro ? 'Build my plan' : 'See what Pro can do'"));
-  assert.ok(followUp.includes("isPro ? 'Build my plan' : 'See what Pro can do'"));
-  assert.ok(followUp.includes('{!isPro ? ('));
-  assert.ok(followUp.includes('accessibilityLabel="Pro feature"'));
-  assert.ok(followUp.includes('>PRO</Text>'));
+  assert.ok(followUp.indexOf('advice.recommendation') < followUp.indexOf('Build my plan'));
+  assert.ok(followUp.includes('min-h-[48px] w-full items-center justify-center rounded-[7px] bg-lime'));
+  assert.ok(followUp.includes('min-h-[60px] flex-row items-center justify-between'));
+  assert.ok(followUp.indexOf('onAction(advice.action)') < followUp.indexOf('onPlan'));
+  assert.ok(followUp.includes("isPro ? 'Build my plan' : 'Build my plan with Dad Health Pro'"));
+  assert.ok(followUp.includes('!isPro ? <ProBadge /> : null'));
+  assert.ok(followUp.includes('A plan around your mood and score.'));
   assert.ok(dashboard.includes('<CheckInFollowUp'));
   assert.ok(dashboard.includes('isPro={data.isPro}'));
   assert.ok(dashboard.includes("setProPrompt('checkIn')"));
@@ -204,7 +206,23 @@ test('streak protection keeps its approved presentation and uses server-owned st
   assert.doesNotMatch(sync, /countStreakDays/);
   assert.doesNotMatch(sync, /from\('user_streaks'\)[\s\S]{0,180}\.upsert/);
   assert.ok(card.includes('Streak protected'));
-  assert.ok(card.includes('Protect my streak'));
+  assert.ok(card.includes('Freeze your streak once a week'));
+  assert.ok(card.includes('!isPro && onUpgrade'));
+  assert.ok(card.includes('<ProBadge />'));
+});
+
+test('Today Build My Plan and streak rows share one lock Pro badge', async () => {
+  const [plan, streak, badge] = await Promise.all([
+    source('components/dashboard/CheckInFollowUp.tsx'),
+    source('components/dashboard/StreakCard.tsx'),
+    source('components/dashboard/ProBadge.tsx'),
+  ]);
+  assert.ok(plan.includes("import ProBadge from './ProBadge'"));
+  assert.ok(streak.includes("import ProBadge from './ProBadge'"));
+  assert.ok(badge.includes('name="lock"'));
+  assert.ok(badge.includes('accessibilityLabel="Pro feature"'));
+  assert.ok(plan.includes("borderStyle: 'dotted'"));
+  assert.ok(streak.includes("borderStyle: 'dotted'"));
 });
 
 test('Share Report remains available to Free without including Pro monthly report details', async () => {

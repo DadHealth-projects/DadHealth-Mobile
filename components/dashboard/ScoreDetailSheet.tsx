@@ -17,13 +17,14 @@ type Props = {
   onClose: () => void;
   score: number | null;
   scoreUnavailable?: boolean;
+  baselineBuilding?: boolean;
   items: ScoreItem[];
   isPro: boolean;
   userId: string;
   onUpgrade: () => void;
 };
 
-export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavailable = false, items, isPro, userId, onUpgrade }: Props) {
+export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavailable = false, baselineBuilding = false, items, isPro, userId, onUpgrade }: Props) {
   const sheetUserId = visible ? userId : undefined;
   const report = useProgressReport(sheetUserId, isPro);
   const badgeData = useProgressBadges(sheetUserId);
@@ -72,7 +73,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-lg pb-xl gap-lg">
-            <DadScoreCard score={score} scoreUnavailable={scoreUnavailable} items={items} title="Dad Health Score" scoreLabel="of 100" compactBottom />
+            <DadScoreCard score={score} scoreUnavailable={scoreUnavailable} baselineBuilding={baselineBuilding} items={items} title="Dad Health Score" scoreLabel="of 100" compactBottom />
 
             <View>
               <SectionHeader title="What feeds each pillar" className="mb-sm" />

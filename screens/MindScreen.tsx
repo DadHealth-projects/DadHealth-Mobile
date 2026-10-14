@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 
 import type { DashboardSection } from '../components/AccountSheet';
 import FadeInView from '../components/FadeInView';
@@ -12,18 +12,17 @@ import MoodWeekCard from '../components/dashboard/MoodWeekCard';
 import ManualActivitySection from '../components/manualActivities/ManualActivitySection';
 import PillarScoreRow from '../components/dashboard/PillarScoreRow';
 import SectionHeader from '../components/dashboard/SectionHeader';
-import MindSessionModal, { type MindSessionKind } from '../components/mind/MindSessionModal';
+import MindSessionModal from '../components/mind/MindSessionModal';
 import PersonalisedMindPlanSheet from '../components/mind/PersonalisedMindPlanSheet';
+import MindPlanLockedCard from '../components/mind/MindPlanLockedCard';
 import StatTile from '../components/mockup/StatTile';
 import PillarScreen from '../components/PillarScreen';
 import PillarSkeleton from '../components/skeleton/PillarSkeleton';
-import ProUpgradeSection from '../components/ProUpgradeSection';
 import ScreenHero from '../components/mockup/ScreenHero';
 import { useAuth } from '../contexts/AuthContext';
 import { useNetworkStatus } from '../contexts/NetworkContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { useProgressSleep } from '../hooks/useProgressSleep';
-import { PRO_LOCKS } from '../lib/proMoments';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 import { colors } from '../theme';
 import { STATS_EXTENDED } from '../lib/homeContent';
@@ -55,7 +54,7 @@ export default function MindScreen({
   const sleepInsights = useProgressSleep(user?.id, data?.isPro === true);
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [mindSession, setMindSession] = useState<MindSessionKind | null>(null);
+  const [showReflection, setShowReflection] = useState(false);
   const [mindPlanOpen, setMindPlanOpen] = useState(false);
 
   const hasUser = Boolean(user?.id);
@@ -77,13 +76,12 @@ export default function MindScreen({
   );
   const moodSummary = useMemo(() => getMoodSummary(moodWeek, Boolean(data)), [moodWeek, data]);
 
-  if (mindSession) {
+  if (showReflection) {
     return (
       <MindSessionModal
-        kind={mindSession}
-        onClose={() => setMindSession(null)}
+        onClose={() => setShowReflection(false)}
         onWriteToJournal={() => {
-          setMindSession(null);
+          setShowReflection(false);
           navigation.navigate('Journal');
         }}
       />
@@ -132,27 +130,19 @@ export default function MindScreen({
         <View className="gap-sm">
           <MindFeatureRow
             icon="wind"
-            eyebrow="2 minutes"
-            title="4-4-4 Breathing"
-            description="Inhale 4. Hold 4. Exhale 4."
-            onPress={() => navigation.navigate('BreathingSession')}
-            accessibilityLabel="Open 4-4-4 breathing session"
-            featured
-          />
-          <MindFeatureRow
-            icon="refresh-cw"
             eyebrow="5 minutes"
-            title="Reset exercise"
-            description="A short, guided reset at your own pace."
-            onPress={() => setMindSession('reset')}
-            accessibilityLabel="Start the five-minute reset exercise"
+            title="Mind Reset"
+            description="One minute of 4-4-4 breathing, then four minutes of guided reset."
+            onPress={() => navigation.navigate('BreathingSession')}
+            accessibilityLabel="Start the five-minute Mind Reset"
+            featured
           />
           <MindFeatureRow
             icon="book-open"
             eyebrow="10 minutes"
             title="Guided reflection"
             description="Step through a few prompts and write what feels useful."
-            onPress={() => setMindSession('reflection')}
+            onPress={() => setShowReflection(true)}
             accessibilityLabel="Start the ten-minute guided reflection"
           />
           <MindFeatureRow
@@ -199,10 +189,8 @@ export default function MindScreen({
               <Text className="font-heading-bold text-lime text-[11px] uppercase">Open plan</Text>
             </Pressable>
           ) : (
-            <ProUpgradeSection
-              moment={PRO_LOCKS.mindPlan}
-              onPress={() => navigation.navigate('ProSubscription')}
-              size="sm"
+            <MindPlanLockedCard
+              onUnlock={() => navigation.navigate('ProSubscription')}
             />
           )}
         </FadeInView>
@@ -234,29 +222,52 @@ export default function MindScreen({
 
       {user ? (
         <FadeInView delay={270}>
-          <View className="gap-md border-b border-border pb-lg">
-            <SectionHeader title="Mood correlation" caption="Pattern spotted" />
-            {data?.isPro ? (
+          {data?.isPro ? (
+            <View className="gap-md border-b border-border pb-lg">
+              <SectionHeader title="Mood correlation" caption="Pattern spotted" />
               <Text className="font-body text-muted-text text-[14px] leading-[21px]">{sleepInsights.pattern}</Text>
-            ) : (
+            </View>
+          ) : (
+            <View className="border-b border-border pb-lg">
               <Pressable
                 onPress={() => navigation.navigate('ProSubscription')}
                 accessibilityRole="button"
-                accessibilityLabel="Unlock mood correlation and pattern insights with Pro"
-                className="flex-row items-center justify-between rounded-button border border-border bg-card px-md py-md active:opacity-75"
+                accessibilityLabel="View mood trends with Pro"
+                className="gap-md rounded-button border border-lime/40 bg-card p-md active:opacity-75"
               >
-                <View className="flex-1 gap-xs">
-                  <Text className="font-heading-bold text-white text-[15px] uppercase">Pattern spotted</Text>
-                  <Text className="font-body text-muted-text text-[12px] leading-[18px]">See how your mood and sleep patterns connect with Pro.</Text>
+                <View className="flex-row items-start justify-between gap-sm">
+                  <View className="flex-1 gap-xs">
+                    <Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">Mood trend</Text>
+                    <Text className="font-heading text-white text-[20px] leading-[23px] uppercase">See your patterns</Text>
+                  </View>
+                  <View
+                    accessible
+                    accessibilityLabel="Pro feature"
+                    className="min-h-[22px] flex-row items-center gap-[4px] rounded-full bg-lime px-sm"
+                  >
+                    <MaterialCommunityIcons name="crown" size={12} color={colors.dark} />
+                    <Text className="font-heading-bold text-dark text-[9px] tracking-[0.5px] uppercase">Pro</Text>
+                  </View>
                 </View>
-                <Feather name="lock" size={18} color={colors.lime} />
+                <Text className="font-body text-muted-text text-[12px] leading-[18px]">
+                  Your mood over 4 weeks, and what moves it.
+                </Text>
+                <View className="min-h-[38px] items-center justify-center rounded-button border border-lime px-md">
+                  <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">View my trends →</Text>
+                </View>
               </Pressable>
-            )}
-          </View>
+            </View>
+          )}
         </FadeInView>
       ) : null}
 
-      <PillarScoreRow pillar="Mind" score={data?.mindScore ?? null} trend={data?.mindWeekChange ?? null} scoreUnavailable={Boolean(data?.scoreError)} />
+      <PillarScoreRow
+        pillar="Mind"
+        score={data?.mindScore ?? null}
+        trend={data?.mindWeekChange ?? null}
+        scoreUnavailable={Boolean(data?.scoreError)}
+        baselineBuilding={Boolean(data && !data.scoreError && !data.baselineAvailable)}
+      />
       <ManualActivitySection pillar="mind" userId={user?.id} />
 
       <FadeInView delay={300}>

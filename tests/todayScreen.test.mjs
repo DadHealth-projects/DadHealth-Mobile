@@ -119,7 +119,8 @@ test('lowest-pillar focus uses approved tie order and existing destinations', as
   assert.ok(screen.includes("navigation.navigate('BreathingSession')"));
   assert.ok(screen.includes("navigation.navigate('ActiveWorkout'"));
   assert.ok(screen.includes("navigation.navigate('Tabs', { screen: 'Bond' })"));
-  assert.ok(screen.includes("actionLabel: 'Start breathing'"));
+  assert.ok(screen.includes("actionLabel: 'Start five-minute reset'"));
+  assert.ok(screen.includes("title: 'Take a five-minute reset'"));
   assert.ok(screen.includes("actionLabel: 'Start workout'"));
   assert.ok(screen.includes("actionLabel: 'Open Present Dad Mode'"));
 });

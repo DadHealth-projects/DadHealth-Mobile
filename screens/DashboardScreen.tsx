@@ -316,9 +316,9 @@ export function DashboardScreenContent({
       icon: 'check-circle' as const,
     };
     if (todayFocus === 'mind') return {
-      title: 'Take a two-minute reset',
-      description: 'Slow your breathing and give your mind a moment to settle.',
-      actionLabel: 'Start breathing',
+      title: 'Take a five-minute reset',
+      description: 'Start with one minute of 4-4-4 breathing, then continue into the guided reset.',
+      actionLabel: 'Start five-minute reset',
       icon: 'wind' as const,
     };
     if (todayFocus === 'body') return {
@@ -475,6 +475,7 @@ export function DashboardScreenContent({
                   <DadScoreCard
                     score={score}
                     scoreUnavailable={Boolean(data.scoreError)}
+                    baselineBuilding={!data.scoreError && !data.baselineAvailable}
                     items={scoreItems}
                     title="Dad Health Score"
                     scoreLabel="of 100"
@@ -588,6 +589,7 @@ export function DashboardScreenContent({
                 onClose={closeScoreSheet}
                 score={score}
                 scoreUnavailable={Boolean(data.scoreError)}
+                baselineBuilding={!data.scoreError && !data.baselineAvailable}
                 items={scoreDetailItems}
                 isPro={data.isPro}
                 userId={user.id}

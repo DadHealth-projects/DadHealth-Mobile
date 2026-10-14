@@ -206,8 +206,7 @@ Mind is action-first.
 
 Current approved experience includes:
 
-- 2-minute 4-4-4 breathing
-- 5-minute Reset
+- 5-minute Mind Reset: 1 minute of 4-4-4 breathing, then 4 minutes of guided Reset
 - 10-minute Guided Reflection
 - Journal
 - therapist directory

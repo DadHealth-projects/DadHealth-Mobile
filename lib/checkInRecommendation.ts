@@ -30,8 +30,8 @@ export function checkInRecommendation(
   if (stressLevel !== null && stressLevel >= 4) {
     return {
       state: "You're feeling stressed today.",
-      recommendation: 'Take a two-minute 4-4-4 breathing reset before anything else.',
-      actionLabel: 'Start breathing',
+      recommendation: 'Take a five-minute Mind Reset before anything else.',
+      actionLabel: 'Start Mind Reset',
       action: 'breathing',
     };
   }
@@ -48,8 +48,8 @@ export function checkInRecommendation(
   if (stressLevel !== null && stressLevel === 3) {
     return {
       state: "You're carrying some tension today.",
-      recommendation: 'A two-minute breathing reset will take the edge off.',
-      actionLabel: 'Start breathing',
+      recommendation: 'A five-minute Mind Reset will give you space to settle.',
+      actionLabel: 'Start Mind Reset',
       action: 'breathing',
     };
   }

@@ -89,6 +89,7 @@ export type DashboardData = {
   mindWeekChange: number | null;
   bodyWeekChange: number | null;
   bondWeekChange: number | null;
+  baselineAvailable: boolean;
   scoreError: string | null;
   totalScore: number | null;
   weakestPillar: 'mind' | 'body' | 'bond' | null;
@@ -243,7 +244,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     postsResult,
   ] = await Promise.all([
     supabase.from('user_profile').select('display_name,goals,is_pro,subscription_status').eq('user_id', userId).maybeSingle(),
-    supabase.from('dad_score_view').select('mind_score,body_score,bond_score,mind_week_change,body_week_change,bond_week_change,total_score,weakest_pillar,recommended_action').eq('user_id', userId).maybeSingle(),
+    supabase.from('dad_score_view').select('mind_score,body_score,bond_score,mind_week_change,body_week_change,bond_week_change,total_score,weakest_pillar,recommended_action,baseline_available').eq('user_id', userId).maybeSingle(),
     supabase.from('mood_logs').select('date,mood_value,mood_scale_version,stress_level').eq('user_id', userId).gte('date', weekStart).order('date'),
     supabase
       .from('weekly_challenges')
@@ -448,6 +449,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     mindWeekChange: nullableScore(scoresResult.data?.mind_week_change),
     bodyWeekChange: nullableScore(scoresResult.data?.body_week_change),
     bondWeekChange: nullableScore(scoresResult.data?.bond_week_change),
+    baselineAvailable: scoresResult.data?.baseline_available === true,
     totalScore: nullableScore(scoresResult.data?.total_score),
     weakestPillar: scoresResult.data?.weakest_pillar === 'mind' || scoresResult.data?.weakest_pillar === 'body' || scoresResult.data?.weakest_pillar === 'bond'
       ? scoresResult.data.weakest_pillar

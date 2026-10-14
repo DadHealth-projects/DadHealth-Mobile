@@ -11,7 +11,7 @@ test('Mind shows facts and sleep after the feeling description, keeps weekly moo
   const description = source.indexOf('Opening up about feelings');
   const statistics = source.indexOf('<StatTile value="1 in 8"');
   const sleep = source.indexOf('title="Sleep quality this week"');
-  const breathing = source.indexOf('title="4-4-4 Breathing"');
+  const mindReset = source.indexOf('title="Mind Reset"');
   const journal = source.indexOf('title="Journal"');
   const therapist = source.indexOf('title="Find a therapist"');
   const community = source.indexOf('title="Community"');
@@ -22,8 +22,8 @@ test('Mind shows facts and sleep after the feeling description, keeps weekly moo
   assert.ok(feeling < description);
   assert.ok(description < statistics);
   assert.ok(statistics < sleep);
-  assert.ok(sleep < breathing);
-  assert.ok(breathing < journal);
+  assert.ok(sleep < mindReset);
+  assert.ok(mindReset < journal);
   assert.ok(journal < therapist);
   assert.ok(therapist < community);
   assert.ok(community < mood);
@@ -33,7 +33,7 @@ test('Mind shows facts and sleep after the feeling description, keeps weekly moo
 test('Mind keeps the existing action routes', async () => {
   const source = await readFile(new URL('screens/MindScreen.tsx', root), 'utf8');
 
-  assert.match(source, /eyebrow="2 minutes"[\s\S]*?navigate\('BreathingSession'\)/);
+  assert.match(source, /eyebrow="5 minutes"[\s\S]*?title="Mind Reset"[\s\S]*?navigate\('BreathingSession'\)/);
   assert.match(source, /eyebrow="Private journal"[\s\S]*?navigate\('Journal'\)/);
   assert.match(source, /eyebrow="Talk to someone"[\s\S]*?navigate\('TherapistDirectory'\)/);
   assert.match(source, /eyebrow="I just need to talk"[\s\S]*?navigate\('CommunityFeed'\)/);
@@ -64,7 +64,11 @@ test('weekly sleep and mood correlation use Monday-Sunday keys and normalize leg
 test('Free sees a locked preview for mood correlation and Pro sees the pattern', async () => {
   const source = await readFile(new URL('screens/MindScreen.tsx', root), 'utf8');
   assert.match(source, /data\?\.isPro \? \([\s\S]*?sleepInsights\.pattern/);
-  assert.match(source, /Unlock mood correlation and pattern insights with Pro/);
+  assert.match(source, /Mood trend/);
+  assert.match(source, /See your patterns/);
+  assert.match(source, /Your mood over 4 weeks, and what moves it\./);
+  assert.match(source, /View my trends/);
+  assert.match(source, /name="crown"/);
 });
 
 test('Mind offers the Pro personalised plan without gating the free actions', async () => {

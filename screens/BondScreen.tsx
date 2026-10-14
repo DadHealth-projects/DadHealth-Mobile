@@ -65,8 +65,13 @@ export default function BondScreen({
       </FadeInView>
 
       <FadeInView delay={90}>
-        <BondScoreCard score={bondScore} trend={data?.bondWeekChange ?? null} scoreUnavailable={Boolean(data?.scoreError)} />
-        {!data?.scoreError && (bondScore == null || bondScore === 0) ? (
+        <BondScoreCard
+          score={bondScore}
+          trend={data?.bondWeekChange ?? null}
+          scoreUnavailable={Boolean(data?.scoreError)}
+          baselineBuilding={Boolean(data && !data.scoreError && !data.baselineAvailable)}
+        />
+        {!data?.scoreError && data?.baselineAvailable && (bondScore == null || bondScore === 0) ? (
           <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
             Log a Bond activity below to start contributing to your score.
           </Text>

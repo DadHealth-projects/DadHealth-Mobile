@@ -3,6 +3,7 @@ import { Feather } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
 
 import { colors } from '../../theme';
+import ProBadge from './ProBadge';
 
 /**
  * The streak is the primary habit mechanic (brief Change 02, position 6).
@@ -33,7 +34,12 @@ function StreakCard({
           <Feather name="zap" size={25} color={colors.dark} />
         </View>
         <View className="flex-1">
-          <Text className="font-heading-bold text-white text-[25px] leading-[27px] uppercase">
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+            className="font-heading-bold text-white text-[25px] leading-[27px] uppercase"
+          >
             {count > 0 ? `${count}-day streak` : 'Start your streak'}
           </Text>
           <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">
@@ -52,19 +58,22 @@ function StreakCard({
           </Text>
         </View>
       ) : !isPro && onUpgrade ? (
-        <View className="gap-sm">
-          <Text className="font-body text-tertiary-text text-[12px] leading-[18px]">
-            Pro members keep their streak through one missed day.
+        <Pressable
+          onPress={onUpgrade}
+          accessibilityRole="button"
+          accessibilityLabel="Freeze your streak once a week with Dad Health Pro"
+          className="min-h-[44px] flex-row items-center justify-between gap-sm rounded-[8px] bg-card px-md active:opacity-70"
+          style={{
+            borderWidth: 1,
+            borderStyle: 'dotted',
+            borderColor: 'rgba(200,245,90,0.45)',
+          }}
+        >
+          <Text className="flex-1 font-heading-bold text-white text-[10px] tracking-label uppercase">
+            Freeze your streak once a week
           </Text>
-          <Pressable
-            onPress={onUpgrade}
-            accessibilityRole="button"
-            accessibilityLabel="Protect my streak with Dad Health Pro"
-            className="min-h-[44px] self-start justify-center border-b border-lime active:opacity-70"
-          >
-            <Text className="font-heading-bold text-lime text-[11px] uppercase">Protect my streak</Text>
-          </Pressable>
-        </View>
+          <ProBadge />
+        </Pressable>
       ) : null}
     </View>
   );

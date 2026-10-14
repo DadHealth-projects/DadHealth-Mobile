@@ -18,6 +18,7 @@ type DadScoreCardProps = {
   title?: string;
   scoreLabel?: string;
   scoreUnavailable?: boolean;
+  baselineBuilding?: boolean;
   ring?: boolean;
   missingScore?: number | string;
   lockedLabel?: string;
@@ -36,6 +37,7 @@ function DadScoreCard({
   title = "This week's health",
   scoreLabel = 'Dad Score',
   scoreUnavailable = false,
+  baselineBuilding = false,
   ring = true,
   missingScore = 0,
   lockedLabel,
@@ -53,7 +55,7 @@ function DadScoreCard({
         {ring ? (
           <View className="h-[100px] w-[100px] rounded-full border-[5px] border-dark items-center justify-center">
             <Text className="font-heading text-dark text-[40px] leading-[40px]">
-              {lockedValues ? <Feather name="lock" size={22} color="#080808" /> : scoreUnavailable ? '—' : score ?? missingScore}
+              {lockedValues ? <Feather name="lock" size={22} color="#080808" /> : scoreUnavailable ? '—' : baselineBuilding ? <Text className="font-heading text-dark/45 text-[30px] leading-[34px] text-center">·</Text> : score ?? missingScore}
             </Text>
 
             <Text className="font-heading-bold text-dark/50 text-[9px] tracking-[1.5px] uppercase">
@@ -63,7 +65,7 @@ function DadScoreCard({
         ) : (
           <View>
             <Text className="font-heading text-dark text-[56px] leading-[52px]">
-              {lockedValues ? <Feather name="lock" size={28} color="#080808" /> : scoreUnavailable ? '—' : score ?? missingScore}
+              {lockedValues ? <Feather name="lock" size={28} color="#080808" /> : scoreUnavailable ? '—' : baselineBuilding ? <Text className="font-heading text-dark/45 text-[34px] leading-[38px] text-center">·</Text> : score ?? missingScore}
             </Text>
             <Text className="font-heading-bold text-dark/50 text-[10px] tracking-[1.5px] uppercase">
               {scoreLabel}
@@ -89,12 +91,13 @@ function DadScoreCard({
 
           {items.map((item) => {
             const trend = formatScoreTrend(item.trend);
-            const showTrend = item.trend != null || item.showNeutralTrend;
+            const showTrend = !baselineBuilding && (item.trend != null || item.showNeutralTrend);
+            const showWarning = !baselineBuilding && item.warning;
             return (
             <View
               key={item.label}
-              className={`mb-sm rounded-[7px] ${item.warning ? 'px-sm py-xs' : ''}`}
-              style={item.warning ? { backgroundColor: 'rgba(184, 74, 66, 0.2)' } : undefined}
+              className={`mb-sm rounded-[7px] ${showWarning ? 'px-sm py-xs' : ''}`}
+              style={showWarning ? { backgroundColor: 'rgba(184, 74, 66, 0.2)' } : undefined}
             >
               <View className="flex-row justify-between mb-[3px]">
                 <Text className="font-heading-bold text-dark/60 text-[10px] uppercase tracking-[0.5px]">
@@ -105,6 +108,10 @@ function DadScoreCard({
                   <Feather name="lock" size={11} color="#080808" />
                 ) : scoreUnavailable ? (
                   <Text className="font-heading-bold text-dark/60 text-[10px]">—</Text>
+                ) : baselineBuilding ? (
+                  <View className="h-[14px] w-[14px] items-center justify-center">
+                    <Text className="font-heading-bold text-dark/40 text-[16px] leading-[14px] text-center">·</Text>
+                  </View>
                 ) : item.value === null ? (
                   missingItemValue ? (
                     <Text className="font-heading-bold text-dark/60 text-[10px]">{missingItemValue}</Text>
@@ -125,7 +132,7 @@ function DadScoreCard({
                 )}
               </View>
 
-              <View className="h-[5px] rounded-full bg-dark/10 overflow-hidden">
+              {!baselineBuilding ? <View className="h-[5px] rounded-full bg-dark/10 overflow-hidden">
                 {item.value !== null && !scoreUnavailable ? (
                   <View
                     className="h-full rounded-full bg-dark"
@@ -134,7 +141,7 @@ function DadScoreCard({
                     }}
                   />
                 ) : null}
-              </View>
+              </View> : null}
             </View>
           );})}
             </>
@@ -145,6 +152,11 @@ function DadScoreCard({
       {scoreUnavailable ? (
         <Text accessibilityLiveRegion="polite" className="font-body text-dark/60 text-[11px] mt-sm text-center">
           Dad Health Score unavailable. Pull to refresh.
+        </Text>
+      ) : null}
+      {!scoreUnavailable && baselineBuilding ? (
+        <Text accessibilityLiveRegion="polite" className="font-heading-bold text-dark/70 text-[11px] tracking-label uppercase mt-sm text-center">
+          Building first 7 day trend
         </Text>
       ) : null}
 

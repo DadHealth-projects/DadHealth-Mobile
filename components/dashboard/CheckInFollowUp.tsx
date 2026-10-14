@@ -1,8 +1,8 @@
 import React, { memo, useMemo } from 'react';
-import { Feather } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
 
 import { checkInRecommendation, type CheckInAction } from '../../lib/checkInRecommendation';
+import ProBadge from './ProBadge';
 
 /**
  * Moment 2 — what a dad sees straight after the daily check-in: one free
@@ -40,39 +40,38 @@ function CheckInFollowUp({
           </Text>
         </View>
 
-        <View className="flex-row items-center justify-between">
+        <View className="gap-sm">
           <Pressable
             onPress={() => onAction(advice.action)}
             accessibilityRole="button"
             accessibilityLabel={advice.actionLabel}
-            className="min-h-[44px] justify-center active:opacity-70"
+            className="min-h-[48px] w-full items-center justify-center rounded-[7px] bg-lime px-md active:opacity-80"
           >
-            <Text className="font-heading-bold text-lime text-[11px] uppercase underline decoration-lime">
+            <Text className="font-heading-bold text-dark text-[11px] tracking-label uppercase">
               {advice.actionLabel}
             </Text>
           </Pressable>
-          <View className="flex-row items-center gap-xs">
-            <Pressable
-              onPress={onPlan}
-              accessibilityRole="button"
-              accessibilityLabel={isPro ? 'Build my plan' : 'See what Pro can do'}
-              className="min-h-[44px] justify-center active:opacity-70"
-            >
-              <Text className="font-heading-bold text-lime text-[11px] uppercase text-right underline decoration-lime">
-                {isPro ? 'Build my plan' : 'See what Pro can do'}
+          <Pressable
+            onPress={onPlan}
+            accessibilityRole="button"
+            accessibilityLabel={isPro ? 'Build my plan' : 'Build my plan with Dad Health Pro'}
+            className="min-h-[60px] flex-row items-center justify-between gap-md rounded-[8px] bg-[#111214] px-md active:opacity-70"
+            style={{
+              borderWidth: 1,
+              borderStyle: 'dotted',
+              borderColor: 'rgba(200,245,90,0.45)',
+            }}
+          >
+            <View className="flex-1">
+              <Text className="font-heading-bold text-white text-[12px] uppercase">
+                Build my plan
               </Text>
-            </Pressable>
-            {!isPro ? (
-              <View
-                accessible
-                accessibilityLabel="Pro feature"
-                className="flex-row items-center gap-[3px] rounded-full bg-lime px-xs py-[3px]"
-              >
-                <Feather name="lock" size={9} color="#0A0A0A" />
-                <Text className="font-heading-bold text-dark text-[8px] uppercase">PRO</Text>
-              </View>
-            ) : null}
-          </View>
+              <Text className="font-body text-muted-text text-[10px] leading-[14px] mt-[3px]">
+                A plan around your mood and score.
+              </Text>
+            </View>
+            {!isPro ? <ProBadge /> : null}
+          </Pressable>
         </View>
       </View>
     </View>

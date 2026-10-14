@@ -1,5 +1,13 @@
-import React, { memo } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+
+import React, { memo, useEffect, useRef } from 'react';
+import {
+  Animated,
+  Easing,
+  Modal,
+  Pressable,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
@@ -15,11 +23,6 @@ type ProPromptModalProps = {
   lead?: string | null;
 };
 
-/**
- * Lightweight, dismissible conversion prompt. Feature screens keep their Free
- * action in focus and open this only when the user asks for Pro or reaches a
- * real Free limit.
- */
 function ProPromptModal({
   visible,
   moment,
@@ -27,22 +30,69 @@ function ProPromptModal({
   onDismiss,
   lead,
 }: ProPromptModalProps) {
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const sheetTranslateY = useRef(new Animated.Value(60)).current;
+
+  useEffect(() => {
+    if (visible) {
+      backdropOpacity.setValue(0);
+      sheetTranslateY.setValue(60);
+
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(sheetTranslateY, {
+          toValue: 0,
+          duration: 280,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible, backdropOpacity, sheetTranslateY]);
+
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="none"
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={onDismiss}
     >
       <View className="flex-1 justify-end">
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+            backgroundColor: 'rgba(0,0,0,0.65)',
+            opacity: backdropOpacity,
+          }}
+        />
+
         <Pressable
           onPress={onDismiss}
           accessibilityRole="button"
           accessibilityLabel="Dismiss Dad Health Pro"
-          className="absolute inset-0 bg-black/75"
+          className="absolute inset-0"
         />
-        <SafeAreaView edges={['bottom']} className="border-t border-lime/30 bg-dark px-lg pt-lg">
+
+        <Animated.View
+          style={{
+            transform: [{ translateY: sheetTranslateY }],
+          }}
+        >
+          <SafeAreaView
+            edges={['bottom']}
+            className="rounded-t-[28px] bg-dark px-lg pt-lg"
+          >
             <View className="gap-lg pb-lg">
               <View className="flex-row items-start justify-between gap-md">
                 <View className="flex-1">
@@ -53,6 +103,7 @@ function ProPromptModal({
                     {moment.heading}
                   </Text>
                 </View>
+
                 <Pressable
                   onPress={onDismiss}
                   accessibilityRole="button"
@@ -65,22 +116,29 @@ function ProPromptModal({
               </View>
 
               {lead ? (
-                <Text className="font-body text-white text-[13px] leading-[20px]">{lead}</Text>
+                <Text className="font-body text-white text-[13px] leading-[20px]">
+                  {lead}
+                </Text>
               ) : null}
+
               <Text className="font-body text-muted-text text-[13px] leading-[20px]">
                 {moment.body}
               </Text>
 
               <LimeButton label={moment.cta} onPress={onUpgrade} />
+
               <Pressable
                 onPress={onDismiss}
                 accessibilityRole="button"
                 className="min-h-[44px] items-center justify-center active:opacity-70"
               >
-                <Text className="font-heading-bold text-muted-text text-[11px] uppercase">Not now</Text>
+                <Text className="font-heading-bold text-muted-text text-[11px] uppercase">
+                  Not now
+                </Text>
               </Pressable>
             </View>
-        </SafeAreaView>
+          </SafeAreaView>
+        </Animated.View>
       </View>
     </Modal>
   );
