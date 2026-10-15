@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Keyboard, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, AppState, Keyboard, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import * as SecureStore from 'expo-secure-store';
@@ -68,6 +68,7 @@ export default function DadDaysSearchScreen() {
   const [saveError, setSaveError] = useState<{ name: string; message: string } | null>(null);
   const [openFilter, setOpenFilter] = useState<'budget' | 'radius' | 'age' | null>(null);
   const [proPromptMoment, setProPromptMoment] = useState<'dadDays' | 'dadDaysCounter' | null>(null);
+  const accessRequestId = useRef(0);
 
   useEffect(() => {
     void SecureStore.getItemAsync(RADIUS_KEY).then((saved) => {
@@ -76,6 +77,7 @@ export default function DadDaysSearchScreen() {
   }, []);
 
   const loadAccess = useCallback(async () => {
+    const requestId = ++accessRequestId.current;
     if (!user?.id || !session?.access_token || isOffline) {
       setAccessReady(false);
       return;
@@ -88,6 +90,7 @@ export default function DadDaysSearchScreen() {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       const body = await response.json() as { isPro?: boolean; searchesUsed?: number | null; childAge?: string | null };
+      if (requestId !== accessRequestId.current) return;
       if (!response.ok || typeof body.isPro !== 'boolean') throw new Error('allowance_unavailable');
 
       setIsPro(body.isPro);
@@ -97,11 +100,29 @@ export default function DadDaysSearchScreen() {
       }
       setAccessReady(true);
     } catch {
-      setSearchError('We could not load your Dad Days allowance. Please try again.');
+      if (requestId === accessRequestId.current) setSearchError('We could not load your Dad Days allowance. Please try again.');
     }
   }, [isOffline, session?.access_token, user?.id]);
 
-  useEffect(() => { void loadAccess(); }, [loadAccess]);
+  useFocusEffect(useCallback(() => {
+    void loadAccess();
+  }, [loadAccess]));
+
+  useEffect(() => {
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && previousState !== 'active') {
+        setAccessReady(false);
+        if (!isOffline) void loadAccess();
+        else accessRequestId.current += 1;
+      }
+      previousState = nextState;
+    });
+    return () => {
+      accessRequestId.current += 1;
+      subscription.remove();
+    };
+  }, [isOffline, loadAccess]);
 
   const useLocation = useCallback(async () => {
     if (locating) return;

@@ -18,7 +18,6 @@ import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { useDashboard } from '../../hooks/useDashboard';
 import { trackEvent } from '../../lib/analytics';
 import { PRO_LOCKS } from '../../lib/proMoments';
-import { loadNativeSubscriptionStatus } from '../../lib/nativeSubscriptions';
 import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -36,7 +35,6 @@ export default function MilestoneTrackerScreen() {
   const { isOffline, showOfflineAction } = useNetworkStatus();
   const { data: dashboardData, refresh: refreshDashboard } = useDashboard(user?.id);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
-  const [isPro, setIsPro] = useState(false);
   const [loading, setLoading] = useState(Boolean(user));
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -55,15 +53,12 @@ export default function MilestoneTrackerScreen() {
     if (!user?.id) { setLoading(false); return; }
     if (isOffline) { setLoading(false); return; }
     setLoading(true);
-    const [subscriptionStatus, milestoneResult, storageResult] = await Promise.all([
-      loadNativeSubscriptionStatus().catch(() => null),
+    const [milestoneResult, storageResult] = await Promise.all([
       supabase.from('milestones').select('id,date,text,tag,photo_url').eq('user_id', user.id).order('date', { ascending: false }),
       supabase.storage.from('milestone-photos').list(user.id, { limit: 1000 }),
     ]);
     if (milestoneResult.error) setFormError('We could not load your milestones. Please try again.');
     else {
-      setIsPro(subscriptionStatus?.isPro === true);
-      if (!subscriptionStatus) setFormError('We could not confirm your Dad Health Pro access. Please try again.');
       setMilestones((milestoneResult.data ?? []) as Milestone[]);
       setStorageBytes((storageResult.data ?? []).reduce((sum, item) => sum + (Number(item.metadata?.size) || 0), 0));
     }
@@ -191,7 +186,8 @@ export default function MilestoneTrackerScreen() {
   }, [isOffline, refresh, refreshDashboard, session?.access_token, showOfflineAction]);
 
   const nearLimit = storageBytes >= STORAGE_WARNING;
-  const effectiveIsPro = isPro || dashboardData?.isPro === true;
+  const effectiveIsPro = dashboardData?.isPro === true;
+  const entitlementKnown = dashboardData?.isPro !== null && dashboardData !== null;
   const dateLabel = useMemo(() => date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }), [date]);
 
   return <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}><ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerClassName="px-lg pt-lg pb-xl gap-xl"><AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} /><ScreenHero eyebrow="Milestone tracker" headline={'Moments worth\nremembering'} sub="Log the moments that matter." />
@@ -205,7 +201,7 @@ export default function MilestoneTrackerScreen() {
           : <LimeButton label={editingId ? 'Update milestone' : 'Save milestone'} onPress={() => void saveMilestone()} loading={saving} disabled={!note.trim()} />}
       </View>
       {/* Logging milestones is free; photos and insights are the Pro layer. */}
-      {!effectiveIsPro ? <ProUpgradeSection moment={PRO_LOCKS.milestonePhotos} onPress={() => navigation.navigate('ProSubscription')} size="sm" /> : null}
+      {!effectiveIsPro && entitlementKnown ? <ProUpgradeSection moment={PRO_LOCKS.milestonePhotos} onPress={() => navigation.navigate('ProSubscription')} size="sm" /> : null}
       {nearLimit ? <View className="border border-lime/30 bg-lime/10 p-md"><Text className="font-body text-tertiary-text text-[12px]">Photo storage: {formatStorage(storageBytes)} of {formatStorage(STORAGE_LIMIT)}.</Text></View> : null}
       <View className="gap-sm"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Your milestones</Text>{milestones.length === 0 ? <Text className="font-body text-muted-text text-[13px]">No milestones yet.</Text> : milestones.map((milestone) => <View key={milestone.id} className="border-b border-border py-md gap-sm">{milestone.photo_url ? <Pressable onPress={() => setSelectedPhoto(milestone.photo_url)}><Image source={{ uri: milestone.photo_url }} className="h-[170px] w-full rounded-button" resizeMode="cover" /></Pressable> : null}<View className="flex-row gap-md"><View className="rounded-[4px] bg-lime px-sm py-xs self-start"><Text className="font-heading-bold text-dark text-[10px] uppercase">{formatMilestoneDate(milestone.date)}</Text></View><View className="flex-1"><Text className="font-body text-muted-text text-[14px] leading-[20px]">{milestone.text}</Text><Text className="font-heading-bold text-tertiary-text text-[10px] uppercase mt-xs">{milestone.tag}</Text></View></View><View className="flex-row flex-wrap gap-md"><Pressable onPress={() => setSelectedMilestone(milestone)}><Text className="font-heading-bold text-lime text-[11px] uppercase">View</Text></Pressable><Pressable onPress={() => editMilestone(milestone)} disabled={photoTarget === milestone.id}><Text className="font-heading-bold text-lime text-[11px] uppercase">Edit</Text></Pressable><Pressable onPress={() => deleteMilestone(milestone)} disabled={photoTarget === milestone.id}><Text className="font-heading-bold text-red-300 text-[11px] uppercase">Delete</Text></Pressable>{effectiveIsPro ? <Pressable onPress={() => void pickPhoto(milestone.id)} disabled={photoTarget === milestone.id}><Text className="font-heading-bold text-lime text-[11px] uppercase">{milestone.photo_url ? 'Replace photo' : 'Add photo'}</Text></Pressable> : null}{effectiveIsPro && milestone.photo_url ? <Pressable onPress={() => removePhoto(milestone)} disabled={photoTarget === milestone.id}><Text className="font-heading-bold text-red-300 text-[11px] uppercase">Remove photo</Text></Pressable> : null}</View></View>)}</View>
     </View>}
