@@ -149,7 +149,7 @@ export default function AIWorkoutScreen() {
                 Set the session constraints before generating.
               </Text>
             </View>
-            <TagPill label={library.isPro ? 'Unlimited' : '3 free / month'} tone="outline" />
+            <TagPill label={library.isPro === true ? 'Unlimited' : library.isPro === false ? '3 free / month' : 'Checking access'} tone="outline" />
           </View>
           <View className="flex-row border-y border-border">
             <DropdownTrigger

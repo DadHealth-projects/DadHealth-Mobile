@@ -65,7 +65,8 @@ export default function MealPlannerScreen() {
   const generate = useCallback(async () => {
     setError(null);
     if (!session?.access_token) return openLogin();
-    if (!library.isPro) return openPro();
+    if (library.isPro === false) return openPro();
+    if (library.isPro !== true) return;
     if (isOffline) { showOfflineAction('meal_plan'); return; }
 
     setGenerating(true);
@@ -141,10 +142,10 @@ export default function MealPlannerScreen() {
 
         <View className="gap-sm">
           <InlineFormError message={isOffline ? null : error} />
-          {!user ? <LimeButton label="Log in to generate" onPress={openLogin} /> : library.loading ? <LimeButton label="Loading meal planner" loading /> : !library.isPro ? <ProUpgradeSection moment={PRO_LOCKS.mealPlanner} onPress={openPro} /> : <LimeButton label={generatedPlan ? 'Regenerate meal plan' : 'Generate meal plan'} onPress={() => void generate()} loading={generating} />}
+          {!user ? <LimeButton label="Log in to generate" onPress={openLogin} /> : library.loading ? <LimeButton label="Loading meal planner" loading /> : library.isPro === false ? <ProUpgradeSection moment={PRO_LOCKS.mealPlanner} onPress={openPro} /> : library.isPro === true ? <LimeButton label={generatedPlan ? 'Regenerate meal plan' : 'Generate meal plan'} onPress={() => void generate()} loading={generating} /> : <Text className="font-body text-muted-text text-[12px]">Dad Health Pro access is being checked.</Text>}
         </View>
 
-        {generatedPlan && displayedDay ? (
+        {library.isPro === true && generatedPlan && displayedDay ? (
           <View className="gap-lg border-t border-border pt-lg">
             <View className="flex-row items-center justify-between gap-sm"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Your new plan</Text><TagPill label={`${generatedPlan.plan.length} days`} tone="outline" /></View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-sm">
@@ -163,7 +164,7 @@ export default function MealPlannerScreen() {
             </View>
             {grocerySections.length ? <View className="gap-md"><Text className="font-heading text-white text-[28px] uppercase">Shopping list</Text>{grocerySections.map((section) => <View key={section.category} className="border-b border-border pb-md"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">{section.category}</Text><Text className="font-body text-tertiary-text text-[13px] leading-[20px] mt-xs">{section.items.join(', ')}</Text></View>)}</View> : null}
           </View>
-        ) : user && library.isPro ? <Text className="font-body text-muted-text text-[13px] leading-[19px]">Your plan will appear here after you generate it.</Text> : null}
+        ) : user && library.isPro === true ? <Text className="font-body text-muted-text text-[13px] leading-[19px]">Your plan will appear here after you generate it.</Text> : null}
       </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
