@@ -51,6 +51,7 @@ export default function ManualActivityHistoryScreen() {
   const pillar: ManualActivityPillar = route.params.pillar;
   const { activities, loading, error } = useManualActivityHistory(user?.id, pillar);
   const isPro = data?.isPro === true;
+  const entitlementKnown = data?.isPro !== null && data !== null;
   const [points, setPoints] = useState<TrendPoint[]>([]);
   const [trendLoading, setTrendLoading] = useState(false);
   const [trendError, setTrendError] = useState(false);
@@ -117,13 +118,17 @@ export default function ManualActivityHistoryScreen() {
               <ActivityTrendChart values={values} labels={labels} />
             ) : <Text className="font-body text-muted-text text-[12px]">Your weekly trend will appear as you log activities.</Text>}
           </View>
-        ) : user ? (
+        ) : user && entitlementKnown ? (
           <ProLockedPreview
             lock={PRO_MOMENTS.progressTrends}
             onPress={() => navigation.navigate('ProSubscription')}
           >
             <ActivityTrendChart values={[]} labels={['W1', 'W2', 'W3', 'W4']} locked />
           </ProLockedPreview>
+        ) : user ? (
+          <View className="gap-sm border-b border-border pb-lg">
+            <Text className="font-body text-muted-text text-[13px]">Checking Dad Health Pro access.</Text>
+          </View>
         ) : (
           <View className="gap-sm border-b border-border pb-lg">
             <Text className="font-body text-muted-text text-[13px]">Sign in to see your saved activity history and Pro trend preview.</Text>
