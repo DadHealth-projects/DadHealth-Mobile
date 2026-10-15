@@ -17,12 +17,12 @@ function WeeklyReportCard({
   error = false,
 }: {
   report: WeeklyReport | null;
-  isPro: boolean;
+  isPro: boolean | null;
   onUpgrade: () => void;
   loading?: boolean;
   error?: boolean;
 }) {
-  if (!isPro) {
+  if (isPro === false) {
     return (
       <View>
         <SectionHeader title="Your week in Dad Health" className="mb-md" />
@@ -49,7 +49,9 @@ function WeeklyReportCard({
     <View>
       <SectionHeader title="Your week in Dad Health" className="mb-md" />
       <View className="border-b border-border pb-lg">
-        {loading ? (
+        {isPro === null ? (
+          <Text className="font-body text-muted-text text-[12px]">Checking Dad Health Pro access.</Text>
+        ) : loading ? (
           <Text className="font-body text-muted-text text-[12px]">Preparing your weekly report…</Text>
         ) : error ? (
           <Text className="font-body text-muted-text text-[12px]">Your weekly report is unavailable right now. Please try again.</Text>

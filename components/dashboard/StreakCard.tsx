@@ -14,13 +14,13 @@ import ProBadge from './ProBadge';
  */
 function StreakCard({
   streak,
-  isPro = false,
+  isPro = null,
   freezeUsedThisWeek = null,
   freezesRemaining = null,
   onUpgrade,
 }: {
   streak: number | null;
-  isPro?: boolean;
+  isPro?: boolean | null;
   freezeUsedThisWeek?: boolean | null;
   freezesRemaining?: number | null;
   onUpgrade?: () => void;
@@ -48,7 +48,7 @@ function StreakCard({
         </View>
       </View>
 
-      {isPro && freezeUsedThisWeek !== null && freezesRemaining !== null ? (
+      {isPro === true && freezeUsedThisWeek !== null && freezesRemaining !== null ? (
         <View className="flex-row items-center gap-sm">
           <Feather name="shield" size={14} color={colors.lime} />
           <Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">
@@ -57,7 +57,7 @@ function StreakCard({
               : `Streak protected · ${freezesRemaining} ${freezesRemaining === 1 ? 'freeze' : 'freezes'} left this week`}
           </Text>
         </View>
-      ) : !isPro && onUpgrade ? (
+      ) : isPro === false && onUpgrade ? (
         <Pressable
           onPress={onUpgrade}
           accessibilityRole="button"
