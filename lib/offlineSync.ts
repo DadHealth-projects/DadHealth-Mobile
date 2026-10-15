@@ -36,6 +36,13 @@ export function isRetryableOfflineError(error: unknown) {
     || ['network', 'fetch', 'timeout', 'connection', 'offline'].some((word) => message.includes(word));
 }
 
+export class PartialDailyCheckInSaveError extends Error {
+  constructor(public readonly saveError: unknown) {
+    super('checkin_saved_sleep_failed');
+    this.name = 'PartialDailyCheckInSaveError';
+  }
+}
+
 function assertDailyCheckIn(item: OfflineDailyCheckInItem) {
   const { date, moodValue, stressLevel, energyLevel, connectionLevel, sleepHours } = item.payload;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('invalid_checkin_date');
@@ -137,7 +144,13 @@ export async function persistDailyCheckIn(item: OfflineDailyCheckInItem) {
     }
   }
 
-  if (sleepHours != null) await saveManualSleep(item.userId, date, sleepHours);
+  if (sleepHours != null) {
+    try {
+      await saveManualSleep(item.userId, date, sleepHours);
+    } catch (error) {
+      throw new PartialDailyCheckInSaveError(error);
+    }
+  }
 }
 
 export async function persistJournalEntry(item: OfflineJournalCreateItem) {
