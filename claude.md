@@ -468,3 +468,18 @@ When a later approved decision supersedes an existing rule:
 - keep this document concise.
 
 Completed/frozen milestone areas remain frozen until an explicitly approved task changes them.
+
+# Phase 4 Milestone 2 progress
+
+## Completed
+- Daily check-in: approved Mind, Body and Bond responses, preserved 1–5 mapping, faster save confirmation, duplicate-submit protection, refresh race protection, offline behavior, and compact low-answer support recommendations.
+- Mind: four Free Quick Fixes; temporary local Voice Note; Brain Dump with optional Journal save; native Text a Mate composer; Shoulders/Jaw Reset; Journal Write freely and Guide me modes with check-in prompts; existing history and offline saves retained.
+- Pro presentation: corrected entitlement-state handling and removed upgrade prompts for confirmed Pro users. Existing purchase verification remains authoritative.
+- Weekly Challenge: mobile rejects stale challenge responses across routes/users. Admin blocks editing or republishing challenges with participation history; new weekly publication uses a new challenge row. Existing history remains intact.
+
+## Pending
+- Weekly Challenge fix requires web deployment and a fresh challenge publication. Live-device resolution remains unverified.
+- Website logo metadata change requires website deployment; Safari may retain cached previews.
+- Final 60/40 scoring formula and approved backend migration; remaining Body and Bond work; weekly Free workout and recipe selection; remaining Pro entitlement and cancellation requirements; Jamie review of draft Journal prompts and Text a Mate copy; other unfinished October Milestone 2 items.
+
+Completed work remains protected. Do not mark pending work complete. Preserve existing instructions and require explicit approval before reopening completed work.
