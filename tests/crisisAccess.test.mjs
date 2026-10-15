@@ -27,11 +27,15 @@ test('global floating crisis button is unmounted and absent from app screens', a
 });
 
 test('Mind has one accessible 44pt urgent-help link with a separate call action', async () => {
-  const mind = await readFile(new URL('screens/MindScreen.tsx', root), 'utf8');
+  const [mind, helper] = await Promise.all([
+    readFile(new URL('screens/MindScreen.tsx', root), 'utf8'),
+    readFile(new URL('lib/crisisSupport.ts', root), 'utf8'),
+  ]);
   assert.equal((mind.match(/accessibilityLabel="Need urgent help\?"/g) ?? []).length, 1);
   assert.match(mind, /accessibilityHint=.*Opens Samaritans support details/);
   assert.match(mind, /min-h-\[44px\]/);
-  assert.match(mind, /Alert\.alert\(\s*'Need urgent help\?'[\s\S]*?crisisSupportPhoneDisplay\(\)[\s\S]*?\{ text: 'Not now', style: 'cancel' \}[\s\S]*?\{ text: 'Call Samaritans', onPress: \(\) => void openCrisisSupport\(\) \}/);
+  assert.match(mind, /onPress=\{showCrisisSupportDetails\}/);
+  assert.match(helper, /Alert\.alert\(\s*'Need urgent help\?'[\s\S]*?crisisSupportPhoneDisplay\(\)[\s\S]*?\{ text: 'Not now', style: 'cancel' \}[\s\S]*?\{ text: 'Call Samaritans', onPress: \(\) => void openCrisisSupport\(\) \}/);
   assert.doesNotMatch(mind, /CrisisSupportRow|CrisisSupportCard|Crisis Support|Linking\.openURL/);
 });
 
