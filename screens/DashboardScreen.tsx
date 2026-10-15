@@ -39,8 +39,10 @@ import { CAPS } from '../lib/dashboardCaps';
 import {
   getDashboardScore,
   getScoreBreakdown,
+  toLocalDateKey,
 } from '../lib/dashboard.utils';
 import type { CheckInAction } from '../lib/checkInRecommendation';
+import { showCrisisSupportDetails } from '../lib/crisisSupport';
 import { PRO_MOMENTS } from '../lib/proMoments';
 import { greetingFirstName } from '../lib/userDisplay';
 import { isWeeklyReportDay } from '../lib/weeklyReport';
@@ -230,14 +232,13 @@ export function DashboardScreenContent({
       return;
     }
     const result = await saveCheckIn(moodValue, energyLevel, connectionLevel, sleepHours);
+    if (result.inFlight) return;
     if (result.error) setCheckInError(result.error);
     else if (result.queued) {
-      setCheckInMessage("Saved — will sync when you're back online. Once synced, this check-in contributes to your Mind score.");
+      setCheckInMessage("Saved on this device. It will sync when you're back online. Your Mind, Body and Bond answers are saved.");
       setShowCheckInSuccess(true);
     } else {
-      setCheckInMessage(result.mindScore == null
-        ? 'Check-in saved. This check-in contributes to your Mind score.'
-        : `Check-in saved. Your Mind score is now ${Math.round(result.mindScore)}.`);
+      setCheckInMessage(result.warning ?? 'Check-in saved for Mind, Body and Bond.');
       setShowCheckInSuccess(true);
     }
   }, [connectionLevel, energyLevel, moodValue, saveCheckIn, sleep]);
@@ -254,19 +255,29 @@ export function DashboardScreenContent({
   const showWeeklyReport = isWeeklyReportDay();
   const { report: weeklyReport, loading: weeklyReportLoading, error: weeklyReportError } = useWeeklyReport(user?.id, data?.isPro === true, showWeeklyReport);
 
-  // Read today's persisted Mood and legacy Stress for the follow-up fallback.
+  // Read today's persisted pillar answers and legacy Stress for follow-up.
   const checkedInMood = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = toLocalDateKey(new Date());
     return data?.moodLogs.find((log) => log.date === today)?.mood_value ?? moodValue;
   }, [data?.moodLogs, moodValue]);
+  const checkedInEnergy = useMemo(() => {
+    const today = toLocalDateKey(new Date());
+    return data?.moodLogs.find((log) => log.date === today)?.energy_level ?? energyLevel;
+  }, [data?.moodLogs, energyLevel]);
+  const checkedInConnection = useMemo(() => {
+    const today = toLocalDateKey(new Date());
+    return data?.moodLogs.find((log) => log.date === today)?.connection_level ?? connectionLevel;
+  }, [connectionLevel, data?.moodLogs]);
   const checkedInStress = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = toLocalDateKey(new Date());
     return data?.moodLogs.find((log) => log.date === today)?.stress_level ?? null;
   }, [data?.moodLogs]);
 
   const openCheckInAction = useCallback((action: CheckInAction) => {
     if (action === 'breathing') navigation.navigate('BreathingSession');
     else if (action === 'journal') navigation.navigate('Journal');
+    else if (action === 'body') navigation.navigate('Tabs', { screen: 'Fit' });
+    else if (action === 'support') showCrisisSupportDetails();
     else navigation.navigate('Tabs', { screen: 'Bond' });
   }, [navigation]);
 
@@ -292,8 +303,8 @@ export function DashboardScreenContent({
   }, [activeSection, onSelectSection]);
 
   const openCheckInPlan = useCallback(() => {
-    if (data?.isPro) navigation.navigate('Tabs', { screen: 'Mind' });
-    else setProPrompt('checkIn');
+    if (data?.isPro === false) setProPrompt('checkIn');
+    else navigation.navigate('Tabs', { screen: 'Mind' });
   }, [data?.isPro, navigation]);
 
   const openFocus = useCallback(() => {
@@ -311,7 +322,7 @@ export function DashboardScreenContent({
   const focusContent = useMemo(() => {
     if (todayFocus === 'checkin') return {
       title: 'Check in with yourself',
-      description: "Answer today's three questions and see how they shape your Mind score.",
+      description: "Answer today's Mind, Body and Bond questions.",
       actionLabel: 'Check in now',
       icon: 'check-circle' as const,
     };
@@ -442,7 +453,7 @@ export function DashboardScreenContent({
                   />
                   <View onLayout={captureCheckInOffset} className="bg-lime rounded-card px-xl py-xl mt-lg">
                     <Text className="font-heading-bold text-dark text-[22px] uppercase mb-xs">Today's check-in</Text>
-                    <Text className="font-body text-dark/60 text-[13px] leading-[18px] mb-lg">Three quick questions about how you are doing today.</Text>
+                    <Text className="font-body text-dark/60 text-[13px] leading-[18px] mb-lg">One question for your Mind, Body and Bond.</Text>
                     <CheckInPanel
                       selectedKey={moodKey}
                       onSelectMood={handleSelectMood}
@@ -479,7 +490,7 @@ export function DashboardScreenContent({
                     items={scoreItems}
                     title="Dad Health Score"
                     scoreLabel="of 100"
-                    proTease={!data.isPro ? 'Unlock my insights' : undefined}
+                    proTease={data.isPro === false ? 'Unlock my insights' : undefined}
                     compactBottom
                   />
                   <Pressable
@@ -497,7 +508,7 @@ export function DashboardScreenContent({
                   <Text className="font-heading-bold text-dark text-[22px] uppercase mb-xs">Today's check-in</Text>
                   {!data.checkedInToday && !showCheckInSuccess ? (
                     <>
-                      <Text className="font-body text-dark/60 text-[13px] leading-[18px] mb-lg">Three quick questions about how you are doing today.</Text>
+                      <Text className="font-body text-dark/60 text-[13px] leading-[18px] mb-lg">One question for your Mind, Body and Bond.</Text>
                     <CheckInPanel
                       selectedKey={moodKey}
                       onSelectMood={handleSelectMood}
@@ -518,7 +529,7 @@ export function DashboardScreenContent({
                       <View className="flex-1">
                         <Text className="font-heading-bold text-dark text-[16px] uppercase">Check-in complete</Text>
                         <Text accessibilityLiveRegion="polite" className="font-body text-dark/65 text-[13px] leading-[19px] mt-xs">
-                          {checkInMessage ?? `Your check-in feeds into your Mind score${data.mindScore == null ? '.' : `, now ${Math.round(data.mindScore)}.`}`}
+                          {checkInMessage ?? 'Your check-in is saved for Mind, Body and Bond.'}
                         </Text>
                       </View>
                     </View>
@@ -532,6 +543,8 @@ export function DashboardScreenContent({
                   <CheckInFollowUp
                     moodValue={checkedInMood}
                     stressLevel={checkedInStress}
+                    energyLevel={checkedInEnergy}
+                    connectionLevel={checkedInConnection}
                     isPro={data.isPro}
                     onAction={openCheckInAction}
                     onPlan={openCheckInPlan}
@@ -591,7 +604,8 @@ export function DashboardScreenContent({
                 scoreUnavailable={Boolean(data.scoreError)}
                 baselineBuilding={!data.scoreError && !data.baselineAvailable}
                 items={scoreDetailItems}
-                isPro={data.isPro}
+                isPro={data.isPro === true}
+                entitlementKnown={data.isPro !== null}
                 userId={user.id}
                 onUpgrade={openPro}
               />

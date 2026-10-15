@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Crypto from 'expo-crypto';
 
 import { useNetworkStatus } from '../contexts/NetworkContext';
@@ -9,7 +11,7 @@ import {
   writeDashboardCache,
   type OfflineDailyCheckInItem,
 } from '../lib/offlineStorage';
-import { isRetryableOfflineError, persistDailyCheckIn } from '../lib/offlineSync';
+import { isRetryableOfflineError, PartialDailyCheckInSaveError, persistDailyCheckIn } from '../lib/offlineSync';
 import { supabase } from '../lib/supabase';
 import { loadNativeSubscriptionStatus } from '../lib/nativeSubscriptions';
 import { getCurrentWeekDayKeys, toLocalDateKey } from '../lib/dashboard.utils';
@@ -94,7 +96,13 @@ export type DashboardData = {
   totalScore: number | null;
   weakestPillar: 'mind' | 'body' | 'bond' | null;
   recommendedAction: 'checkin' | 'mind_breathing' | 'body_workout' | 'bond_present_mode' | null;
-  moodLogs: Array<{ date: string; mood_value: number; stress_level: number | null }>;
+  moodLogs: Array<{
+    date: string;
+    mood_value: number;
+    stress_level: number | null;
+    energy_level?: number | null;
+    connection_level?: number | null;
+  }>;
   checkedInToday: boolean;
   reminders: Reminder[];
   challenge: {
@@ -110,7 +118,8 @@ export type DashboardData = {
   freezeUsedThisWeek?: boolean | null;
   freezesRemaining?: number | null;
   /** Canonical Pro access from the authenticated subscription-status API. */
-  isPro: boolean;
+  /** Null means authenticated subscription status is not currently confirmed. */
+  isPro: boolean | null;
 
   // ── Fitness (web dashboardPreview/FitnessScreen.tsx) ──
   monthWorkouts: number;
@@ -138,7 +147,11 @@ export type DashboardData = {
 
 type DashboardError = { code?: string; message?: string; details?: string; hint?: string };
 
-const todayKey = () => new Date().toISOString().slice(0, 10);
+const todayKey = () => toLocalDateKey(new Date());
+
+function logCheckInTiming(stage: string, startedAt: number) {
+  if (__DEV__) console.info(`[check-in-timing] ${stage}: ${Date.now() - startedAt}ms`);
+}
 
 function errorDetails(error: unknown): DashboardError {
   return typeof error === 'object' && error !== null ? error as DashboardError : {};
@@ -245,7 +258,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
   ] = await Promise.all([
     supabase.from('user_profile').select('display_name,goals,is_pro,subscription_status').eq('user_id', userId).maybeSingle(),
     supabase.from('dad_score_view').select('mind_score,body_score,bond_score,mind_week_change,body_week_change,bond_week_change,total_score,weakest_pillar,recommended_action,baseline_available').eq('user_id', userId).maybeSingle(),
-    supabase.from('mood_logs').select('date,mood_value,mood_scale_version,stress_level').eq('user_id', userId).gte('date', weekStart).order('date'),
+    supabase.from('mood_logs').select('date,mood_value,mood_scale_version,stress_level,energy_level,connection_level').eq('user_id', userId).gte('date', weekStart).order('date'),
     supabase
       .from('weekly_challenges')
       .select('id,title,description,participants_count')
@@ -290,6 +303,8 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     date: log.date,
     mood_value: log.mood_scale_version === 1 ? log.mood_value : log.mood_value + 1,
     stress_level: log.stress_level ?? null,
+    energy_level: log.energy_level ?? null,
+    connection_level: log.connection_level ?? null,
   }));
 
   // Prefer the `reminders` table (web's source). If the table is missing or the
@@ -472,7 +487,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     freezesRemaining: typeof subscriptionStatus?.freezesRemaining === 'number'
       ? subscriptionStatus.freezesRemaining
       : null,
-    isPro: subscriptionStatus?.isPro === true,
+    isPro: subscriptionStatus ? subscriptionStatus.isPro === true : null,
 
     monthWorkouts,
     weightDisplay,
@@ -541,6 +556,7 @@ async function runFetch(userId: string): Promise<void> {
           data: {
             ...cached,
             moodLogs,
+            isPro: null,
             checkedInToday: moodLogs.some((log) => log.date === todayKey()),
             freezeUsedThisWeek: null,
             freezesRemaining: null,
@@ -568,6 +584,7 @@ async function hydrateDashboardCache(userId: string, clearWhenMissing: boolean):
         data: {
           ...cached,
           moodLogs,
+          isPro: null,
           checkedInToday: moodLogs.some((log) => log.date === todayKey()),
           freezeUsedThisWeek: null,
           freezesRemaining: null,
@@ -616,7 +633,21 @@ function loadDashboard(userId: string): Promise<void> {
   return request;
 }
 
+function markDashboardEntitlementUnknown(userId: string): void {
+  if (store.userId !== userId || !store.data) return;
+  if (store.data.isPro === null && store.data.freezeUsedThisWeek === null && store.data.freezesRemaining === null) return;
+  setStore({
+    data: {
+      ...store.data,
+      isPro: null,
+      freezeUsedThisWeek: null,
+      freezesRemaining: null,
+    },
+  });
+}
+
 export function refreshDashboardForUser(userId: string): Promise<void> {
+  markDashboardEntitlementUnknown(userId);
   return refreshAfterInFlight(inFlightByUser, userId, loadDashboard);
 }
 
@@ -624,6 +655,16 @@ export function useDashboard(userId: string | undefined) {
   const { isOffline } = useNetworkStatus();
   const [snapshot, setSnapshot] = useState<StoreState>(store);
   const [checkingIn, setCheckingIn] = useState(false);
+  const checkInLock = useRef(false);
+  const hasFocused = useRef(false);
+
+  useFocusEffect(useCallback(() => {
+    if (!hasFocused.current) {
+      hasFocused.current = true;
+      return;
+    }
+    if (userId && !isOffline) void refreshDashboardForUser(userId);
+  }, [isOffline, userId]));
 
   useEffect(() => {
     const listener = () => setSnapshot(store);
@@ -643,6 +684,7 @@ export function useDashboard(userId: string | undefined) {
       return;
     }
     if (isOffline) {
+      markDashboardEntitlementUnknown(userId);
       if (store.userId !== userId || (!store.data && !store.loading)) {
         void loadDashboardCacheOnly(userId);
       }
@@ -652,7 +694,20 @@ export function useDashboard(userId: string | undefined) {
       void loadDashboard(userId);
       return;
     }
-    if (!store.data && !store.loading) void loadDashboard(userId);
+    if ((!store.data || store.data.isPro === null) && !store.loading) void loadDashboard(userId);
+  }, [isOffline, userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && previousState !== 'active') {
+        markDashboardEntitlementUnknown(userId);
+        if (!isOffline) void refreshDashboardForUser(userId);
+      }
+      previousState = nextState;
+    });
+    return () => subscription.remove();
   }, [isOffline, userId]);
 
   useEffect(() => subscribeOfflineSync((event) => {
@@ -660,7 +715,8 @@ export function useDashboard(userId: string | undefined) {
     if (event.status === 'failed') setStore({ syncError: event.message ?? 'Your saved check-in could not be synced.' });
     if (event.status === 'synced') {
       setStore({ syncError: null });
-      if (userId) void loadDashboard(userId);
+      if (userId && event.kind === 'daily_checkin') void refreshDashboardForUser(userId);
+      else if (userId) void loadDashboard(userId);
     }
   }), [userId]);
 
@@ -684,14 +740,17 @@ export function useDashboard(userId: string | undefined) {
     energyLevel: number,
     connectionLevel: number,
     sleepHours: number | null,
-  ): Promise<{ error: string | null; queued?: boolean; mindScore?: number | null }> => {
+  ): Promise<{ error: string | null; queued?: boolean; warning?: string; inFlight?: boolean }> => {
     if (!userId) return { error: "You're not signed in. Please sign in again to save your check-in." };
     if (!Number.isInteger(moodValue) || moodValue < 1 || moodValue > 5) return { error: 'Choose a mood from 1 to 5.' };
     if (!Number.isInteger(energyLevel) || energyLevel < 1 || energyLevel > 5) return { error: 'Choose your energy level.' };
     if (!Number.isInteger(connectionLevel) || connectionLevel < 1 || connectionLevel > 5) return { error: 'Choose your connection level.' };
     if (sleepHours != null && (!Number.isFinite(sleepHours) || sleepHours < 0 || sleepHours > 12)) return { error: 'Enter sleep between 0 and 12 hours.' };
+    if (checkInLock.current) return { error: null, inFlight: true };
 
+    checkInLock.current = true;
     setCheckingIn(true);
+    const submissionStartedAt = Date.now();
     const date = todayKey();
     const item: OfflineDailyCheckInItem = {
       id: Crypto.randomUUID(),
@@ -706,7 +765,13 @@ export function useDashboard(userId: string | undefined) {
       const previousTodayMood = store.data.moodLogs.find((log) => log.date === date);
       const nextMoodLogs = [
         ...store.data.moodLogs.filter((log) => log.date !== date),
-        { date, mood_value: moodValue, stress_level: previousTodayMood?.stress_level ?? null },
+        {
+          date,
+          mood_value: moodValue,
+          stress_level: previousTodayMood?.stress_level ?? null,
+          energy_level: energyLevel,
+          connection_level: connectionLevel,
+        },
       ].sort((a, b) => a.date.localeCompare(b.date));
       const nextData = {
         ...store.data,
@@ -719,24 +784,70 @@ export function useDashboard(userId: string | undefined) {
         freezesRemaining: null,
       };
       setStore({ data: nextData, error: null, syncError: null });
-      await writeDashboardCache(userId, nextData);
+      try {
+        await writeDashboardCache(userId, nextData);
+      } catch (cacheError) {
+        if (__DEV__) console.warn('[check-in-timing] local dashboard cache write failed', cacheError);
+      }
     };
 
     try {
       if (isOffline) {
+        const queueStartedAt = Date.now();
         await enqueueOfflineWrite(item);
+        logCheckInTiming('durable offline queue', queueStartedAt);
         await applyLocalCheckIn();
+        logCheckInTiming('offline save total', submissionStartedAt);
         return { error: null, queued: true };
       }
 
+      const saveStartedAt = Date.now();
       await persistDailyCheckIn(item);
-      await refresh();
-      return { error: null, mindScore: store.userId === userId ? store.data?.mindScore ?? null : null };
+      logCheckInTiming('online data save', saveStartedAt);
+      await applyLocalCheckIn();
+      logCheckInTiming('online save total', submissionStartedAt);
+      const refreshStartedAt = Date.now();
+      void refreshDashboardForUser(userId)
+        .then(() => logCheckInTiming('background dashboard refresh', refreshStartedAt))
+        .catch((error) => {
+          if (__DEV__) console.warn('[check-in-timing] background refresh failed', error);
+        });
+      return { error: null };
     } catch (saveError) {
+      if (saveError instanceof PartialDailyCheckInSaveError) {
+        await applyLocalCheckIn();
+        if (isRetryableOfflineError(saveError.saveError)) {
+          try {
+            const queueStartedAt = Date.now();
+            await enqueueOfflineWrite(item);
+            logCheckInTiming('partial save queued for retry', queueStartedAt);
+            logCheckInTiming('partial save total', submissionStartedAt);
+            return { error: null, queued: true };
+          } catch {
+            void refreshDashboardForUser(userId).catch(() => undefined);
+            return {
+              error: null,
+              warning: "Check-in saved, but Sleep could not be queued. You can save Sleep again when reconnected.",
+            };
+          }
+        }
+        const refreshStartedAt = Date.now();
+        void refreshDashboardForUser(userId)
+          .then(() => logCheckInTiming('partial background refresh', refreshStartedAt))
+          .catch(() => undefined);
+        logCheckInTiming('partial save total', submissionStartedAt);
+        return {
+          error: null,
+          warning: 'Check-in saved, but Sleep could not be saved. You can save Sleep again.',
+        };
+      }
       if (isRetryableOfflineError(saveError)) {
         try {
+          const queueStartedAt = Date.now();
           await enqueueOfflineWrite(item);
+          logCheckInTiming('retry queued offline', queueStartedAt);
           await applyLocalCheckIn();
+          logCheckInTiming('retry queue total', submissionStartedAt);
           return { error: null, queued: true };
         } catch {
           return { error: "We couldn't save your check-in on this device. Reconnect and try again." };
@@ -744,9 +855,10 @@ export function useDashboard(userId: string | undefined) {
       }
       return { error: messageFor(saveError).replace('load your dashboard', 'save your check-in') };
     } finally {
+      checkInLock.current = false;
       setCheckingIn(false);
     }
-  }, [isOffline, refresh, userId]);
+  }, [isOffline, userId]);
 
   /** Join / leave a circle (web `useCommunity` toggles `user_circles`). */
   const toggleCircle = useCallback(async (circleId: string, joined: boolean): Promise<void> => {
