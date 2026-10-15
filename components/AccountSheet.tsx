@@ -71,7 +71,7 @@ export default function AccountSheet({
   // Shared dashboard store — no extra fetch. Pro members should never be shown
   // an upgrade entry point.
   const { data: dashboardData } = useDashboard(user?.id);
-  const isPro = dashboardData?.isPro === true;
+  const isConfirmedFree = dashboardData?.isPro === false;
 
   // Keep the Modal mounted through the exit animation: `mounted` trails `visible`.
   const [mounted, setMounted] = useState(visible);
@@ -150,13 +150,13 @@ export default function AccountSheet({
 
   // Dad Health Pro lives in the account menu only — one entry point across both
   // sheets, and never shown to a member who already has Pro.
-  const proRow: Row[] = isPro ? [] : [
+  const proRow: Row[] = isConfirmedFree ? [
     {
       icon: 'award',
       title: 'Dad Health Pro',
       onPress: () => closeThen(() => navigation.navigate('ProSubscription')),
     },
-  ];
+  ] : [];
 
   const navigationRows: Row[] = dashboardRows.map((row) => ({
     icon: row.icon,

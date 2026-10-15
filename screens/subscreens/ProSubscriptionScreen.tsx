@@ -64,7 +64,12 @@ export default function ProSubscriptionScreen() {
           )}
         />
 
-        {subscriptions.status?.isPro ? (
+        {subscriptions.loading ? (
+          <View className="border-y border-border py-xl gap-sm">
+            <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Dad Health Pro</Text>
+            <Text accessibilityLiveRegion="polite" className="font-body text-muted-text text-[13px]">Checking your subscription…</Text>
+          </View>
+        ) : subscriptions.status?.isPro === true ? (
           <>
             <ScreenHero
               eyebrow="Dad Health Pro"
@@ -84,7 +89,7 @@ export default function ProSubscriptionScreen() {
               ) : null}
             </View>
           </>
-        ) : (
+        ) : subscriptions.status?.isPro === false || !user ? (
           <>
             <ScreenHero
               eyebrow="Dad Health Pro"
@@ -139,6 +144,14 @@ export default function ProSubscriptionScreen() {
               </Text>
             ) : null}
           </>
+        ) : (
+          <View className="border-y border-border py-xl gap-sm">
+            <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Dad Health Pro</Text>
+            <Text className="font-body text-muted-text text-[13px] leading-[20px]">We could not confirm your subscription. Try again before managing access.</Text>
+            <Pressable onPress={() => void subscriptions.refreshStatus().catch(() => undefined)} accessibilityRole="button" className="min-h-[44px] self-start justify-center border-b border-lime">
+              <Text className="font-heading-bold text-lime text-[11px] uppercase">Check again</Text>
+            </Pressable>
+          </View>
         )}
 
         <InlineFormError message={isOffline ? null : subscriptions.error} />
@@ -148,9 +161,9 @@ export default function ProSubscriptionScreen() {
           </Text>
         ) : null}
 
-        {user && (!subscriptions.status?.isPro
-          || subscriptions.status.primaryProvider === 'apple'
-          || subscriptions.status.primaryProvider === 'google') ? (
+        {user && (subscriptions.status?.isPro === false
+          || subscriptions.status?.primaryProvider === 'apple'
+          || subscriptions.status?.primaryProvider === 'google') ? (
           <Pressable
             onPress={() => isOffline ? showOfflineAction('subscriptions') : void subscriptions.restore()}
             disabled={subscriptions.restoring}
@@ -163,7 +176,7 @@ export default function ProSubscriptionScreen() {
           </Pressable>
         ) : null}
 
-        {!subscriptions.status?.isPro ? (
+        {subscriptions.status?.isPro === false ? (
           <Text className="font-body text-tertiary-text text-[10px] leading-[16px] text-center">
             {trialAvailable ? '7-day free trial for eligible new subscribers. Cancel anytime. ' : ''}
             Subscription renews automatically unless cancelled. You can manage or cancel it in your {Platform.OS === 'ios' ? 'App Store' : 'Google Play'} account.
