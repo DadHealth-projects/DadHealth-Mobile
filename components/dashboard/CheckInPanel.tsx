@@ -35,20 +35,20 @@ function CheckInPanel({
 }: CheckInPanelProps) {
   return (
     <View>
-      <Text className="font-heading-bold text-dark/60 text-[11px] tracking-[0.5px] uppercase mb-sm">Mood</Text>
+      <Text className="font-heading-bold text-dark/60 text-[11px] tracking-[0.5px] uppercase mb-sm">How&apos;s your head today?</Text>
       <MoodCheckInRow selectedKey={selectedKey} onSelect={onSelectMood} disabled={saving} />
 
       <Text className="font-heading-bold text-dark/60 text-[11px] tracking-[0.5px] uppercase mt-lg mb-sm">
-        Energy
+        How are you feeling physically?
       </Text>
       <CheckInScaleRow
-        options={['Exhausted', 'Low', 'Okay', 'Good', 'Full of energy']}
+        options={['Exhausted', 'Tired', 'Okay', 'Good', 'Energised']}
         selectedValue={energyLevel}
         onSelect={onSelectEnergy}
         disabled={saving}
       />
 
-      <Text className="font-heading-bold text-dark/60 text-[11px] tracking-[0.5px] uppercase mt-lg mb-sm">Connection</Text>
+      <Text className="font-heading-bold text-dark/60 text-[11px] tracking-[0.5px] uppercase mt-lg mb-sm">How connected do you feel today?</Text>
       <CheckInScaleRow
         options={['Disconnected', 'Distant', 'Neutral', 'Connected', 'Very connected']}
         selectedValue={connectionLevel}

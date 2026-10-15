@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 export const MOOD_OPTIONS = [
-  { key: 'very-low', emoji: '😣', label: 'Very low', value: 1 },
+  { key: 'very-low', emoji: '😣', label: 'Struggling', value: 1 },
   { key: 'low', emoji: '🙁', label: 'Low', value: 2 },
   { key: 'okay', emoji: '😐', label: 'Okay', value: 3 },
   { key: 'good', emoji: '🙂', label: 'Good', value: 4 },
@@ -15,12 +15,14 @@ type MoodCheckInRowProps = {
   selectedKey: MoodKey;
   onSelect: (key: MoodKey, value: number) => void;
   disabled?: boolean;
+  lowestLabel?: string;
 };
 
 function MoodCheckInRow({
   selectedKey,
   onSelect,
   disabled = false,
+  lowestLabel,
 }: MoodCheckInRowProps) {
   return (
     <View className="flex-row gap-2">
@@ -34,7 +36,7 @@ function MoodCheckInRow({
             onPress={() => onSelect(option.key, option.value)}
             accessibilityRole="radio"
             accessibilityState={{ checked: selected }}
-            accessibilityLabel={option.label}
+            accessibilityLabel={option.key === 'very-low' ? lowestLabel ?? option.label : option.label}
             className={`flex-1 items-center justify-center rounded-[8px] border px-1 py-2 ${
               selected
                 ? 'border-dark bg-dark/10'
@@ -46,7 +48,7 @@ function MoodCheckInRow({
             </Text>
 
             <Text className="mt-[2px] text-[8px] uppercase tracking-[0.5px] font-heading-bold text-dark/60 text-center">
-              {option.label}
+              {option.key === 'very-low' ? lowestLabel ?? option.label : option.label}
             </Text>
           </Pressable>
         );
