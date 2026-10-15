@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
@@ -18,6 +18,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { refreshDashboardForUser, type DashboardData } from '../../hooks/useDashboard';
 import { readDashboardCache } from '../../lib/offlineStorage';
+import {
+  deriveWeeklyChallengeParticipationState,
+  isCurrentWeeklyChallengeContext,
+  isCurrentWeeklyChallengeRequest,
+} from '../../lib/weeklyChallengeState';
 import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -59,8 +64,11 @@ export default function WeeklyChallengeScreen() {
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const loadRequestIdRef = useRef(0);
+  const currentContextRef = useRef({ challengeId: route.params.challengeId, userId: user?.id });
+  currentContextRef.current = { challengeId: route.params.challengeId, userId: user?.id };
 
-  const loadCachedState = useCallback(async () => {
+  const loadCachedState = useCallback(async (isCurrent: () => boolean) => {
     if (!user?.id) return false;
     const challengeId = route.params.challengeId;
     const [dashboard, locallyStarted, cachedParticipation] = await Promise.all([
@@ -68,6 +76,7 @@ export default function WeeklyChallengeScreen() {
       SecureStore.getItemAsync(startedKey(user.id, challengeId)).catch(() => null),
       SecureStore.getItemAsync(participationKey(user.id, challengeId)).catch(() => null),
     ]);
+    if (!isCurrent()) return false;
     const cachedChallenge = dashboard?.challenge?.id === challengeId ? dashboard.challenge : null;
     if (cachedChallenge) {
       setChallenge({
@@ -77,17 +86,27 @@ export default function WeeklyChallengeScreen() {
       });
     }
     const serverState = isCachedParticipationState(cachedParticipation) ? cachedParticipation : 'not_joined';
-    setParticipationState(
-      serverState === 'completed'
-        ? 'completed'
-        : serverState === 'joined' && locallyStarted === 'true'
-          ? 'started'
-          : serverState,
-    );
+    setParticipationState(deriveWeeklyChallengeParticipationState({
+      challengeId,
+      userId: user.id,
+      expectedChallengeId: challengeId,
+      expectedUserId: user.id,
+      joined: serverState !== 'not_joined',
+      completedAt: serverState === 'completed' ? 'cached' : null,
+      locallyStarted: locallyStarted === 'true',
+    }));
     return Boolean(cachedChallenge);
   }, [route.params.challengeId, user?.id]);
 
   const load = useCallback(async (showLoading = true) => {
+    const requestId = ++loadRequestIdRef.current;
+    const requestContext = { challengeId: route.params.challengeId, userId: user?.id };
+    const isCurrent = () => isCurrentWeeklyChallengeRequest(
+      requestId,
+      loadRequestIdRef.current,
+      requestContext,
+      currentContextRef.current,
+    );
     if (showLoading) setLoading(true);
     setLoadError(null);
 
@@ -100,8 +119,8 @@ export default function WeeklyChallengeScreen() {
     }
 
     if (isOffline) {
-      await loadCachedState();
-      setLoading(false);
+      await loadCachedState(isCurrent);
+      if (isCurrent()) setLoading(false);
       return;
     }
 
@@ -116,15 +135,17 @@ export default function WeeklyChallengeScreen() {
           .maybeSingle(),
         supabase
           .from('weekly_challenge_participants')
-          .select('challenge_id,completed_at')
+          .select('challenge_id,user_id,completed_at')
           .eq('challenge_id', route.params.challengeId)
           .eq('user_id', user.id)
           .maybeSingle(),
         SecureStore.getItemAsync(localStartedKey).catch(() => null),
       ]);
+      if (!isCurrent()) return;
 
       if (challengeResult.error) {
-        const restored = await loadCachedState();
+        const restored = await loadCachedState(isCurrent);
+        if (!isCurrent()) return;
         if (!restored) setChallenge(null);
         setLoadError("We couldn't load this Weekly Challenge. Check your connection and try again.");
       } else if (!challengeResult.data) {
@@ -133,35 +154,53 @@ export default function WeeklyChallengeScreen() {
         setLoadError('This Weekly Challenge is no longer available. Return to Home to see the latest challenge.');
       } else if (participationResult.error) {
         setChallenge(challengeResult.data);
-        await loadCachedState();
+        await loadCachedState(isCurrent);
+        if (!isCurrent()) return;
         setLoadError("We couldn't check your challenge status. Please try again.");
       } else {
         setChallenge(challengeResult.data);
-        if (participationResult.data?.completed_at) {
-          setParticipationState('completed');
+        const nextState = deriveWeeklyChallengeParticipationState({
+          challengeId: participationResult.data?.challenge_id,
+          userId: participationResult.data?.user_id,
+          expectedChallengeId: route.params.challengeId,
+          expectedUserId: user.id,
+          joined: Boolean(participationResult.data),
+          completedAt: participationResult.data?.completed_at,
+          locallyStarted: locallyStarted === 'true',
+        });
+        setParticipationState(nextState);
+        if (nextState === 'completed') {
           await SecureStore.setItemAsync(participationKey(user.id, route.params.challengeId), 'completed');
           void SecureStore.deleteItemAsync(localStartedKey).catch(() => undefined);
-        } else if (participationResult.data) {
-          setParticipationState(locallyStarted === 'true' ? 'started' : 'joined');
+        } else if (nextState !== 'not_joined') {
           await SecureStore.setItemAsync(participationKey(user.id, route.params.challengeId), 'joined');
         } else {
-          setParticipationState('not_joined');
           await SecureStore.setItemAsync(participationKey(user.id, route.params.challengeId), 'not_joined');
           void SecureStore.deleteItemAsync(localStartedKey).catch(() => undefined);
         }
       }
     } catch {
-      const restored = await loadCachedState();
+      if (!isCurrent()) return;
+      const restored = await loadCachedState(isCurrent);
+      if (!isCurrent()) return;
       if (!restored) setChallenge(null);
       setLoadError("We couldn't load this Weekly Challenge. Check your connection and try again.");
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, [isOffline, loadCachedState, route.params.challengeId, user?.id]);
 
   useEffect(() => {
     void load();
+    return () => {
+      loadRequestIdRef.current += 1;
+    };
   }, [load]);
+
+  useEffect(() => {
+    setBusy(false);
+    setActionError(null);
+  }, [route.params.challengeId, user?.id]);
 
   const changeParticipation = useCallback(async (join: boolean) => {
     if (!user?.id || !challenge || busy) return;
@@ -187,12 +226,19 @@ export default function WeeklyChallengeScreen() {
           .eq('challenge_id', challenge.id)
           .eq('user_id', user.id);
 
+    const isCurrent = () => isCurrentWeeklyChallengeContext(
+      { challengeId: challenge.id, userId: user.id },
+      currentContextRef.current,
+    );
+
     if (result.error) {
-      setActionError(
-        join
-          ? "We couldn't add you to this week's challenge. Please try again."
-          : "We couldn't remove you from this week's challenge. Please try again.",
-      );
+      if (isCurrent()) {
+        setActionError(
+          join
+            ? "We couldn't add you to this week's challenge. Please try again."
+            : "We couldn't remove you from this week's challenge. Please try again.",
+        );
+      }
     } else {
       if (!join) {
         await SecureStore.deleteItemAsync(startedKey(user.id, challenge.id)).catch(() => undefined);
@@ -201,24 +247,29 @@ export default function WeeklyChallengeScreen() {
         participationKey(user.id, challenge.id),
         join ? 'joined' : 'not_joined',
       );
-      await load(false);
+      if (isCurrent()) await load(false);
       void refreshDashboardForUser(user.id);
     }
-    setBusy(false);
+    if (isCurrent()) setBusy(false);
   }, [busy, challenge, isOffline, load, participationState, showOfflineAction, user?.id]);
 
   const startChallenge = useCallback(async () => {
     if (!user?.id || !challenge || busy || participationState !== 'joined') return;
+    const context = { challengeId: challenge.id, userId: user.id };
 
     setBusy(true);
     setActionError(null);
     try {
       await SecureStore.setItemAsync(startedKey(user.id, challenge.id), 'true');
-      setParticipationState('started');
+      if (isCurrentWeeklyChallengeContext(context, currentContextRef.current)) {
+        setParticipationState('started');
+      }
     } catch {
-      setActionError("We couldn't remember that you started this challenge. Please try again.");
+      if (isCurrentWeeklyChallengeContext(context, currentContextRef.current)) {
+        setActionError("We couldn't remember that you started this challenge. Please try again.");
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentWeeklyChallengeContext(context, currentContextRef.current)) setBusy(false);
     }
   }, [busy, challenge, participationState, user?.id]);
 
@@ -231,19 +282,24 @@ export default function WeeklyChallengeScreen() {
 
     setBusy(true);
     setActionError(null);
+    const context = { challengeId: challenge.id, userId: user.id };
     const { error } = await supabase.rpc('complete_weekly_challenge', {
       p_challenge_id: challenge.id,
     });
 
     if (error) {
-      setActionError(completionErrorMessage(error.message));
+      if (isCurrentWeeklyChallengeContext(context, currentContextRef.current)) {
+        setActionError(completionErrorMessage(error.message));
+      }
     } else {
       await SecureStore.deleteItemAsync(startedKey(user.id, challenge.id)).catch(() => undefined);
       await SecureStore.setItemAsync(participationKey(user.id, challenge.id), 'completed');
-      setParticipationState('completed');
+      if (isCurrentWeeklyChallengeContext(context, currentContextRef.current)) {
+        setParticipationState('completed');
+      }
       void refreshDashboardForUser(user.id);
     }
-    setBusy(false);
+    if (isCurrentWeeklyChallengeContext(context, currentContextRef.current)) setBusy(false);
   }, [busy, challenge, isOffline, participationState, showOfflineAction, user?.id]);
 
   const experienceCopy = participationState === 'completed'
