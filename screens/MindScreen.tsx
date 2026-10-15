@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -12,7 +12,7 @@ import MoodWeekCard from '../components/dashboard/MoodWeekCard';
 import ManualActivitySection from '../components/manualActivities/ManualActivitySection';
 import PillarScoreRow from '../components/dashboard/PillarScoreRow';
 import SectionHeader from '../components/dashboard/SectionHeader';
-import MindSessionModal from '../components/mind/MindSessionModal';
+import MindQuickFixes from '../components/mind/MindQuickFixes';
 import PersonalisedMindPlanSheet from '../components/mind/PersonalisedMindPlanSheet';
 import MindPlanLockedCard from '../components/mind/MindPlanLockedCard';
 import StatTile from '../components/mockup/StatTile';
@@ -26,7 +26,7 @@ import { useProgressSleep } from '../hooks/useProgressSleep';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 import { colors } from '../theme';
 import { STATS_EXTENDED } from '../lib/homeContent';
-import { crisisSupportPhoneDisplay, openCrisisSupport } from '../lib/crisisSupport';
+import { crisisSupportPhoneDisplay, showCrisisSupportDetails } from '../lib/crisisSupport';
 import {
   MOOD_WEEK_LABELS,
   getCurrentWeekDayKeys,
@@ -54,7 +54,6 @@ export default function MindScreen({
   const sleepInsights = useProgressSleep(user?.id, data?.isPro === true);
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [showReflection, setShowReflection] = useState(false);
   const [mindPlanOpen, setMindPlanOpen] = useState(false);
 
   const hasUser = Boolean(user?.id);
@@ -76,18 +75,6 @@ export default function MindScreen({
   );
   const moodSummary = useMemo(() => getMoodSummary(moodWeek, Boolean(data)), [moodWeek, data]);
 
-  if (showReflection) {
-    return (
-      <MindSessionModal
-        onClose={() => setShowReflection(false)}
-        onWriteToJournal={() => {
-          setShowReflection(false);
-          navigation.navigate('Journal');
-        }}
-      />
-    );
-  }
-
   return (
     <PillarScreen
       loading={loading && !data}
@@ -108,16 +95,7 @@ export default function MindScreen({
       </FadeInView>
 
       <Pressable
-        onPress={() =>
-          Alert.alert(
-            'Need urgent help?',
-            `Call Samaritans free on ${crisisSupportPhoneDisplay()}.`,
-            [
-              { text: 'Not now', style: 'cancel' },
-              { text: 'Call Samaritans', onPress: () => void openCrisisSupport() },
-            ],
-          )
-        }
+        onPress={showCrisisSupportDetails}
         accessibilityRole="button"
         accessibilityLabel="Need urgent help?"
         accessibilityHint={`Opens Samaritans support details. Call ${crisisSupportPhoneDisplay()} only after choosing Call Samaritans.`}
@@ -137,13 +115,48 @@ export default function MindScreen({
             accessibilityLabel="Start the five-minute Mind Reset"
             featured
           />
+        </View>
+      </FadeInView>
+
+      <FadeInView delay={155}>
+        <MindQuickFixes />
+      </FadeInView>
+
+      {user ? (
+        <FadeInView delay={170}>
+          {data?.isPro === true ? (
+            <Pressable
+              onPress={() => setMindPlanOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Open your personalised Mind plan"
+              className="gap-sm border-b border-border pb-lg active:opacity-75"
+            >
+              <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Pro</Text>
+              <Text className="font-heading text-white text-[20px] leading-[22px] uppercase">Personalised Mind Plan</Text>
+              <Text className="font-body text-muted-text text-[12px] leading-[18px]">
+                Designed around your mood, Dad Health Score and history.
+              </Text>
+              <Text className="font-heading-bold text-lime text-[11px] uppercase">Open plan</Text>
+            </Pressable>
+          ) : data?.isPro === false ? (
+            <MindPlanLockedCard
+              onUnlock={() => navigation.navigate('ProSubscription')}
+            />
+          ) : null}
+        </FadeInView>
+      ) : null}
+
+      {mindPlanOpen ? <PersonalisedMindPlanSheet onClose={() => setMindPlanOpen(false)} /> : null}
+
+      <FadeInView delay={190}>
+        <View className="gap-sm">
           <MindFeatureRow
-            icon="book-open"
-            eyebrow="10 minutes"
-            title="Guided reflection"
-            description="Step through a few prompts and write what feels useful."
-            onPress={() => setShowReflection(true)}
-            accessibilityLabel="Start the ten-minute guided reflection"
+            icon="edit-3"
+            eyebrow="Private journal"
+            title="Journal"
+            description="Write freely or use three prompts. Private entries. Just for you."
+            onPress={() => navigation.navigate('Journal')}
+            accessibilityLabel="Open private Journal"
           />
           <MindFeatureRow
             icon="heart"
@@ -161,42 +174,8 @@ export default function MindScreen({
             onPress={() => navigation.navigate('CommunityFeed')}
             accessibilityLabel="Open Dad Health Community"
           />
-          <MindFeatureRow
-            icon="edit-3"
-            eyebrow="Private journal"
-            title="Journal"
-            description="Daily prompts. Private entries. Just for you."
-            onPress={() => navigation.navigate('Journal')}
-            accessibilityLabel="Open private journal"
-          />
         </View>
       </FadeInView>
-
-      {user ? (
-        <FadeInView delay={170}>
-          {data?.isPro ? (
-            <Pressable
-              onPress={() => setMindPlanOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Open your personalised Mind plan"
-              className="gap-sm border-b border-border pb-lg active:opacity-75"
-            >
-              <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Pro</Text>
-              <Text className="font-heading text-white text-[20px] leading-[22px] uppercase">Personalised Mind Plan</Text>
-              <Text className="font-body text-muted-text text-[12px] leading-[18px]">
-                Designed around your mood, Dad Health Score and history.
-              </Text>
-              <Text className="font-heading-bold text-lime text-[11px] uppercase">Open plan</Text>
-            </Pressable>
-          ) : (
-            <MindPlanLockedCard
-              onUnlock={() => navigation.navigate('ProSubscription')}
-            />
-          )}
-        </FadeInView>
-      ) : null}
-
-      {mindPlanOpen ? <PersonalisedMindPlanSheet onClose={() => setMindPlanOpen(false)} /> : null}
 
       {!isOffline && error ? <InlineFormError message={error} /> : null}
 
@@ -214,20 +193,20 @@ export default function MindScreen({
             labels={MOOD_WEEK_LABELS}
             summary={moodSummary}
             flat
-            actionLabel={!data?.isPro ? 'View mood trends' : undefined}
-            onAction={!data?.isPro ? () => navigation.navigate('ProSubscription') : undefined}
+            actionLabel={data?.isPro === false ? 'View mood trends' : undefined}
+            onAction={data?.isPro === false ? () => navigation.navigate('ProSubscription') : undefined}
           />
         )}
       </FadeInView>
 
       {user ? (
         <FadeInView delay={270}>
-          {data?.isPro ? (
+          {data?.isPro === true ? (
             <View className="gap-md border-b border-border pb-lg">
               <SectionHeader title="Mood correlation" caption="Pattern spotted" />
               <Text className="font-body text-muted-text text-[14px] leading-[21px]">{sleepInsights.pattern}</Text>
             </View>
-          ) : (
+          ) : data?.isPro === false ? (
             <View className="border-b border-border pb-lg">
               <Pressable
                 onPress={() => navigation.navigate('ProSubscription')}
@@ -257,7 +236,7 @@ export default function MindScreen({
                 </View>
               </Pressable>
             </View>
-          )}
+          ) : null}
         </FadeInView>
       ) : null}
 
