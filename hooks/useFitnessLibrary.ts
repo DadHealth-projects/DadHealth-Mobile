@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { useNetworkStatus } from '../contexts/NetworkContext';
 import { loadNativeSubscriptionStatus } from '../lib/nativeSubscriptions';
@@ -26,12 +28,15 @@ export type FitnessWorkout = {
 export function useFitnessLibrary(userId?: string, enabled = true) {
   const { isOffline } = useNetworkStatus();
   const [workouts, setWorkouts] = useState<FitnessWorkout[]>([]);
-  const [isPro, setIsPro] = useState(false);
+  const [isPro, setIsPro] = useState<boolean | null>(userId ? null : false);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
   const [proError, setProError] = useState<string | null>(null);
+  const latestRequest = useRef(0);
+  const hasFocused = useRef(false);
 
   const refresh = useCallback(async () => {
+    const requestId = ++latestRequest.current;
     if (!enabled) {
       setLoading(false);
       return;
@@ -40,12 +45,14 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
       setLoading(false);
       setError(null);
       setProError(null);
+      setIsPro(userId ? null : false);
       return;
     }
 
     setLoading(true);
     setError(null);
     setProError(null);
+    setIsPro(userId ? null : false);
     const adminQuery = supabase
       .from('workouts')
       .select('id,title,duration_mins,equipment,focus,exercises,source')
@@ -55,6 +62,7 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
 
     if (!userId) {
       const adminResult = await adminQuery;
+      if (requestId !== latestRequest.current) return;
       if (adminResult.error) {
         setWorkouts([]);
         setError('We could not load the workout library. Please try again.');
@@ -77,6 +85,7 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
         .order('created_at', { ascending: false }),
       loadNativeSubscriptionStatus().catch(() => null),
     ]);
+    if (requestId !== latestRequest.current) return;
 
     if (adminResult.error || generatedResult.error) {
       setWorkouts([]);
@@ -85,7 +94,7 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
       return;
     }
 
-    const pro = subscriptionStatus?.isPro === true;
+    const pro = subscriptionStatus ? subscriptionStatus.isPro === true : null;
     const adminWorkouts = (adminResult.data ?? []) as FitnessWorkout[];
     const generatedWorkouts = (generatedResult.data ?? []) as FitnessWorkout[];
     setProError(subscriptionStatus ? null : 'Unable to confirm Dad Health Pro access.');
@@ -100,6 +109,30 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useFocusEffect(useCallback(() => {
+    if (!hasFocused.current) {
+      hasFocused.current = true;
+      return;
+    }
+    if (userId && !isOffline) void refresh();
+  }, [isOffline, refresh, userId]));
+
+  useEffect(() => {
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && previousState !== 'active' && userId) {
+        setIsPro(null);
+        if (!isOffline) void refresh();
+        else latestRequest.current += 1;
+      }
+      previousState = nextState;
+    });
+    return () => {
+      latestRequest.current += 1;
+      subscription.remove();
+    };
+  }, [isOffline, refresh, userId]);
 
   return { workouts, isPro, loading, error, proError, refresh };
 }

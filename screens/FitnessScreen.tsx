@@ -279,7 +279,7 @@ export default function FitnessScreen({
             <FlatSection className="gap-md">
               <View className="flex-row items-center justify-between gap-sm">
                 <Text className="font-heading-bold text-muted-text text-[11px] tracking-[1px] uppercase">
-                  {fitnessLibrary.isPro ? 'All available workouts' : 'Free workout library'}
+                  {fitnessLibrary.isPro === true ? 'All available workouts' : fitnessLibrary.isPro === false ? 'Free workout library' : 'Checking access'}
                 </Text>
                 <TagPill label={`${fitnessLibrary.workouts.length} shown`} tone="outline" />
               </View>
@@ -325,7 +325,7 @@ export default function FitnessScreen({
 
       {standalone ? (
         <FadeInView delay={190}>
-          {fitnessLibrary.isPro ? (
+          {fitnessLibrary.isPro === true ? (
             <FlatSection className="gap-md">
               <View className="flex-row items-start justify-between gap-md">
                 <View className="flex-1">
@@ -346,7 +346,7 @@ export default function FitnessScreen({
                 onPress={openAIWorkout}
               />
             </FlatSection>
-          ) : (
+          ) : fitnessLibrary.isPro === false ? (
             <BodyProLockedCard
               eyebrow="AI Workout"
               title="Built around your day."
@@ -356,13 +356,13 @@ export default function FitnessScreen({
               buttonLabel="Unlock AI workouts →"
               onUnlock={() => navigation.navigate('ProSubscription')}
             />
-          )}
+          ) : null}
         </FadeInView>
       ) : null}
 
       {standalone ? (
         <FadeInView delay={225}>
-          {fitnessLibrary.isPro ? (
+          {fitnessLibrary.isPro === true ? (
             <FlatSection className="gap-md">
               <View className="flex-row items-start justify-between gap-md">
                 <View className="flex-1">
@@ -376,7 +376,7 @@ export default function FitnessScreen({
               </View>
               <LimeButton label="Open meal planner" onPress={openMealPlanner} />
             </FlatSection>
-          ) : (
+          ) : fitnessLibrary.isPro === false ? (
             <BodyProLockedCard
               eyebrow="Meal Planner"
               title="Eat like you train."
@@ -386,11 +386,11 @@ export default function FitnessScreen({
               buttonLabel="Unlock meal planner →"
               onUnlock={() => navigation.navigate('ProSubscription')}
             />
-          )}
+          ) : null}
         </FadeInView>
       ) : null}
 
-      {standalone && !fitnessLibrary.isPro ? (
+      {standalone && fitnessLibrary.isPro === false ? (
         <FadeInView delay={230}>
           <ProUpgradeSection
             moment={PRO_LOCKS.trainingPlans}
