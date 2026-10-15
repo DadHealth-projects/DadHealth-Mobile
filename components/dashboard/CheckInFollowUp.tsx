@@ -11,19 +11,23 @@ import ProBadge from './ProBadge';
 function CheckInFollowUp({
   moodValue,
   stressLevel,
+  energyLevel,
+  connectionLevel,
   isPro,
   onAction,
   onPlan,
 }: {
   moodValue: number;
   stressLevel: number | null;
-  isPro: boolean;
+  energyLevel: number | null;
+  connectionLevel: number | null;
+  isPro: boolean | null;
   onAction: (action: CheckInAction) => void;
   onPlan: () => void;
 }) {
   const advice = useMemo(
-    () => checkInRecommendation(moodValue, stressLevel),
-    [moodValue, stressLevel],
+    () => checkInRecommendation(moodValue, stressLevel, energyLevel, connectionLevel),
+    [connectionLevel, energyLevel, moodValue, stressLevel],
   );
   return (
     <View className="gap-lg">
@@ -32,25 +36,30 @@ function CheckInFollowUp({
           <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
             Your check-in
           </Text>
-          <Text className="font-heading text-white text-[24px] leading-[26px] uppercase mt-xs">
-            {advice.state}
-          </Text>
-          <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-sm">
-            {advice.recommendation}
-          </Text>
         </View>
 
         <View className="gap-sm">
+          <View>
+            <Text className="font-heading text-white text-[24px] leading-[26px] uppercase mt-xs">
+              {advice.primary.state}
+            </Text>
+            <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-sm">
+              {advice.primary.recommendation}
+            </Text>
+          </View>
           <Pressable
-            onPress={() => onAction(advice.action)}
+            onPress={() => onAction(advice.primary.action.action)}
             accessibilityRole="button"
-            accessibilityLabel={advice.actionLabel}
+            accessibilityLabel={advice.primary.action.label}
             className="min-h-[48px] w-full items-center justify-center rounded-[7px] bg-lime px-md active:opacity-80"
           >
-            <Text className="font-heading-bold text-dark text-[11px] tracking-label uppercase">
-              {advice.actionLabel}
+            <Text className="font-heading-bold text-dark text-[14px] tracking-[1px] uppercase">
+              {advice.primary.action.label}
             </Text>
           </Pressable>
+        </View>
+
+        {isPro !== null ? <View className="gap-sm">
           <Pressable
             onPress={onPlan}
             accessibilityRole="button"
@@ -70,9 +79,9 @@ function CheckInFollowUp({
                 A plan around your mood and score.
               </Text>
             </View>
-            {!isPro ? <ProBadge /> : null}
+            {isPro === false ? <ProBadge /> : null}
           </Pressable>
-        </View>
+        </View> : null}
       </View>
     </View>
   );
