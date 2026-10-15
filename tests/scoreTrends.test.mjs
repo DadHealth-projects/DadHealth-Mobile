@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { formatScoreTrend, hasScoreHistory } from '../lib/scoreTrends.js';
-import { getCurrentWeekDayKeys } from '../lib/calendarWeek.js';
+import { getCurrentWeekDayKeys, toLocalDateKey } from '../lib/calendarWeek.js';
 
 const root = new URL('../', import.meta.url);
 
@@ -56,6 +56,14 @@ test('calendar week keys stay Monday through Sunday for Monday, Thursday, and Su
   const valuesByDate = new Map([['2026-09-24', 2]]);
   const values = getCurrentWeekDayKeys(new Date(2026, 8, 24, 12)).map((dayKey) => valuesByDate.get(dayKey) ?? 0);
   assert.deepEqual(values, [0, 0, 0, 2, 0, 0, 0]); // Thursday's value stays under Thursday; future days retain their slots
+});
+
+test('check-in date key stays on the user local date near midnight', () => {
+  const lateLocalDate = new Date(2026, 9, 12, 23, 30);
+  assert.equal(toLocalDateKey(lateLocalDate), '2026-10-12');
+  if (lateLocalDate.getTimezoneOffset() > 0) {
+    assert.equal(lateLocalDate.toISOString().slice(0, 10), '2026-10-13');
+  }
 });
 
 test('all score consumers read the canonical pillar fields and share one trend formatter', async () => {

@@ -20,11 +20,12 @@ type Props = {
   baselineBuilding?: boolean;
   items: ScoreItem[];
   isPro: boolean;
+  entitlementKnown?: boolean;
   userId: string;
   onUpgrade: () => void;
 };
 
-export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavailable = false, baselineBuilding = false, items, isPro, userId, onUpgrade }: Props) {
+export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavailable = false, baselineBuilding = false, items, isPro, entitlementKnown = true, userId, onUpgrade }: Props) {
   const sheetUserId = visible ? userId : undefined;
   const report = useProgressReport(sheetUserId, isPro);
   const badgeData = useProgressBadges(sheetUserId);
@@ -82,7 +83,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
               <PillarSource name="Bond" detail="Manual Bond activity logs, journaling and completed Present Dad sessions." />
             </View>
 
-            {!isPro ? <View className="border-y border-border py-md">
+            {!isPro && entitlementKnown ? <View className="border-y border-border py-md">
               <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">{PRO_MOMENTS.score.eyebrow}</Text>
               <Text className="font-heading-bold text-white text-[16px] uppercase mt-xs">{PRO_MOMENTS.score.heading}</Text>
               <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">
@@ -109,7 +110,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
                     ))}
                   </View>
                 ) : <Text className="font-body text-muted-text text-[12px]">Your score history will appear after you have a week with logged activity.</Text>
-              ) : <LockedPreview title="See your score history" onUpgrade={onUpgrade} />}
+              ) : entitlementKnown ? <LockedPreview title="See your score history" onUpgrade={onUpgrade} /> : null}
             </View>
 
             <View>
@@ -125,7 +126,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
                     ))}
                   </View>
                 )
-              ) : <LockedPreview title="Your monthly report" onUpgrade={onUpgrade} />}
+              ) : entitlementKnown ? <LockedPreview title="Your monthly report" onUpgrade={onUpgrade} /> : null}
             </View>
 
             <View>
