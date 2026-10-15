@@ -18,7 +18,7 @@ test('shared multiline field uses native Done and dismisses its own keyboard', a
 
 test('all multiline mobile text entry uses the reusable field', async () => {
   const paths = [
-    'components/mind/MindSessionModal.tsx',
+    'components/mind/MindQuickFixes.tsx',
     'screens/subscreens/JournalScreen.tsx',
     'screens/subscreens/ManualActivityLogScreen.tsx',
     'screens/subscreens/CreateCommunityPostScreen.tsx',
