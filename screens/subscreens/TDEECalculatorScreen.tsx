@@ -122,7 +122,7 @@ export default function TDEECalculatorScreen() {
 
               {isPro ? (
                 <View className="gap-md"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Insights</Text>{insights.map((text, index) => <View key={index} className="border-l-2 border-lime pl-md"><Text className="font-body text-muted-text text-[12px] leading-[18px]">{text}</Text></View>)}</View>
-              ) : (
+              ) : dashboard?.isPro === false ? (
                 <ProLockedPreview lock={PRO_LOCKS.fullTdee} onPress={openPro}>
                   <View className="gap-md">
                     <TargetRow label="Fat loss" value={result.fatLoss} detail="500 kcal daily deficit" />
@@ -130,7 +130,7 @@ export default function TDEECalculatorScreen() {
                     <TargetRow label="Lean bulk" value={result.muscleGain} detail="300 kcal daily surplus" />
                   </View>
                 </ProLockedPreview>
-              )}
+              ) : null}
             </View>
           ) : null}
         </ScrollView>

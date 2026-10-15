@@ -90,7 +90,7 @@ export default function HomeScreen() {
 
         <FadeInView delay={90}>
           <DadScoreCard score={null} items={EMPTY_SCORE_ITEMS}>
-            <MoodCheckInRow selectedKey={moodKey} onSelect={setMoodKey} disabled />
+            <MoodCheckInRow selectedKey={moodKey} onSelect={setMoodKey} disabled lowestLabel="Very low" />
           </DadScoreCard>
         </FadeInView>
 
