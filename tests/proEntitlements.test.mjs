@@ -6,16 +6,69 @@ const root = new URL('../', import.meta.url);
 const read = (path) => readFile(new URL(path, root), 'utf8');
 
 test('resolved mobile Pro gates use the authenticated server entitlement status', async () => {
-  const [dashboard, library, milestone] = await Promise.all([
+  const [dashboard, library, milestone, fitness] = await Promise.all([
     read('hooks/useDashboard.ts'),
     read('hooks/useFitnessLibrary.ts'),
     read('screens/subscreens/MilestoneTrackerScreen.tsx'),
+    read('screens/FitnessScreen.tsx'),
   ]);
   assert.match(dashboard, /loadNativeSubscriptionStatus\(\)/);
-  assert.match(dashboard, /isPro: subscriptionStatus\?\.isPro === true/);
+  assert.match(dashboard, /isPro: subscriptionStatus \? subscriptionStatus\.isPro === true : null/);
+  assert.match(dashboard, /isPro: null/);
+  assert.match(dashboard, /AppState\.addEventListener\('change'/);
+  assert.match(dashboard, /useFocusEffect/);
+  assert.match(dashboard, /refreshDashboardForUser\(userId\)/);
+  assert.match(library, /useState<boolean \| null>\(userId \? null : false\)/);
+  assert.match(library, /const pro = subscriptionStatus \? subscriptionStatus\.isPro === true : null/);
+  assert.match(fitness, /fitnessLibrary\.isPro === false/);
   assert.match(library, /loadNativeSubscriptionStatus\(\)/);
-  assert.match(milestone, /loadNativeSubscriptionStatus\(\)/);
+  assert.match(milestone, /dashboardData\?\.isPro === true/);
+  assert.match(milestone, /entitlementKnown/);
+  assert.match(library, /AppState\.addEventListener\('change'/);
+  assert.match(library, /useFocusEffect/);
   assert.doesNotMatch(`${dashboard}\n${library}\n${milestone}`, /isProfilePro\(/);
+});
+
+test('unknown subscription status does not render Free Mind locks or upgrade CTAs', async () => {
+  const [mind, dashboard, followUp, details] = await Promise.all([
+    read('screens/MindScreen.tsx'),
+    read('screens/DashboardScreen.tsx'),
+    read('components/dashboard/CheckInFollowUp.tsx'),
+    read('components/dashboard/ScoreDetailSheet.tsx'),
+  ]);
+  assert.match(mind, /data\?\.isPro === false \? \([\s\S]*?<MindPlanLockedCard/);
+  assert.match(mind, /data\?\.isPro === false \? 'View mood trends'/);
+  assert.match(dashboard, /proTease=\{data\.isPro === false/);
+  assert.match(dashboard, /<StreakCard[\s\S]*?isPro=\{data\.isPro\}/);
+  assert.match(followUp, /isPro !== null \? <View/);
+  assert.match(details, /!isPro && entitlementKnown/);
+  const streakCard = await read('components/dashboard/StreakCard.tsx');
+  assert.match(streakCard, /isPro === true/);
+  assert.match(streakCard, /isPro === false/);
+  assert.match(dashboard, /<StreakCard[\s\S]*?isPro=\{data\.isPro\}/);
+  const account = await read('components/AccountSheet.tsx');
+  assert.match(account, /dashboardData\?\.isPro === false/);
+  const weeklyCard = await read('components/dashboard/WeeklyReportCard.tsx');
+  assert.match(weeklyCard, /isPro === null/);
+  assert.match(dashboard, /isPro=\{data\.isPro\}/);
+});
+
+test('entitlement refresh invalidates stale state on resume and reconnect', async () => {
+  const [dashboard, library, native, dadDays] = await Promise.all([
+    read('hooks/useDashboard.ts'),
+    read('hooks/useFitnessLibrary.ts'),
+    read('hooks/useNativeSubscriptions.ts'),
+    read('screens/subscreens/DadDaysSearchScreen.tsx'),
+  ]);
+  assert.match(dashboard, /markDashboardEntitlementUnknown\(userId\);[\s\S]*?if \(isOffline\)/);
+  assert.match(dashboard, /store\.data\.isPro === null\) && !store\.loading/);
+  assert.match(library, /if \(isOffline\) \{[\s\S]*?setIsPro\(userId \? null : false\)/);
+  assert.match(library, /requestId !== latestRequest\.current/);
+  assert.match(native, /const requestId = \+\+statusRequestId\.current;[\s\S]*?setStatus\(null\)/);
+  assert.match(native, /statusRequestId\.current === requestId/);
+  assert.match(dadDays, /setAccessReady\(false\);[\s\S]*?loadAccess\(\)/);
+  assert.match(dadDays, /useFocusEffect/);
+  assert.match(dadDays, /requestId !== accessRequestId\.current/);
 });
 
 test('Free clients retain personal weekly mood and sleep reads but do not receive Pro-derived reports', async () => {

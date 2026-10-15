@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Platform } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, Platform } from 'react-native';
 import type { ProductSubscription, Purchase } from 'react-native-iap';
 
 import {
@@ -26,14 +26,26 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
   const [storeAvailable, setStoreAvailable] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const statusRequestId = useRef(0);
 
   const refreshStatus = useCallback(async () => {
     if (!userId) {
+      statusRequestId.current += 1;
       setStatus(null);
       return;
     }
-    const next = await loadNativeSubscriptionStatus();
-    setStatus(next);
+    const requestId = ++statusRequestId.current;
+    setStatus(null);
+    try {
+      const next = await loadNativeSubscriptionStatus();
+      if (statusRequestId.current === requestId) setStatus(next);
+      return next;
+    } catch (statusError) {
+      if (statusRequestId.current === requestId) {
+        setError(nativeSubscriptionUserMessage(statusError, 'We could not confirm your Dad Health Pro access.'));
+      }
+      throw statusError;
+    }
   }, [userId]);
 
   const processPurchase = useCallback(async (purchase: Purchase) => {
@@ -48,6 +60,7 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
     try {
       const summary = await verifyNativePurchase(purchase);
       await iap.finishTransaction({ purchase, isConsumable: false });
+      statusRequestId.current += 1;
       setStatus(summary);
       setError(null);
       setNotice('Dad Health Pro is now active.');
@@ -120,6 +133,29 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
     };
   }, [processPurchase, refreshStatus]);
 
+  useEffect(() => {
+    let active = true;
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && previousState !== 'active' && userId) {
+        setStatus(null);
+        setLoading(true);
+        setError(null);
+        void refreshStatus()
+          .catch((statusError) => {
+            if (active) setError(nativeSubscriptionUserMessage(statusError, 'We could not confirm your Dad Health Pro access.'));
+          })
+          .finally(() => { if (active) setLoading(false); });
+      }
+      previousState = nextState;
+    });
+    return () => {
+      active = false;
+      statusRequestId.current += 1;
+      subscription.remove();
+    };
+  }, [refreshStatus, userId]);
+
   const purchase = useCallback(async (plan: SubscriptionPlan) => {
     const iap = getNativeIapModule();
     const product = products.find((item) => item.plan === plan);
@@ -186,6 +222,7 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
         latest = await verifyNativePurchase(restored);
         await iap.finishTransaction({ purchase: restored, isConsumable: false });
       }
+      statusRequestId.current += 1;
       setStatus(latest);
       setNotice('Dad Health Pro has been restored.');
       onEntitlementChanged?.();
