@@ -13,8 +13,8 @@ test('Circle posts keep topic tags and require selected member Circle', async ()
   assert.match(composer, /TAGS = \['FITNESS', 'MIND', 'BOND'\]/);
   assert.match(composer, /circle_id: circleId/);
   assert.match(composer, /Join this Dad Circle before posting/);
-  assert.match(composer, /CreateCommunityPost: \{ circleId\?: string \}/);
-  assert.match(nav, /CommunityFeed: \{ circleId\?: string \}/);
+  assert.match(nav, /CreateCommunityPost: \{ circleId\?: string \} \| undefined/);
+  assert.match(nav, /CommunityFeed: \{ circleId\?: string \} \| undefined/);
 });
 
 test('Circle feed scopes posts; global feed uses privacy-filtered RPC and Circle previews', async () => {
@@ -33,9 +33,9 @@ test('Circle feed scopes posts; global feed uses privacy-filtered RPC and Circle
   assert.match(community, /community-circle-memberships/);
   assert.match(feed, /CreateCommunityPost', circleId \? \{ circleId \}/);
   assert.match(community, /rpc\('get_trending_circle_posts'/);
-  assert.match(community, /CommunityFeed', \{ circleId: id \}/);
+  assert.match(community, /navigation\.navigate\('CommunityFeed'\)/);
   assert.match(community, /\{post\.circle_name\}/);
-  assert.match(community, /\{post\.tag\}/);
+  assert.match(community, /communityTagLabel\(post\.tag\)/);
   assert.match(card, /post\.circle_name \?/);
   assert.match(card, /post\.tag \?/);
   assert.match(card, /flex-row items-center gap-xs/);

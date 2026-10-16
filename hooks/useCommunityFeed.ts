@@ -6,6 +6,19 @@ import { supabase } from '../lib/supabase';
 
 export type CommunityFeedPost = { id: string; user_id: string | null; content: string; tag: string; circle_id: string | null; circle_name: string | null; anonymous: boolean; author_initials: string; author_name: string; author_meta: string; created_at: string; likes_count: number; replies_count: number };
 
+type CommunityPostRow = {
+  id: string;
+  user_id: string | null;
+  content: string;
+  tag: string;
+  circle_id: string | null;
+  anonymous: boolean | null;
+  author_initials: string | null;
+  author_name: string | null;
+  author_meta: string | null;
+  created_at: string | null;
+};
+
 let communityFeedChannelSequence = 0;
 const postLikeMutationLocks = new Set<string>();
 
@@ -72,8 +85,8 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
     }
 
     const postResult = circleId
-      ? await supabase.from('posts').select('id,user_id,content,tag,circle_id,anonymous,author_initials,author_name,author_meta,created_at').eq('circle_id', circleId).order('created_at', { ascending: false }).limit(50)
-      : await supabase.rpc('get_community_global_feed', { p_limit: 50 });
+      ? await supabase.from('posts').select('id,user_id,content,tag,circle_id,anonymous,author_initials,author_name,author_meta,created_at').eq('circle_id', circleId).order('created_at', { ascending: false }).limit(50).overrideTypes<CommunityPostRow[], { merge: false }>()
+      : await supabase.rpc('get_community_global_feed', { p_limit: 50 }).overrideTypes<CommunityPostRow[], { merge: false }>();
     if (postResult.error) {
       if (!hasCachedPosts) setError('We could not load the Community feed. Please try again.');
       else setShowingCached(true);
@@ -81,7 +94,7 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
       return;
     }
 
-    const rows = postResult.data ?? [];
+    const rows: CommunityPostRow[] = Array.isArray(postResult.data) ? postResult.data : [];
     const ids = rows.map((row) => String(row.id));
     const circleIds = [...new Set(rows.map((row) => row.circle_id ? String(row.circle_id) : '').filter(Boolean))];
     const [likesResult, commentsResult, userLikesResult, savesResult, anonymousOwnersResult, circlesResult] = await Promise.all([
