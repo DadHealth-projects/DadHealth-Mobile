@@ -84,7 +84,7 @@ test('all score consumers read the canonical pillar fields and share one trend f
   assert.match(hook, /mind_score,body_score,bond_score,mind_week_change,body_week_change,bond_week_change/);
   assert.match(today, /const scoreDetailItems = scoreItems/);
   assert.match(card, /formatScoreTrend\(item\.trend\)/);
-  assert.match(details, /<DadScoreCard score=\{score\} scoreUnavailable=\{scoreUnavailable\} items=\{items\}/);
+  assert.match(details, /<DadScoreCard score=\{score\} scoreUnavailable=\{scoreUnavailable\} baselineBuilding=\{baselineBuilding\} items=\{items\}/);
   assert.match(weekly, /export function formatPillarChange\(change: number \| null\): string/);
   assert.match(weekly, /trend\.change === null \? trend\.arrow : `\$\{trend\.arrow\} \$\{trend\.change\} pts`/);
   assert.match(weekly, /formatScoreTrend\(change\)/);
@@ -93,9 +93,9 @@ test('all score consumers read the canonical pillar fields and share one trend f
   assert.match(mind, /PillarScoreRow/);
   assert.match(body, /PillarScoreRow/);
   assert.match(bondCard, /\$\{formattedTrend\.change\} pts/);
-  assert.match(mind, /PillarScoreRow pillar="Mind" score=\{data\?\.mindScore \?\? null\} trend=\{data\?\.mindWeekChange \?\? null\} scoreUnavailable=\{Boolean\(data\?\.scoreError\)\}/);
-  assert.match(body, /PillarScoreRow pillar="Body" score=\{data\?\.bodyScore \?\? null\} trend=\{data\?\.bodyWeekChange \?\? null\} scoreUnavailable=\{Boolean\(data\?\.scoreError\)\}/);
-  assert.match(bond, /BondScoreCard score=\{bondScore\} trend=\{data\?\.bondWeekChange \?\? null\} scoreUnavailable=\{Boolean\(data\?\.scoreError\)\}/);
+  assert.match(mind, /<PillarScoreRow[\s\S]*?pillar="Mind"[\s\S]*?baselineBuilding=\{Boolean\(data && !data\.scoreError && !data\.baselineAvailable\)\}/);
+  assert.match(body, /<PillarScoreRow[\s\S]*?pillar="Body"[\s\S]*?baselineBuilding=\{Boolean\(data && !data\.scoreError && !data\.baselineAvailable\)\}/);
+  assert.match(bond, /BondScoreCard[\s\S]*?score=\{bondScore\}[\s\S]*?trend=\{data\?\.bondWeekChange \?\? null\}[\s\S]*?scoreUnavailable=\{Boolean\(data\?\.scoreError\)\}/);
   assert.match(history, /mind_has_data: boolean;[\s\S]*body_has_data: boolean;[\s\S]*bond_has_data: boolean/);
   assert.match(history, /fetchProInsight<\{ points: DadScoreHistoryPoint\[\] \}>\('score-history'\)/);
 });
