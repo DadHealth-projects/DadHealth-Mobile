@@ -1,9 +1,10 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect, useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import SectionHeader from './SectionHeader';
 import { PRO_MOMENTS } from '../../lib/proMoments';
 import { formatPillarChange, type WeeklyReport } from '../../lib/weeklyReport';
+import { trackEvent } from '../../lib/analytics';
 
 /**
  * Moment 5 — the weekly Dad Health report. Pro members see their own week;
@@ -11,18 +12,26 @@ import { formatPillarChange, type WeeklyReport } from '../../lib/weeklyReport';
  */
 function WeeklyReportCard({
   report,
-  isPro,
+  reportAccess,
   onUpgrade,
   loading = false,
   error = false,
+  userId,
 }: {
   report: WeeklyReport | null;
-  isPro: boolean | null;
+  reportAccess: boolean | null;
   onUpgrade: () => void;
   loading?: boolean;
   error?: boolean;
+  userId?: string;
 }) {
-  if (isPro === false) {
+  const lockViewed = useRef(false);
+  useEffect(() => {
+    if (reportAccess !== false || lockViewed.current) return;
+    lockViewed.current = true;
+    trackEvent('lock_viewed', { feature: 'weekly_report', source: 'weeklyReport' }, userId);
+  }, [reportAccess, userId]);
+  if (reportAccess === false) {
     return (
       <View>
         <SectionHeader title="Your week in Dad Health" className="mb-md" />
@@ -49,7 +58,7 @@ function WeeklyReportCard({
     <View>
       <SectionHeader title="Your week in Dad Health" className="mb-md" />
       <View className="border-b border-border pb-lg">
-        {isPro === null ? (
+        {reportAccess === null ? (
           <Text className="font-body text-muted-text text-[12px]">Checking Dad Health Pro access.</Text>
         ) : loading ? (
           <Text className="font-body text-muted-text text-[12px]">Preparing your weekly report…</Text>

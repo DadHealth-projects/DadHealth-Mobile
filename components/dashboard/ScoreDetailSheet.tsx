@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import { useDadScoreHistory } from '../../hooks/useDadScoreHistory';
 import { PRO_MOMENTS, proScoreTease } from '../../lib/proMoments';
 import { shareDadHealthReport } from '../../lib/reportSharing';
 import { colors } from '../../theme';
+import { trackEvent } from '../../lib/analytics';
 
 type Props = {
   visible: boolean;
@@ -31,6 +32,12 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
   const badgeData = useProgressBadges(sheetUserId);
   const history = useDadScoreHistory(isPro ? sheetUserId : undefined);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const lockViewed = useRef(false);
+  useEffect(() => {
+    if (!visible || !entitlementKnown || isPro || lockViewed.current) return;
+    lockViewed.current = true;
+    trackEvent('lock_viewed', { feature: 'score_insights', source: 'score' }, userId);
+  }, [entitlementKnown, isPro, userId, visible]);
   const month = useMemo(() => new Date().toLocaleDateString('en-US', { month: 'long' }), []);
   const scoreContextItem = useMemo(
     () => items
