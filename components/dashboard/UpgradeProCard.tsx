@@ -19,6 +19,8 @@ function UpgradeProCard({ onPress, insight }: UpgradeProCardProps) {
   return (
     <ProUpgradeSection
       moment={PRO_MOMENTS.score}
+      source="score"
+      feature="score_insights"
       lead={insight}
       onPress={() => onPress?.()}
     />

@@ -1,9 +1,10 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect, useRef } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
 
 import { colors } from '../../theme';
 import ProBadge from './ProBadge';
+import { trackEvent } from '../../lib/analytics';
 
 /**
  * The streak is the primary habit mechanic (brief Change 02, position 6).
@@ -14,18 +15,26 @@ import ProBadge from './ProBadge';
  */
 function StreakCard({
   streak,
-  isPro = null,
+  freezeAccess = null,
   freezeUsedThisWeek = null,
   freezesRemaining = null,
   onUpgrade,
+  userId,
 }: {
   streak: number | null;
-  isPro?: boolean | null;
+  freezeAccess?: boolean | null;
   freezeUsedThisWeek?: boolean | null;
   freezesRemaining?: number | null;
   onUpgrade?: () => void;
+  userId?: string;
 }) {
   const count = Math.max(0, streak ?? 0);
+  const lockViewed = useRef(false);
+  useEffect(() => {
+    if (freezeAccess !== false || lockViewed.current) return;
+    lockViewed.current = true;
+    trackEvent('lock_viewed', { feature: 'streak_freeze', source: 'streak_freeze' }, userId);
+  }, [freezeAccess, userId]);
 
   return (
     <View className="border-b border-border pb-lg gap-md">
@@ -48,7 +57,7 @@ function StreakCard({
         </View>
       </View>
 
-      {isPro === true && freezeUsedThisWeek !== null && freezesRemaining !== null ? (
+      {freezeAccess === true && freezeUsedThisWeek !== null && freezesRemaining !== null ? (
         <View className="flex-row items-center gap-sm">
           <Feather name="shield" size={14} color={colors.lime} />
           <Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">
@@ -57,7 +66,7 @@ function StreakCard({
               : `Streak protected · ${freezesRemaining} ${freezesRemaining === 1 ? 'freeze' : 'freezes'} left this week`}
           </Text>
         </View>
-      ) : isPro === false && onUpgrade ? (
+      ) : freezeAccess === false && onUpgrade ? (
         <Pressable
           onPress={onUpgrade}
           accessibilityRole="button"
