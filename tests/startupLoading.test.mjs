@@ -13,13 +13,15 @@ test('startup uses the DH logo before JavaScript content is ready', async () => 
   ]);
   const config = JSON.parse(appConfig);
 
-  assert.deepEqual(config.expo.splash, {
-    image: './assets/DH LOGO_LimeWhite_DarkBG.png',
+  const splashPlugin = config.expo.plugins.find((plugin) => Array.isArray(plugin) && plugin[0] === 'expo-splash-screen');
+  assert.deepEqual(splashPlugin?.[1], {
+    image: './assets/02. DAD HEALTH LOGO_COLOR_Dark BG.png',
     resizeMode: 'contain',
     backgroundColor: '#0A0A0A',
+    imageWidth: 200,
   });
   assert.match(app, /if \(!fontsLoaded\) \{\s*return <Splash \/>;/);
-  assert.match(splash, /DH LOGO_LimeWhite_DarkBG\.png/);
+  assert.match(splash, /02\. DAD HEALTH LOGO_COLOR_Dark BG\.png/);
   assert.doesNotMatch(splash, /BrandWordmark/);
 });
 

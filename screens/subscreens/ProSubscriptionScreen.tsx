@@ -39,13 +39,13 @@ export default function ProSubscriptionScreen() {
 
   const planCopy = useMemo(() => ({
     monthly: {
-      price: subscriptions.products.find((item) => item.plan === 'monthly')?.displayPrice ?? '£6.99',
+      price: subscriptions.products.find((item) => item.plan === 'monthly')?.displayPrice ?? null,
       suffix: 'per month',
       badge: null,
     },
     annual: {
-      price: subscriptions.products.find((item) => item.plan === 'annual')?.displayPrice ?? '£49.99',
-      suffix: 'per year · about £4.17 a month',
+      price: subscriptions.products.find((item) => item.plan === 'annual')?.displayPrice ?? null,
+      suffix: 'per year',
       badge: 'Best value',
     },
   }), [subscriptions.products]);
@@ -111,6 +111,7 @@ export default function ProSubscriptionScreen() {
                 title="Annual"
                 price={planCopy.annual.price}
                 suffix={planCopy.annual.suffix}
+                loadingPrice={subscriptions.loading}
                 badge={planCopy.annual.badge}
                 selected={selectedPlan === 'annual'}
                 onPress={() => setSelectedPlan('annual')}
@@ -119,6 +120,7 @@ export default function ProSubscriptionScreen() {
                 title="Monthly"
                 price={planCopy.monthly.price}
                 suffix={planCopy.monthly.suffix}
+                loadingPrice={subscriptions.loading}
                 selected={selectedPlan === 'monthly'}
                 onPress={() => setSelectedPlan('monthly')}
               />
@@ -211,12 +213,14 @@ function PlanRow({
   price,
   suffix,
   badge,
+  loadingPrice,
   selected,
   onPress,
 }: {
   title: string;
-  price: string;
+  price: string | null;
   suffix: string;
+  loadingPrice: boolean;
   badge?: string | null;
   selected: boolean;
   onPress(): void;
@@ -242,7 +246,7 @@ function PlanRow({
         </View>
         <Text className="font-body text-muted-text text-[11px] mt-xs">{suffix}</Text>
       </View>
-      <Text className="font-heading text-lime text-[27px]">{price}</Text>
+      <Text className="font-heading text-lime text-[14px]">{price ?? (loadingPrice ? 'Loading price' : 'Price unavailable')}</Text>
     </Pressable>
   );
 }
