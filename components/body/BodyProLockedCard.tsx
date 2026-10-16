@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Image, type ImageSourcePropType, Text, View } from 'react-native';
 
 import LimeButton from '../LimeButton';
 import ProBadge from '../dashboard/ProBadge';
+import { trackEvent } from '../../lib/analytics';
 
 type BodyProLockedCardProps = {
   eyebrow: string;
@@ -11,6 +12,9 @@ type BodyProLockedCardProps = {
   preview: ImageSourcePropType;
   previewLabel: string;
   buttonLabel: string;
+  source: string;
+  feature?: string;
+  userId?: string;
   onUnlock: () => void;
 };
 
@@ -21,8 +25,17 @@ export default function BodyProLockedCard({
   preview,
   previewLabel,
   buttonLabel,
+  source,
+  feature = source,
+  userId,
   onUnlock,
 }: BodyProLockedCardProps) {
+  const viewed = useRef(false);
+  useEffect(() => {
+    if (viewed.current) return;
+    viewed.current = true;
+    trackEvent('lock_viewed', { feature, source }, userId);
+  }, [feature, source, userId]);
   return (
     <View className="gap-md rounded-[16px] border border-lime/40 bg-card p-md">
       <View className="flex-row items-start justify-between gap-sm">

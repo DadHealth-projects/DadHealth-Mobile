@@ -1,13 +1,17 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect, useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 import LimeButton from './LimeButton';
 import { colors } from '../theme';
 import type { ProMoment } from '../lib/proMoments';
+import { trackEvent } from '../lib/analytics';
 
 type ProUpgradeSectionProps = {
   moment: ProMoment;
+  source: string;
+  feature?: string;
+  userId?: string;
   onPress: () => void;
   /** Replaces the moment body — used for the Home tease, which leads with the
    *  dad's own improvement before the Pro line. */
@@ -26,12 +30,21 @@ type ProUpgradeSectionProps = {
  */
 function ProUpgradeSection({
   moment,
+  source,
+  feature = source,
+  userId,
   onPress,
   lead,
   size = 'lg',
   className = '',
 }: ProUpgradeSectionProps) {
   const large = size === 'lg';
+  const viewed = useRef(false);
+  useEffect(() => {
+    if (viewed.current) return;
+    viewed.current = true;
+    trackEvent('lock_viewed', { feature, source }, userId);
+  }, [feature, source, userId]);
 
   return (
     <View className={`gap-md border-b border-border pb-lg ${className}`}>
