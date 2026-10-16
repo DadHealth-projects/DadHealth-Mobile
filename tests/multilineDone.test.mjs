@@ -57,7 +57,8 @@ test('single-line and numeric inputs expose native search or done actions', asyn
 
   assert.ok(dadDays.includes('returnKeyType="search"'));
   assert.ok(dadDays.includes('void usePostcode()'));
-  assert.ok(manual.includes("keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'number-pad'} returnKeyType="));
+  assert.ok(manual.includes('keyboardType="numbers-and-punctuation" returnKeyType="done"'));
+  assert.ok(manual.includes('value.replace(/[^0-9]/g, \'\')'));
   assert.ok(tdee.includes("keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'} returnKeyType="));
   assert.ok(checkIn.includes("keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'decimal-pad'}"));
   assert.ok(checkIn.includes('returnKeyType="done"'));

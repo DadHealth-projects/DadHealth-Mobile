@@ -76,8 +76,9 @@ test('Home queues a deduplicated daily check-in and protects newer wearable slee
   assert.ok(storage.includes('existing.payload.date === item.payload.date'));
   assert.ok(sync.includes("new Set(['garmin', 'fitbit', 'apple_health', 'health_connect'])"));
   assert.ok(sync.includes(".eq('source', 'manual')"));
-  assert.ok(sync.includes('await recomputeStreak(item.userId)'));
-  assert.ok(screen.includes("Saved — will sync when you're back online"));
+  assert.doesNotMatch(sync, /recomputeStreak\(item\.userId\)/);
+  assert.match(sync, /daily_checkin/);
+  assert.ok(screen.includes("Saved on this device. It will sync when you're back online."));
 });
 
 test('new Journal entries queue with a client UUID while offline edits and deletes stay blocked', async () => {
@@ -192,13 +193,14 @@ test('feature screens keep their normal layout without offline retry screens or 
     assert.equal(file.includes('OfflineUnavailableState'), false, `Offline replacement state remains in ${paths[index]}`);
   }
 
-  assert.equal(files[0].includes('circleError ? ('), false);
+  assert.ok(files[0].includes('<ScreenErrorNotice message={circleError} />'));
   assert.equal(files[0].includes('liveSessionsError ?'), false);
   assert.equal(files[0].includes('trendingError ?'), false);
   assert.equal(files[3].includes('error && !post ?'), false);
   assert.equal(files[4].includes('if (recipeData.error)'), false);
   assert.equal(files[5].includes('journal.error ? ('), false);
-  assert.equal(files[9].includes('if (error)'), false);
+  assert.ok(files[9].includes('<GlobalErrorToastReporter message={loadError} />'));
+  assert.ok(files[9].includes('<InlineFormError message={isOffline ? null : actionError} />'));
 });
 
 test('Weekly Challenge restores cached display state offline and guards server mutations', async () => {
