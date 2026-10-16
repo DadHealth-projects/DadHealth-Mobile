@@ -12,10 +12,9 @@ test('Free gets the locked Mind Plan card and Pro keeps the placeholder sheet', 
     readFile(new URL('assets/mind-plan-blurred-preview.png', root)),
   ]);
 
-  assert.match(mind, /data\?\.isPro === true \? \([\s\S]*?setMindPlanOpen\(true\)/);
-  assert.match(mind, /<MindPlanLockedCard[\s\S]*?navigation\.navigate\('ProSubscription'\)/);
-  assert.match(mind, /\) : data\?\.isPro === false \? \(/);
-  assert.match(mind, /navigation\.navigate\('ProSubscription'\)/);
+  assert.match(mind, /mindPlanAccess === true \? \([\s\S]*?setMindPlanOpen\(true\)/);
+  assert.match(mind, /mindPlanAccess === false \? \([\s\S]*?<MindPlanLockedCard/);
+  assert.match(mind, /navigateToProSubscription\(navigation, 'mind_plan'/);
   assert.match(mind, /<PersonalisedMindPlanSheet onClose=/);
   assert.match(card, /Personalised/);
   assert.match(card, /Your Mind Plan/);

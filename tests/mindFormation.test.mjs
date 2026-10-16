@@ -50,9 +50,9 @@ test('Mood This Week is available to Free and View Mood Trends remains the Pro e
     readFile(new URL('lib/proMoments.ts', root), 'utf8'),
   ]);
 
-  assert.match(source, /data\?\.isPro === false/);
-  assert.match(source, /navigation\.navigate\('ProSubscription'\)/);
-  assert.match(source, /actionLabel={data\?\.isPro === false \? 'View mood trends' : undefined}/);
+  assert.match(source, /trendsAccess === false/);
+  assert.match(source, /navigateToProSubscription\(navigation, 'trends'/);
+  assert.match(source, /actionLabel={trendsAccess === false \? 'View mood trends' : undefined}/);
   assert.match(await readFile(new URL('components/dashboard/MoodWeekCard.tsx', root), 'utf8'), /maxValue=\{5\}/);
   assert.match(locks, /moodTrends: \{/);
 });
@@ -68,8 +68,8 @@ test('weekly sleep and mood correlation use Monday-Sunday keys and normalize leg
 
 test('Free sees a locked preview for mood correlation and Pro sees the pattern', async () => {
   const source = await readFile(new URL('screens/MindScreen.tsx', root), 'utf8');
-  assert.match(source, /data\?\.isPro === true \? \([\s\S]*?sleepInsights\.pattern/);
-  assert.match(source, /data\?\.isPro === false \? \(/);
+  assert.match(source, /trendsAccess === true \? \([\s\S]*?sleepInsights\.pattern/);
+  assert.match(source, /trendsAccess === false \? \(/);
   assert.match(source, /Mood trend/);
   assert.match(source, /See your patterns/);
   assert.match(source, /Your mood over 4 weeks, and what moves it\./);
@@ -84,7 +84,7 @@ test('Mind offers the Pro personalised plan without gating the free actions', as
     readFile(new URL('screens/subscreens/TherapistDirectoryScreen.tsx', root), 'utf8'),
   ]);
 
-  assert.match(source, /<MindPlanLockedCard[\s\S]*?onUnlock=\{\(\) => navigation\.navigate\('ProSubscription'\)\}/);
+  assert.match(source, /mindPlanAccess === false \? \([\s\S]*?<MindPlanLockedCard[\s\S]*?navigateToProSubscription\(navigation, 'mind_plan'/);
   assert.match(locks, /Get a personalised plan/);
   // Brief free column: breathing, journal, therapist directory and crisis.
   assert.doesNotMatch(therapist, /isPro/);
