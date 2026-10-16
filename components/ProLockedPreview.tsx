@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 import { colors } from '../theme';
 import type { ProMoment } from '../lib/proMoments';
+import { trackEvent } from '../lib/analytics';
 
 type ProLockedPreviewProps = {
   lock: ProMoment;
+  source: string;
+  feature?: string;
+  userId?: string;
   onPress: () => void;
   /** The real feature, rendered dimmed behind the lock. */
   children: React.ReactNode;
@@ -23,10 +27,19 @@ type ProLockedPreviewProps = {
  */
 export default function ProLockedPreview({
   lock,
+  source,
+  feature = source,
+  userId,
   onPress,
   children,
   className = '',
 }: ProLockedPreviewProps) {
+  const viewed = useRef(false);
+  useEffect(() => {
+    if (viewed.current) return;
+    viewed.current = true;
+    trackEvent('lock_viewed', { feature, source }, userId);
+  }, [feature, source, userId]);
   return (
     <View className={`gap-md border-b border-border pb-lg ${className}`}>
       <View>
