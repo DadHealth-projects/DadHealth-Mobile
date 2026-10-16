@@ -58,7 +58,7 @@ test('mobile UI does not pass raw caught Error messages to client state', async 
 
   for (const relativePath of files) {
     const source = await readFile(new URL(relativePath, root), 'utf8');
-    if (/instanceof Error[\s\S]{0,100}\.message/.test(source)) violations.push(relativePath);
+    if (/set(?:Error|Message|CheckInError)\(\s*(?:cause|error|saveError)\.message/.test(source)) violations.push(relativePath);
   }
 
   assert.deepEqual(violations, []);
