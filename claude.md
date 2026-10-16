@@ -471,7 +471,11 @@ Completed/frozen milestone areas remain frozen until an explicitly approved task
 
 # Phase 4 Milestone 2 progress
 
+## Milestone status
+IN PROGRESS. Only Step 1 (A1–A6 shared Pro badges, locks, upgrade moments and paywall navigation, plus approved Pro-access bug fixes) is complete and device-tested.
+
 ## Completed
+- Step 1: shared Pro feature access, badges and locked previews, upgrade moments, source-aware paywall navigation and approved Pro-access bug fixes.
 - Daily check-in: approved Mind, Body and Bond responses, preserved 1–5 mapping, faster save confirmation, duplicate-submit protection, refresh race protection, offline behavior, and compact low-answer support recommendations.
 - Mind: four Free Quick Fixes; temporary local Voice Note; Brain Dump with optional Journal save; native Text a Mate composer; Shoulders/Jaw Reset; Journal Write freely and Guide me modes with check-in prompts; existing history and offline saves retained.
 - Pro presentation: corrected entitlement-state handling and removed upgrade prompts for confirmed Pro users. Existing purchase verification remains authoritative.
@@ -481,5 +485,6 @@ Completed/frozen milestone areas remain frozen until an explicitly approved task
 - Weekly Challenge fix requires web deployment and a fresh challenge publication. Live-device resolution remains unverified.
 - Website logo metadata change requires website deployment; Safari may retain cached previews.
 - Final 60/40 scoring formula and approved backend migration; remaining Body and Bond work; weekly Free workout and recipe selection; remaining Pro entitlement and cancellation requirements; Jamie review of draft Journal prompts and Text a Mate copy; other unfinished October Milestone 2 items.
+- Final app performance audit remains deferred until remaining Milestone 2 work is complete.
 
 Completed work remains protected. Do not mark pending work complete. Preserve existing instructions and require explicit approval before reopening completed work.
