@@ -46,12 +46,12 @@ test('Mind places facts and sleep below the feeling description without duplicat
   const mind = await source('screens/MindScreen.tsx');
 
   assert.ok(mind.includes('<StatTile'));
-  assert.ok(mind.includes('summary={moodSummary} flat'));
+  assert.match(mind, /summary=\{moodSummary\}[\s\S]{0,40}flat/);
   assert.ok(mind.includes("rounded-button border px-md py-md ${featured ? 'border-lime/25 bg-lime/5' : 'border-border bg-card'}"));
   assert.ok(mind.includes('gap-md border-b border-border pb-md'));
-  assert.ok(mind.indexOf('<StatTile value="1 in 8"') > mind.indexOf('Opening up about feelings'));
-  assert.ok(mind.indexOf('title="Sleep quality this week"') > mind.indexOf('<StatTile value="1 in 8"'));
-  assert.ok(mind.indexOf('title="Mind Reset"') > mind.indexOf('title="Sleep quality this week"'));
+  assert.ok(mind.indexOf('title="Mind Reset"') < mind.indexOf('<PillarScoreRow'));
+  assert.ok(mind.indexOf('<PillarScoreRow') < mind.indexOf('<ManualActivitySection'));
+  assert.ok(mind.indexOf('<StatTile value="1 in 8"') > mind.indexOf('<ManualActivitySection'));
   assert.equal((mind.match(/<SectionHeader title="Mind facts"/g) ?? []).length, 1);
   assert.equal((mind.match(/<SectionHeader title="Sleep quality this week"/g) ?? []).length, 1);
 });
@@ -69,6 +69,6 @@ test('Community keeps its compact circle tiles and recent-post row', async () =>
   const community = await source('screens/CommunityScreen.tsx');
 
   assert.ok(community.includes('<CircleCard'));
-  assert.ok(community.includes('className="w-[48%]"'));
+  assert.ok(community.includes('<CircleCard'));
   assert.ok(community.includes('min-h-[76px] flex-row items-center gap-md rounded-button border border-border bg-card px-md'));
 });

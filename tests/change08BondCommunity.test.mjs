@@ -87,9 +87,9 @@ test('Community uses Admin-managed descriptions and the approved subtitle', asyn
   assert.match(mobile, /communityCircles\.slice\(rowIndex \* 2, rowIndex \* 2 \+ 2\)/);
   assert.doesNotMatch(mobile, /communityCircles\.filter\(\(_, index\) => index % 2/);
   assert.doesNotMatch(mobile, /View key=\{circle\.id\} className="w-\[48%\]"/);
-  assert.match(card, /\{description \? <Text/);
+  assert.match(card, /\{description \? \([\s\S]*?\{description\}[\s\S]*?\) : null\}/);
   assert.match(card, /flex-1 flex-col rounded-card p-md/);
-  assert.match(card, /grow font-body text-muted-text/);
+  assert.match(card, /font-body text-muted-text text-\[11px\] leading-\[16px\] mt-xs/);
   assert.match(card, /mt-auto flex-row items-center justify-between pt-md/);
   assert.match(card, /View Posts/);
   assert.match(mobile, /membersCount === 1 \? 'member' : 'members'/);
