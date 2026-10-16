@@ -46,11 +46,8 @@ function responseError(status: number, payload: ErrorPayload): WorkoutGeneration
       'session_expired',
     );
   }
-  if (payload.code === 'free_limit_reached') {
-    return new WorkoutGenerationError(
-      'You have used your three free AI workouts this month.',
-      'free_limit_reached',
-    );
+  if (status === 403 && payload.code === 'pro_required') {
+    return new WorkoutGenerationError('Dad Health Pro access is required to generate AI workouts.', 'pro_required');
   }
   if (status === 429) {
     return new WorkoutGenerationError(

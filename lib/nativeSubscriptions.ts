@@ -1,4 +1,5 @@
 import { Linking, Platform } from 'react-native';
+import Constants from 'expo-constants';
 import type {
   ProductSubscription,
   ProductSubscriptionAndroid,
@@ -40,8 +41,18 @@ type IapModule = typeof import('react-native-iap');
 
 let cachedIap: IapModule | null | undefined;
 
+export function shouldLoadNativeIap(appOwnership: string | null): boolean {
+  return appOwnership !== 'expo';
+}
+
 export function getNativeIapModule(): IapModule | null {
   if (cachedIap !== undefined) return cachedIap;
+  // Expo Go does not contain the native Nitro/IAP modules. Keep server-resolved
+  // subscription status available, but do not load the unsupported native SDK.
+  if (!shouldLoadNativeIap(Constants.appOwnership)) {
+    cachedIap = null;
+    return cachedIap;
+  }
   try {
     cachedIap = require('react-native-iap') as IapModule;
   } catch {
