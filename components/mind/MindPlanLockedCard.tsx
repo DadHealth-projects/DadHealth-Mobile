@@ -1,18 +1,27 @@
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image, Text, View } from 'react-native';
 
 import LimeButton from '../LimeButton';
 import { colors } from '../../theme';
+import { trackEvent } from '../../lib/analytics';
 
 type MindPlanLockedCardProps = {
   onUnlock: () => void;
+  userId?: string;
 };
 
 export default function MindPlanLockedCard({
   onUnlock,
+  userId,
 }: MindPlanLockedCardProps) {
+  const viewed = useRef(false);
+  useEffect(() => {
+    if (viewed.current) return;
+    viewed.current = true;
+    trackEvent('lock_viewed', { feature: 'mind_plan', source: 'mind_plan' }, userId);
+  }, [userId]);
   return (
     <View className="rounded-[16px] border border-lime/40 bg-card p-md">
       <View className="flex-row items-start justify-between gap-sm">
