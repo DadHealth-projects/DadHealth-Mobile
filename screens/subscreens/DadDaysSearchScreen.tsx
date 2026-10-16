@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, Keyboard, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import * as SecureStore from 'expo-secure-store';
@@ -9,12 +9,13 @@ import * as SecureStore from 'expo-secure-store';
 import AppTopBar from '../../components/AppTopBar';
 import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
-import ProPromptModal from '../../components/ProPromptModal';
 import ProUpgradeSection from '../../components/ProUpgradeSection';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { useDashboard } from '../../hooks/useDashboard';
+import { useEntitlement } from '../../hooks/useEntitlement';
+import { useUpgradeMomentManager } from '../../contexts/UpgradeMomentContext';
 import { trackEvent } from '../../lib/analytics';
 import { PRO_MOMENTS } from '../../lib/proMoments';
 import { supabase } from '../../lib/supabase';
@@ -44,9 +45,17 @@ const QUICK_FILTERS: Array<{ value: QuickFilter; label: string }> = [
 
 export default function DadDaysSearchScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
+  const route = useRoute();
+  const { requestMoment } = useUpgradeMomentManager();
   const { user, session } = useAuth();
   const { isOffline, showOfflineAction } = useNetworkStatus();
-  const { refresh: refreshDashboard } = useDashboard(user?.id);
+  const { data: dashboardData, loading: dashboardLoading, refresh: refreshDashboard } = useDashboard(user?.id);
+  const entitlement = useEntitlement({
+    isPro: dashboardData?.isPro ?? null,
+    trialActive: dashboardData?.trialActive ?? null,
+    loading: dashboardLoading,
+  });
+  const dadDaysAccess = entitlement.can('dad_days_unlimited');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [postcodeInput, setPostcodeInput] = useState('');
   const [postcode, setPostcode] = useState('');
@@ -67,7 +76,6 @@ export default function DadDaysSearchScreen() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<{ name: string; message: string } | null>(null);
   const [openFilter, setOpenFilter] = useState<'budget' | 'radius' | 'age' | null>(null);
-  const [proPromptMoment, setProPromptMoment] = useState<'dadDays' | 'dadDaysCounter' | null>(null);
   const accessRequestId = useRef(0);
 
   useEffect(() => {
@@ -179,11 +187,16 @@ export default function DadDaysSearchScreen() {
 
   const remaining = Math.max(0, FREE_LIMIT - searchesUsed);
   const limitReached = accessReady && !isPro && remaining === 0;
+  // The usage counter reports searches already used, not searches remaining.
+  const searchesUsedLabel = `${Math.min(searchesUsed, FREE_LIMIT)} of ${FREE_LIMIT} free Dad Days searches used this month.`;
   const search = useCallback(async () => {
     if (!user || !session?.access_token) { navigation.navigate('Login'); return; }
     if (isOffline) { showOfflineAction('dad_days_search'); return; }
     if (!coords) { setLocationError('Use your location or enter a postcode first.'); return; }
-    if (limitReached) { setProPromptMoment('dadDaysCounter'); return; }
+    if (limitReached) {
+      requestMoment({ id: 'dadDaysCounter', screen: route.key, feature: 'dad_days_unlimited', isPro: entitlement.isPro, trialActive: entitlement.trialActive, loading: entitlement.loading, featureAccess: dadDaysAccess, hasCompletedAction: searchesUsed > 0, lead: `${searchesUsedLabel} Your allowance resets on the first of next month.`, userId: user?.id });
+      return;
+    }
     setSearching(true); setSearchError(null); setResults([]);
     try {
       const response = await fetch(`${WEB_URL}/api/dad_days_searches`, {
@@ -193,7 +206,7 @@ export default function DadDaysSearchScreen() {
       });
       const body = await response.json() as { results?: SearchResult[]; searchesUsed?: number; error?: string };
       if (response.status === 401) { setSearchError('Your session has expired. Please log in again.'); return; }
-      if (body.error === 'search_limit_reached' || response.status === 403) { setSearchesUsed(FREE_LIMIT); setProPromptMoment('dadDaysCounter'); trackEvent('dad_days_search_limit_reached', { searchesUsed: FREE_LIMIT }, user.id); return; }
+      if (body.error === 'search_limit_reached' || response.status === 403) { setSearchesUsed(FREE_LIMIT); requestMoment({ id: 'dadDaysCounter', screen: route.key, feature: 'dad_days_unlimited', isPro: entitlement.isPro, trialActive: entitlement.trialActive, loading: entitlement.loading, featureAccess: dadDaysAccess, hasCompletedAction: searchesUsed > 0, lead: `${FREE_LIMIT} of ${FREE_LIMIT} free Dad Days searches used this month. Your allowance resets on the first of next month.`, userId: user.id }); trackEvent('dad_days_search_limit_reached', { searchesUsed: FREE_LIMIT }, user.id); return; }
       if (!response.ok) { setSearchError(response.status === 429 ? "You're searching too quickly. Wait a moment and try again." : 'We could not search for Dad Days. Please try again.'); return; }
       const nextResults = body.results ?? [];
       setResults(nextResults);
@@ -202,7 +215,7 @@ export default function DadDaysSearchScreen() {
       trackEvent('dad_days_search_completed', { budget, radius: Number(radius), childAge, resultCount: nextResults.length, isPro }, user.id);
     } catch { setSearchError('We could not search for Dad Days. Check your connection and try again.'); }
     finally { setSearching(false); }
-  }, [budget, childAge, coords, isOffline, isPro, limitReached, navigation, postcode, quickFilters, radius, searchesUsed, session?.access_token, showOfflineAction, user]);
+  }, [budget, childAge, coords, dadDaysAccess, entitlement.isPro, entitlement.loading, entitlement.trialActive, isOffline, isPro, limitReached, navigation, postcode, quickFilters, radius, requestMoment, route.key, searchesUsed, searchesUsedLabel, session?.access_token, showOfflineAction, user]);
 
   const save = useCallback(async (result: SearchResult) => {
     if (!user?.id) return;
@@ -220,12 +233,6 @@ export default function DadDaysSearchScreen() {
   }, [budget, isOffline, refreshDashboard, showOfflineAction, user?.id]);
 
   const locationLabel = coords ? (postcode ? postcode : 'Current location') : 'No location set';
-  // The usage counter reports searches already used, not searches remaining.
-  const searchesUsedLabel = `${Math.min(searchesUsed, FREE_LIMIT)} of ${FREE_LIMIT} free Dad Days searches used this month.`;
-  const openPro = () => {
-    setProPromptMoment(null);
-    navigation.navigate('ProSubscription');
-  };
   const openResultWebsite = (url: string) => {
     if (isOffline) { showOfflineAction('dad_days_open'); return; }
     openSecureWebsite(url);
@@ -287,8 +294,11 @@ export default function DadDaysSearchScreen() {
                 {accessReady && !isPro && searchesUsed === FREE_LIMIT - 1 ? (
                   <ProUpgradeSection
                     moment={PRO_MOMENTS.dadDays}
+                    feature="dad_days_unlimited"
+                    userId={user.id}
                     lead={`${searchesUsed} of ${FREE_LIMIT} free searches used. Pro gives you unlimited searches personalised for your child.`}
-                    onPress={() => setProPromptMoment('dadDays')}
+                    source="dadDays"
+                    onPress={() => requestMoment({ id: 'dadDays', screen: route.key, feature: 'dad_days_unlimited', isPro: entitlement.isPro, trialActive: entitlement.trialActive, loading: entitlement.loading, featureAccess: dadDaysAccess, hasCompletedAction: searchesUsed > 0, lead: `${searchesUsed} of ${FREE_LIMIT} free searches used. Pro gives you unlimited searches personalised for your child.`, userId: user.id })}
                     size="sm"
                   />
                 ) : null}
@@ -299,13 +309,6 @@ export default function DadDaysSearchScreen() {
 
         {results.length > 0 ? <View className="gap-md border-t border-border pt-xl"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Activities found ({results.length})</Text><FeaturedResult result={results[0]} saving={savingName === results[0].name} error={!isOffline && saveError?.name === results[0].name ? saveError.message : null} onOpen={() => openResultWebsite(results[0].websiteUrl)} onSave={() => void save(results[0])} /><View className="gap-md">{results.slice(1).map((result) => <ResultRow key={result.name} result={result} saving={savingName === result.name} error={!isOffline && saveError?.name === result.name ? saveError.message : null} onOpen={() => openResultWebsite(result.websiteUrl)} onSave={() => void save(result)} />)}</View></View> : null}
       </ScrollView>
-      <ProPromptModal
-        visible={proPromptMoment !== null}
-        moment={PRO_MOMENTS[proPromptMoment ?? 'dadDaysCounter']}
-        lead={proPromptMoment === 'dadDaysCounter' ? `${searchesUsedLabel} Your allowance resets on the first of next month.` : null}
-        onUpgrade={openPro}
-        onDismiss={() => setProPromptMoment(null)}
-      />
     </SafeAreaView>
   );
 }

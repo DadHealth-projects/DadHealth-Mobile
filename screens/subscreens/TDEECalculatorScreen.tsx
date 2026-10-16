@@ -11,7 +11,9 @@ import ProLockedPreview from '../../components/ProLockedPreview';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../hooks/useDashboard';
+import { useEntitlement } from '../../hooks/useEntitlement';
 import { PRO_LOCKS } from '../../lib/proMoments';
+import { navigateToProSubscription } from '../../lib/proNavigation';
 import {
   ACTIVITY_LABELS,
   calculateTDEE,
@@ -32,7 +34,12 @@ export default function TDEECalculatorScreen() {
   const { user } = useAuth();
   // Reads the shared dashboard store, so this adds no extra network round trip.
   const { data: dashboard } = useDashboard(user?.id);
-  const isPro = dashboard?.isPro === true;
+  const entitlement = useEntitlement({
+    isPro: dashboard?.isPro ?? null,
+    trialActive: dashboard?.trialActive ?? null,
+    loading: dashboard == null,
+  });
+  const tdeeAccess = entitlement.can('full_tdee');
   const [units, setUnits] = useState<UnitSystem>('metric');
   const [gender, setGender] = useState<TDEEGender>('male');
   const [age, setAge] = useState('');
@@ -45,7 +52,7 @@ export default function TDEECalculatorScreen() {
   const [result, setResult] = useState<TDEEResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const close = useCallback(() => navigation.goBack(), [navigation]);
-  const openPro = useCallback(() => navigation.navigate('ProSubscription'), [navigation]);
+  const openPro = useCallback(() => navigateToProSubscription(navigation, 'full_tdee', 'Full TDEE targets', user?.id, 'lock'), [navigation, user?.id]);
 
   // Editing any value clears the previous validation message.
   const editField = useCallback(
@@ -111,7 +118,7 @@ export default function TDEECalculatorScreen() {
               <View className="gap-md">
                 <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Calorie targets</Text>
                 <TargetRow label="Maintenance" value={result.maintenance} detail="Hold your current weight" highlighted />
-                {isPro ? (
+                {tdeeAccess === true ? (
                   <>
                     <TargetRow label="Fat loss" value={result.fatLoss} detail="500 kcal daily deficit" />
                     <TargetRow label="Aggressive cut" value={result.aggressiveFatLoss} detail="750 kcal daily deficit" />
@@ -120,10 +127,10 @@ export default function TDEECalculatorScreen() {
                 ) : null}
               </View>
 
-              {isPro ? (
+              {tdeeAccess === true ? (
                 <View className="gap-md"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Insights</Text>{insights.map((text, index) => <View key={index} className="border-l-2 border-lime pl-md"><Text className="font-body text-muted-text text-[12px] leading-[18px]">{text}</Text></View>)}</View>
-              ) : dashboard?.isPro === false ? (
-                <ProLockedPreview lock={PRO_LOCKS.fullTdee} onPress={openPro}>
+              ) : tdeeAccess === false ? (
+                <ProLockedPreview lock={PRO_LOCKS.fullTdee} source="full_tdee" feature="full_tdee" userId={user?.id} onPress={openPro}>
                   <View className="gap-md">
                     <TargetRow label="Fat loss" value={result.fatLoss} detail="500 kcal daily deficit" />
                     <TargetRow label="Aggressive cut" value={result.aggressiveFatLoss} detail="750 kcal daily deficit" />
