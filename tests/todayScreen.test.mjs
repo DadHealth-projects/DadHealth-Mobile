@@ -37,10 +37,11 @@ test('Today follows the approved score-led hierarchy', async () => {
 });
 
 test('daily check-in uses approved Mind, Body, Bond wording with optional Sleep', async () => {
-  const [panel, moods, dashboard] = await Promise.all([
+  const [panel, moods, dashboard, screen] = await Promise.all([
     source('components/dashboard/CheckInPanel.tsx'),
     source('components/mockup/MoodCheckInRow.tsx'),
     source('hooks/useDashboard.ts'),
+    source('screens/DashboardScreen.tsx'),
   ]);
 
   const moodLabels = [...moods.matchAll(/label: '([^']+)'/g)].map((match) => match[1]);
@@ -62,8 +63,9 @@ test('daily check-in uses approved Mind, Body, Bond wording with optional Sleep'
   assert.ok(publicHome.includes('lowestLabel="Very low"'));
   assert.ok(dashboard.includes('payload: { date, moodValue, energyLevel, connectionLevel, sleepHours }'));
   assert.ok(dashboard.includes('stress_level: log.stress_level ?? null'));
-  assert.ok(dashboard.includes('saveCheckIn(moodValue, energyLevel, connectionLevel, sleepHours)'));
-  assert.ok(dashboard.includes('Check-in saved for Mind, Body and Bond.'));
+  assert.ok(dashboard.includes('const saveCheckIn = useCallback(async ('));
+  assert.ok(screen.includes('saveCheckIn(moodValue, energyLevel, connectionLevel, sleepHours)'));
+  assert.ok(screen.includes('Check-in saved for Mind, Body and Bond.'));
 });
 
 test('online and offline check-in saves preserve omitted fields and replay old queue payloads', async () => {
@@ -83,7 +85,8 @@ test('online and offline check-in saves preserve omitted fields and replay old q
   assert.ok(sync.includes(".insert({ user_id: item.userId, date, ...moodPayload })"));
   assert.ok(sync.includes("if (inserted.error.code !== '23505') throw inserted.error"));
   assert.ok(sync.includes('if (existingMood.data)'));
-  assert.ok(sync.includes("if (sleepHours != null) await saveManualSleep(item.userId, date, sleepHours)"));
+  assert.ok(sync.includes('if (sleepHours != null) {'));
+  assert.ok(sync.includes('await saveManualSleep(item.userId, date, sleepHours)'));
   assert.ok(sync.includes('stressLevel == null ? {} : { stress_level: stressLevel }'));
   assert.ok(sync.includes('energyLevel == null ? {} : { energy_level: energyLevel }'));
   assert.ok(sync.includes('connectionLevel == null ? {} : { connection_level: connectionLevel }'));
@@ -184,15 +187,15 @@ test('Today score card and detail sheet use canonical values for Free and Pro', 
   assert.equal(screen.includes('selectTodayFocus'), false);
   assert.ok(hook.includes('total_score,weakest_pillar,recommended_action'));
   assert.ok(scoreCard.includes('trend.arrow'));
-  assert.ok(screen.includes("proTease={!data.isPro ? 'Unlock my insights' : undefined}"));
+  assert.ok(screen.includes("proTease={scoreInsightsAccess === false ? 'Unlock my insights' : undefined}"));
   assert.ok(screen.includes('accessibilityLabel="Open Dad Health Score details"'));
   assert.equal(screen.includes('lockedValues={!data.isPro}'), false);
   const detail = await source('components/dashboard/ScoreDetailSheet.tsx');
   assert.ok(detail.includes('Score trends'));
   assert.ok(detail.includes('Share report'));
-  assert.ok(detail.includes('useProgressReport(sheetUserId)'));
-  assert.ok(detail.includes('className="flex-1 rounded-t-[28px] bg-[#111214]"'));
-  assert.ok(detail.includes('{!isPro ? <View className="border-y border-border py-md">'));
+  assert.ok(detail.includes('useProgressReport(sheetUserId, isPro)'));
+  assert.ok(detail.includes('className="h-[70%] rounded-t-[28px] bg-[#111214]"'));
+  assert.ok(detail.includes('{!isPro && entitlementKnown ? <View className="border-y border-border py-md">'));
   assert.ok(moments.includes('Understand your score'));
   assert.ok(moments.includes('personalised insights, weekly trends and recommendations.'));
   assert.ok(moments.includes("cta: 'Unlock my insights'"));
@@ -204,14 +207,14 @@ test('post-check-in supports pillar-specific actions and preserves the Pro CTA',
     source('components/dashboard/CheckInFollowUp.tsx'),
   ]);
 
-  assert.ok(screen.includes('isPro={data.isPro}'));
-  assert.ok(followUp.includes("isPro ? 'Build my plan' : 'Build my plan with Dad Health Pro'"));
+  assert.ok(screen.includes('planAccess={buildMyPlanAccess}'));
+  assert.ok(followUp.includes("planAccess ? 'Build my plan' : 'Build my plan with Dad Health Pro'"));
   assert.ok(followUp.includes('advice.primary.state'));
   assert.ok(!followUp.includes('secondaryActions'));
   assert.ok(followUp.includes('font-heading-bold text-dark text-[14px] tracking-[1px] uppercase'));
   assert.ok(followUp.includes('flex-1'));
   assert.ok(followUp.includes('<ProBadge />'));
-  assert.ok(screen.includes("setProPrompt('checkIn')"));
+  assert.match(screen, /requestMoment\(\{[\s\S]*?id: 'checkIn'/);
 });
 
 test('one lowest answer shows one primary recommendation only', () => {
@@ -258,8 +261,10 @@ test('completed check-in confirms all three pillars without showing stale scores
   const screen = await source('screens/DashboardScreen.tsx');
 
   assert.ok(screen.includes('Check-in complete'));
-  assert.ok(screen.includes('Your Mind, Body and Bond scores will refresh shortly.'));
+  assert.ok(screen.includes("setCheckInMessage(result.warning ?? 'Check-in saved for Mind, Body and Bond.')"));
+  assert.ok(screen.includes('Saved on this device. It will sync when you\'re back online. Your Mind, Body and Bond answers are saved.'));
   assert.ok(screen.includes('Your check-in is saved for Mind, Body and Bond.'));
+  assert.equal(screen.includes('Your Mind, Body and Bond scores will refresh shortly.'), false);
   assert.equal(screen.includes('Your Mind score is now'), false);
   assert.ok(screen.includes('setTimeout(() => setShowCheckInSuccess(false), 3500)'));
   assert.ok(screen.includes('!data.checkedInToday || showCheckInSuccess'));

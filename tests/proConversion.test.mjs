@@ -42,21 +42,24 @@ test('each upgrade moment keeps the wording from the brief', async () => {
 });
 
 test('approved conversion entry points use the existing Pro prompt', async () => {
-  const [dashboard, checkIn, weekly, aiWorkout, dadDays, scoreDetails] = await Promise.all([
+  const [dashboard, checkIn, weekly, aiWorkout, dadDays, scoreDetails, manager] = await Promise.all([
     source('screens/DashboardScreen.tsx'),
     source('components/dashboard/CheckInFollowUp.tsx'),
     source('components/dashboard/WeeklyReportCard.tsx'),
     source('screens/subscreens/AIWorkoutScreen.tsx'),
     source('screens/subscreens/DadDaysSearchScreen.tsx'),
     source('components/dashboard/ScoreDetailSheet.tsx'),
+    source('contexts/UpgradeMomentContext.tsx'),
   ]);
 
-  assert.ok(dashboard.includes("setProPrompt('checkIn')"));
-  assert.ok(dashboard.includes("setProPrompt('weeklyReport')"));
-  assert.ok(checkIn.includes('See what Pro can do'));
+  assert.match(dashboard, /requestMoment\(\{[\s\S]*?id: 'checkIn'/);
+  assert.match(dashboard, /requestMoment\(\{[\s\S]*?id: 'weeklyReport'/);
+  assert.ok(checkIn.includes('onPress={onPlan}'));
+  assert.ok(checkIn.includes("accessibilityLabel={planAccess ? 'Build my plan' : 'Build my plan with Dad Health Pro'}"));
   assert.ok(weekly.includes('PRO_MOMENTS.weeklyReport'));
-  assert.ok(aiWorkout.includes('PRO_MOMENTS.aiWorkout'));
-  assert.ok(dadDays.includes("PRO_MOMENTS[proPromptMoment ?? 'dadDaysCounter']"));
+  assert.ok(aiWorkout.includes("id: 'aiWorkout'"));
+  assert.ok(dadDays.includes("id: 'dadDaysCounter'"));
+  assert.ok(manager.includes('PRO_MOMENTS[active.id]'));
   assert.ok(scoreDetails.includes('PRO_MOMENTS.score'));
 });
 
@@ -73,12 +76,12 @@ test('Moment 2 keeps free recommendation and Build My Plan Pro row', async () =>
   assert.ok(followUp.includes('min-h-[48px] w-full items-center justify-center rounded-[7px] bg-lime'));
   assert.ok(followUp.includes('min-h-[60px] flex-row items-center justify-between'));
   assert.ok(followUp.indexOf('onAction(action.action)') < followUp.indexOf('onPlan'));
-  assert.ok(followUp.includes("isPro ? 'Build my plan' : 'Build my plan with Dad Health Pro'"));
-  assert.ok(followUp.includes('!isPro ? <ProBadge /> : null'));
+  assert.ok(followUp.includes("planAccess ? 'Build my plan' : 'Build my plan with Dad Health Pro'"));
+  assert.ok(followUp.includes('planAccess === false ? <ProBadge /> : null'));
   assert.ok(followUp.includes('A plan around your mood and score.'));
   assert.ok(dashboard.includes('<CheckInFollowUp'));
-  assert.ok(dashboard.includes('isPro={data.isPro}'));
-  assert.ok(dashboard.includes("setProPrompt('checkIn')"));
+  assert.ok(dashboard.includes('planAccess={buildMyPlanAccess}'));
+  assert.match(dashboard, /id: 'checkIn'/);
   assert.ok(dashboard.includes('data.checkedInToday ? ('));
 });
 
@@ -96,8 +99,9 @@ test('Moment 4 shows contextual Dad Days Pro value at two of three searches with
   assert.ok(dadDays.includes("searchesUsed === FREE_LIMIT - 1"));
   assert.ok(dadDays.includes('moment={PRO_MOMENTS.dadDays}'));
   assert.ok(dadDays.includes('Pro gives you unlimited searches personalised for your child.'));
-  assert.ok(dadDays.includes("setProPromptMoment('dadDays')"));
-  assert.ok(dadDays.includes("if (limitReached) { setProPromptMoment('dadDaysCounter'); return; }"));
+  assert.ok(dadDays.includes("id: 'dadDays'"));
+  assert.ok(dadDays.includes("if (limitReached) {"));
+  assert.ok(dadDays.includes("id: 'dadDaysCounter'"));
   assert.ok(dadDays.includes('const FREE_LIMIT = 3;'));
   assert.ok(dadDays.includes("body.error === 'search_limit_reached' || response.status === 403"));
 });
@@ -108,12 +112,20 @@ test('Moment 5 follows Body progress context and keeps the canonical score row f
     source('components/dashboard/PillarScoreRow.tsx'),
   ]);
 
-  assert.ok(body.includes('<PillarScoreRow pillar="Body" score={data?.bodyScore ?? null} trend={data?.bodyWeekChange ?? null} />'));
+  const bodyScoreStart = body.indexOf('<PillarScoreRow');
+  const bodyScoreEnd = body.indexOf('/>', bodyScoreStart) + 2;
+  const bodyScoreRow = body.slice(bodyScoreStart, bodyScoreEnd);
+  assert.ok(bodyScoreRow.includes('pillar="Body"'));
+  assert.ok(bodyScoreRow.includes('score={data?.bodyScore ?? null}'));
+  assert.ok(bodyScoreRow.includes('trend={data?.bodyWeekChange ?? null}'));
+  assert.ok(bodyScoreRow.includes('scoreUnavailable={Boolean(data?.scoreError)}'));
+  assert.ok(bodyScoreRow.includes('baselineBuilding={Boolean(data && !data.scoreError && !data.baselineAvailable)}'));
   assert.ok(body.indexOf('<StatCard value={stats[3].value}') < body.indexOf('moment={PRO_MOMENTS.progressTrends}'));
   assert.ok(body.includes('fitnessSummary.monthWorkouts > 0'));
-  assert.ok(body.includes('data?.isPro === false'));
+  assert.ok(body.includes('trendsAccess === false'));
+  assert.ok(body.includes('<GlobalErrorToastReporter message={fitnessLibrary.proError} />'));
   assert.ok(body.includes('Want to see how your Body score has changed?'));
-  assert.ok(body.includes("onPress={() => navigation.navigate('ProSubscription')}"));
+  assert.ok(body.includes("navigateToProSubscription(navigation, 'progressTrends'"));
   assert.ok(row.includes('{Math.round(score ?? 0)}%'));
   assert.ok(row.includes('formattedTrend.arrow'));
 });
@@ -135,16 +147,16 @@ test('Moment 6 uses canonical positive score-point movement and labels it in poi
   assert.equal(moments.includes('score by ${rounded}% this week.'), false);
 });
 
-test('Moment 3 keeps one AI workout screen and prompts only at the Free limit', async () => {
+test('AI workout uses the single screen and requires confirmed Pro or Trial access', async () => {
   const [screen, navigator] = await Promise.all([
     source('screens/subscreens/AIWorkoutScreen.tsx'),
     source('navigation/AppNavigator.tsx'),
   ]);
 
-  assert.ok(screen.includes('three generations monthly for Free, unlimited for Pro'));
-  assert.ok(screen.includes("cause.code === 'free_limit_reached'"));
-  assert.ok(screen.includes('setLimitPromptOpen(true)'));
-  assert.ok(screen.includes('moment={PRO_MOMENTS.aiWorkout}'));
+  assert.ok(screen.includes("entitlement.can('ai_workout')"));
+  assert.ok(screen.includes('if (aiWorkoutAccess !== true) return'));
+  assert.ok(screen.includes('ProUpgradeSection'));
+  assert.equal(screen.includes('free_limit_reached'), false);
   assert.equal(screen.includes('PersonalisedAIWorkout'), false);
   assert.equal(navigator.includes('name="PersonalisedAIWorkout"'), false);
 });
@@ -161,7 +173,8 @@ test('the weekly Sunday report is a Pro feature and never invents a week', async
   assert.ok(report.includes('score: Math.round(source.mindScore ?? 0)'));
   assert.ok(report.includes('const trend = formatScoreTrend(change);'));
   assert.ok(report.includes('ACTION_FOCUS[source.recommendedAction]'));
-  const freeBranch = card.slice(card.indexOf('if (!isPro)'), card.indexOf('\n  return (', card.indexOf('if (!isPro)')));
+  const freeBranchStart = card.indexOf('if (reportAccess === false)');
+  const freeBranch = card.slice(freeBranchStart, card.indexOf('\n  return (', freeBranchStart));
   assert.ok(freeBranch.includes('Learn about weekly Dad Health reports'));
   assert.ok(freeBranch.includes('PRO_MOMENTS.weeklyReport.body'));
   assert.ok(freeBranch.includes('onPress={onUpgrade}'));
@@ -169,7 +182,7 @@ test('the weekly Sunday report is a Pro feature and never invents a week', async
   assert.equal(card.includes('<ProLockedPreview'), false);
   assert.ok(dashboard.includes('isWeeklyReportDay()'));
   assert.ok(dashboard.includes('{showWeeklyReport ? ('));
-  assert.ok(dashboard.includes("setProPrompt('weeklyReport')"));
+  assert.match(dashboard, /id: 'weeklyReport'/);
   assert.ok(dashboard.includes('<WeeklyReportCard'));
 });
 
@@ -186,10 +199,11 @@ test('conversion moments stay compact until the user asks for Pro', async () => 
   assert.ok(prompt.includes('Not now'));
   assert.ok(prompt.includes('onRequestClose={onDismiss}'));
   assert.ok(prompt.includes('onPress={onDismiss}'));
-  assert.ok(dashboard.includes("proTease={!data.isPro ? 'Unlock my insights' : undefined}"));
-  assert.ok(aiWorkout.includes("cause.code === 'free_limit_reached'"));
+  assert.ok(dashboard.includes("proTease={scoreInsightsAccess === false ? 'Unlock my insights' : undefined}"));
+  assert.ok(aiWorkout.includes("payload.code === 'pro_required'"));
+  assert.equal(aiWorkout.includes('free_limit_reached'), false);
   assert.ok(dadDays.includes('free Dad Days searches used this month.'));
-  assert.ok(dadDays.includes("setProPromptMoment('dadDaysCounter')"));
+  assert.ok(dadDays.includes("id: 'dadDaysCounter'"));
   assert.ok(dadDays.includes('<ProUpgradeSection'));
   assert.ok(weekly.includes('Learn about weekly Dad Health reports'));
   assert.ok(scoreDetails.includes('See your score history'));
@@ -207,7 +221,7 @@ test('streak protection keeps its approved presentation and uses server-owned st
   assert.doesNotMatch(sync, /from\('user_streaks'\)[\s\S]{0,180}\.upsert/);
   assert.ok(card.includes('Streak protected'));
   assert.ok(card.includes('Freeze your streak once a week'));
-  assert.ok(card.includes('!isPro && onUpgrade'));
+  assert.ok(card.includes('freezeAccess === false && onUpgrade'));
   assert.ok(card.includes('<ProBadge />'));
 });
 
@@ -220,7 +234,8 @@ test('Today Build My Plan and streak rows share one lock Pro badge', async () =>
   assert.ok(plan.includes("import ProBadge from './ProBadge'"));
   assert.ok(streak.includes("import ProBadge from './ProBadge'"));
   assert.ok(badge.includes('name="lock"'));
-  assert.ok(badge.includes('accessibilityLabel="Pro feature"'));
+  assert.ok(badge.includes("accessibilityLabel={isTrial ? 'Pro trial access' : 'Pro feature'}"));
+  assert.ok(badge.includes("isTrial ? 'Trial' : 'Pro'"));
   assert.ok(plan.includes("borderStyle: 'dotted'"));
   assert.ok(streak.includes("borderStyle: 'dotted'"));
 });
@@ -258,13 +273,14 @@ test('the free and Pro split matches the brief table', async () => {
 
   // Pro columns, each behind a visible preview.
   assert.ok(tdee.includes('PRO_LOCKS.fullTdee'));
-  assert.ok(tdee.includes('const isPro = dashboard?.isPro === true;'));
+  assert.ok(tdee.includes("entitlement.can('full_tdee')"));
   assert.ok(planner.includes('PRO_LOCKS.mealPlanner'));
   assert.ok(scoreDetails.includes('{reportStats.map(([value, label])'));
-  assert.ok(scoreDetails.includes('!isPro ?'));
+  assert.ok(scoreDetails.includes('!isPro && entitlementKnown ?'));
   assert.ok(scoreDetails.includes('badgeData.earnedCount === 0'));
-  assert.ok(mind.includes('locked'));
-  assert.ok(mind.includes('actionLabel="View mood trends"'));
+  assert.ok(mind.includes('<MindPlanLockedCard'));
+  assert.ok(mind.includes('mindPlanAccess === false'));
+  assert.ok(mind.includes("actionLabel={trendsAccess === false ? 'View mood trends' : undefined}"));
   assert.equal(dashboard.includes('PRO_LOCKS.moodTrends'), false);
 });
 
