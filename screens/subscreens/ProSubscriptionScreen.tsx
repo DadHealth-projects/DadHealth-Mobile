@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppTopBar from '../../components/AppTopBar';
@@ -24,6 +24,8 @@ const THIS_WEEK_FEATURES = [
 
 export default function ProSubscriptionScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
+  const route = useRoute<RouteProp<AppStackParamList, 'ProSubscription'>>();
+  const upgradeContext = route.params?.context;
   const { user } = useAuth();
   const { isOffline, showOfflineAction } = useNetworkStatus();
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('annual');
@@ -91,6 +93,13 @@ export default function ProSubscriptionScreen() {
           </>
         ) : subscriptions.status?.isPro === false || !user ? (
           <>
+            {upgradeContext ? (
+              <View className="border-b border-border pb-md">
+                <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
+                  {upgradeContext}
+                </Text>
+              </View>
+            ) : null}
             <ScreenHero
               eyebrow="Dad Health Pro"
               headline={'Make Dad Health\npersonal'}
@@ -181,6 +190,16 @@ export default function ProSubscriptionScreen() {
             {trialAvailable ? '7-day free trial for eligible new subscribers. Cancel anytime. ' : ''}
             Subscription renews automatically unless cancelled. You can manage or cancel it in your {Platform.OS === 'ios' ? 'App Store' : 'Google Play'} account.
           </Text>
+        ) : null}
+        {route.params?.source ? (
+          <Pressable
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Not now"
+            className="min-h-[44px] self-center justify-center border-b border-lime active:opacity-70"
+          >
+            <Text className="font-heading-bold text-lime text-[11px] uppercase">Not now</Text>
+          </Pressable>
         ) : null}
       </ScrollView>
     </SafeAreaView>
