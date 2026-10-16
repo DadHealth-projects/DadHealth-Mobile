@@ -1,7 +1,8 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect, useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { formatScoreTrend } from '../../lib/scoreTrends';
+import { trackEvent } from '../../lib/analytics';
 
 export type ScoreItem = {
   label: string;
@@ -26,6 +27,7 @@ type DadScoreCardProps = {
   actionLabel?: string;
   onAction?: () => void;
   proTease?: string;
+  userId?: string;
   lockedValues?: boolean;
   compactBottom?: boolean;
   children?: React.ReactNode;
@@ -45,10 +47,17 @@ function DadScoreCard({
   actionLabel,
   onAction,
   proTease,
+  userId,
   lockedValues = false,
   compactBottom = false,
   children,
 }: DadScoreCardProps) {
+  const lockViewed = useRef(false);
+  useEffect(() => {
+    if (!proTease || lockViewed.current) return;
+    lockViewed.current = true;
+    trackEvent('lock_viewed', { feature: 'score_insights', source: 'score' }, userId);
+  }, [proTease, userId]);
   return (
     <View className={`bg-lime rounded-t-[18px] px-xl pt-xl ${compactBottom ? 'pb-md' : 'pb-lg'}`}>
       <View className="flex-row items-center gap-lg">

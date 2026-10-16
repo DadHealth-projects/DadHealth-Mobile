@@ -1,8 +1,9 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useEffect, useMemo, useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { checkInRecommendation, type CheckInAction } from '../../lib/checkInRecommendation';
 import ProBadge from './ProBadge';
+import { trackEvent } from '../../lib/analytics';
 
 /**
  * Moment 2 — what a dad sees straight after the daily check-in: one free
@@ -13,7 +14,8 @@ function CheckInFollowUp({
   stressLevel,
   energyLevel,
   connectionLevel,
-  isPro,
+  planAccess,
+  userId,
   onAction,
   onPlan,
 }: {
@@ -21,10 +23,17 @@ function CheckInFollowUp({
   stressLevel: number | null;
   energyLevel: number | null;
   connectionLevel: number | null;
-  isPro: boolean | null;
+  planAccess: boolean | null;
+  userId?: string;
   onAction: (action: CheckInAction) => void;
   onPlan: () => void;
 }) {
+  const lockViewed = useRef(false);
+  useEffect(() => {
+    if (planAccess !== false || lockViewed.current) return;
+    lockViewed.current = true;
+    trackEvent('lock_viewed', { feature: 'mind_plan', source: 'checkIn' }, userId);
+  }, [planAccess, userId]);
   const advice = useMemo(
     () => checkInRecommendation(moodValue, stressLevel, energyLevel, connectionLevel),
     [connectionLevel, energyLevel, moodValue, stressLevel],
@@ -59,11 +68,11 @@ function CheckInFollowUp({
           </Pressable>
         </View>
 
-        {isPro !== null ? <View className="gap-sm">
+        {planAccess !== null ? <View className="gap-sm">
           <Pressable
             onPress={onPlan}
             accessibilityRole="button"
-            accessibilityLabel={isPro ? 'Build my plan' : 'Build my plan with Dad Health Pro'}
+            accessibilityLabel={planAccess ? 'Build my plan' : 'Build my plan with Dad Health Pro'}
             className="min-h-[60px] flex-row items-center justify-between gap-md rounded-[8px] bg-[#111214] px-md active:opacity-70"
             style={{
               borderWidth: 1,
@@ -79,7 +88,7 @@ function CheckInFollowUp({
                 A plan around your mood and score.
               </Text>
             </View>
-            {isPro === false ? <ProBadge /> : null}
+            {planAccess === false ? <ProBadge /> : null}
           </Pressable>
         </View> : null}
       </View>
