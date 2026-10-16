@@ -8,10 +8,11 @@ test('Fitness uses the selected workout name, move count, duration and equipment
   const source = await readFile(new URL('screens/FitnessScreen.tsx', root), 'utf8');
 
   assert.match(source, /const workoutName = selectedWorkout\?\.title\.trim\(\) \|\| 'Dad Strength'/);
-  assert.match(source, /`\$\{workoutName\} · \$\{moveCountLabel\} · \$\{selectedWorkout\.duration_mins\} min`/);
+  assert.match(source, /const workoutMeta = selectedWorkout[\s\S]*?\$\{selectedWorkout\.duration_mins\} min/);
+  assert.match(source, /const workoutMeta = selectedWorkout[\s\S]*?EQUIPMENT_LABEL\[selectedWorkout\.equipment\]/);
   assert.match(source, /EQUIPMENT_LABEL\[selectedWorkout\.equipment\]/);
-  assert.match(source, /<Text className="font-body text-muted-text[^>]*>[\s\S]*\{workoutSummary\}[\s\S]*<\/Text>/);
-  assert.doesNotMatch(source, /sub=\{workoutSummary\}/);
+  assert.match(source, /<Text className="font-body text-muted-text[^>]*>[\s\S]*\{workoutMeta\}[\s\S]*<\/Text>/);
+  assert.doesNotMatch(source, /sub=\{workoutMeta\}/);
   assert.match(source, /\{workoutName\}/);
   assert.match(source, /\{workoutMeta\}/);
   assert.doesNotMatch(source, /workout \+ meal planner hub/i);
@@ -19,7 +20,7 @@ test('Fitness uses the selected workout name, move count, duration and equipment
 
 test('Fitness calorie calculator teaser keeps its supporting copy above the action', async () => {
   const source = await readFile(new URL('screens/FitnessScreen.tsx', root), 'utf8');
-  const teaser = source.match(/Calorie calculator[\s\S]*?Calculate[^<]*<\/LimeButton>/)?.[0] ?? '';
+  const teaser = source.match(/Calorie calculator[\s\S]*?accessibilityLabel="Calculate daily calories"[^>]*\/>/)?.[0] ?? '';
 
   assert.match(teaser, /Know your number/);
   assert.match(teaser, /Find the daily calories your body needs to perform, recover and feel like yourself\./);
