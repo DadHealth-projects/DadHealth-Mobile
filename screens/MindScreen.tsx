@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -22,6 +22,9 @@ import ScreenHero from '../components/mockup/ScreenHero';
 import { useAuth } from '../contexts/AuthContext';
 import { useNetworkStatus } from '../contexts/NetworkContext';
 import { useDashboard } from '../hooks/useDashboard';
+import { useEntitlement } from '../hooks/useEntitlement';
+import { navigateToProSubscription } from '../lib/proNavigation';
+import { trackEvent } from '../lib/analytics';
 import { useProgressSleep } from '../hooks/useProgressSleep';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 import { colors } from '../theme';
@@ -51,10 +54,23 @@ export default function MindScreen({
   const { isOffline } = useNetworkStatus();
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { data, loading, error, refresh } = useDashboard(user?.id);
-  const sleepInsights = useProgressSleep(user?.id, data?.isPro === true);
+  const entitlement = useEntitlement({
+    isPro: data?.isPro ?? null,
+    trialActive: data?.trialActive ?? null,
+    loading,
+  });
+  const mindPlanAccess = entitlement.can('mind_plan');
+  const trendsAccess = entitlement.can('trends');
+  const sleepInsights = useProgressSleep(user?.id, trendsAccess === true);
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [mindPlanOpen, setMindPlanOpen] = useState(false);
+  const trendLockViewed = useRef(false);
+  useEffect(() => {
+    if (trendsAccess !== false || trendLockViewed.current) return;
+    trendLockViewed.current = true;
+    trackEvent('lock_viewed', { feature: 'trends', source: 'trends' }, user?.id);
+  }, [trendsAccess, user?.id]);
 
   const hasUser = Boolean(user?.id);
   const onRefresh = useCallback(async () => {
@@ -124,7 +140,7 @@ export default function MindScreen({
 
       {user ? (
         <FadeInView delay={170}>
-          {data?.isPro === true ? (
+          {mindPlanAccess === true ? (
             <Pressable
               onPress={() => setMindPlanOpen(true)}
               accessibilityRole="button"
@@ -138,9 +154,10 @@ export default function MindScreen({
               </Text>
               <Text className="font-heading-bold text-lime text-[11px] uppercase">Open plan</Text>
             </Pressable>
-          ) : data?.isPro === false ? (
+          ) : mindPlanAccess === false ? (
             <MindPlanLockedCard
-              onUnlock={() => navigation.navigate('ProSubscription')}
+              userId={user.id}
+              onUnlock={() => navigateToProSubscription(navigation, 'mind_plan', 'Personalised Mind Plan', user.id, 'lock')}
             />
           ) : null}
         </FadeInView>
@@ -193,23 +210,23 @@ export default function MindScreen({
             labels={MOOD_WEEK_LABELS}
             summary={moodSummary}
             flat
-            actionLabel={data?.isPro === false ? 'View mood trends' : undefined}
-            onAction={data?.isPro === false ? () => navigation.navigate('ProSubscription') : undefined}
+            actionLabel={trendsAccess === false ? 'View mood trends' : undefined}
+            onAction={trendsAccess === false ? () => navigateToProSubscription(navigation, 'trends', 'Mood trends', user?.id, 'lock') : undefined}
           />
         )}
       </FadeInView>
 
       {user ? (
         <FadeInView delay={270}>
-          {data?.isPro === true ? (
+          {trendsAccess === true ? (
             <View className="gap-md border-b border-border pb-lg">
               <SectionHeader title="Mood correlation" caption="Pattern spotted" />
               <Text className="font-body text-muted-text text-[14px] leading-[21px]">{sleepInsights.pattern}</Text>
             </View>
-          ) : data?.isPro === false ? (
+          ) : trendsAccess === false ? (
             <View className="border-b border-border pb-lg">
               <Pressable
-                onPress={() => navigation.navigate('ProSubscription')}
+                onPress={() => navigateToProSubscription(navigation, 'trends', 'Mood trends', user.id, 'lock')}
                 accessibilityRole="button"
                 accessibilityLabel="View mood trends with Pro"
                 className="gap-md rounded-button border border-lime/40 bg-card p-md active:opacity-75"

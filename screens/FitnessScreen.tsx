@@ -20,6 +20,7 @@ import ManualActivitySection from '../components/manualActivities/ManualActivity
 import TagPill from '../components/dashboard/TagPill';
 import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '../hooks/useDashboard';
+import { useEntitlement } from '../hooks/useEntitlement';
 import { useFitnessLibrary } from '../hooks/useFitnessLibrary';
 import { useFitnessSummary } from '../hooks/useFitnessSummary';
 import { MOOD_WEEK_LABELS } from '../lib/dashboard.utils';
@@ -27,6 +28,7 @@ import { DAD_STRENGTH_MOVES } from '../lib/homeContent';
 import { PRO_LOCKS, PRO_MOMENTS } from '../lib/proMoments';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 import { syncAppleHealthIfConnected } from '../lib/appleHealth';
+import { navigateToProSubscription } from '../lib/proNavigation';
 
 const EMPTY_BODY_WEEK = [0, 0, 0, 0, 0, 0, 0];
 
@@ -68,6 +70,15 @@ export default function FitnessScreen({
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const standalone = !dashboardSection;
   const { data, loading, error, refresh } = useDashboard(user?.id);
+  const entitlement = useEntitlement({
+    isPro: data?.isPro ?? null,
+    trialActive: data?.trialActive ?? null,
+    loading,
+  });
+  const aiWorkoutAccess = entitlement.can('ai_workout');
+  const mealPlannerAccess = entitlement.can('meal_planner');
+  const workoutLibraryAccess = entitlement.can('workout_library');
+  const trendsAccess = entitlement.can('trends');
   const { data: fitnessSummary, loading: summaryLoading, refresh: refreshSummary } = useFitnessSummary(
     standalone ? user?.id : undefined,
   );
@@ -224,12 +235,15 @@ export default function FitnessScreen({
         </View>
       </FadeInView>
 
-      {standalone && hasUser && fitnessSummary.monthWorkouts > 0 && data?.isPro === false ? (
+      {standalone && hasUser && fitnessSummary.monthWorkouts > 0 && trendsAccess === false ? (
         <FadeInView delay={115}>
           <ProUpgradeSection
             moment={PRO_MOMENTS.progressTrends}
+            source="progressTrends"
+            feature="trends"
+            userId={user?.id}
             lead={`${fitnessSummary.monthWorkouts} ${fitnessSummary.monthWorkouts === 1 ? 'workout' : 'workouts'} logged this month. Want to see how your Body score has changed?`}
-            onPress={() => navigation.navigate('ProSubscription')}
+            onPress={() => navigateToProSubscription(navigation, 'progressTrends', 'Body progress trends', user?.id, 'lock', 'trends')}
             size="sm"
           />
         </FadeInView>
@@ -279,7 +293,7 @@ export default function FitnessScreen({
             <FlatSection className="gap-md">
               <View className="flex-row items-center justify-between gap-sm">
                 <Text className="font-heading-bold text-muted-text text-[11px] tracking-[1px] uppercase">
-                  {fitnessLibrary.isPro === true ? 'All available workouts' : fitnessLibrary.isPro === false ? 'Free workout library' : 'Checking access'}
+                  {workoutLibraryAccess === true ? 'All available workouts' : workoutLibraryAccess === false ? 'Free workout library' : 'Checking access'}
                 </Text>
                 <TagPill label={`${fitnessLibrary.workouts.length} shown`} tone="outline" />
               </View>
@@ -325,7 +339,7 @@ export default function FitnessScreen({
 
       {standalone ? (
         <FadeInView delay={190}>
-          {fitnessLibrary.isPro === true ? (
+          {aiWorkoutAccess === true ? (
             <FlatSection className="gap-md">
               <View className="flex-row items-start justify-between gap-md">
                 <View className="flex-1">
@@ -339,22 +353,25 @@ export default function FitnessScreen({
                     Choose your time, equipment and focus. Generate a workout you can start immediately.
                   </Text>
                 </View>
-                <ProBadge />
+                {entitlement.trialActive === true ? <ProBadge variant="trial" /> : null}
               </View>
               <LimeButton
                 label={generatedWorkout ? 'View workout' : 'Generate workout'}
                 onPress={openAIWorkout}
               />
             </FlatSection>
-          ) : fitnessLibrary.isPro === false ? (
+          ) : aiWorkoutAccess === false ? (
             <BodyProLockedCard
               eyebrow="AI Workout"
               title="Built around your day."
               description="Choose your time, equipment and focus. Generate a workout you can start immediately."
               preview={require('../assets/body-ai-workout-blurred-preview.png')}
               previewLabel="Blurred preview of Pro AI workout features"
+              source="aiWorkout"
+              feature="ai_workout"
+              userId={user?.id}
               buttonLabel="Unlock AI workouts →"
-              onUnlock={() => navigation.navigate('ProSubscription')}
+              onUnlock={() => navigateToProSubscription(navigation, 'aiWorkout', 'AI Workout', user?.id, 'lock', 'ai_workout')}
             />
           ) : null}
         </FadeInView>
@@ -362,7 +379,7 @@ export default function FitnessScreen({
 
       {standalone ? (
         <FadeInView delay={225}>
-          {fitnessLibrary.isPro === true ? (
+          {mealPlannerAccess === true ? (
             <FlatSection className="gap-md">
               <View className="flex-row items-start justify-between gap-md">
                 <View className="flex-1">
@@ -372,29 +389,35 @@ export default function FitnessScreen({
                     A personalised 5-day plan with recipes, macros and a shopping list — built around your goals.
                   </Text>
                 </View>
-                <ProBadge />
+                {entitlement.trialActive === true ? <ProBadge variant="trial" /> : null}
               </View>
               <LimeButton label="Open meal planner" onPress={openMealPlanner} />
             </FlatSection>
-          ) : fitnessLibrary.isPro === false ? (
+          ) : mealPlannerAccess === false ? (
             <BodyProLockedCard
               eyebrow="Meal Planner"
               title="Eat like you train."
               description="A personalised 5-day plan with recipes, macros and a shopping list — built around your goals."
               preview={require('../assets/body-meal-planner-blurred-preview.png')}
               previewLabel="Blurred decorative day-of-meals preview"
+              source="meal_planner"
+              feature="meal_planner"
+              userId={user?.id}
               buttonLabel="Unlock meal planner →"
-              onUnlock={() => navigation.navigate('ProSubscription')}
+              onUnlock={() => navigateToProSubscription(navigation, 'meal_planner', 'Meal Planner', user?.id, 'lock')}
             />
           ) : null}
         </FadeInView>
       ) : null}
 
-      {standalone && fitnessLibrary.isPro === false ? (
+      {standalone && workoutLibraryAccess === false ? (
         <FadeInView delay={230}>
           <ProUpgradeSection
             moment={PRO_LOCKS.trainingPlans}
-            onPress={() => navigation.navigate('ProSubscription')}
+            source="workout_library"
+            feature="workout_library"
+            userId={user?.id}
+            onPress={() => navigateToProSubscription(navigation, 'workout_library', 'Workout library', user?.id, 'lock')}
             size="sm"
           />
         </FadeInView>
