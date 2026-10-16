@@ -22,6 +22,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { colors } from '../theme';
 import type { AppStackParamList } from '../navigation/AppNavigator';
+import { navigateToProSubscription } from '../lib/proNavigation';
+import { useEntitlement } from '../hooks/useEntitlement';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 /** Slide + backdrop-fade duration (ms). */
@@ -70,8 +72,9 @@ export default function AccountSheet({
   const { session, user, signOut } = useAuth();
   // Shared dashboard store — no extra fetch. Pro members should never be shown
   // an upgrade entry point.
-  const { data: dashboardData } = useDashboard(user?.id);
-  const isConfirmedFree = dashboardData?.isPro === false;
+  const { data: dashboardData, loading: dashboardLoading } = useDashboard(user?.id);
+  const entitlement = useEntitlement({ isPro: dashboardData?.isPro ?? null, trialActive: dashboardData?.trialActive ?? null, loading: dashboardLoading });
+  const isConfirmedFree = entitlement.can('mind_plan') === false;
 
   // Keep the Modal mounted through the exit animation: `mounted` trails `visible`.
   const [mounted, setMounted] = useState(visible);
@@ -154,7 +157,7 @@ export default function AccountSheet({
     {
       icon: 'award',
       title: 'Dad Health Pro',
-      onPress: () => closeThen(() => navigation.navigate('ProSubscription')),
+      onPress: () => closeThen(() => navigateToProSubscription(navigation, 'account', 'Dad Health Pro', user?.id)),
     },
   ] : [];
 
