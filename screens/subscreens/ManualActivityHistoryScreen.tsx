@@ -9,10 +9,12 @@ import LimeButton from '../../components/LimeButton';
 import ProLockedPreview from '../../components/ProLockedPreview';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboard } from '../../hooks/useDashboard';
+import { useEntitlement } from '../../hooks/useEntitlement';
 import { useManualActivityHistory } from '../../hooks/useManualActivityHistory';
 import { fetchProInsight } from '../../lib/proInsights';
 import { subscribeManualActivityChanges, manualActivityLabel, type ManualActivityPillar } from '../../lib/manualActivities';
 import { PRO_MOMENTS } from '../../lib/proMoments';
+import { navigateToProSubscription } from '../../lib/proNavigation';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
 
@@ -47,11 +49,16 @@ export default function ManualActivityHistoryScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const route = useRoute<RouteProp<AppStackParamList, 'ManualActivityHistory'>>();
   const { user } = useAuth();
-  const { data } = useDashboard(user?.id);
+  const { data, loading: dashboardLoading } = useDashboard(user?.id);
   const pillar: ManualActivityPillar = route.params.pillar;
   const { activities, loading, error } = useManualActivityHistory(user?.id, pillar);
-  const isPro = data?.isPro === true;
-  const entitlementKnown = data?.isPro !== null && data !== null;
+  const entitlement = useEntitlement({
+    isPro: data?.isPro ?? null,
+    trialActive: data?.trialActive ?? null,
+    loading: dashboardLoading,
+  });
+  const trendsAccess = entitlement.can('trends');
+  const entitlementKnown = trendsAccess !== null;
   const [points, setPoints] = useState<TrendPoint[]>([]);
   const [trendLoading, setTrendLoading] = useState(false);
   const [trendError, setTrendError] = useState(false);
@@ -59,7 +66,7 @@ export default function ManualActivityHistoryScreen() {
 
   const loadTrends = useCallback(async () => {
     const request = ++trendRequest.current;
-    if (!user?.id || !isPro) {
+    if (!user?.id || trendsAccess !== true) {
       setPoints([]);
       setTrendLoading(false);
       setTrendError(false);
@@ -82,7 +89,7 @@ export default function ManualActivityHistoryScreen() {
     } finally {
       if (request === trendRequest.current) setTrendLoading(false);
     }
-  }, [isPro, user?.id]);
+  }, [trendsAccess, user?.id]);
 
   useEffect(() => {
     setPoints([]);
@@ -104,7 +111,7 @@ export default function ManualActivityHistoryScreen() {
           <Text className="font-body text-muted-text text-[14px]">Your manual logs are available on Free and Pro.</Text>
         </View>
 
-        {isPro ? (
+        {trendsAccess === true ? (
           <View className="gap-md border-b border-border pb-lg">
             <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Manual activity trend · Pro</Text>
             {trendLoading ? <Text className="font-body text-muted-text text-[12px]">Loading weekly trend…</Text> : trendError ? (
@@ -121,7 +128,10 @@ export default function ManualActivityHistoryScreen() {
         ) : user && entitlementKnown ? (
           <ProLockedPreview
             lock={PRO_MOMENTS.progressTrends}
-            onPress={() => navigation.navigate('ProSubscription')}
+            source="progressTrends"
+            feature="trends"
+            userId={user?.id}
+            onPress={() => navigateToProSubscription(navigation, 'progressTrends', 'Manual activity trends', user?.id, 'lock', 'trends')}
           >
             <ActivityTrendChart values={[]} labels={['W1', 'W2', 'W3', 'W4']} locked />
           </ProLockedPreview>
