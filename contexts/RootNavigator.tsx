@@ -7,6 +7,7 @@ import AppNavigator, { type AppStackParamList } from '../navigation/AppNavigator
 import BiometricEnrollmentModal from '../components/BiometricEnrollmentModal';
 import DeepLinkManager from '../components/DeepLinkManager';
 import Splash from '../components/Splash';
+import { UpgradeMomentProvider } from './UpgradeMomentContext';
 
 export default function RootNavigator({
   navigationRef,
@@ -18,6 +19,7 @@ export default function RootNavigator({
   const waitingForSession = loading || (session && onboardingComplete === null);
 
   return (
+    <UpgradeMomentProvider navigationRef={navigationRef}>
     <View className="flex-1">
       {waitingForSession ? <Splash /> : !session ? (
         <>
@@ -36,5 +38,6 @@ export default function RootNavigator({
         </>
       )}
     </View>
+    </UpgradeMomentProvider>
   );
 }
