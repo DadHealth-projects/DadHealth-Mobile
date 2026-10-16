@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { User } from '@supabase/supabase-js';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useNavigation, useRoute, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../components/AppTopBar';
 import type { DashboardSection } from '../components/AccountSheet';
@@ -24,7 +24,6 @@ import FadeInView from '../components/FadeInView';
 import GreetingHeader from '../components/dashboard/GreetingHeader';
 import HomeSkeleton from '../components/skeleton/HomeSkeleton';
 import ScoreDetailSheet from '../components/dashboard/ScoreDetailSheet';
-import ProPromptModal from '../components/ProPromptModal';
 import RemindersList from '../components/dashboard/RemindersList';
 import ScreenTransition from '../components/ScreenTransition';
 import StreakCard from '../components/dashboard/StreakCard';
@@ -34,7 +33,9 @@ import WeeklyReportCard from '../components/dashboard/WeeklyReportCard';
 import type { MoodKey } from '../components/mockup/MoodCheckInRow';
 import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '../hooks/useDashboard';
+import { useEntitlement } from '../hooks/useEntitlement';
 import { useNetworkStatus } from '../contexts/NetworkContext';
+import { useUpgradeMomentManager } from '../contexts/UpgradeMomentContext';
 import { CAPS } from '../lib/dashboardCaps';
 import {
   getDashboardScore,
@@ -43,7 +44,7 @@ import {
 } from '../lib/dashboard.utils';
 import type { CheckInAction } from '../lib/checkInRecommendation';
 import { showCrisisSupportDetails } from '../lib/crisisSupport';
-import { PRO_MOMENTS } from '../lib/proMoments';
+import { navigateToProSubscription } from '../lib/proNavigation';
 import { greetingFirstName } from '../lib/userDisplay';
 import { isWeeklyReportDay } from '../lib/weeklyReport';
 import { useWeeklyReport } from '../hooks/useWeeklyReport';
@@ -113,7 +114,18 @@ export function DashboardScreenContent({
   onScoreDetailRequestConsumed?: () => void;
 }) {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
+  const route = useRoute();
+  const { requestMoment } = useUpgradeMomentManager();
   const { data, loading, error: dashboardError, syncError, checkingIn, refresh, saveCheckIn } = useDashboard(user.id);
+  const entitlement = useEntitlement({
+    isPro: data?.isPro ?? null,
+    trialActive: data?.trialActive ?? null,
+    loading,
+  });
+  const buildMyPlanAccess = entitlement.can('mind_plan');
+  const scoreInsightsAccess = entitlement.can('score_insights');
+  const weeklyReportAccess = entitlement.can('weekly_report');
+  const streakFreezeAccess = entitlement.can('streak_freeze');
   const { dismissToast, isOffline } = useNetworkStatus();
   // Web pre-selects mood 3 ("Good") and 7 hours of sleep.
   const [moodKey, setMoodKey] = useState<MoodKey>('good');
@@ -128,7 +140,6 @@ export function DashboardScreenContent({
   const scrollRef = useRef<ScrollView>(null);
   const checkInOffset = useRef(0);
   const [refreshing, setRefreshing] = useState(false);
-  const [proPrompt, setProPrompt] = useState<'checkIn' | 'weeklyReport' | null>(null);
   const showHomeSkeleton = (!data && !dashboardError) || refreshing;
 
   const displayName = useMemo(
@@ -253,7 +264,7 @@ export function DashboardScreenContent({
 
   // The report is part of Today on Sunday after its configured 08:00 release.
   const showWeeklyReport = isWeeklyReportDay();
-  const { report: weeklyReport, loading: weeklyReportLoading, error: weeklyReportError } = useWeeklyReport(user?.id, data?.isPro === true, showWeeklyReport);
+  const { report: weeklyReport, loading: weeklyReportLoading, error: weeklyReportError } = useWeeklyReport(user?.id, weeklyReportAccess === true, showWeeklyReport);
 
   // Read today's persisted pillar answers and legacy Stress for follow-up.
   const checkedInMood = useMemo(() => {
@@ -281,7 +292,9 @@ export function DashboardScreenContent({
     else navigation.navigate('Tabs', { screen: 'Bond' });
   }, [navigation]);
 
-  const openPro = useCallback(() => navigation.navigate('ProSubscription'), [navigation]);
+  const openPro = useCallback((source: string, context: string, interaction: 'lock' | 'cta' | 'badge' = 'cta', feature = source) => {
+    navigateToProSubscription(navigation, source, context, user.id, interaction, feature);
+  }, [navigation, user.id]);
 
   const [scoreSheetOpen, setScoreSheetOpen] = useState(false);
   const scoreDetailRequestHandled = useRef(false);
@@ -303,9 +316,16 @@ export function DashboardScreenContent({
   }, [activeSection, onSelectSection]);
 
   const openCheckInPlan = useCallback(() => {
-    if (data?.isPro === false) setProPrompt('checkIn');
+    if (buildMyPlanAccess === false) {
+      requestMoment({
+        id: 'checkIn', screen: route.key, feature: 'mind_plan',
+        isPro: entitlement.isPro, trialActive: entitlement.trialActive,
+        loading: entitlement.loading, featureAccess: buildMyPlanAccess,
+        hasCompletedAction: Boolean(data?.checkedInToday), userId: user.id,
+      });
+    }
     else navigation.navigate('Tabs', { screen: 'Mind' });
-  }, [data?.isPro, navigation]);
+  }, [buildMyPlanAccess, data?.checkedInToday, entitlement.isPro, entitlement.loading, entitlement.trialActive, navigation, requestMoment, route.key, user.id]);
 
   const openFocus = useCallback(() => {
     if (todayFocus === 'checkin') {
@@ -490,7 +510,8 @@ export function DashboardScreenContent({
                     items={scoreItems}
                     title="Dad Health Score"
                     scoreLabel="of 100"
-                    proTease={data.isPro === false ? 'Unlock my insights' : undefined}
+                    proTease={scoreInsightsAccess === false ? 'Unlock my insights' : undefined}
+                    userId={user.id}
                     compactBottom
                   />
                   <Pressable
@@ -545,7 +566,8 @@ export function DashboardScreenContent({
                     stressLevel={checkedInStress}
                     energyLevel={checkedInEnergy}
                     connectionLevel={checkedInConnection}
-                    isPro={data.isPro}
+                    planAccess={buildMyPlanAccess}
+                    userId={user.id}
                     onAction={openCheckInAction}
                     onPlan={openCheckInPlan}
                   />
@@ -559,10 +581,11 @@ export function DashboardScreenContent({
               <FadeInView delay={240}>
                 <StreakCard
                   streak={data.streak}
-                  isPro={data.isPro}
+                  freezeAccess={streakFreezeAccess}
                   freezeUsedThisWeek={data.freezeUsedThisWeek}
                   freezesRemaining={data.freezesRemaining}
-                  onUpgrade={openPro}
+                  userId={user.id}
+                  onUpgrade={() => openPro('streak_freeze', 'Freeze your streak once a week', 'lock')}
                 />
               </FadeInView>
 
@@ -570,10 +593,16 @@ export function DashboardScreenContent({
                 <FadeInView delay={260}>
                   <WeeklyReportCard
                     report={weeklyReport}
-                    isPro={data.isPro}
+                    reportAccess={weeklyReportAccess}
                     loading={weeklyReportLoading}
                     error={weeklyReportError}
-                    onUpgrade={() => setProPrompt('weeklyReport')}
+                    userId={user.id}
+                    onUpgrade={() => requestMoment({
+                      id: 'weeklyReport', screen: route.key, feature: 'weekly_report',
+                      isPro: entitlement.isPro, trialActive: entitlement.trialActive,
+                      loading: entitlement.loading, featureAccess: weeklyReportAccess,
+                      hasCompletedAction: Boolean(data.checkedInToday || data.moodLogs.length > 0), userId: user.id,
+                    })}
                   />
                 </FadeInView>
               ) : null}
@@ -604,17 +633,10 @@ export function DashboardScreenContent({
                 scoreUnavailable={Boolean(data.scoreError)}
                 baselineBuilding={!data.scoreError && !data.baselineAvailable}
                 items={scoreDetailItems}
-                isPro={data.isPro === true}
-                entitlementKnown={data.isPro !== null}
+                isPro={scoreInsightsAccess === true}
+                entitlementKnown={scoreInsightsAccess !== null}
                 userId={user.id}
-                onUpgrade={openPro}
-              />
-
-              <ProPromptModal
-                visible={proPrompt !== null}
-                moment={PRO_MOMENTS[proPrompt ?? 'checkIn']}
-                onUpgrade={openPro}
-                onDismiss={() => setProPrompt(null)}
+                  onUpgrade={() => openPro('score', 'Understand your score', 'lock', 'score_insights')}
               />
             </>
           ) : null}

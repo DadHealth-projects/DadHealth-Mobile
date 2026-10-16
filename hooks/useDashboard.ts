@@ -120,6 +120,8 @@ export type DashboardData = {
   /** Canonical Pro access from the authenticated subscription-status API. */
   /** Null means authenticated subscription status is not currently confirmed. */
   isPro: boolean | null;
+  /** Null means the server subscription status is not currently confirmed. */
+  trialActive: boolean | null;
 
   // ── Fitness (web dashboardPreview/FitnessScreen.tsx) ──
   monthWorkouts: number;
@@ -488,6 +490,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
       ? subscriptionStatus.freezesRemaining
       : null,
     isPro: subscriptionStatus ? subscriptionStatus.isPro === true : null,
+    trialActive: subscriptionStatus ? subscriptionStatus.status === 'trialing' : null,
 
     monthWorkouts,
     weightDisplay,
@@ -548,26 +551,40 @@ async function runFetch(userId: string): Promise<void> {
     }
   } catch (fetchError) {
     if (store.userId !== userId) return;
+    const current = store.userId === userId ? store.data : null;
     try {
       const cached = await readDashboardCache<DashboardData>(userId);
-      if (cached && typeof cached === 'object') {
-        const moodLogs = Array.isArray(cached.moodLogs) ? cached.moodLogs : [];
+      const fallback = cached && typeof cached === 'object' ? cached : current;
+      if (fallback && typeof fallback === 'object') {
+        const moodLogs = Array.isArray(fallback.moodLogs) ? fallback.moodLogs : [];
         setStore({
           data: {
-            ...cached,
+            ...fallback,
             moodLogs,
             isPro: null,
+            trialActive: null,
             checkedInToday: moodLogs.some((log) => log.date === todayKey()),
             freezeUsedThisWeek: null,
             freezesRemaining: null,
           },
-          error: null,
+          error: cached ? null : messageFor(fetchError),
         });
       } else {
         setStore({ error: messageFor(fetchError) });
       }
     } catch {
-      setStore({ error: messageFor(fetchError) });
+      setStore({
+        ...(current ? {
+          data: {
+            ...current,
+            isPro: null,
+            trialActive: null,
+            freezeUsedThisWeek: null,
+            freezesRemaining: null,
+          },
+        } : {}),
+        error: messageFor(fetchError),
+      });
     }
   } finally {
     if (store.userId === userId) setStore({ loading: false });
@@ -585,6 +602,7 @@ async function hydrateDashboardCache(userId: string, clearWhenMissing: boolean):
           ...cached,
           moodLogs,
           isPro: null,
+          trialActive: null,
           checkedInToday: moodLogs.some((log) => log.date === todayKey()),
           freezeUsedThisWeek: null,
           freezesRemaining: null,
@@ -635,11 +653,17 @@ function loadDashboard(userId: string): Promise<void> {
 
 function markDashboardEntitlementUnknown(userId: string): void {
   if (store.userId !== userId || !store.data) return;
-  if (store.data.isPro === null && store.data.freezeUsedThisWeek === null && store.data.freezesRemaining === null) return;
+  if (
+    store.data.isPro === null
+    && store.data.trialActive === null
+    && store.data.freezeUsedThisWeek === null
+    && store.data.freezesRemaining === null
+  ) return;
   setStore({
     data: {
       ...store.data,
       isPro: null,
+      trialActive: null,
       freezeUsedThisWeek: null,
       freezesRemaining: null,
     },
@@ -647,7 +671,6 @@ function markDashboardEntitlementUnknown(userId: string): void {
 }
 
 export function refreshDashboardForUser(userId: string): Promise<void> {
-  markDashboardEntitlementUnknown(userId);
   return refreshAfterInFlight(inFlightByUser, userId, loadDashboard);
 }
 
@@ -694,7 +717,9 @@ export function useDashboard(userId: string | undefined) {
       void loadDashboard(userId);
       return;
     }
-    if ((!store.data || store.data.isPro === null) && !store.loading) void loadDashboard(userId);
+    // Unknown entitlement after a successful dashboard load is retried on
+    // explicit focus/resume, not on every render.
+    if (!store.data && !store.loading) void loadDashboard(userId);
   }, [isOffline, userId]);
 
   useEffect(() => {
@@ -702,7 +727,6 @@ export function useDashboard(userId: string | undefined) {
     let previousState = AppState.currentState;
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active' && previousState !== 'active') {
-        markDashboardEntitlementUnknown(userId);
         if (!isOffline) void refreshDashboardForUser(userId);
       }
       previousState = nextState;
