@@ -317,14 +317,19 @@ Use the existing `activity_logs` backend contract.
 
 Do not create a competing mobile-only activity model.
 
-Manual logs contribute to canonical scoring according to the completed Change 07 backend rules.
+Manual logs contribute to canonical scoring according to the active, versioned backend model.
 
 Important scoring principles:
 
 - highest-scoring manual log per pillar/day contributes
 - all valid logs remain stored
-- manual activity contributes up to 70 points
-- existing inputs provide the remaining 30-point component
+- Mind uses 60% manual activities plus 40% weekly check-in participation, earned proportionally across seven days
+- Body and Bond use 60% manual activities, 10% relevant check-in participation, and 30% existing eligible non-manual contributions
+- check-in points depend on participation, never answer positivity; low answers do not reduce scores
+- low answers never reduce scores; keep wellbeing alerts, recommendations and support guidance separate
+- Mood and Stress remain available for history and wellbeing insights but do not change new-model Mind points
+- closed weeks retain the formula version effective for that Monday–Sunday week
+- missing Mind check-in days earn no participation credit
 - minimum-duration and activity weighting rules remain backend-owned
 - Mini Partners contributes to Body and Bond according to canonical rules
 
@@ -484,7 +489,7 @@ IN PROGRESS. Only Step 1 (A1–A6 shared Pro badges, locks, upgrade moments and 
 ## Pending
 - Weekly Challenge fix requires web deployment and a fresh challenge publication. Live-device resolution remains unverified.
 - Website logo metadata change requires website deployment; Safari may retain cached previews.
-- Final 60/40 scoring formula and approved backend migration; remaining Body and Bond work; weekly Free workout and recipe selection; remaining Pro entitlement and cancellation requirements; Jamie review of draft Journal prompts and Text a Mate copy; other unfinished October Milestone 2 items.
+- Mind 60/40 and Body/Bond 60/10/30 scoring implementation and additive migration are prepared; migration remains unapplied. Remaining Body and Bond work; weekly Free workout and recipe selection; remaining Pro entitlement and cancellation requirements; Jamie review of draft Journal prompts and Text a Mate copy; other unfinished October Milestone 2 items.
 - Final app performance audit remains deferred until remaining Milestone 2 work is complete.
 
 Completed work remains protected. Do not mark pending work complete. Preserve existing instructions and require explicit approval before reopening completed work.

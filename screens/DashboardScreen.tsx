@@ -32,7 +32,9 @@ import TodayFocusCard from '../components/dashboard/TodayFocusCard';
 import WeeklyReportCard from '../components/dashboard/WeeklyReportCard';
 import type { MoodKey } from '../components/mockup/MoodCheckInRow';
 import { useAuth } from '../contexts/AuthContext';
-import { useDashboard } from '../hooks/useDashboard';
+import { refreshDashboardForUser, useDashboard } from '../hooks/useDashboard';
+import { useFitnessLibrary } from '../hooks/useFitnessLibrary';
+import { useCookTogetherRecipes } from '../hooks/useCookTogetherRecipes';
 import { useEntitlement } from '../hooks/useEntitlement';
 import { useNetworkStatus } from '../contexts/NetworkContext';
 import { useUpgradeMomentManager } from '../contexts/UpgradeMomentContext';
@@ -117,6 +119,22 @@ export function DashboardScreenContent({
   const route = useRoute();
   const { requestMoment } = useUpgradeMomentManager();
   const { data, loading, error: dashboardError, syncError, checkingIn, refresh, saveCheckIn } = useDashboard(user.id);
+  const weeklyWorkoutState = useFitnessLibrary(user.id, activeSection === 'HOME');
+  const cookTogetherState = useCookTogetherRecipes(user.id);
+  const {
+    weeklyWorkout,
+    assignmentKnown,
+    loading: workoutLoading,
+    error: workoutError,
+    refresh: refreshWeeklyWorkout,
+  } = weeklyWorkoutState;
+  const {
+    weeklyRecipe,
+    assignmentKnown: recipeAssignmentKnown,
+    loading: recipeLoading,
+    weeklyRecipeError,
+    refresh: refreshCookTogether,
+  } = cookTogetherState;
   const entitlement = useEntitlement({
     isPro: data?.isPro ?? null,
     trialActive: data?.trialActive ?? null,
@@ -333,11 +351,12 @@ export function DashboardScreenContent({
     } else if (todayFocus === 'mind') {
       navigation.navigate('BreathingSession');
     } else if (todayFocus === 'body') {
-      navigation.navigate('ActiveWorkout', data?.suggestedWorkout?.id ? { workoutId: data.suggestedWorkout.id } : undefined);
+      if (weeklyWorkout?.id) navigation.navigate('ActiveWorkout', { workoutId: weeklyWorkout.id });
+      else navigation.navigate('Tabs', { screen: 'Fit' });
     } else if (todayFocus === 'bond') {
       navigation.navigate('Tabs', { screen: 'Bond' });
     }
-  }, [data?.suggestedWorkout?.id, navigation, todayFocus]);
+  }, [navigation, todayFocus, weeklyWorkout?.id]);
 
   const focusContent = useMemo(() => {
     if (todayFocus === 'checkin') return {
@@ -353,11 +372,17 @@ export function DashboardScreenContent({
       icon: 'wind' as const,
     };
     if (todayFocus === 'body') return {
-      title: data?.suggestedWorkout?.title ?? 'Move your body',
-      description: data?.suggestedWorkout
-        ? `${data.suggestedWorkout.moveCount} ${data.suggestedWorkout.moveCount === 1 ? 'move' : 'moves'} · ${data.suggestedWorkout.durationMins} min`
-        : 'Start a simple workout and build your Body score.',
-      actionLabel: 'Start workout',
+      title: weeklyWorkout?.title ?? 'Move your body',
+      description: weeklyWorkout
+        ? `${weeklyWorkout.exercises.length} ${weeklyWorkout.exercises.length === 1 ? 'move' : 'moves'} · ${weeklyWorkout.duration_mins} min`
+        : workoutError
+          ? "Couldn't load this week's workout. Pull to refresh."
+          : workoutLoading
+            ? "Checking this week's workout…"
+            : assignmentKnown
+              ? 'No workout has been assigned this week yet. Check Body for updates.'
+              : 'Connect to the internet to check this week’s workout.',
+      actionLabel: weeklyWorkout ? 'Start workout' : 'View Body',
       icon: 'activity' as const,
     };
     if (todayFocus === 'bond') return {
@@ -367,23 +392,41 @@ export function DashboardScreenContent({
       icon: 'heart' as const,
     };
     return null;
-  }, [data?.suggestedWorkout, todayFocus]);
+  }, [assignmentKnown, todayFocus, weeklyWorkout, workoutError, workoutLoading]);
 
   const supportingTools = useMemo<SupportingTool[]>(() => [
     {
       key: 'workout',
       icon: 'activity',
-      title: data?.suggestedWorkout?.title ?? 'Workout suggestion',
-      detail: data?.suggestedWorkout
-        ? `${data.suggestedWorkout.durationMins} min · ${data.suggestedWorkout.moveCount} ${data.suggestedWorkout.moveCount === 1 ? 'move' : 'moves'}`
-        : 'Choose a workout that fits your day.',
-      onPress: () => navigation.navigate('ActiveWorkout', data?.suggestedWorkout?.id ? { workoutId: data.suggestedWorkout.id } : undefined),
+      title: weeklyWorkout?.title ?? 'Weekly workout',
+      detail: weeklyWorkout
+        ? `${weeklyWorkout.duration_mins} min · ${weeklyWorkout.exercises.length} ${weeklyWorkout.exercises.length === 1 ? 'move' : 'moves'}`
+        : workoutError
+          ? "Couldn't load this week's workout. Pull to refresh."
+          : workoutLoading
+            ? "Checking this week's workout…"
+            : assignmentKnown
+              ? 'No workout assigned this week. Check Body for updates.'
+              : 'Connect to the internet to check this week’s workout.',
+      onPress: () => weeklyWorkout?.id
+        ? navigation.navigate('ActiveWorkout', { workoutId: weeklyWorkout.id })
+        : navigation.navigate('Tabs', { screen: 'Fit' }),
     },
     {
       key: 'meal',
       icon: 'coffee',
-      title: 'Cook Together',
-      detail: 'Cook with your kids and build connection.',
+      title: weeklyRecipe?.title ?? 'Cook Together',
+      detail: weeklyRecipe
+        ? `${weeklyRecipe.prep_mins} min · Cook with your kids this week.`
+        : weeklyRecipeError
+          ? "Couldn't load this week's recipe. Pull to refresh."
+          : recipeLoading
+            ? "Checking this week's featured recipe…"
+            : recipeAssignmentKnown
+              ? 'No recipe is scheduled for this week.'
+              : isOffline
+                ? "Connect to the internet to check this week's recipe."
+                : "Couldn't confirm this week's recipe. Pull to refresh.",
       onPress: () => navigation.navigate('CookTogether'),
     },
     {
@@ -393,7 +436,7 @@ export function DashboardScreenContent({
       detail: data?.dadDates?.[0]?.time ?? 'Find one simple way to connect today.',
       onPress: () => navigation.navigate('Tabs', { screen: 'Bond' }),
     },
-  ], [data?.dadDates, data?.mealPlan, data?.suggestedWorkout, navigation]);
+  ], [assignmentKnown, data?.dadDates, isOffline, navigation, recipeAssignmentKnown, recipeLoading, weeklyRecipe, weeklyRecipeError, weeklyWorkout, workoutError, workoutLoading]);
 
   const captureCheckInOffset = useCallback((event: LayoutChangeEvent) => {
     checkInOffset.current = event.nativeEvent.layout.y;
@@ -406,12 +449,16 @@ export function DashboardScreenContent({
     dismissToast();
     setRefreshing(true);
     try {
-      await refresh();
+      await Promise.all([
+        isOffline ? refresh() : refreshDashboardForUser(user.id),
+        refreshWeeklyWorkout(),
+        refreshCookTogether(),
+      ]);
     } finally {
       refreshInFlight.current = false;
       setRefreshing(false);
     }
-  }, [dismissToast, refresh]);
+  }, [dismissToast, isOffline, refresh, refreshCookTogether, refreshWeeklyWorkout, user.id]);
 
   if (showHomeSkeleton) {
     return (

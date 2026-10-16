@@ -72,14 +72,6 @@ export type MealPlanSummary = {
   loggedDate: string | null;
 };
 
-export type SuggestedWorkout = {
-  id: string;
-  title: string;
-  durationMins: number;
-  moveCount: number;
-  equipment: 'none' | 'dumbbells' | 'full_gym';
-};
-
 export type DashboardData = {
   displayName: string | null;
   goals: string[];
@@ -131,7 +123,6 @@ export type DashboardData = {
   bodyWeekSeries: number[];
   featuredWorkoutTitle: string | null;
   featuredWorkoutMeta: string | null;
-  suggestedWorkout: SuggestedWorkout | null;
 
   // ── Bond (web dashboardPreview/BondScreen.tsx) ──
   dadDates: DadDateItem[];
@@ -251,12 +242,12 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     bodyWeekResult,
     bodyManualWeekResult,
     latestWorkoutResult,
-    suggestedWorkoutResult,
     mealPlansResult,
     circlesResult,
     userCirclesResult,
     badgesResult,
     postsResult,
+    subscriptionStatus,
   ] = await Promise.all([
     supabase.from('user_profile').select('display_name,goals,is_pro,subscription_status').eq('user_id', userId).maybeSingle(),
     supabase.from('dad_score_view').select('mind_score,body_score,bond_score,mind_week_change,body_week_change,bond_week_change,total_score,weakest_pillar,recommended_action,baseline_available').eq('user_id', userId).maybeSingle(),
@@ -284,14 +275,13 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     supabase.from('workout_sessions').select('exercise_name,performed_at,duration_minutes').eq('user_id', userId).gte('performed_at', bodyWeekStart.toISOString()).lt('performed_at', bodyWeekEnd.toISOString()),
     supabase.from('activity_logs').select('activity_date,activity_type,other_activity_text,duration_minutes').eq('user_id', userId).eq('pillar', 'body').gte('activity_date', weekStart).lt('activity_date', toLocalDateKey(bodyWeekEnd)),
     supabase.from('workout_sessions').select('exercise_name,duration_minutes,calories,performed_at').eq('user_id', userId).order('performed_at', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('workouts').select('id,title,duration_mins,equipment,exercises').eq('source', 'admin').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('meal_plans').select('id,plan,created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(1),
     supabase.from('circles').select('id,icon,name,members_count').order('members_count', { ascending: false }).limit(6),
     supabase.from('user_circles').select('circle_id').eq('user_id', userId),
     supabase.from('earned_badges').select('badges(icon,name)').eq('user_id', userId),
     supabase.from('posts').select('id,content,tag,anonymous,author_initials,author_name').order('created_at', { ascending: false }).limit(20),
+    loadNativeSubscriptionStatus().catch(() => null),
   ]);
-  const subscriptionStatus = await loadNativeSubscriptionStatus().catch(() => null);
 
   if (profileResult.error) throw profileResult.error;
   // Scores and shared collections are nonessential. A restrictive policy should
@@ -345,20 +335,6 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
   const featuredWorkoutMeta = featuredWorkoutMetaParts.length > 0
     ? featuredWorkoutMetaParts.join(' · ')
     : null;
-  const suggestedRow = suggestedWorkoutResult.error ? null : suggestedWorkoutResult.data;
-  const suggestedWorkout: SuggestedWorkout | null = suggestedRow
-    && typeof suggestedRow.id === 'string'
-    && typeof suggestedRow.title === 'string'
-    && typeof suggestedRow.duration_mins === 'number'
-    && ['none', 'dumbbells', 'full_gym'].includes(String(suggestedRow.equipment))
-      ? {
-          id: suggestedRow.id,
-          title: suggestedRow.title.trim() || 'Suggested workout',
-          durationMins: suggestedRow.duration_mins,
-          moveCount: Array.isArray(suggestedRow.exercises) ? suggestedRow.exercises.length : 0,
-          equipment: suggestedRow.equipment as SuggestedWorkout['equipment'],
-        }
-      : null;
 
   // Bond ─────────────────────────────────────────────────────────────────────
   const dadDates = ((dadDatesResult.error ? [] : (dadDatesResult.data ?? [])) as Array<Record<string, unknown>>)
@@ -498,7 +474,6 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     bodyWeekSeries,
     featuredWorkoutTitle,
     featuredWorkoutMeta,
-    suggestedWorkout,
 
     dadDates,
     milestones,
@@ -532,28 +507,31 @@ type StoreState = {
 let store: StoreState = { userId: null, data: null, loading: false, error: null, syncError: null };
 const listeners = new Set<() => void>();
 const inFlightByUser = new Map<string, Promise<void>>();
+let activeDashboardUserId: string | null = null;
+let dashboardIdentityVersion = 0;
 
 function setStore(next: Partial<StoreState>): void {
   store = { ...store, ...next };
   listeners.forEach((listener) => listener());
 }
 
-async function runFetch(userId: string): Promise<void> {
+async function runFetch(userId: string, identityVersion: number): Promise<void> {
   try {
     const data = await withTimeout(fetchDashboard(userId));
-    if (store.userId !== userId) return;
+    if (store.userId !== userId || dashboardIdentityVersion !== identityVersion) return;
     setStore({ data, error: null });
     try {
-      await writeDashboardCache(userId, data);
+      if (dashboardIdentityVersion === identityVersion) await writeDashboardCache(userId, data);
     } catch {
       // A cache write must never turn a successful online dashboard load into
       // a client-facing failure.
     }
   } catch (fetchError) {
-    if (store.userId !== userId) return;
+    if (store.userId !== userId || dashboardIdentityVersion !== identityVersion) return;
     const current = store.userId === userId ? store.data : null;
     try {
       const cached = await readDashboardCache<DashboardData>(userId);
+      if (store.userId !== userId || dashboardIdentityVersion !== identityVersion) return;
       const fallback = cached && typeof cached === 'object' ? cached : current;
       if (fallback && typeof fallback === 'object') {
         const moodLogs = Array.isArray(fallback.moodLogs) ? fallback.moodLogs : [];
@@ -573,6 +551,7 @@ async function runFetch(userId: string): Promise<void> {
         setStore({ error: messageFor(fetchError) });
       }
     } catch {
+      if (store.userId !== userId || dashboardIdentityVersion !== identityVersion) return;
       setStore({
         ...(current ? {
           data: {
@@ -587,14 +566,14 @@ async function runFetch(userId: string): Promise<void> {
       });
     }
   } finally {
-    if (store.userId === userId) setStore({ loading: false });
+    if (store.userId === userId && dashboardIdentityVersion === identityVersion) setStore({ loading: false });
   }
 }
 
-async function hydrateDashboardCache(userId: string, clearWhenMissing: boolean): Promise<boolean> {
+async function hydrateDashboardCache(userId: string, clearWhenMissing: boolean, identityVersion?: number): Promise<boolean> {
   try {
     const cached = await readDashboardCache<DashboardData>(userId);
-    if (store.userId !== userId) return false;
+    if (store.userId !== userId || (identityVersion != null && dashboardIdentityVersion !== identityVersion)) return false;
     if (cached && typeof cached === 'object') {
       const moodLogs = Array.isArray(cached.moodLogs) ? cached.moodLogs : [];
       setStore({
@@ -613,7 +592,9 @@ async function hydrateDashboardCache(userId: string, clearWhenMissing: boolean):
     }
     if (clearWhenMissing) setStore({ data: null, error: null });
   } catch {
-    if (clearWhenMissing && store.userId === userId) setStore({ data: null, error: null });
+    if (clearWhenMissing && store.userId === userId && (identityVersion == null || dashboardIdentityVersion === identityVersion)) {
+      setStore({ data: null, error: null });
+    }
   }
   return false;
 }
@@ -626,14 +607,17 @@ async function loadDashboardCacheOnly(userId: string): Promise<void> {
     error: null,
     syncError: store.userId === userId ? store.syncError : null,
   });
-  await hydrateDashboardCache(userId, true);
-  if (store.userId === userId) setStore({ loading: false });
+  const identityVersion = dashboardIdentityVersion;
+  await hydrateDashboardCache(userId, true, identityVersion);
+  if (store.userId === userId && dashboardIdentityVersion === identityVersion) setStore({ loading: false });
 }
 
 function loadDashboard(userId: string): Promise<void> {
+  if (activeDashboardUserId !== userId) return Promise.resolve();
   const existingRequest = inFlightByUser.get(userId);
   if (existingRequest) return existingRequest;
   const hasCurrentData = store.userId === userId && Boolean(store.data);
+  const identityVersion = dashboardIdentityVersion;
   setStore({
     userId,
     data: store.userId === userId ? store.data : null,
@@ -642,8 +626,9 @@ function loadDashboard(userId: string): Promise<void> {
     syncError: store.userId === userId ? store.syncError : null,
   });
   const request = (async () => {
-    if (!hasCurrentData) await hydrateDashboardCache(userId, false);
-    await runFetch(userId);
+    if (!hasCurrentData) await hydrateDashboardCache(userId, false, identityVersion);
+    if (dashboardIdentityVersion !== identityVersion) return;
+    await runFetch(userId, identityVersion);
   })().finally(() => {
     if (inFlightByUser.get(userId) === request) inFlightByUser.delete(userId);
   });
@@ -699,6 +684,12 @@ export function useDashboard(userId: string | undefined) {
   }, []);
 
   useEffect(() => {
+    const nextUserId = userId ?? null;
+    if (activeDashboardUserId !== nextUserId) {
+      activeDashboardUserId = nextUserId;
+      dashboardIdentityVersion += 1;
+      inFlightByUser.clear();
+    }
     if (!userId) {
       // Signed out: drop the cached member data so nothing leaks between users.
       if (store.userId !== null || store.data) {

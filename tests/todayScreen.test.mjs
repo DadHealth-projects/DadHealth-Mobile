@@ -243,18 +243,25 @@ test('Body and Bond can each lead when Mind is not the lowest answer', () => {
   assert.equal(bond.primary.action.action, 'bond');
 });
 
-test('Today supporting tools use existing workout, meal, and Bond routes', async () => {
-  const [screen, hook] = await Promise.all([
+test('Today uses the assigned Cook Together recipe for Free and Pro users', async () => {
+  const [screen, hook, cookHook] = await Promise.all([
     source('screens/DashboardScreen.tsx'),
     source('hooks/useDashboard.ts'),
+    source('hooks/useCookTogetherRecipes.ts'),
   ]);
 
   assert.ok(hook.includes(".from('workouts').select('id,title,duration_mins,equipment,exercises').eq('source', 'admin')"));
   assert.ok(screen.includes("key: 'workout'"));
   assert.ok(screen.includes("key: 'meal'"));
   assert.ok(screen.includes("key: 'bond'"));
-  assert.ok(screen.includes("title: 'Cook Together'"));
+  assert.ok(screen.includes('title: weeklyRecipe?.title ?? \'Cook Together\''));
+  assert.ok(screen.includes('refreshCookTogether()'));
   assert.ok(screen.includes("navigation.navigate('CookTogether')"));
+  assert.ok(cookHook.includes(".from('free_weekly_recipe_assignments').select('week_start,recipe_id').maybeSingle()"));
+  assert.ok(cookHook.includes('allRecipes.find((recipe) => recipe.id === weeklyRecipeId)'));
+  assert.ok(cookHook.includes('if (!recipeResult.error) {'));
+  assert.ok(cookHook.includes('if (!savedResult.error) {'));
+  assert.doesNotMatch(cookHook, /isPro|useEntitlement/);
 });
 
 test('completed check-in confirms all three pillars without showing stale scores', async () => {

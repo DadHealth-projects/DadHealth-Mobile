@@ -47,7 +47,7 @@ export default function MealPlannerScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { user, session } = useAuth();
   const { isOffline, showOfflineAction } = useNetworkStatus();
-  const { data, loading: entitlementLoading } = useDashboard(user?.id);
+  const { data, loading: entitlementLoading, refresh: refreshEntitlement } = useDashboard(user?.id);
   const entitlement = useEntitlement({
     isPro: data?.isPro ?? null,
     trialActive: data?.trialActive ?? null,
@@ -55,6 +55,7 @@ export default function MealPlannerScreen() {
   });
   const mealPlannerAccess = entitlement.can('meal_planner');
   const library = useFitnessLibrary(user?.id, true);
+  const [accessCheckAttempted, setAccessCheckAttempted] = useState(false);
   const [calorieTarget, setCalorieTarget] = useState<(typeof CALORIES)[number]>(2200);
   const [mealsPerDay, setMealsPerDay] = useState<(typeof MEALS)[number]>(4);
   const [adults, setAdults] = useState<(typeof ADULTS)[number]>(1);
@@ -155,6 +156,11 @@ export default function MealPlannerScreen() {
     }
   }, [adults, calorieTarget, dietaryPreference, isOffline, mealPlannerAccess, mealsPerDay, openLogin, openPro, preferences, session?.access_token, showOfflineAction, user?.id]);
 
+  const retryEntitlementCheck = useCallback(async () => {
+    setAccessCheckAttempted(true);
+    await refreshEntitlement();
+  }, [refreshEntitlement]);
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
       <KeyboardAvoidingView
@@ -169,7 +175,7 @@ export default function MealPlannerScreen() {
       >
         <AppTopBar leftAccessory={<Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />
         <ScreenHero eyebrow="Meal planner" headline={'Fuel your\nwhole week'} sub="Set your needs. Get five days of meals and one shopping list." />
-        <GlobalErrorToastReporter message={library.error ?? library.proError} />
+        <GlobalErrorToastReporter message={library.error} />
 
         <View className="gap-md">
           <View>
@@ -193,8 +199,8 @@ export default function MealPlannerScreen() {
         </View>
 
         <View className="gap-sm">
-          <InlineFormError message={isOffline ? null : error} />
-          {!user ? <LimeButton label="Log in to generate" onPress={openLogin} /> : mealPlannerAccess === false ? <ProUpgradeSection moment={PRO_LOCKS.mealPlanner} source="meal_planner" feature="meal_planner" userId={user.id} onPress={openPro} /> : mealPlannerAccess !== true ? <Text className="font-body text-muted-text text-[12px]">Dad Health Pro access is being checked.</Text> : library.loading ? <LimeButton label="Loading meal planner" loading /> : <LimeButton label={visiblePlan ? 'Regenerate meal plan' : 'Generate meal plan'} onPress={() => void generate()} loading={generating} />}
+          <InlineFormError message={isOffline ? null : error ?? (accessCheckAttempted ? entitlement.verificationMessage : null)} />
+          {!user ? <LimeButton label="Log in to generate" onPress={openLogin} /> : mealPlannerAccess === false ? <ProUpgradeSection moment={PRO_LOCKS.mealPlanner} source="meal_planner" feature="meal_planner" userId={user.id} onPress={openPro} /> : mealPlannerAccess !== true ? <LimeButton label="Check access" onPress={() => void retryEntitlementCheck()} loading={entitlementLoading} /> : library.loading ? <LimeButton label="Loading meal planner" loading /> : <LimeButton label={visiblePlan ? 'Regenerate meal plan' : 'Generate meal plan'} onPress={() => void generate()} loading={generating} />}
         </View>
 
         {visiblePlan && displayedDay ? (

@@ -17,6 +17,7 @@ export type CookTogetherRecipe = {
   steps: RecipeStep[];
   image_url: string | null;
 };
+type WeeklyRecipeAssignmentRow = { recipe_id: string; week_start: string };
 
 type Filters = { difficulty: 'all' | RecipeDifficulty; maxMins: 'all' | number };
 
@@ -42,6 +43,9 @@ function steps(value: unknown): RecipeStep[] {
 export function useCookTogetherRecipes(userId?: string) {
   const { isOffline } = useNetworkStatus();
   const [allRecipes, setAllRecipes] = useState<CookTogetherRecipe[]>([]);
+  const [weeklyRecipeId, setWeeklyRecipeId] = useState<string | null>(null);
+  const [assignmentKnown, setAssignmentKnown] = useState(false);
+  const [weeklyRecipeError, setWeeklyRecipeError] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [bondScore, setBondScore] = useState<number | null>(null);
@@ -54,19 +58,30 @@ export function useCookTogetherRecipes(userId?: string) {
     if (isOffline) {
       setLoading(false);
       setError(null);
+      setWeeklyRecipeError(null);
       return;
     }
     setLoading(true);
     setError(null);
-    const [recipeResult, savedResult, scoreResult, completedResult] = await Promise.all([
+    setWeeklyRecipeError(null);
+    const [recipeResult, savedResult, scoreResult, completedResult, assignmentResult] = await Promise.all([
       supabase.from('recipes').select('*').eq('cook_together', true).order('prep_mins', { ascending: true }),
       userId ? supabase.from('user_saved_recipes').select('recipe_id').eq('user_id', userId) : Promise.resolve({ data: [], error: null }),
       userId ? supabase.from('dad_score_view').select('bond_score').eq('user_id', userId).maybeSingle() : Promise.resolve({ data: null, error: null }),
       userId ? supabase.from('bond_logs').select('recipe_id').eq('user_id', userId).eq('activity_type', 'cook_together_recipe').not('recipe_id', 'is', null) : Promise.resolve({ data: [], error: null }),
+      supabase.from('free_weekly_recipe_assignments').select('week_start,recipe_id').maybeSingle(),
     ]);
+    setAssignmentKnown(!assignmentResult.error);
+    setWeeklyRecipeId(assignmentResult.data
+      ? (assignmentResult.data as WeeklyRecipeAssignmentRow).recipe_id
+      : null);
+    if (recipeResult.error || assignmentResult.error) {
+      setWeeklyRecipeError("We couldn't load this week's featured recipe. Please try again.");
+    }
     if (recipeResult.error || savedResult.error) {
       setError('Cook Together recipes are unavailable. Please try again.');
-    } else {
+    }
+    if (!recipeResult.error) {
       setAllRecipes((recipeResult.data ?? []).map((row: Record<string, unknown>) => ({
         id: String(row.id),
         title: String(row.title ?? 'Untitled recipe'),
@@ -78,8 +93,14 @@ export function useCookTogetherRecipes(userId?: string) {
         steps: steps(row.steps),
         image_url: typeof row.image_url === 'string' ? row.image_url : null,
       })));
+    }
+    if (!savedResult.error) {
       setSavedIds(new Set((savedResult.data ?? []).map((row: { recipe_id: string }) => row.recipe_id)));
+    }
+    if (!completedResult.error) {
       setCompletedIds(new Set((completedResult.data ?? []).flatMap((row: { recipe_id: string | null }) => row.recipe_id ? [row.recipe_id] : [])));
+    }
+    if (!scoreResult.error) {
       setBondScore(typeof scoreResult.data?.bond_score === 'number' ? scoreResult.data.bond_score : null);
     }
     setLoading(false);
@@ -90,6 +111,10 @@ export function useCookTogetherRecipes(userId?: string) {
   const recipes = useMemo(() => allRecipes.filter((recipe) =>
     (filters.difficulty === 'all' || recipe.difficulty === filters.difficulty)
     && (filters.maxMins === 'all' || recipe.prep_mins <= filters.maxMins)), [allRecipes, filters]);
+  const weeklyRecipe = useMemo(
+    () => allRecipes.find((recipe) => recipe.id === weeklyRecipeId) ?? null,
+    [allRecipes, weeklyRecipeId],
+  );
 
   const toggleSaved = useCallback(async (recipeId: string) => {
     if (!userId) return { error: 'Log in to save recipes.' };
@@ -116,5 +141,5 @@ export function useCookTogetherRecipes(userId?: string) {
     return { error: null };
   }, [refresh, userId]);
 
-  return { recipes, savedIds, completedIds, bondScore, filters, setFilters, loading, busyId, error, refresh, toggleSaved, complete };
+  return { recipes, weeklyRecipe, assignmentKnown, weeklyRecipeError, savedIds, completedIds, bondScore, filters, setFilters, loading, busyId, error, refresh, toggleSaved, complete };
 }

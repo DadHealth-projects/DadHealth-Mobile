@@ -22,5 +22,8 @@ export function useEntitlement(state: EntitlementState) {
     can,
     loading,
     unknown: isPro === null,
+    verificationMessage: !loading && isPro === null
+      ? "We couldn't verify your access. Check your connection and try again."
+      : null,
   }), [can, isPro, loading, trialActive]);
 }

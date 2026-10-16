@@ -5,6 +5,7 @@ import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import type { DashboardSection } from '../components/AccountSheet';
 import FadeInView from '../components/FadeInView';
 import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
+import InlineFormError from '../components/InlineFormError';
 import LimeButton from '../components/LimeButton';
 import MiniBarChart from '../components/dashboard/MiniBarChart';
 import PillarScoreRow from '../components/dashboard/PillarScoreRow';
@@ -24,7 +25,6 @@ import { useEntitlement } from '../hooks/useEntitlement';
 import { useFitnessLibrary } from '../hooks/useFitnessLibrary';
 import { useFitnessSummary } from '../hooks/useFitnessSummary';
 import { MOOD_WEEK_LABELS } from '../lib/dashboard.utils';
-import { DAD_STRENGTH_MOVES } from '../lib/homeContent';
 import { PRO_LOCKS, PRO_MOMENTS } from '../lib/proMoments';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 import { syncAppleHealthIfConnected } from '../lib/appleHealth';
@@ -78,6 +78,7 @@ export default function FitnessScreen({
   const aiWorkoutAccess = entitlement.can('ai_workout');
   const mealPlannerAccess = entitlement.can('meal_planner');
   const workoutLibraryAccess = entitlement.can('workout_library');
+  const weeklyWorkoutAccess = entitlement.can('free_weekly_workout') === true;
   const trendsAccess = entitlement.can('trends');
   const { data: fitnessSummary, loading: summaryLoading, refresh: refreshSummary } = useFitnessSummary(
     standalone ? user?.id : undefined,
@@ -87,15 +88,29 @@ export default function FitnessScreen({
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
-  const selectedWorkout = useMemo(
-    () => fitnessLibrary.workouts.find((workout) => workout.id === selectedWorkoutId)
-      ?? fitnessLibrary.workouts[0]
-      ?? null,
-    [fitnessLibrary.workouts, selectedWorkoutId],
+  const [accessCheckAttempted, setAccessCheckAttempted] = useState(false);
+  const checkEntitlement = useCallback(async () => {
+    setAccessCheckAttempted(true);
+    await refresh();
+  }, [refresh]);
+  const availableWorkouts = useMemo(
+    () => workoutLibraryAccess === true
+      ? fitnessLibrary.workouts
+      : weeklyWorkoutAccess
+        ? fitnessLibrary.workouts.filter((workout) => workout.source === 'ai_generated' || workout.id === fitnessLibrary.weeklyWorkout?.id)
+        : [],
+    [fitnessLibrary.weeklyWorkout?.id, fitnessLibrary.workouts, weeklyWorkoutAccess, workoutLibraryAccess],
   );
-  const moveCount = selectedWorkout?.exercises?.length || DAD_STRENGTH_MOVES.length;
+  const selectedWorkout = useMemo(
+    () => availableWorkouts.find((workout) => workout.id === selectedWorkoutId)
+      ?? fitnessLibrary.weeklyWorkout
+      ?? (workoutLibraryAccess === true ? availableWorkouts.find((workout) => workout.source === 'admin') : null)
+      ?? null,
+    [availableWorkouts, fitnessLibrary.weeklyWorkout, selectedWorkoutId, workoutLibraryAccess],
+  );
+  const moveCount = selectedWorkout?.exercises?.length ?? 0;
   const moveCountLabel = formatMoveCount(moveCount);
-  const workoutName = selectedWorkout?.title.trim() || 'Dad Strength';
+  const workoutName = selectedWorkout?.title.trim() ?? 'No featured workout this week';
   const workoutMeta = selectedWorkout
     ? `${moveCountLabel} · ${selectedWorkout.duration_mins} min · ${EQUIPMENT_LABEL[selectedWorkout.equipment]}`
     : moveCountLabel;
@@ -172,7 +187,6 @@ export default function FitnessScreen({
     >
       <GlobalErrorToastReporter message={data?.scoreError} />
       <GlobalErrorToastReporter message={fitnessLibrary.error} />
-      <GlobalErrorToastReporter message={fitnessLibrary.proError} />
       <FadeInView>
         {standalone ? (
           <View>
@@ -255,18 +269,26 @@ export default function FitnessScreen({
             <View className="flex-row items-start justify-between gap-md">
               <View className="flex-1">
                 <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
-                  Active workout
+                  {workoutLibraryAccess === true ? 'Available workout' : 'Your workout this week'}
                 </Text>
                 <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">
                   {workoutName}
                 </Text>
                 <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
-                  {workoutMeta}
+                  {selectedWorkout
+                    ? workoutMeta
+                    : fitnessLibrary.loading
+                      ? 'Checking this week’s workout…'
+                      : fitnessLibrary.assignmentKnown
+                        ? 'No workout has been assigned yet. Check back after Admin schedules this week’s workout.'
+                        : 'This week’s workout could not be confirmed. Check your connection and try again.'}
                 </Text>
               </View>
-              <TagPill label={selectedWorkout ? FOCUS_LABEL[selectedWorkout.focus] : 'Full body'} />
+              {selectedWorkout ? <TagPill label={FOCUS_LABEL[selectedWorkout.focus]} /> : null}
             </View>
-            <LimeButton label="Start workout →" onPress={hasUser ? openActiveWorkout : requireAuth} />
+            {selectedWorkout ? (
+              <LimeButton label="Start workout →" onPress={hasUser ? openActiveWorkout : requireAuth} />
+            ) : null}
           </FlatSection>
         ) : data?.featuredWorkoutTitle ? (
           <FlatSection className="gap-sm">
@@ -293,22 +315,28 @@ export default function FitnessScreen({
             <FlatSection className="gap-md">
               <View className="flex-row items-center justify-between gap-sm">
                 <Text className="font-heading-bold text-muted-text text-[11px] tracking-[1px] uppercase">
-                  {workoutLibraryAccess === true ? 'All available workouts' : workoutLibraryAccess === false ? 'Free workout library' : 'Checking access'}
+                  {workoutLibraryAccess === true ? 'All available workouts' : workoutLibraryAccess === false ? 'This week’s workout and saved workouts' : 'Checking access'}
                 </Text>
-                <TagPill label={`${fitnessLibrary.workouts.length} shown`} tone="outline" />
+                <TagPill label={`${availableWorkouts.length} shown`} tone="outline" />
               </View>
 
               {fitnessLibrary.loading ? (
                 <View className="gap-sm py-sm">
                   {[0, 1, 2].map((item) => <View key={item} className="h-[64px] rounded-button bg-white/5" />)}
                 </View>
-              ) : fitnessLibrary.workouts.length === 0 ? (
+              ) : availableWorkouts.length === 0 ? (
                 <View className="py-md">
-                  <Text className="font-body text-muted-text text-[13px] leading-[19px]">No workouts are available yet.</Text>
+                  <Text className="font-body text-muted-text text-[13px] leading-[19px]">
+                    {workoutLibraryAccess === false && !fitnessLibrary.weeklyWorkout
+                      ? fitnessLibrary.assignmentKnown
+                        ? 'No workout has been assigned this week yet.'
+                        : 'The weekly workout is unavailable until it can be confirmed.'
+                      : 'No workouts are available yet.'}
+                  </Text>
                 </View>
               ) : (
                 <View className="gap-sm">
-                  {fitnessLibrary.workouts.map((workout) => {
+                  {availableWorkouts.map((workout) => {
                   const selected = selectedWorkout?.id === workout.id;
                   return (
                     <Pressable
@@ -373,7 +401,15 @@ export default function FitnessScreen({
               buttonLabel="Unlock AI workouts →"
               onUnlock={() => navigateToProSubscription(navigation, 'aiWorkout', 'AI Workout', user?.id, 'lock', 'ai_workout')}
             />
-          ) : null}
+          ) : (
+            <FlatSection className="gap-sm">
+              <Text className="font-heading-bold text-white text-[16px] uppercase">AI Workout access</Text>
+              <InlineFormError message={accessCheckAttempted ? entitlement.verificationMessage : null} />
+              {!hasUser
+                ? <LimeButton label="Log in to check access" onPress={requireAuth} />
+                : <LimeButton label="Check access" onPress={() => void checkEntitlement()} loading={loading} />}
+            </FlatSection>
+          )}
         </FadeInView>
       ) : null}
 
@@ -406,7 +442,15 @@ export default function FitnessScreen({
               buttonLabel="Unlock meal planner →"
               onUnlock={() => navigateToProSubscription(navigation, 'meal_planner', 'Meal Planner', user?.id, 'lock')}
             />
-          ) : null}
+          ) : (
+            <FlatSection className="gap-sm">
+              <Text className="font-heading-bold text-white text-[16px] uppercase">Meal Planner access</Text>
+              <InlineFormError message={accessCheckAttempted ? entitlement.verificationMessage : null} />
+              {!hasUser
+                ? <LimeButton label="Log in to check access" onPress={requireAuth} />
+                : <LimeButton label="Check access" onPress={() => void checkEntitlement()} loading={loading} />}
+            </FlatSection>
+          )}
         </FadeInView>
       ) : null}
 

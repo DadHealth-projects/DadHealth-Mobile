@@ -106,7 +106,7 @@ test('screen-level load failures render inline and are suppressed while offline'
   assert.ok(weekly.includes('<GlobalErrorToastReporter message={loadError} />'));
   assert.ok(calendar.includes('<GlobalErrorToastReporter message={loadError} />'));
   assert.ok(journal.includes('<GlobalErrorToastReporter message={journal.syncError ?? journal.error} />'));
-  assert.ok(planner.includes('<GlobalErrorToastReporter message={library.error ?? library.proError} />'));
+  assert.ok(planner.includes('<GlobalErrorToastReporter message={library.error} />'));
 });
 
 test('network-only feature actions use connectivity notices rather than feature failure text offline', async () => {

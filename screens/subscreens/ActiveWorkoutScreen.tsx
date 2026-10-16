@@ -26,7 +26,6 @@ export default function ActiveWorkoutScreen() {
   const library = useFitnessLibrary(user?.id, true);
   const workout = useMemo(
     () => library.workouts.find((item) => item.id === route.params?.workoutId)
-      ?? (route.params?.workoutId ? null : library.workouts[0])
       ?? null,
     [library.workouts, route.params?.workoutId],
   );
@@ -52,7 +51,7 @@ export default function ActiveWorkoutScreen() {
             </Pressable>
           }
         />
-        <ScreenErrorNotice message={library.error ?? library.proError} />
+        <ScreenErrorNotice message={library.error} />
 
         <View key={library.loading ? 'workout-skeleton' : 'workout-content'}>
           {library.loading ? (

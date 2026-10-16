@@ -47,7 +47,7 @@ export default function AIWorkoutScreen() {
   const route = useRoute<RouteProp<AppStackParamList, 'AIWorkout'>>();
   const { user, session } = useAuth();
   const { isOffline, showOfflineAction } = useNetworkStatus();
-  const { data, loading: entitlementLoading } = useDashboard(user?.id);
+  const { data, loading: entitlementLoading, refresh: refreshEntitlement } = useDashboard(user?.id);
   const entitlement = useEntitlement({
     isPro: data?.isPro ?? null,
     trialActive: data?.trialActive ?? null,
@@ -55,6 +55,7 @@ export default function AIWorkoutScreen() {
   });
   const aiWorkoutAccess = entitlement.can('ai_workout');
   const library = useFitnessLibrary(user?.id, true);
+  const [accessCheckAttempted, setAccessCheckAttempted] = useState(false);
   const [durationMins, setDurationMins] = useState<(typeof DURATIONS)[number]>(20);
   const [equipment, setEquipment] = useState<(typeof EQUIPMENT)[number]['value']>('none');
   const [focus, setFocus] = useState<(typeof FOCUS)[number]['value']>('full_body');
@@ -121,6 +122,11 @@ export default function AIWorkoutScreen() {
       setGenerating(false);
     }
   }, [aiWorkoutAccess, durationMins, equipment, focus, isOffline, library, openLogin, openPro, session?.access_token, showOfflineAction, user?.id]);
+
+  const retryEntitlementCheck = useCallback(async () => {
+    setAccessCheckAttempted(true);
+    await refreshEntitlement();
+  }, [refreshEntitlement]);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
@@ -221,14 +227,17 @@ export default function AIWorkoutScreen() {
           ) : null}
         </View>
 
-        <InlineFormError message={isOffline ? null : error ?? library.error ?? library.proError} />
+        <InlineFormError message={isOffline ? null : error ?? library.error ?? (accessCheckAttempted ? entitlement.verificationMessage : null)} />
 
         {!user ? (
           <LimeButton label="Log in to generate" onPress={openLogin} />
         ) : aiWorkoutAccess === false ? (
           <ProUpgradeSection moment={PRO_LOCKS.aiWorkout} source="ai_workout" feature="ai_workout" userId={user.id} onPress={openPro} />
         ) : aiWorkoutAccess !== true ? (
-          <Text className="font-body text-muted-text text-[12px]">Dad Health Pro access is being checked.</Text>
+          <View className="gap-sm">
+            <Text className="font-body text-muted-text text-[12px]">Check access to continue.</Text>
+            <LimeButton label="Check access" onPress={() => void retryEntitlementCheck()} loading={entitlementLoading} />
+          </View>
         ) : library.loading ? (
           <LimeButton label="Generate workout" loading />
         ) : (

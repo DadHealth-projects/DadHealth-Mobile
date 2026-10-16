@@ -123,7 +123,7 @@ test('Moment 5 follows Body progress context and keeps the canonical score row f
   assert.ok(body.indexOf('<StatCard value={stats[3].value}') < body.indexOf('moment={PRO_MOMENTS.progressTrends}'));
   assert.ok(body.includes('fitnessSummary.monthWorkouts > 0'));
   assert.ok(body.includes('trendsAccess === false'));
-  assert.ok(body.includes('<GlobalErrorToastReporter message={fitnessLibrary.proError} />'));
+  assert.equal(body.includes('<GlobalErrorToastReporter message={fitnessLibrary.proError} />'), false);
   assert.ok(body.includes('Want to see how your Body score has changed?'));
   assert.ok(body.includes("navigateToProSubscription(navigation, 'progressTrends'"));
   assert.ok(row.includes('{Math.round(score ?? 0)}%'));

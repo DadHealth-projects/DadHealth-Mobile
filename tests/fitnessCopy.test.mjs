@@ -7,7 +7,8 @@ const root = new URL('../', import.meta.url);
 test('Fitness uses the selected workout name, move count, duration and equipment', async () => {
   const source = await readFile(new URL('screens/FitnessScreen.tsx', root), 'utf8');
 
-  assert.match(source, /const workoutName = selectedWorkout\?\.title\.trim\(\) \|\| 'Dad Strength'/);
+  assert.match(source, /const workoutName = selectedWorkout\?\.title\.trim\(\) \?\? 'No featured workout this week'/);
+  assert.match(source, /No workout has been assigned yet\. Check back after Admin schedules this week’s workout\./);
   assert.match(source, /const workoutMeta = selectedWorkout[\s\S]*?\$\{selectedWorkout\.duration_mins\} min/);
   assert.match(source, /const workoutMeta = selectedWorkout[\s\S]*?EQUIPMENT_LABEL\[selectedWorkout\.equipment\]/);
   assert.match(source, /EQUIPMENT_LABEL\[selectedWorkout\.equipment\]/);

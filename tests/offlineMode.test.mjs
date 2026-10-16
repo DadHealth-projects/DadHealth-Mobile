@@ -168,7 +168,7 @@ test('feature errors remain inline and stale feature failures are hidden while o
   assert.ok(therapist.includes('<ScreenErrorNotice message={bookingError ?? directory.error} />'));
   assert.equal(therapist.includes('text-red'), false);
   assert.equal(aiWorkout.includes('GlobalErrorToastReporter'), false);
-  assert.ok(aiWorkout.includes('<InlineFormError message={isOffline ? null : error ?? library.error ?? library.proError} />'));
+  assert.ok(aiWorkout.includes('accessCheckAttempted ? entitlement.verificationMessage : null'));
   assert.ok(aiWorkout.includes("showOfflineAction('ai_workout')"));
 });
 
