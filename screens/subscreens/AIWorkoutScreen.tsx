@@ -13,15 +13,18 @@ import AppTopBar from '../../components/AppTopBar';
 import GeneratedWorkoutSection from '../../components/fitness/GeneratedWorkoutSection';
 import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
-import ProPromptModal from '../../components/ProPromptModal';
+import ProUpgradeSection from '../../components/ProUpgradeSection';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import TagPill from '../../components/dashboard/TagPill';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
+import { refreshDashboardForUser, useDashboard } from '../../hooks/useDashboard';
+import { useEntitlement } from '../../hooks/useEntitlement';
 import type { FitnessWorkout } from '../../hooks/useFitnessLibrary';
 import { useFitnessLibrary } from '../../hooks/useFitnessLibrary';
 import { generateAIWorkout, WorkoutGenerationError } from '../../lib/aiWorkout';
-import { PRO_MOMENTS } from '../../lib/proMoments';
+import { PRO_LOCKS } from '../../lib/proMoments';
+import { navigateToProSubscription } from '../../lib/proNavigation';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
 
@@ -38,12 +41,19 @@ const FOCUS = [
   { value: 'core', label: 'Core' },
 ] as const;
 
-/** One workout-options experience: three generations monthly for Free, unlimited for Pro. */
+/** Personalised AI workout generation is available to confirmed Pro and Trial users. */
 export default function AIWorkoutScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const route = useRoute<RouteProp<AppStackParamList, 'AIWorkout'>>();
   const { user, session } = useAuth();
   const { isOffline, showOfflineAction } = useNetworkStatus();
+  const { data, loading: entitlementLoading } = useDashboard(user?.id);
+  const entitlement = useEntitlement({
+    isPro: data?.isPro ?? null,
+    trialActive: data?.trialActive ?? null,
+    loading: entitlementLoading,
+  });
+  const aiWorkoutAccess = entitlement.can('ai_workout');
   const library = useFitnessLibrary(user?.id, true);
   const [durationMins, setDurationMins] = useState<(typeof DURATIONS)[number]>(20);
   const [equipment, setEquipment] = useState<(typeof EQUIPMENT)[number]['value']>('none');
@@ -52,7 +62,6 @@ export default function AIWorkoutScreen() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openFilter, setOpenFilter] = useState<'duration' | 'equipment' | 'focus' | null>(null);
-  const [limitPromptOpen, setLimitPromptOpen] = useState(false);
 
   const displayedWorkout = useMemo(
     () => generatedWorkout
@@ -63,10 +72,7 @@ export default function AIWorkoutScreen() {
 
   const close = useCallback(() => navigation.goBack(), [navigation]);
   const openLogin = useCallback(() => navigation.navigate('Login'), [navigation]);
-  const openPro = useCallback(() => {
-    setLimitPromptOpen(false);
-    navigation.navigate('ProSubscription');
-  }, [navigation]);
+  const openPro = useCallback(() => navigateToProSubscription(navigation, 'ai_workout', 'AI Workout', user?.id, 'lock'), [navigation, user?.id]);
   const openWorkout = useCallback(() => {
     if (displayedWorkout) {
       navigation.navigate('ActiveWorkout', { workoutId: displayedWorkout.id });
@@ -79,6 +85,11 @@ export default function AIWorkoutScreen() {
       openLogin();
       return;
     }
+    if (aiWorkoutAccess === false) {
+      openPro();
+      return;
+    }
+    if (aiWorkoutAccess !== true) return;
     if (isOffline) {
       showOfflineAction('ai_workout');
       return;
@@ -99,19 +110,17 @@ export default function AIWorkoutScreen() {
       }
       setGeneratedWorkout(workout);
     } catch (cause) {
-      if (cause instanceof WorkoutGenerationError && cause.code === 'free_limit_reached') {
-        setLimitPromptOpen(true);
+      if (cause instanceof WorkoutGenerationError && cause.code === 'pro_required') {
+        if (user?.id) void refreshDashboardForUser(user.id);
         return;
       }
       setError(cause instanceof WorkoutGenerationError
         ? cause.message
-        : cause instanceof Error
-          ? cause.message
-          : "We couldn't create your workout right now. Please try again.");
+        : "We couldn't create your workout right now. Please try again.");
     } finally {
       setGenerating(false);
     }
-  }, [durationMins, equipment, focus, isOffline, library, openLogin, session?.access_token, showOfflineAction]);
+  }, [aiWorkoutAccess, durationMins, equipment, focus, isOffline, library, openLogin, openPro, session?.access_token, showOfflineAction, user?.id]);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
@@ -149,7 +158,7 @@ export default function AIWorkoutScreen() {
                 Set the session constraints before generating.
               </Text>
             </View>
-            <TagPill label={library.isPro === true ? 'Unlimited' : library.isPro === false ? '3 free / month' : 'Checking access'} tone="outline" />
+            <TagPill label={aiWorkoutAccess === true ? (entitlement.trialActive ? 'Trial' : 'Pro') : aiWorkoutAccess === false ? 'Pro required' : 'Checking access'} tone="outline" />
           </View>
           <View className="flex-row border-y border-border">
             <DropdownTrigger
@@ -216,6 +225,10 @@ export default function AIWorkoutScreen() {
 
         {!user ? (
           <LimeButton label="Log in to generate" onPress={openLogin} />
+        ) : aiWorkoutAccess === false ? (
+          <ProUpgradeSection moment={PRO_LOCKS.aiWorkout} source="ai_workout" feature="ai_workout" userId={user.id} onPress={openPro} />
+        ) : aiWorkoutAccess !== true ? (
+          <Text className="font-body text-muted-text text-[12px]">Dad Health Pro access is being checked.</Text>
         ) : library.loading ? (
           <LimeButton label="Generate workout" loading />
         ) : (
@@ -230,12 +243,6 @@ export default function AIWorkoutScreen() {
           <GeneratedWorkoutSection workout={displayedWorkout} onOpen={openWorkout} />
         ) : null}
       </ScrollView>
-      <ProPromptModal
-        visible={limitPromptOpen}
-        moment={PRO_MOMENTS.aiWorkout}
-        onUpgrade={openPro}
-        onDismiss={() => setLimitPromptOpen(false)}
-      />
     </SafeAreaView>
   );
 }

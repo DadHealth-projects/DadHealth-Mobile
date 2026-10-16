@@ -1,8 +1,8 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
 import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
@@ -13,8 +13,11 @@ import ScreenHero from '../../components/mockup/ScreenHero';
 import TagPill from '../../components/dashboard/TagPill';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
+import { useDashboard } from '../../hooks/useDashboard';
+import { useEntitlement } from '../../hooks/useEntitlement';
 import { useFitnessLibrary } from '../../hooks/useFitnessLibrary';
 import { PRO_LOCKS } from '../../lib/proMoments';
+import { navigateToProSubscription } from '../../lib/proNavigation';
 import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -44,6 +47,13 @@ export default function MealPlannerScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { user, session } = useAuth();
   const { isOffline, showOfflineAction } = useNetworkStatus();
+  const { data, loading: entitlementLoading } = useDashboard(user?.id);
+  const entitlement = useEntitlement({
+    isPro: data?.isPro ?? null,
+    trialActive: data?.trialActive ?? null,
+    loading: entitlementLoading,
+  });
+  const mealPlannerAccess = entitlement.can('meal_planner');
   const library = useFitnessLibrary(user?.id, true);
   const [calorieTarget, setCalorieTarget] = useState<(typeof CALORIES)[number]>(2200);
   const [mealsPerDay, setMealsPerDay] = useState<(typeof MEALS)[number]>(4);
@@ -51,24 +61,65 @@ export default function MealPlannerScreen() {
   const [dietaryPreference, setDietaryPreference] = useState<(typeof DIETS)[number]['value']>('none');
   const [preferences, setPreferences] = useState('');
   const [generatedPlan, setGeneratedPlan] = useState<MealPlan | null>(null);
+  const [generatedPlanUserId, setGeneratedPlanUserId] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openFilter, setOpenFilter] = useState<'calories' | 'meals' | 'adults' | 'diet' | null>(null);
+  const savedPlanRequest = useRef(0);
 
-  const displayedDay = generatedPlan?.plan[selectedDay];
-  const grocerySections = useMemo(() => normalizeGroceryList(generatedPlan?.grocery_list), [generatedPlan]);
+  const visiblePlan = generatedPlanUserId === user?.id ? generatedPlan : null;
+  const displayedDay = visiblePlan?.plan[selectedDay];
+  const grocerySections = useMemo(() => normalizeGroceryList(visiblePlan?.grocery_list), [visiblePlan]);
   const close = useCallback(() => navigation.goBack(), [navigation]);
   const openLogin = useCallback(() => navigation.navigate('Login'), [navigation]);
-  const openPro = useCallback(() => navigation.navigate('ProSubscription'), [navigation]);
+  const openPro = useCallback(() => navigateToProSubscription(navigation, 'meal_planner', 'Meal Planner', user?.id, 'lock'), [navigation, user?.id]);
+
+  useFocusEffect(useCallback(() => {
+    const requestId = ++savedPlanRequest.current;
+    const userId = user?.id;
+    const accessToken = session?.access_token;
+    if (!userId || !accessToken) {
+      if (!userId) {
+        setGeneratedPlan(null);
+        setGeneratedPlanUserId(null);
+      }
+      return () => { savedPlanRequest.current += 1; };
+    }
+
+    void (async () => {
+      try {
+        const response = await fetch(`${WEB_URL}/api/generate-meal-plan`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Cache-Control': 'no-cache',
+          },
+        });
+        if (!response.ok) return;
+        const payload = await response.json() as { savedPlan?: MealPlan | null };
+        if (savedPlanRequest.current !== requestId) return;
+        setGeneratedPlan(payload.savedPlan ?? null);
+        setGeneratedPlanUserId(userId);
+        setSelectedDay(0);
+      } catch {
+        // Keep any in-memory plan visible if this reload fails temporarily.
+      }
+    })();
+
+    return () => { savedPlanRequest.current += 1; };
+  }, [session?.access_token, user?.id]));
 
   const generate = useCallback(async () => {
     setError(null);
-    if (!session?.access_token) return openLogin();
-    if (library.isPro === false) return openPro();
-    if (library.isPro !== true) return;
+    const userId = user?.id;
+    if (!userId || !session?.access_token) return openLogin();
+    if (mealPlannerAccess === false) return openPro();
+    if (mealPlannerAccess !== true) return;
     if (isOffline) { showOfflineAction('meal_plan'); return; }
 
+    // A slow focus reload must not replace a newly generated plan with older data.
+    savedPlanRequest.current += 1;
     setGenerating(true);
     let accessToken = session.access_token;
     const tokenCheck = await supabase.auth.getUser(accessToken);
@@ -95,13 +146,14 @@ export default function MealPlannerScreen() {
       const payload = await response.json() as MealPlan & { error?: string };
       if (!response.ok) throw new Error('generation_failed');
       setGeneratedPlan(payload);
+      setGeneratedPlanUserId(userId);
       setSelectedDay(0);
     } catch {
       setError('We could not generate your meal plan. Please try again.');
     } finally {
       setGenerating(false);
     }
-  }, [adults, calorieTarget, dietaryPreference, isOffline, library.isPro, mealsPerDay, openLogin, openPro, preferences, session?.access_token, showOfflineAction]);
+  }, [adults, calorieTarget, dietaryPreference, isOffline, mealPlannerAccess, mealsPerDay, openLogin, openPro, preferences, session?.access_token, showOfflineAction, user?.id]);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
@@ -142,14 +194,14 @@ export default function MealPlannerScreen() {
 
         <View className="gap-sm">
           <InlineFormError message={isOffline ? null : error} />
-          {!user ? <LimeButton label="Log in to generate" onPress={openLogin} /> : library.loading ? <LimeButton label="Loading meal planner" loading /> : library.isPro === false ? <ProUpgradeSection moment={PRO_LOCKS.mealPlanner} onPress={openPro} /> : library.isPro === true ? <LimeButton label={generatedPlan ? 'Regenerate meal plan' : 'Generate meal plan'} onPress={() => void generate()} loading={generating} /> : <Text className="font-body text-muted-text text-[12px]">Dad Health Pro access is being checked.</Text>}
+          {!user ? <LimeButton label="Log in to generate" onPress={openLogin} /> : mealPlannerAccess === false ? <ProUpgradeSection moment={PRO_LOCKS.mealPlanner} source="meal_planner" feature="meal_planner" userId={user.id} onPress={openPro} /> : mealPlannerAccess !== true ? <Text className="font-body text-muted-text text-[12px]">Dad Health Pro access is being checked.</Text> : library.loading ? <LimeButton label="Loading meal planner" loading /> : <LimeButton label={visiblePlan ? 'Regenerate meal plan' : 'Generate meal plan'} onPress={() => void generate()} loading={generating} />}
         </View>
 
-        {library.isPro === true && generatedPlan && displayedDay ? (
+        {visiblePlan && displayedDay ? (
           <View className="gap-lg border-t border-border pt-lg">
-            <View className="flex-row items-center justify-between gap-sm"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Your new plan</Text><TagPill label={`${generatedPlan.plan.length} days`} tone="outline" /></View>
+            <View className="flex-row items-center justify-between gap-sm"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Your new plan</Text><TagPill label={`${visiblePlan.plan.length} days`} tone="outline" /></View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-sm">
-              {generatedPlan.plan.map((day, index) => <Pressable key={`${day.day}-${index}`} onPress={() => setSelectedDay(index)} accessibilityRole="tab" accessibilityState={{ selected: selectedDay === index }} className={`min-h-[42px] px-md items-center justify-center border-b-2 ${selectedDay === index ? 'border-lime' : 'border-transparent'}`}><Text className={`font-heading-bold text-[12px] uppercase ${selectedDay === index ? 'text-lime' : 'text-white/40'}`}>{day.day ?? `Day ${index + 1}`}</Text></Pressable>)}
+              {visiblePlan.plan.map((day, index) => <Pressable key={`${day.day}-${index}`} onPress={() => setSelectedDay(index)} accessibilityRole="tab" accessibilityState={{ selected: selectedDay === index }} className={`min-h-[42px] px-md items-center justify-center border-b-2 ${selectedDay === index ? 'border-lime' : 'border-transparent'}`}><Text className={`font-heading-bold text-[12px] uppercase ${selectedDay === index ? 'text-lime' : 'text-white/40'}`}>{day.day ?? `Day ${index + 1}`}</Text></Pressable>)}
             </ScrollView>
             <View className="gap-md">
               <Text className="font-heading text-white text-[27px] uppercase">{displayedDay.day ?? `Day ${selectedDay + 1}`}</Text>
@@ -164,7 +216,7 @@ export default function MealPlannerScreen() {
             </View>
             {grocerySections.length ? <View className="gap-md"><Text className="font-heading text-white text-[28px] uppercase">Shopping list</Text>{grocerySections.map((section) => <View key={section.category} className="border-b border-border pb-md"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">{section.category}</Text><Text className="font-body text-tertiary-text text-[13px] leading-[20px] mt-xs">{section.items.join(', ')}</Text></View>)}</View> : null}
           </View>
-        ) : user && library.isPro === true ? <Text className="font-body text-muted-text text-[13px] leading-[19px]">Your plan will appear here after you generate it.</Text> : null}
+        ) : user && mealPlannerAccess === true ? <Text className="font-body text-muted-text text-[13px] leading-[19px]">Your plan will appear here after you generate it.</Text> : null}
       </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
