@@ -6,11 +6,12 @@ const root = new URL('../', import.meta.url);
 const read = (path) => readFile(new URL(path, root), 'utf8');
 
 test('resolved mobile Pro gates use the authenticated server entitlement status', async () => {
-  const [dashboard, library, milestone, fitness] = await Promise.all([
+  const [dashboard, library, milestone, fitness, manualHistory] = await Promise.all([
     read('hooks/useDashboard.ts'),
     read('hooks/useFitnessLibrary.ts'),
     read('screens/subscreens/MilestoneTrackerScreen.tsx'),
     read('screens/FitnessScreen.tsx'),
+    read('screens/subscreens/ManualActivityHistoryScreen.tsx'),
   ]);
   assert.match(dashboard, /loadNativeSubscriptionStatus\(\)/);
   assert.match(dashboard, /isPro: subscriptionStatus \? subscriptionStatus\.isPro === true : null/);
@@ -20,10 +21,15 @@ test('resolved mobile Pro gates use the authenticated server entitlement status'
   assert.match(dashboard, /refreshDashboardForUser\(userId\)/);
   assert.match(library, /useState<boolean \| null>\(userId \? null : false\)/);
   assert.match(library, /const pro = subscriptionStatus \? subscriptionStatus\.isPro === true : null/);
-  assert.match(fitness, /fitnessLibrary\.isPro === false/);
+  assert.match(fitness, /aiWorkoutAccess === false/);
+  assert.match(fitness, /mealPlannerAccess === false/);
   assert.match(library, /loadNativeSubscriptionStatus\(\)/);
-  assert.match(milestone, /dashboardData\?\.isPro === true/);
+  assert.match(milestone, /photoAccess === true/);
   assert.match(milestone, /entitlementKnown/);
+  assert.match(manualHistory, /useEntitlement/);
+  assert.match(manualHistory, /entitlement\.can\('trends'\)/);
+  assert.match(manualHistory, /trendsAccess === true/);
+  assert.doesNotMatch(manualHistory, /data\?\.isPro === true/);
   assert.match(library, /AppState\.addEventListener\('change'/);
   assert.match(library, /useFocusEffect/);
   assert.doesNotMatch(`${dashboard}\n${library}\n${milestone}`, /isProfilePro\(/);
@@ -36,24 +42,24 @@ test('unknown subscription status does not render Free Mind locks or upgrade CTA
     read('components/dashboard/CheckInFollowUp.tsx'),
     read('components/dashboard/ScoreDetailSheet.tsx'),
   ]);
-  assert.match(mind, /data\?\.isPro === false \? \([\s\S]*?<MindPlanLockedCard/);
-  assert.match(mind, /data\?\.isPro === false \? 'View mood trends'/);
-  assert.match(dashboard, /proTease=\{data\.isPro === false/);
-  assert.match(dashboard, /<StreakCard[\s\S]*?isPro=\{data\.isPro\}/);
-  assert.match(followUp, /isPro !== null \? <View/);
+  assert.match(mind, /mindPlanAccess === false \? \([\s\S]*?<MindPlanLockedCard/);
+  assert.match(mind, /trendsAccess === false \? 'View mood trends'/);
+  assert.match(dashboard, /proTease=\{scoreInsightsAccess === false/);
+  assert.match(dashboard, /<StreakCard[\s\S]*?freezeAccess=\{streakFreezeAccess\}/);
+  assert.match(followUp, /planAccess !== null \? <View/);
   assert.match(details, /!isPro && entitlementKnown/);
   const streakCard = await read('components/dashboard/StreakCard.tsx');
-  assert.match(streakCard, /isPro === true/);
-  assert.match(streakCard, /isPro === false/);
-  assert.match(dashboard, /<StreakCard[\s\S]*?isPro=\{data\.isPro\}/);
+  assert.match(streakCard, /freezeAccess === true/);
+  assert.match(streakCard, /freezeAccess === false/);
+  assert.match(dashboard, /<WeeklyReportCard[\s\S]*?reportAccess=\{weeklyReportAccess\}/);
   const account = await read('components/AccountSheet.tsx');
-  assert.match(account, /dashboardData\?\.isPro === false/);
+  assert.match(account, /isConfirmedFree/);
   const weeklyCard = await read('components/dashboard/WeeklyReportCard.tsx');
-  assert.match(weeklyCard, /isPro === null/);
-  assert.match(dashboard, /isPro=\{data\.isPro\}/);
+  assert.match(weeklyCard, /reportAccess === null/);
+  assert.match(dashboard, /entitlement\.can\('score_insights'\)/);
 });
 
-test('entitlement refresh invalidates stale state on resume and reconnect', async () => {
+test('routine resume refresh preserves confirmed access and unknown status does not trigger a render retry loop', async () => {
   const [dashboard, library, native, dadDays] = await Promise.all([
     read('hooks/useDashboard.ts'),
     read('hooks/useFitnessLibrary.ts'),
@@ -61,7 +67,13 @@ test('entitlement refresh invalidates stale state on resume and reconnect', asyn
     read('screens/subscreens/DadDaysSearchScreen.tsx'),
   ]);
   assert.match(dashboard, /markDashboardEntitlementUnknown\(userId\);[\s\S]*?if \(isOffline\)/);
-  assert.match(dashboard, /store\.data\.isPro === null\) && !store\.loading/);
+  assert.match(dashboard, /if \(!store\.data && !store\.loading\) void loadDashboard\(userId\)/);
+  const refresh = dashboard.slice(dashboard.indexOf('export function refreshDashboardForUser'), dashboard.indexOf('export function useDashboard'));
+  assert.doesNotMatch(refresh, /markDashboardEntitlementUnknown/);
+  const resume = dashboard.slice(dashboard.indexOf("AppState.addEventListener('change'"), dashboard.indexOf('subscribeOfflineSync'));
+  assert.doesNotMatch(resume, /markDashboardEntitlementUnknown/);
+  assert.match(dashboard, /isPro: null,[\s\S]*?trialActive: null,[\s\S]*?checkedInToday/);
+  assert.match(dashboard, /const fallback = cached && typeof cached === 'object' \? cached : current/);
   assert.match(library, /if \(isOffline\) \{[\s\S]*?setIsPro\(userId \? null : false\)/);
   assert.match(library, /requestId !== latestRequest\.current/);
   assert.match(native, /const requestId = \+\+statusRequestId\.current;[\s\S]*?setStatus\(null\)/);

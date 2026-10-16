@@ -6,10 +6,13 @@ const screen = await readFile(new URL('../screens/FitnessScreen.tsx', import.met
 const card = await readFile(new URL('../components/body/BodyProLockedCard.tsx', import.meta.url), 'utf8');
 const library = await readFile(new URL('../hooks/useFitnessLibrary.ts', import.meta.url), 'utf8');
 
-test('Free Body cards link to Pro locks; Pro cards keep existing actions', () => {
-  assert.match(screen, /fitnessLibrary\.isPro \? \([\s\S]*?onPress=\{openAIWorkout\}[\s\S]*?\) : \([\s\S]*?buttonLabel="Unlock AI workouts →"[\s\S]*?navigation\.navigate\('ProSubscription'\)/);
-  assert.match(screen, /fitnessLibrary\.isPro \? \([\s\S]*?onPress=\{openMealPlanner\}[\s\S]*?\) : \([\s\S]*?buttonLabel="Unlock meal planner →"[\s\S]*?navigation\.navigate\('ProSubscription'\)/);
-  assert.doesNotMatch(screen, /Unlimited|3 free \/ month|Preview/);
+test('Free Body cards lock AI generation; confirmed Pro and Trial retain feature actions', () => {
+  assert.match(screen, /aiWorkoutAccess === true \?/);
+  assert.match(screen, /aiWorkoutAccess === false \?/);
+  assert.match(screen, /mealPlannerAccess === true \?/);
+  assert.match(screen, /mealPlannerAccess === false \?/);
+  assert.match(screen, /entitlement\.trialActive === true \? <ProBadge variant="trial" \/>/);
+  assert.doesNotMatch(screen, /Unlimited|3 free \/ month/);
 });
 
 test('locked Body cards use a shared Pro badge and static local preview art', () => {
