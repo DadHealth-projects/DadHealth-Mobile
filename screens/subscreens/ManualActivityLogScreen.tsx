@@ -94,7 +94,7 @@ export default function ManualActivityLogScreen() {
       } else if (message.includes('fetch') || message.includes('network') || message.includes('offline')) {
         setError('Connect to the internet to save this activity, then try again.');
       } else {
-        setError(message || 'We could not save this activity. Please try again.');
+        setError('We could not save this activity. Please try again.');
       }
     } finally {
       setSaving(false);

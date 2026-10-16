@@ -7,8 +7,8 @@ const root = new URL('../', import.meta.url);
 test('successful and queued check-ins explain the Mind score connection', async () => {
   const source = await readFile(new URL('screens/DashboardScreen.tsx', root), 'utf8');
 
-  assert.match(source, /Check-in saved\. This check-in contributes to your Mind score\./);
-  assert.match(source, /Once synced, this check-in contributes to your Mind score\./);
+  assert.match(source, /Check-in saved for Mind, Body and Bond\./);
+  assert.match(source, /Saved on this device\. It will sync when you're back online\. Your Mind, Body and Bond answers are saved\./);
 });
 
 test('completed workout feedback explains the Body score connection', async () => {
