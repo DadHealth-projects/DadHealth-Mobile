@@ -55,15 +55,17 @@ test('purchase, restore and manage flows use additive native subscription endpoi
 });
 
 test('the approved mobile Pro entry points route to one native subscription screen', async () => {
-  const [navigator, account, dashboard, screen] = await Promise.all([
+  const [navigator, account, dashboard, screen, proNavigation] = await Promise.all([
     source('navigation/AppNavigator.tsx'),
     source('components/AccountSheet.tsx'),
     source('screens/DashboardScreen.tsx'),
     source('screens/subscreens/ProSubscriptionScreen.tsx'),
+    source('lib/proNavigation.ts'),
   ]);
   assert.match(navigator, /name="ProSubscription"/);
-  assert.match(account, /navigate\('ProSubscription'\)/);
-  assert.match(dashboard, /<UpgradeProCard[\s\S]*?navigation\.navigate\('ProSubscription'\)/);
+  assert.match(account, /navigateToProSubscription\(navigation, 'account'/);
+  assert.match(dashboard, /navigateToProSubscription\(navigation, source, context/);
+  assert.match(proNavigation, /StackActions\.push\('ProSubscription', \{ source, context \}\)/);
   // Prices come from the store only. No hardcoded amount may ship in the paywall.
   assert.doesNotMatch(screen, /£\d/);
   assert.match(screen, /displayPrice \?\? null/);
