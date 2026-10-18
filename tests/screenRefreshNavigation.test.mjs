@@ -56,9 +56,9 @@ test('manual pull refresh reuses the existing screen skeletons consistently', as
   assert.match(pillar, /loading \|\| \(refreshing && !refreshSkeletonExpired\)/);
   assert.match(pillar, /setTimeout\(\(\) => setRefreshSkeletonExpired\(true\), REFRESH_SKELETON_MAX_MS\)/);
   assert.match(pillar, /showSkeleton && skeleton \? skeleton : children/);
-  assert.match(dashboard, /const showHomeSkeleton = \(!data && !dashboardError\) \|\| refreshing/);
+  assert.match(dashboard, /const showHomeSkeleton = !data && !dashboardError/);
   assert.match(home, /refreshing \? \([\s\S]*?<PublicHomeSkeleton \/>/);
   assert.match(communityFeed, /feed\.loading \|\| refreshing \?/);
   assert.doesNotMatch(pillar, /useFocusEffect/);
-  assert.doesNotMatch(dashboard, /useFocusEffect/);
+  assert.match(dashboard, /useFocusEffect/);
 });

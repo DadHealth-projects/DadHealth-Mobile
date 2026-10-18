@@ -28,7 +28,7 @@ function StreakCard({
   onUpgrade?: () => void;
   userId?: string;
 }) {
-  const count = Math.max(0, streak ?? 0);
+  const count = streak === null ? null : Math.max(0, streak);
   const lockViewed = useRef(false);
   useEffect(() => {
     if (freezeAccess !== false || lockViewed.current) return;
@@ -49,10 +49,12 @@ function StreakCard({
             minimumFontScale={0.85}
             className="font-heading-bold text-white text-[25px] leading-[27px] uppercase"
           >
-            {count > 0 ? `${count}-day streak` : 'Start your streak'}
+            {count === null ? 'Checking streak' : count > 0 ? `${count}-day streak` : 'Start your streak'}
           </Text>
           <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">
-            {count > 0 ? 'Keep showing up—one check-in at a time.' : "Complete today's check-in to begin."}
+            {count === null
+              ? 'Your streak will appear when it is available.'
+              : count > 0 ? 'Keep showing up—one check-in at a time.' : "Complete today's check-in to begin."}
           </Text>
         </View>
       </View>
