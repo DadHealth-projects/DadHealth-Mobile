@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
@@ -29,10 +29,10 @@ export default function ProSubscriptionScreen() {
   const { user } = useAuth();
   const { isOffline, showOfflineAction } = useNetworkStatus();
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('annual');
-  const subscriptions = useNativeSubscriptions(
-    user?.id,
-    user?.id ? () => void refreshDashboardForUser(user.id) : undefined,
-  );
+  const refreshEntitlement = useCallback(() => {
+    if (user?.id) void refreshDashboardForUser(user.id);
+  }, [user?.id]);
+  const subscriptions = useNativeSubscriptions(user?.id, refreshEntitlement);
   const selectedProduct = subscriptions.products.find((product) => product.plan === selectedPlan);
   const trialAvailable = Boolean(selectedProduct?.hasSevenDayTrial);
   const providerLabel = providerName(subscriptions.status?.primaryProvider ?? null);
@@ -61,7 +61,7 @@ export default function ProSubscriptionScreen() {
               accessibilityLabel="Close Dad Health Pro"
               className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"
             >
-              <Feather name="x" size={20} color={colors.text} />
+              <Feather name="chevron-left" size={24} color={colors.text} />
             </Pressable>
           )}
         />
