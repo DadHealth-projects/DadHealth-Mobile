@@ -7,15 +7,17 @@ const backend = new URL('../../dadHealth/', import.meta.url);
 const readMobile = (path) => readFile(new URL(path, mobile), 'utf8');
 const readBackend = (path) => readFile(new URL(path, backend), 'utf8');
 
-test('dashboard resume keeps verified access during refresh and clears it on verification failure', async () => {
+test('dashboard resume keeps verified access during refresh and verification failure', async () => {
   const source = await readMobile('hooks/useDashboard.ts');
   const refresh = source.slice(source.indexOf('export function refreshDashboardForUser'), source.indexOf('export function useDashboard'));
   const resume = source.slice(source.indexOf("AppState.addEventListener('change'"), source.indexOf('subscribeOfflineSync'));
   assert.doesNotMatch(refresh, /markDashboardEntitlementUnknown/);
   assert.doesNotMatch(resume, /markDashboardEntitlementUnknown/);
+  assert.match(source, /mergeDashboardRefreshState\([\s\S]*?failedReads/);
+  assert.match(source, /isPro: current\?\.isPro \?\? null/);
   assert.match(source, /if \(!store\.data && !store\.loading\) void loadDashboard\(userId\)/);
   assert.match(source, /isPro: null,[\s\S]*?trialActive: null/);
-  assert.match(source, /const fallback = cached && typeof cached === 'object' \? cached : current/);
+  assert.match(source, /const fallback = current \?\? \(cached && typeof cached === 'object' \? cached : null\)/);
 });
 
 test('AI Workout mobile blocks Free and unknown generation, and preserves old workouts', async () => {

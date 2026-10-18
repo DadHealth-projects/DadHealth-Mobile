@@ -33,7 +33,13 @@ async function loadInsight<T>(kind: ProInsightKind, params: Record<string, strin
     headers: { Authorization: `Bearer ${token}` },
   });
   const payload = await response.json().catch(() => null) as { error?: string } | null;
-  if (!response.ok) throw new Error(payload?.error ?? 'Insight unavailable');
+  if (!response.ok) {
+  throw new Error(
+    `Pro insight ${kind} failed (HTTP ${response.status}): ${
+      payload?.error ?? 'Unknown server error'
+    }`
+  );
+}
   if (!payload || typeof payload !== 'object') throw new Error('Insight unavailable');
   return payload as unknown as T;
 }
