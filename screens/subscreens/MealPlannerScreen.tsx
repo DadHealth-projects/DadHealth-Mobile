@@ -69,7 +69,7 @@ export default function MealPlannerScreen() {
   const [openFilter, setOpenFilter] = useState<'calories' | 'meals' | 'adults' | 'diet' | null>(null);
   const savedPlanRequest = useRef(0);
 
-  const visiblePlan = generatedPlanUserId === user?.id ? generatedPlan : null;
+  const visiblePlan = mealPlannerAccess === true && generatedPlanUserId === user?.id ? generatedPlan : null;
   const displayedDay = visiblePlan?.plan[selectedDay];
   const grocerySections = useMemo(() => normalizeGroceryList(visiblePlan?.grocery_list), [visiblePlan]);
   const close = useCallback(() => navigation.goBack(), [navigation]);
@@ -80,7 +80,7 @@ export default function MealPlannerScreen() {
     const requestId = ++savedPlanRequest.current;
     const userId = user?.id;
     const accessToken = session?.access_token;
-    if (!userId || !accessToken) {
+    if (!userId || !accessToken || mealPlannerAccess !== true) {
       if (!userId) {
         setGeneratedPlan(null);
         setGeneratedPlanUserId(null);
@@ -109,7 +109,7 @@ export default function MealPlannerScreen() {
     })();
 
     return () => { savedPlanRequest.current += 1; };
-  }, [session?.access_token, user?.id]));
+  }, [mealPlannerAccess, session?.access_token, user?.id]));
 
   const generate = useCallback(async () => {
     setError(null);
