@@ -474,22 +474,29 @@ When a later approved decision supersedes an existing rule:
 
 Completed/frozen milestone areas remain frozen until an explicitly approved task changes them.
 
-# Phase 4 Milestone 2 progress
+# Phase 4 Milestone 2 Status
 
-## Milestone status
-IN PROGRESS. Only Step 1 (A1–A6 shared Pro badges, locks, upgrade moments and paywall navigation, plus approved Pro-access bug fixes) is complete and device-tested.
+## Status
+IN PROGRESS. Steps 1-5 implementation is reported complete and deployed. The five production Pro/access and saved-content checks, and device testing, are user-reported history; they were not independently repeated in this review.
 
-## Completed
-- Step 1: shared Pro feature access, badges and locked previews, upgrade moments, source-aware paywall navigation and approved Pro-access bug fixes.
-- Daily check-in: approved Mind, Body and Bond responses, preserved 1–5 mapping, faster save confirmation, duplicate-submit protection, refresh race protection, offline behavior, and compact low-answer support recommendations.
-- Mind: four Free Quick Fixes; temporary local Voice Note; Brain Dump with optional Journal save; native Text a Mate composer; Shoulders/Jaw Reset; Journal Write freely and Guide me modes with check-in prompts; existing history and offline saves retained.
-- Pro presentation: corrected entitlement-state handling and removed upgrade prompts for confirmed Pro users. Existing purchase verification remains authoritative.
-- Weekly Challenge: mobile rejects stale challenge responses across routes/users. Admin blocks editing or republishing challenges with participation history; new weekly publication uses a new challenge row. Existing history remains intact.
+## Implemented
+- Shared Pro entitlements, upgrade moments/navigation, expiry and saved-content access; manual grants; Stripe atomic profile synchronization. Stripe synchronization migration application is user-reported.
+- Google RTDN ordering uses a server verification-start timestamp. Source-level regression coverage exists; production runtime processing remains unverified.
+- Check-in, Mind Quick Fixes and Journal modes; weekly Free Body workout; Cook Together weekly Free recipe; 60/40 Mind and 60/10/30 Body/Bond scoring implementation and SQL regression suite.
+- Mind Plan remains locked-preview-only. Do not build its plan engine.
 
-## Pending
-- Weekly Challenge fix requires web deployment and a fresh challenge publication. Live-device resolution remains unverified.
-- Website logo metadata change requires website deployment; Safari may retain cached previews.
-- Mind 60/40 and Body/Bond 60/10/30 scoring implementation and additive migration are prepared; migration remains unapplied. Remaining Body and Bond work; weekly Free workout and recipe selection; remaining Pro entitlement and cancellation requirements; Jamie review of draft Journal prompts and Text a Mate copy; other unfinished October Milestone 2 items.
-- Final app performance audit remains deferred until remaining Milestone 2 work is complete.
+## Verification outstanding and confirmed gaps
+- Production migration ledger for `20261016120000_pillar_score_60_40_10_30.sql` was not accessible. Do not mark it applied without an operator check. The migration and SQL tests exist locally.
+- Google RTDN delivery/processing in production is unverified. EAS/App Store/Google Play product values and installed native-build configuration could not be inspected here. Expo Go price-unavailable behavior is not evidence of a production pricing defect.
+- `WeeklyReportCard` shows a locked copy/CTA to Free users but does not include their current score in that teaser; the current score is shown separately. This is an implementation gap to resolve within approved scope.
+- Trial labels currently differ: the shared badge says `Trial`; Profile membership says `Pro Trial`. The brief leaves exact badge wording open; Jamie must choose one if consistency is required.
+- Subscription management opens the relevant provider/portal. No separate cancellation-reason step was found. Confirm whether a reason-only flow is still wanted; the previously rejected 50% offer is excluded.
 
-Completed work remains protected. Do not mark pending work complete. Preserve existing instructions and require explicit approval before reopening completed work.
+## Jamie-owned content and decisions
+- Approve Journal prompt copy; Jamie supplies Community seed prompts/posts (5-10 per circle and weekly official prompts); define the first Cook Together completion badge.
+- Confirm whether a cancellation-reason step without an offer is wanted, and choose consistent Trial badge wording.
+
+## Deferred
+Full Sunday report, automatic streak freeze, full paywall redesign, final performance audit, and Mind Plan generation are deferred. Later confirmed scope supersedes any older brief text suggesting these ship in this milestone. Do not implement them without new approval.
+
+Completed work remains protected. Do not mark user-reported production checks as independently verified. Preserve all permanent rules above and require explicit approval before reopening completed work.
