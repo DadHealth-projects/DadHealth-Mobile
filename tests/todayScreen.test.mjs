@@ -202,9 +202,10 @@ test('Today score card and detail sheet use canonical values for Free and Pro', 
 });
 
 test('post-check-in supports pillar-specific actions and preserves the Pro CTA', async () => {
-  const [screen, followUp] = await Promise.all([
+  const [screen, followUp, focusCard] = await Promise.all([
     source('screens/DashboardScreen.tsx'),
     source('components/dashboard/CheckInFollowUp.tsx'),
+    source('components/dashboard/TodayFocusCard.tsx'),
   ]);
 
   assert.ok(screen.includes('planAccess={buildMyPlanAccess}'));
@@ -212,6 +213,8 @@ test('post-check-in supports pillar-specific actions and preserves the Pro CTA',
   assert.ok(followUp.includes('advice.primary.state'));
   assert.ok(!followUp.includes('secondaryActions'));
   assert.ok(followUp.includes('font-heading-bold text-dark text-[14px] tracking-[1px] uppercase'));
+  assert.match(followUp, /className="rounded-button bg-lime py-md items-center active:opacity-90"/);
+  assert.match(focusCard, /className="rounded-button bg-lime py-md items-center active:opacity-90"/);
   assert.ok(followUp.includes('flex-1'));
   assert.ok(followUp.includes('<ProBadge />'));
   assert.match(screen, /requestMoment\(\{[\s\S]*?id: 'checkIn'/);

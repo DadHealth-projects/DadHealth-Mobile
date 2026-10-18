@@ -60,7 +60,7 @@ function CheckInFollowUp({
             onPress={() => onAction(advice.primary.action.action)}
             accessibilityRole="button"
             accessibilityLabel={advice.primary.action.label}
-            className="min-h-[48px] w-full items-center justify-center rounded-[7px] bg-lime px-md active:opacity-80"
+            className="rounded-button bg-lime py-md items-center active:opacity-90"
           >
             <Text className="font-heading-bold text-dark text-[14px] tracking-[1px] uppercase">
               {advice.primary.action.label}
