@@ -98,7 +98,7 @@ test('online and offline check-in saves preserve omitted fields and replay old q
   assert.ok(dashboard.includes('const todayKey = () => toLocalDateKey(new Date())'));
   assert.ok(dashboard.includes('if (checkInLock.current) return { error: null, inFlight: true }'));
   assert.ok(dashboard.includes('refreshDashboardForUser(userId)'));
-  assert.ok(dashboard.includes("[check-in-timing] ${stage}: ${Date.now() - startedAt}ms"));
+  assert.equal(dashboard.includes('[check-in-timing]'), false);
   assert.match(recommendation, /stressLevel !== null && stressLevel >= 4/);
   assert.match(recommendation, /if \(moodValue <= 2\)/);
   assert.match(recommendation, /if \(moodValue === 1\)/);

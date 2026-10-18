@@ -158,7 +158,7 @@ export function DashboardScreenContent({
   const scrollRef = useRef<ScrollView>(null);
   const checkInOffset = useRef(0);
   const [refreshing, setRefreshing] = useState(false);
-  const showHomeSkeleton = (!data && !dashboardError) || refreshing;
+  const showHomeSkeleton = !data && !dashboardError;
 
   const displayName = useMemo(
     () => greetingFirstName(data?.displayName, user),
@@ -273,6 +273,7 @@ export function DashboardScreenContent({
   }, [connectionLevel, energyLevel, moodValue, saveCheckIn, sleep]);
 
   const todayFocus = useMemo(() => {
+    if (data?.checkedInToday === null && data?.recommendedAction === 'checkin') return null;
     if (data?.recommendedAction === 'checkin') return 'checkin';
     if (data?.recommendedAction === 'mind_breathing') return 'mind';
     if (data?.recommendedAction === 'body_workout') return 'body';
@@ -342,7 +343,12 @@ export function DashboardScreenContent({
         hasCompletedAction: Boolean(data?.checkedInToday), userId: user.id,
       });
     }
-    else navigation.navigate('Tabs', { screen: 'Mind' });
+    else if (buildMyPlanAccess === true) {
+  navigation.navigate('Tabs', {
+    screen: 'Mind',
+    params: { openPersonalisedPlan: true },
+  });
+}
   }, [buildMyPlanAccess, data?.checkedInToday, entitlement.isPro, entitlement.loading, entitlement.trialActive, navigation, requestMoment, route.key, user.id]);
 
   const openFocus = useCallback(() => {
@@ -509,7 +515,7 @@ export function DashboardScreenContent({
             <View className="gap-md">
               {checkInMessage ? (
                 <Text accessibilityLiveRegion="polite" className="font-body text-lime text-[13px] leading-[19px]">{checkInMessage}</Text>
-              ) : (
+              ) : !dashboardError || isOffline ? (
                 <>
                   <DadScoreCard
                     score={null}
@@ -536,6 +542,13 @@ export function DashboardScreenContent({
                     />
                   </View>
                 </>
+              ) : (
+                <View accessibilityLiveRegion="polite" className="bg-card rounded-card px-xl py-lg">
+                  <Text className="font-heading-bold text-white text-[16px] uppercase">Check-in status unavailable</Text>
+                  <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">
+                    Pull down to check your saved check-in again.
+                  </Text>
+                </View>
               )}
             </View>
           ) : null}
@@ -570,7 +583,14 @@ export function DashboardScreenContent({
                 </View>
               </FadeInView>
 
-              {!data.checkedInToday || showCheckInSuccess ? (
+              {data.checkedInToday === null ? (
+                <View accessibilityLiveRegion="polite" className="bg-card rounded-card px-xl py-lg">
+                  <Text className="font-heading-bold text-white text-[16px] uppercase">Check-in status</Text>
+                  <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">
+                    Checking whether today's check-in is saved.
+                  </Text>
+                </View>
+              ) : !data.checkedInToday || showCheckInSuccess ? (
               <FadeInView delay={180}>
                 <View onLayout={captureCheckInOffset} className="bg-lime rounded-card px-xl py-xl">
                   <Text className="font-heading-bold text-dark text-[22px] uppercase mb-xs">Today's check-in</Text>
@@ -641,6 +661,7 @@ export function DashboardScreenContent({
                   <WeeklyReportCard
                     report={weeklyReport}
                     reportAccess={weeklyReportAccess}
+                    currentScore={data.totalScore}
                     loading={weeklyReportLoading}
                     error={weeklyReportError}
                     userId={user.id}
