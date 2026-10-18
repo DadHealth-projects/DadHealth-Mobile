@@ -65,10 +65,12 @@ export default function AIWorkoutScreen() {
   const [openFilter, setOpenFilter] = useState<'duration' | 'equipment' | 'focus' | null>(null);
 
   const displayedWorkout = useMemo(
-    () => generatedWorkout
-      ?? library.workouts.find((workout) => workout.id === route.params?.workoutId)
-      ?? null,
-    [generatedWorkout, library.workouts, route.params?.workoutId],
+    () => aiWorkoutAccess === true
+      ? generatedWorkout
+        ?? library.workouts.find((workout) => workout.id === route.params?.workoutId)
+        ?? null
+      : null,
+    [aiWorkoutAccess, generatedWorkout, library.workouts, route.params?.workoutId],
   );
 
   const close = useCallback(() => navigation.goBack(), [navigation]);

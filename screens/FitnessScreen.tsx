@@ -97,7 +97,7 @@ export default function FitnessScreen({
     () => workoutLibraryAccess === true
       ? fitnessLibrary.workouts
       : weeklyWorkoutAccess
-        ? fitnessLibrary.workouts.filter((workout) => workout.source === 'ai_generated' || workout.id === fitnessLibrary.weeklyWorkout?.id)
+        ? fitnessLibrary.workouts.filter((workout) => workout.id === fitnessLibrary.weeklyWorkout?.id)
         : [],
     [fitnessLibrary.weeklyWorkout?.id, fitnessLibrary.workouts, weeklyWorkoutAccess, workoutLibraryAccess],
   );
@@ -122,8 +122,10 @@ export default function FitnessScreen({
     [navigation, selectedWorkout?.id],
   );
   const generatedWorkout = useMemo(
-    () => fitnessLibrary.workouts.find((workout) => workout.source === 'ai_generated') ?? null,
-    [fitnessLibrary.workouts],
+    () => aiWorkoutAccess === true
+      ? fitnessLibrary.workouts.find((workout) => workout.source === 'ai_generated') ?? null
+      : null,
+    [aiWorkoutAccess, fitnessLibrary.workouts],
   );
   const openAIWorkout = useCallback(
     () => navigation.navigate('AIWorkout', generatedWorkout ? { workoutId: generatedWorkout.id } : undefined),
