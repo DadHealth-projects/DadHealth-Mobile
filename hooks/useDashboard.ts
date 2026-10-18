@@ -17,6 +17,7 @@ import { loadNativeSubscriptionStatus } from '../lib/nativeSubscriptions';
 import { getCurrentWeekDayKeys, toLocalDateKey } from '../lib/dashboard.utils';
 import { buildBodyWeekSeries } from '../lib/bodyActivityWeek';
 import { refreshAfterInFlight } from '../lib/refreshAfterInFlight';
+import { mergeDashboardRefreshState, type DashboardReadFailures } from '../lib/dashboardRefreshState';
 
 const SCORE_QUERY_ERROR = "Dad Health Score couldn't load. Pull to refresh.";
 
@@ -95,7 +96,7 @@ export type DashboardData = {
     energy_level?: number | null;
     connection_level?: number | null;
   }>;
-  checkedInToday: boolean;
+  checkedInToday: boolean | null;
   reminders: Reminder[];
   challenge: {
     id: string;
@@ -139,12 +140,9 @@ export type DashboardData = {
 };
 
 type DashboardError = { code?: string; message?: string; details?: string; hint?: string };
+type DashboardFetchResult = { data: DashboardData; failedReads: DashboardReadFailures };
 
 const todayKey = () => toLocalDateKey(new Date());
-
-function logCheckInTiming(stage: string, startedAt: number) {
-  if (__DEV__) console.info(`[check-in-timing] ${stage}: ${Date.now() - startedAt}ms`);
-}
 
 function errorDetails(error: unknown): DashboardError {
   return typeof error === 'object' && error !== null ? error as DashboardError : {};
@@ -201,7 +199,7 @@ async function withTimeout<T>(promise: Promise<T>, ms = 12000): Promise<T> {
   ]);
 }
 
-async function fetchDashboard(userId: string): Promise<DashboardData> {
+async function fetchDashboard(userId: string): Promise<DashboardFetchResult> {
   const today = todayKey();
   const currentWeekDayKeys = getCurrentWeekDayKeys();
   const weekStart = currentWeekDayKeys[0];
@@ -247,7 +245,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     userCirclesResult,
     badgesResult,
     postsResult,
-    subscriptionStatus,
+    subscriptionStatusResult,
   ] = await Promise.all([
     supabase.from('user_profile').select('display_name,goals,is_pro,subscription_status').eq('user_id', userId).maybeSingle(),
     supabase.from('dad_score_view').select('mind_score,body_score,bond_score,mind_week_change,body_week_change,bond_week_change,total_score,weakest_pillar,recommended_action,baseline_available').eq('user_id', userId).maybeSingle(),
@@ -280,7 +278,10 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
     supabase.from('user_circles').select('circle_id').eq('user_id', userId),
     supabase.from('earned_badges').select('badges(icon,name)').eq('user_id', userId),
     supabase.from('posts').select('id,content,tag,anonymous,author_initials,author_name').order('created_at', { ascending: false }).limit(20),
-    loadNativeSubscriptionStatus().catch(() => null),
+    loadNativeSubscriptionStatus().then(
+      (status) => ({ status, failed: false }),
+      () => ({ status: null, failed: true }),
+    ),
   ]);
 
   if (profileResult.error) throw profileResult.error;
@@ -288,6 +289,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
   // never blank a member's private dashboard.
 
   const profile = profileResult.data;
+  const subscriptionStatus = subscriptionStatusResult.status;
   const dashboard = dashboardResult.error
     ? null
     : dashboardResult.data as Record<string, unknown> | null;
@@ -433,6 +435,13 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
   const monthWorkouts = monthWorkoutsResult.count ?? 0;
 
   return {
+    failedReads: {
+      mood: Boolean(moodsResult.error),
+      streak: Boolean(streakResult.error),
+      entitlement: subscriptionStatusResult.failed,
+      score: Boolean(scoresResult.error),
+    },
+    data: {
     displayName: profile?.display_name ?? (typeof dashboard?.display_name === 'string' ? dashboard.display_name : null),
     goals: Array.isArray(profile?.goals) ? profile.goals.filter((goal): goal is string => typeof goal === 'string') : [],
     mindScore: nullableScore(scoresResult.data?.mind_score),
@@ -453,12 +462,14 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
       || scoresResult.data?.recommended_action === 'bond_present_mode'
       ? scoresResult.data.recommended_action
       : null,
-    moodLogs,
-    checkedInToday: moodLogs.some((log) => log.date === today),
+    moodLogs: moodsResult.error ? [] : moodLogs,
+    checkedInToday: moodsResult.error ? null : moodLogs.some((log) => log.date === today),
     reminders,
     challenge: challengeResult.error ? null : challengeResult.data ?? null,
     dadsCount: countResult.count ?? 0,
-    streak: typeof streakResult.data?.streak_count === 'number' ? streakResult.data.streak_count : null,
+    streak: streakResult.error
+      ? null
+      : typeof streakResult.data?.streak_count === 'number' ? streakResult.data.streak_count : 0,
     freezeUsedThisWeek: typeof subscriptionStatus?.freezeUsedThisWeek === 'boolean'
       ? subscriptionStatus.freezeUsedThisWeek
       : null,
@@ -488,6 +499,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
       dadDates: savedDadDatesCountResult.count ?? 0,
     },
     badges,
+    },
   };
 }
 
@@ -517,8 +529,15 @@ function setStore(next: Partial<StoreState>): void {
 
 async function runFetch(userId: string, identityVersion: number): Promise<void> {
   try {
-    const data = await withTimeout(fetchDashboard(userId));
+    const result = await withTimeout(fetchDashboard(userId));
     if (store.userId !== userId || dashboardIdentityVersion !== identityVersion) return;
+    const data = mergeDashboardRefreshState(
+      userId,
+      store.userId,
+      store.data,
+      result.data,
+      result.failedReads,
+    );
     setStore({ data, error: null });
     try {
       if (dashboardIdentityVersion === identityVersion) await writeDashboardCache(userId, data);
@@ -532,18 +551,18 @@ async function runFetch(userId: string, identityVersion: number): Promise<void> 
     try {
       const cached = await readDashboardCache<DashboardData>(userId);
       if (store.userId !== userId || dashboardIdentityVersion !== identityVersion) return;
-      const fallback = cached && typeof cached === 'object' ? cached : current;
+      const fallback = current ?? (cached && typeof cached === 'object' ? cached : null);
       if (fallback && typeof fallback === 'object') {
         const moodLogs = Array.isArray(fallback.moodLogs) ? fallback.moodLogs : [];
         setStore({
           data: {
             ...fallback,
             moodLogs,
-            isPro: null,
-            trialActive: null,
-            checkedInToday: moodLogs.some((log) => log.date === todayKey()),
-            freezeUsedThisWeek: null,
-            freezesRemaining: null,
+            isPro: current?.isPro ?? null,
+            trialActive: current?.trialActive ?? null,
+            checkedInToday: current?.checkedInToday ?? moodLogs.some((log) => log.date === todayKey()),
+            freezeUsedThisWeek: current?.freezeUsedThisWeek ?? null,
+            freezesRemaining: current?.freezesRemaining ?? null,
           },
           error: cached ? null : messageFor(fetchError),
         });
@@ -556,10 +575,12 @@ async function runFetch(userId: string, identityVersion: number): Promise<void> 
         ...(current ? {
           data: {
             ...current,
-            isPro: null,
-            trialActive: null,
-            freezeUsedThisWeek: null,
-            freezesRemaining: null,
+            isPro: current.isPro,
+            trialActive: current.trialActive,
+            checkedInToday: current.checkedInToday,
+            streak: current.streak,
+            freezeUsedThisWeek: current.freezeUsedThisWeek,
+            freezesRemaining: current.freezesRemaining,
           },
         } : {}),
         error: messageFor(fetchError),
@@ -659,6 +680,11 @@ export function refreshDashboardForUser(userId: string): Promise<void> {
   return refreshAfterInFlight(inFlightByUser, userId, loadDashboard);
 }
 
+/** Focus/resume refreshes join an in-flight read instead of queuing another one. */
+export function refreshDashboardIfIdle(userId: string): Promise<void> {
+  return loadDashboard(userId);
+}
+
 export function useDashboard(userId: string | undefined) {
   const { isOffline } = useNetworkStatus();
   const [snapshot, setSnapshot] = useState<StoreState>(store);
@@ -667,11 +693,18 @@ export function useDashboard(userId: string | undefined) {
   const hasFocused = useRef(false);
 
   useFocusEffect(useCallback(() => {
-    if (!hasFocused.current) {
-      hasFocused.current = true;
-      return;
-    }
-    if (userId && !isOffline) void refreshDashboardForUser(userId);
+    const shouldRefreshOnFocus = hasFocused.current;
+    hasFocused.current = true;
+    if (shouldRefreshOnFocus && userId && !isOffline) void refreshDashboardIfIdle(userId);
+
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && previousState !== 'active' && userId && !isOffline) {
+        void refreshDashboardIfIdle(userId);
+      }
+      previousState = nextState;
+    });
+    return () => subscription.remove();
   }, [isOffline, userId]));
 
   useEffect(() => {
@@ -711,18 +744,6 @@ export function useDashboard(userId: string | undefined) {
     // Unknown entitlement after a successful dashboard load is retried on
     // explicit focus/resume, not on every render.
     if (!store.data && !store.loading) void loadDashboard(userId);
-  }, [isOffline, userId]);
-
-  useEffect(() => {
-    if (!userId) return;
-    let previousState = AppState.currentState;
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active' && previousState !== 'active') {
-        if (!isOffline) void refreshDashboardForUser(userId);
-      }
-      previousState = nextState;
-    });
-    return () => subscription.remove();
   }, [isOffline, userId]);
 
   useEffect(() => subscribeOfflineSync((event) => {
@@ -765,7 +786,6 @@ export function useDashboard(userId: string | undefined) {
 
     checkInLock.current = true;
     setCheckingIn(true);
-    const submissionStartedAt = Date.now();
     const date = todayKey();
     const item: OfflineDailyCheckInItem = {
       id: Crypto.randomUUID(),
@@ -801,42 +821,29 @@ export function useDashboard(userId: string | undefined) {
       setStore({ data: nextData, error: null, syncError: null });
       try {
         await writeDashboardCache(userId, nextData);
-      } catch (cacheError) {
-        if (__DEV__) console.warn('[check-in-timing] local dashboard cache write failed', cacheError);
+      } catch {
+        // The durable check-in save or offline queue remains authoritative.
       }
     };
 
     try {
       if (isOffline) {
-        const queueStartedAt = Date.now();
         await enqueueOfflineWrite(item);
-        logCheckInTiming('durable offline queue', queueStartedAt);
         await applyLocalCheckIn();
-        logCheckInTiming('offline save total', submissionStartedAt);
         return { error: null, queued: true };
       }
 
-      const saveStartedAt = Date.now();
       await persistDailyCheckIn(item);
-      logCheckInTiming('online data save', saveStartedAt);
       await applyLocalCheckIn();
-      logCheckInTiming('online save total', submissionStartedAt);
-      const refreshStartedAt = Date.now();
       void refreshDashboardForUser(userId)
-        .then(() => logCheckInTiming('background dashboard refresh', refreshStartedAt))
-        .catch((error) => {
-          if (__DEV__) console.warn('[check-in-timing] background refresh failed', error);
-        });
+        .catch(() => undefined);
       return { error: null };
     } catch (saveError) {
       if (saveError instanceof PartialDailyCheckInSaveError) {
         await applyLocalCheckIn();
         if (isRetryableOfflineError(saveError.saveError)) {
           try {
-            const queueStartedAt = Date.now();
             await enqueueOfflineWrite(item);
-            logCheckInTiming('partial save queued for retry', queueStartedAt);
-            logCheckInTiming('partial save total', submissionStartedAt);
             return { error: null, queued: true };
           } catch {
             void refreshDashboardForUser(userId).catch(() => undefined);
@@ -846,11 +853,8 @@ export function useDashboard(userId: string | undefined) {
             };
           }
         }
-        const refreshStartedAt = Date.now();
         void refreshDashboardForUser(userId)
-          .then(() => logCheckInTiming('partial background refresh', refreshStartedAt))
           .catch(() => undefined);
-        logCheckInTiming('partial save total', submissionStartedAt);
         return {
           error: null,
           warning: 'Check-in saved, but Sleep could not be saved. You can save Sleep again.',
@@ -858,11 +862,8 @@ export function useDashboard(userId: string | undefined) {
       }
       if (isRetryableOfflineError(saveError)) {
         try {
-          const queueStartedAt = Date.now();
           await enqueueOfflineWrite(item);
-          logCheckInTiming('retry queued offline', queueStartedAt);
           await applyLocalCheckIn();
-          logCheckInTiming('retry queue total', submissionStartedAt);
           return { error: null, queued: true };
         } catch {
           return { error: "We couldn't save your check-in on this device. Reconnect and try again." };
