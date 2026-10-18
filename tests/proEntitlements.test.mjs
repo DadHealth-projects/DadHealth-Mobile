@@ -73,7 +73,7 @@ test('routine resume refresh preserves confirmed access and unknown status does 
   const resume = dashboard.slice(dashboard.indexOf("AppState.addEventListener('change'"), dashboard.indexOf('subscribeOfflineSync'));
   assert.doesNotMatch(resume, /markDashboardEntitlementUnknown/);
   assert.match(dashboard, /isPro: null,[\s\S]*?trialActive: null,[\s\S]*?checkedInToday/);
-  assert.match(dashboard, /const fallback = cached && typeof cached === 'object' \? cached : current/);
+  assert.match(dashboard, /const fallback = current \?\? \(cached && typeof cached === 'object' \? cached : null\)/);
   assert.match(library, /if \(isOffline\) \{[\s\S]*?setIsPro\(userId \? null : false\)/);
   assert.match(library, /requestId !== latestRequest\.current/);
   assert.match(native, /const requestId = \+\+statusRequestId\.current;[\s\S]*?setStatus\(null\)/);

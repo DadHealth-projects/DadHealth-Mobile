@@ -93,7 +93,7 @@ export default function ProSubscriptionScreen() {
           </>
         ) : subscriptions.status?.isPro === false || !user ? (
           <>
-            {upgradeContext ? (
+            {upgradeContext && upgradeContext !== 'Membership' ? (
               <View className="border-b border-border pb-md">
                 <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
                   {upgradeContext}
