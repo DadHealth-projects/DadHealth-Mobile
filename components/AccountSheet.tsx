@@ -74,7 +74,7 @@ export default function AccountSheet({
   // an upgrade entry point.
   const { data: dashboardData, loading: dashboardLoading } = useDashboard(user?.id);
   const entitlement = useEntitlement({ isPro: dashboardData?.isPro ?? null, trialActive: dashboardData?.trialActive ?? null, loading: dashboardLoading });
-  const isConfirmedFree = entitlement.can('mind_plan') === false;
+  const isConfirmedFree = !dashboardLoading && entitlement.can('mind_plan') === false;
 
   // Keep the Modal mounted through the exit animation: `mounted` trails `visible`.
   const [mounted, setMounted] = useState(visible);
@@ -151,13 +151,19 @@ export default function AccountSheet({
     { icon: 'bar-chart-2', title: 'Dad Health Score', section: 'PROGRESS' },
   ];
 
-  // Dad Health Pro lives in the account menu only — one entry point across both
-  // sheets, and never shown to a member who already has Pro.
-  const proRow: Row[] = isConfirmedFree ? [
+  // Keep one membership destination for Free and current members. Only confirmed
+  // Free users see upgrade wording; unknown entitlement stays neutral.
+  const membershipRows: Row[] = session ? [
     {
       icon: 'award',
-      title: 'Dad Health Pro',
-      onPress: () => closeThen(() => navigateToProSubscription(navigation, 'account', 'Dad Health Pro', user?.id)),
+      title: isConfirmedFree ? 'Upgrade to Pro' : 'Dad Health Pro',
+      onPress: () => closeThen(() => {
+        if (isConfirmedFree) {
+          navigateToProSubscription(navigation, 'account', 'Dad Health Pro', user?.id);
+        } else {
+          navigation.navigate('ProSubscription', { source: 'account_membership', context: 'Membership' });
+        }
+      }),
     },
   ] : [];
 
@@ -176,7 +182,7 @@ export default function AccountSheet({
           active: route.name === 'Profile',
           onPress: () => closeThen(() => navigation.navigate('Profile')),
         },
-        ...proRow,
+        ...membershipRows,
         {
           icon: 'settings',
           title: 'Settings',
@@ -190,7 +196,7 @@ export default function AccountSheet({
           title: 'Login',
           onPress: () => closeThen(() => navigation.navigate('Login')),
         },
-        ...proRow,
+        ...membershipRows,
         {
           icon: 'settings',
           title: 'Settings',

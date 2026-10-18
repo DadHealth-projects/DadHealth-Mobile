@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, Linking, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
@@ -11,24 +11,61 @@ import Card from '../../components/Card';
 import FadeInView from '../../components/FadeInView';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
+import { useDashboard } from '../../hooks/useDashboard';
+import { useEntitlement } from '../../hooks/useEntitlement';
+import { navigateToProSubscription } from '../../lib/proNavigation';
 import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
-
-const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL ?? 'https://www.dadhealth.co.uk')
-  .replace(/^https:\/\/dadhealth\.co\.uk(?=\/|$)/, 'https://www.dadhealth.co.uk')
-  .replace(/\/$/, '');
 
 export default function ProfileScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { session, user } = useAuth();
   const { isOffline, showOfflineAction } = useNetworkStatus();
+  const { data: dashboardData, loading: dashboardLoading } = useDashboard(user?.id);
+  const entitlement = useEntitlement({
+    isPro: dashboardData?.isPro ?? null,
+    trialActive: dashboardData?.trialActive ?? null,
+    loading: dashboardLoading,
+  });
   const [avatarUrl, setAvatarUrl] = useState<string | null>(typeof user?.user_metadata?.dadhealth_avatar_url === 'string' ? user.user_metadata.dadhealth_avatar_url : null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const email = user?.email ?? '0';
   const initial = (user?.email?.[0] ?? '?').toUpperCase();
+  const membershipAccess = entitlement.can('mind_plan');
+  const membershipTitle = dashboardLoading
+    ? 'Checking membership'
+    : membershipAccess === null
+      ? 'Membership status unavailable'
+      : entitlement.isPro && entitlement.trialActive === true
+        ? 'Pro Trial'
+        : entitlement.isPro
+          ? 'Dad Health Pro'
+          : 'Free Plan';
+  const membershipDescription = dashboardLoading
+    ? 'Confirming your access with Dad Health.'
+    : membershipAccess === null
+      ? 'Check your connection, then view membership details.'
+      : entitlement.isPro && entitlement.trialActive === true
+        ? 'Your trial includes Dad Health Pro access.'
+        : entitlement.isPro
+          ? 'Your Pro membership and access are active.'
+          : 'Get more from your health insights and plans.';
+  const membershipAction = dashboardLoading || membershipAccess === null
+    ? 'Check Membership'
+    : membershipAccess === false
+      ? 'Upgrade to Pro'
+      : 'View Membership';
+
+  const openMembership = useCallback(() => {
+    if (!dashboardLoading && membershipAccess === false) {
+      navigateToProSubscription(navigation, 'profile_membership', 'Membership', user?.id);
+      return;
+    }
+    navigation.navigate('ProSubscription', { source: 'profile_membership', context: 'Membership' });
+  }, [dashboardLoading, membershipAccess, navigation, user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -115,7 +152,25 @@ export default function ProfileScreen() {
             </FadeInView>
 
             <FadeInView delay={170}>
-              <Pressable onPress={() => void Linking.openURL(`${WEB_URL}/progress`)} className="active:opacity-80"><Card className="flex-row items-center gap-md"><View className="h-[46px] w-[46px] items-center justify-center"><Feather name="external-link" size={21} color={colors.lime} /></View><View className="flex-1"><Text className="font-heading-bold text-white text-[16px] uppercase">Open web dashboard</Text><Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">View Dad Health on the web.</Text></View><Feather name="chevron-right" size={20} color={colors.tertiaryText} /></Card></Pressable>
+              <Pressable
+                onPress={openMembership}
+                accessibilityRole="button"
+                accessibilityLabel={`${membershipAction}. ${membershipTitle}`}
+                className="active:opacity-80"
+              >
+                <Card className="flex-row items-center gap-md">
+                  <View className="h-[46px] w-[46px] rounded-button bg-lime/10 items-center justify-center">
+                    <Feather name="award" size={22} color={colors.lime} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="font-heading-semibold text-muted-text text-[11px] uppercase">Membership</Text>
+                    <Text className="font-heading-bold text-white text-[16px] mt-xs">{membershipTitle}</Text>
+                    <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">{membershipDescription}</Text>
+                    <Text className="font-heading-bold text-lime text-[11px] uppercase mt-md">{membershipAction}</Text>
+                  </View>
+                  <Feather name="chevron-right" size={20} color={colors.tertiaryText} />
+                </Card>
+              </Pressable>
             </FadeInView>
           </>
         )}
