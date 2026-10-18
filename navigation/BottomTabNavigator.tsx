@@ -17,7 +17,7 @@ import type { NavigationProp } from '@react-navigation/native';
 
 export type BottomTabsParamList = {
   Home: { openScoreDetail?: boolean } | undefined;
-  Mind: undefined;
+  Mind: { openPersonalisedPlan?: boolean } | undefined;
   Fit: undefined;
   Bond: undefined;
   Squad: undefined;

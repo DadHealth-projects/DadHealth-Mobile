@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import * as Navigation from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp } from '@react-navigation/native';
+import type { BottomTabsParamList } from '../navigation/BottomTabNavigator';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 
 import type { DashboardSection } from '../components/AccountSheet';
@@ -53,6 +56,7 @@ export default function MindScreen({
   const { user } = useAuth();
   const { isOffline } = useNetworkStatus();
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
+  const route = Navigation.useRoute<Navigation.RouteProp<BottomTabsParamList, 'Mind'>>();
   const { data, loading, error, refresh } = useDashboard(user?.id);
   const entitlement = useEntitlement({
     isPro: data?.isPro ?? null,
@@ -65,6 +69,18 @@ export default function MindScreen({
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [mindPlanOpen, setMindPlanOpen] = useState(false);
+  useEffect(() => {
+    if (!route.params?.openPersonalisedPlan || mindPlanAccess !== true) {
+      return;
+    }
+
+    setMindPlanOpen(true);
+
+    navigation.setParams({
+      openPersonalisedPlan: false,
+    } as never);
+  }, [route.params?.openPersonalisedPlan, mindPlanAccess, navigation]);
+
   const trendLockViewed = useRef(false);
   useEffect(() => {
     if (trendsAccess !== false || trendLockViewed.current) return;
