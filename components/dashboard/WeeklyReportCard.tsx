@@ -8,11 +8,12 @@ import { trackEvent } from '../../lib/analytics';
 
 /**
  * Moment 5 — the weekly Dad Health report. Pro members see their own week;
- * free members see a compact non-data preview, with no invented or exposed numbers.
+ * Free members see their current score and a compact locked preview.
  */
 function WeeklyReportCard({
   report,
   reportAccess,
+  currentScore,
   onUpgrade,
   loading = false,
   error = false,
@@ -20,6 +21,7 @@ function WeeklyReportCard({
 }: {
   report: WeeklyReport | null;
   reportAccess: boolean | null;
+  currentScore: number | null;
   onUpgrade: () => void;
   loading?: boolean;
   error?: boolean;
@@ -36,6 +38,12 @@ function WeeklyReportCard({
       <View>
         <SectionHeader title="Your week in Dad Health" className="mb-md" />
         <View className="border-b border-border pb-lg">
+          <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
+            Current Dad Health Score
+          </Text>
+          <Text accessibilityLabel={`Current Dad Health Score ${currentScore ?? 'unavailable'} out of 100`} className="font-heading-bold text-white text-[22px] mt-xs mb-sm">
+            {currentScore === null ? '—' : `${Math.round(currentScore)} / 100`}
+          </Text>
           <Text className="font-body text-muted-text text-[13px] leading-[19px]">
             {PRO_MOMENTS.weeklyReport.body}
           </Text>
