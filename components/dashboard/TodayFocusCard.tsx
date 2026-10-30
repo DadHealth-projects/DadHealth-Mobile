@@ -20,8 +20,8 @@ function TodayFocusCard({ title, description, actionLabel, icon, onPress }: Toda
       </Text>
       <View className="border-b border-border pb-lg gap-md">
         <View className="flex-row gap-md items-start">
-          <View className="h-[44px] w-[44px] rounded-button bg-lime/10 items-center justify-center">
-            <Feather name={icon} size={21} color={colors.lime} />
+          <View className="h-[44px] w-[44px] rounded-full bg-lime items-center justify-center">
+            <Feather name={icon} size={21} color={colors.dark} />
           </View>
           <View className="flex-1 gap-xs">
             <Text className="font-heading-bold text-white text-[21px] leading-[23px] uppercase">

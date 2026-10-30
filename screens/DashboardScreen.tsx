@@ -6,6 +6,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  type ScrollViewInstance,
   Text,
   View,
 } from 'react-native';
@@ -155,7 +156,7 @@ export function DashboardScreenContent({
   const [checkInMessage, setCheckInMessage] = useState<string | null>(null);
   const [showCheckInSuccess, setShowCheckInSuccess] = useState(false);
   const refreshInFlight = useRef(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const checkInOffset = useRef(0);
   const [refreshing, setRefreshing] = useState(false);
   const showHomeSkeleton = !data && !dashboardError;
