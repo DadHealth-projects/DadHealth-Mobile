@@ -67,6 +67,7 @@ export default function FitnessScreen({
   onSelectDashboardSection?: (section: DashboardSection) => void;
 } = {}) {
   const { user } = useAuth();
+  const hasUser = Boolean(user?.id);
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const standalone = !dashboardSection;
   const { data, loading, error, refresh } = useDashboard(user?.id);
@@ -75,10 +76,10 @@ export default function FitnessScreen({
     trialActive: data?.trialActive ?? null,
     loading,
   });
-  const aiWorkoutAccess = entitlement.can('ai_workout');
-  const mealPlannerAccess = entitlement.can('meal_planner');
-  const workoutLibraryAccess = entitlement.can('workout_library');
-  const weeklyWorkoutAccess = entitlement.can('free_weekly_workout') === true;
+  const aiWorkoutAccess = hasUser ? entitlement.can('ai_workout') : null;
+  const mealPlannerAccess = hasUser ? entitlement.can('meal_planner') : null;
+  const workoutLibraryAccess = hasUser ? entitlement.can('workout_library') : null;
+  const weeklyWorkoutAccess = hasUser && entitlement.can('free_weekly_workout') === true;
   const trendsAccess = entitlement.can('trends');
   const { data: fitnessSummary, loading: summaryLoading, refresh: refreshSummary } = useFitnessSummary(
     standalone ? user?.id : undefined,
@@ -115,7 +116,6 @@ export default function FitnessScreen({
     ? `${moveCountLabel} · ${selectedWorkout.duration_mins} min · ${EQUIPMENT_LABEL[selectedWorkout.equipment]}`
     : moveCountLabel;
 
-  const hasUser = Boolean(user?.id);
   const requireAuth = useCallback(() => navigation.navigate('Login'), [navigation]);
   const openActiveWorkout = useCallback(
     () => navigation.navigate('ActiveWorkout', selectedWorkout?.id ? { workoutId: selectedWorkout.id } : undefined),
@@ -317,19 +317,21 @@ export default function FitnessScreen({
             <FlatSection className="gap-md">
               <View className="flex-row items-center justify-between gap-sm">
                 <Text className="font-heading-bold text-muted-text text-[11px] tracking-[1px] uppercase">
-                  {workoutLibraryAccess === true ? 'All available workouts' : workoutLibraryAccess === false ? 'This week’s workout and saved workouts' : 'Checking access'}
+                  {!hasUser ? 'Log in to view available workouts' : workoutLibraryAccess === true ? 'All available workouts' : workoutLibraryAccess === false ? 'This week’s workout and saved workouts' : 'Checking access'}
                 </Text>
-                <TagPill label={`${availableWorkouts.length} shown`} tone="outline" />
+                {hasUser ? <TagPill label={`${availableWorkouts.length} shown`} tone="outline" /> : null}
               </View>
 
-              {fitnessLibrary.loading ? (
+              {fitnessLibrary.loading && hasUser ? (
                 <View className="gap-sm py-sm">
                   {[0, 1, 2].map((item) => <View key={item} className="h-[64px] rounded-button bg-white/5" />)}
                 </View>
               ) : availableWorkouts.length === 0 ? (
                 <View className="py-md">
                   <Text className="font-body text-muted-text text-[13px] leading-[19px]">
-                    {workoutLibraryAccess === false && !fitnessLibrary.weeklyWorkout
+                    {!hasUser
+                      ? 'Log in to see workouts available to your account.'
+                      : workoutLibraryAccess === false && !fitnessLibrary.weeklyWorkout
                       ? fitnessLibrary.assignmentKnown
                         ? 'No workout has been assigned this week yet.'
                         : 'The weekly workout is unavailable until it can be confirmed.'
@@ -403,13 +405,24 @@ export default function FitnessScreen({
               buttonLabel="Unlock AI workouts →"
               onUnlock={() => navigateToProSubscription(navigation, 'aiWorkout', 'AI Workout', user?.id, 'lock', 'ai_workout')}
             />
+          ) : !hasUser ? (
+            <BodyProLockedCard
+              eyebrow="AI Workout"
+              title="Built around your day."
+              description="Choose your time, equipment and focus. Generate a workout you can start immediately."
+              preview={require('../assets/body-ai-workout-blurred-preview.png')}
+              previewLabel="Blurred preview of Pro AI workout features"
+              source="aiWorkout"
+              feature="ai_workout"
+              buttonLabel="Log in to continue →"
+              trackLockView={false}
+              onUnlock={requireAuth}
+            />
           ) : (
             <FlatSection className="gap-sm">
               <Text className="font-heading-bold text-white text-[16px] uppercase">AI Workout access</Text>
               <InlineFormError message={accessCheckAttempted ? entitlement.verificationMessage : null} />
-              {!hasUser
-                ? <LimeButton label="Log in to check access" onPress={requireAuth} />
-                : <LimeButton label="Check access" onPress={() => void checkEntitlement()} loading={loading} />}
+              <LimeButton label="Check access" onPress={() => void checkEntitlement()} loading={loading} />
             </FlatSection>
           )}
         </FadeInView>
@@ -444,13 +457,24 @@ export default function FitnessScreen({
               buttonLabel="Unlock meal planner →"
               onUnlock={() => navigateToProSubscription(navigation, 'meal_planner', 'Meal Planner', user?.id, 'lock')}
             />
+          ) : !hasUser ? (
+            <BodyProLockedCard
+              eyebrow="Meal Planner"
+              title="Eat like you train."
+              description="A personalised 5-day plan with recipes, macros and a shopping list — built around your goals."
+              preview={require('../assets/body-meal-planner-blurred-preview.png')}
+              previewLabel="Blurred decorative day-of-meals preview"
+              source="meal_planner"
+              feature="meal_planner"
+              buttonLabel="Log in to continue →"
+              trackLockView={false}
+              onUnlock={requireAuth}
+            />
           ) : (
             <FlatSection className="gap-sm">
               <Text className="font-heading-bold text-white text-[16px] uppercase">Meal Planner access</Text>
               <InlineFormError message={accessCheckAttempted ? entitlement.verificationMessage : null} />
-              {!hasUser
-                ? <LimeButton label="Log in to check access" onPress={requireAuth} />
-                : <LimeButton label="Check access" onPress={() => void checkEntitlement()} loading={loading} />}
+              <LimeButton label="Check access" onPress={() => void checkEntitlement()} loading={loading} />
             </FlatSection>
           )}
         </FadeInView>

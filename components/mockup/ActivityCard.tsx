@@ -27,7 +27,7 @@ function ActivityCard({
         featured ? 'border border-lime/30 bg-lime/[0.04]' : 'border border-border bg-card'
       }`}
     >
-      <View className="h-[38px] w-[38px] rounded-button bg-lime/10 items-center justify-center">
+      <View className="h-[38px] w-[38px] rounded-full bg-lime items-center justify-center">
         {leading}
       </View>
 
