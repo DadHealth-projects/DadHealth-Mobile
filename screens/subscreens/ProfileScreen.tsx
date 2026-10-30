@@ -18,6 +18,11 @@ import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
 
+const WEB_BASE_URL = (process.env.EXPO_PUBLIC_WEB_URL ?? 'https://www.dadhealth.co.uk').replace(/\/+$/, '');
+const PROFILE_PHOTO_API_URL = `${WEB_BASE_URL}/api/profile/photo`;
+const MAX_SOURCE_PHOTO_SIZE = 20 * 1024 * 1024;
+const MAX_FUNCTION_UPLOAD_SIZE = 4 * 1024 * 1024;
+
 export default function ProfileScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { session, user } = useAuth();
@@ -82,19 +87,58 @@ export default function ProfileScreen() {
     if (!permission.granted) { setMessage('Photo access is required to choose a profile picture.'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 1 });
     if (result.canceled || !result.assets[0]) return;
+    const selectedAsset = result.assets[0];
+    if (typeof selectedAsset.fileSize === 'number' && selectedAsset.fileSize > MAX_SOURCE_PHOTO_SIZE) {
+      setMessage('Choose a photo smaller than 20 MB.');
+      return;
+    }
     setPhotoBusy(true);
+    let responseStatus: number | null = null;
+    let apiErrorCode: string | null = null;
     try {
-      const prepared = await ImageManipulator.manipulateAsync(result.assets[0].uri, [{ resize: { width: 800, height: 800 } }], { compress: 0.84, format: ImageManipulator.SaveFormat.JPEG });
+      if (typeof selectedAsset.fileSize !== 'number') {
+        const sourceResponse = await fetch(selectedAsset.uri);
+        if (!sourceResponse.ok) throw new Error('Unable to read selected image');
+        const sourceBlob = await sourceResponse.blob();
+        if (sourceBlob.size > MAX_SOURCE_PHOTO_SIZE) {
+          setMessage('Choose a photo smaller than 20 MB.');
+          return;
+        }
+      }
+      const prepared = await ImageManipulator.manipulateAsync(selectedAsset.uri, [{ resize: { width: 800, height: 800 } }], { compress: 0.84, format: ImageManipulator.SaveFormat.JPEG });
+      const imageResponse = await fetch(prepared.uri);
+      if (!imageResponse.ok) {
+        throw new Error('Unable to read prepared image');
+      }
+
+      const imageBlob = await imageResponse.blob();
+      if (imageBlob.size > MAX_FUNCTION_UPLOAD_SIZE) {
+        setMessage('This photo could not be compressed enough to upload. Try another photo.');
+        return;
+      }
+
       const form = new FormData();
-      form.append('photo', { uri: prepared.uri, name: 'profile.jpg', type: 'image/jpeg' } as unknown as Blob);
-      const response = await fetch(`${WEB_URL}/api/profile/photo`, { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` }, body: form });
+      form.append('photo', imageBlob, 'profile.jpg');
+      const response = await fetch(PROFILE_PHOTO_API_URL, { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` }, body: form });
+      responseStatus = response.status;
       const body = await response.json().catch(() => ({}));
+      apiErrorCode = typeof body.error === 'string' ? body.error : null;
       if (!response.ok || typeof body.avatar_url !== 'string') throw new Error('upload_failed');
       setAvatarUrl(body.avatar_url);
       await supabase.auth.updateUser({ data: { dadhealth_avatar_url: body.avatar_url } });
       setMessage('Profile photo updated.');
     } catch {
-      setMessage('We could not save your profile photo. Please try again.');
+      if (apiErrorCode === 'photo_too_large' || responseStatus === 413) {
+        setMessage(responseStatus === 413 && apiErrorCode !== 'photo_too_large'
+          ? 'Upload is too large. Try a smaller photo.'
+          : 'Choose a photo smaller than 20 MB.');
+      } else if (['missing_photo', 'invalid_image', 'unsupported_image_format', 'image_processing_failed'].includes(apiErrorCode ?? '')) {
+        setMessage('This photo is not a supported image. Choose a JPEG, PNG or iPhone photo.');
+      } else if (responseStatus !== null && responseStatus >= 500) {
+        setMessage('The server could not save your photo. Try again shortly.');
+      } else {
+        setMessage('Upload failed. Check your connection and try again.');
+      }
     } finally {
       setPhotoBusy(false);
     }
@@ -108,7 +152,7 @@ export default function ProfileScreen() {
         if (isOffline) { showOfflineAction('profile_photo'); return; }
         setPhotoBusy(true); setMessage(null);
         try {
-          const response = await fetch(`${WEB_URL}/api/profile/photo`, { method: 'DELETE', headers: { Authorization: `Bearer ${session.access_token}` } });
+          const response = await fetch(PROFILE_PHOTO_API_URL, { method: 'DELETE', headers: { Authorization: `Bearer ${session.access_token}` } });
           if (!response.ok) throw new Error('remove_failed');
           setAvatarUrl(null);
           await supabase.auth.updateUser({ data: { dadhealth_avatar_url: null } });
@@ -159,8 +203,8 @@ export default function ProfileScreen() {
                 className="active:opacity-80"
               >
                 <Card className="flex-row items-center gap-md">
-                  <View className="h-[46px] w-[46px] rounded-button bg-lime/10 items-center justify-center">
-                    <Feather name="award" size={22} color={colors.lime} />
+                  <View className="h-[46px] w-[46px] rounded-full bg-lime items-center justify-center">
+                    <Feather name="award" size={22} color={colors.dark} />
                   </View>
                   <View className="flex-1">
                     <Text className="font-heading-semibold text-muted-text text-[11px] uppercase">Membership</Text>
