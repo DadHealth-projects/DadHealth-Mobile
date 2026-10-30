@@ -24,8 +24,8 @@ const GoalRow = memo(function GoalRow({ goal, index, onGoalAction }: GoalRowProp
 
   return (
     <View className="flex-row items-center gap-md py-md border-b border-lime/20">
-      <View className="h-[42px] w-[42px] rounded-button bg-lime/10 items-center justify-center">
-        <Feather name={dashboardIcon(goal.iconKey)} size={20} color={colors.lime} />
+      <View className="h-[42px] w-[42px] rounded-full bg-lime items-center justify-center">
+        <Feather name={dashboardIcon(goal.iconKey)} size={20} color={colors.dark} />
       </View>
 
       <View className="flex-1">

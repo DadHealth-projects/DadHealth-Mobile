@@ -26,8 +26,8 @@ function SupportingTools({ tools }: { tools: SupportingTool[] }) {
             accessibilityLabel={`${tool.title}. ${tool.detail}`}
             className="min-h-[72px] flex-row items-center gap-md border-b border-border py-md active:bg-white/[0.03]"
           >
-            <View className="h-[40px] w-[40px] rounded-button bg-lime/10 items-center justify-center">
-              <Feather name={tool.icon} size={20} color={colors.lime} />
+            <View className="h-[40px] w-[40px] rounded-full bg-lime items-center justify-center">
+              <Feather name={tool.icon} size={20} color={colors.dark} />
             </View>
             <View className="flex-1">
               <Text className="font-heading-bold text-white text-[16px] uppercase">{tool.title}</Text>
