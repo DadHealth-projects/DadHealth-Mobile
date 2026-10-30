@@ -310,8 +310,8 @@ function MoodAccessPanel({
   return (
     <View className="gap-md border-b border-border pb-md">
       <View className="flex-row items-start gap-md">
-        <View className="h-[40px] w-[40px] rounded-full bg-lime/10 items-center justify-center">
-          <Feather name="bar-chart-2" size={18} color={colors.lime} />
+        <View className="h-[40px] w-[40px] rounded-full bg-lime items-center justify-center">
+          <Feather name="bar-chart-2" size={18} color={colors.dark} />
         </View>
         <View className="flex-1 min-w-0">
           <Text className="font-heading-bold text-white text-[17px] uppercase">{title}</Text>
@@ -343,8 +343,8 @@ function MindFeatureRow({
 }) {
   const content = (
     <View className={`min-h-[86px] flex-row items-center gap-md rounded-button border px-md py-md ${featured ? 'border-lime/25 bg-lime/5' : 'border-border bg-card'}`}>
-      <View className={`h-[42px] w-[42px] rounded-full items-center justify-center ${featured ? 'bg-lime' : 'bg-white/5'}`}>
-        <Feather name={icon} size={19} color={featured ? colors.dark : colors.lime} />
+      <View className="h-[42px] w-[42px] rounded-full bg-lime items-center justify-center">
+        <Feather name={icon} size={19} color={colors.dark} />
       </View>
       <View className="flex-1 min-w-0">
         {eyebrow ? (

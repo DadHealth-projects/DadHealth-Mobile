@@ -53,8 +53,8 @@ export default function MindQuickFixes() {
       <View className="gap-sm">
         {QUICK_FIXES.map((item) => (
           <Pressable key={item.key} onPress={() => void openFix(item.key)} accessibilityRole="button" accessibilityLabel={`${item.title}. ${item.detail}`} className="min-h-[68px] flex-row items-center gap-md rounded-button border border-border bg-card px-md py-sm active:opacity-75">
-            <View className="h-[38px] w-[38px] items-center justify-center rounded-full bg-lime/10">
-              <Feather name={item.icon} size={18} color={colors.lime} />
+            <View className="h-[38px] w-[38px] rounded-full bg-lime items-center justify-center">
+              <Feather name={item.icon} size={18} color={colors.dark} />
             </View>
             <View className="flex-1">
               <Text className="font-heading-bold text-white text-[14px] uppercase">{item.title}</Text>
