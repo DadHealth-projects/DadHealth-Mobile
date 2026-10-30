@@ -80,8 +80,8 @@ function TherapistRow({ therapist, onBook }: { therapist: Therapist; onBook: () 
   return (
     <View className="rounded-button border border-border bg-card p-md gap-md">
       <View className="flex-row items-start gap-md">
-        <View className="h-[42px] w-[42px] rounded-full bg-lime/10 items-center justify-center">
-          <Feather name="heart" size={18} color={colors.lime} />
+        <View className="h-[42px] w-[42px] rounded-full bg-lime items-center justify-center">
+          <Feather name="heart" size={18} color={colors.dark} />
         </View>
         <View className="flex-1 min-w-0">
           <Text className="font-heading-bold text-white text-[16px] uppercase">{therapist.name}</Text>
