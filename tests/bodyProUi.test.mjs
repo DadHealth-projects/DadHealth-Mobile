@@ -24,6 +24,15 @@ test('locked Body cards use a shared Pro badge and static local preview art', ()
   assert.match(screen, /body-meal-planner-blurred-preview\.png/);
 });
 
+test('logged-out Body shows blurred AI and meal previews without claiming a Free lock', () => {
+  assert.match(screen, /const aiWorkoutAccess = hasUser \? entitlement\.can\('ai_workout'\) : null/);
+  assert.match(screen, /const mealPlannerAccess = hasUser \? entitlement\.can\('meal_planner'\) : null/);
+  assert.match(screen, /\) : !hasUser \? \([\s\S]*?body-ai-workout-blurred-preview\.png[\s\S]*?Log in to continue/);
+  assert.match(screen, /\) : !hasUser \? \([\s\S]*?body-meal-planner-blurred-preview\.png[\s\S]*?Log in to continue/);
+  assert.match(screen, /trackLockView=\{false\}/);
+  assert.match(card, /trackLockView\?: boolean/);
+});
+
 test('existing workouts remain in the library for Free and Pro users', () => {
-  assert.match(library, /setWorkouts\(\[\.\.\.generatedWorkouts, \.\.\.adminWorkouts\]\)/);
+  assert.match(library, /workouts: \[\.\.\.generatedWorkouts, \.\.\.adminWorkouts\]/);
 });
