@@ -3,21 +3,22 @@ import {
   Keyboard,
   TextInput,
   type TextInputProps,
+  type TextInputInstance,
 } from 'react-native';
 
 type Props = TextInputProps & {
   className?: string;
 };
 
-const MultilineTextInput = forwardRef<TextInput, Props>(
+const MultilineTextInput = forwardRef<TextInputInstance, Props>(
   function MultilineTextInput(
     { className, onSubmitEditing, ...props },
     forwardedRef,
   ) {
-    const inputRef = useRef<TextInput>(null);
+    const inputRef = useRef<TextInputInstance>(null);
 
     const attachRef = useCallback(
-      (input: TextInput | null) => {
+      (input: TextInputInstance | null) => {
         inputRef.current = input;
 
         if (typeof forwardedRef === 'function') {
