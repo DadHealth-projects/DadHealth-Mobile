@@ -72,7 +72,7 @@ export default function BondScreen({
           baselineBuilding={Boolean(data && !data.scoreError && !data.baselineAvailable)}
         />
         {!data?.scoreError && data?.baselineAvailable && (bondScore == null || bondScore === 0) ? (
-          <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
+          <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-sm">
             Log a Bond activity below to start contributing to your score.
           </Text>
         ) : null}
@@ -94,7 +94,7 @@ export default function BondScreen({
           </View>
           <View className="flex-1 min-w-0">
             <Text className="font-heading-bold text-white text-[17px] uppercase">Find Dad Days near you</Text>
-            <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">Search by age, budget and distance.</Text>
+            <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-xs">Search by age, budget and distance.</Text>
           </View>
           <Feather name="chevron-right" size={20} color={colors.lime} />
         </Pressable>
@@ -105,7 +105,7 @@ export default function BondScreen({
           <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase mb-md">Cook Together</Text>
           <Pressable onPress={() => navigation.navigate('CookTogether')} accessibilityRole="button" accessibilityLabel="Open Cook Together recipes" className="min-h-[92px] flex-row items-center gap-md rounded-button border border-lime/25 bg-card px-md py-md active:opacity-75">
             <View className="h-[42px] w-[42px] rounded-full bg-lime items-center justify-center"><Feather name="coffee" size={19} color={colors.dark} /></View>
-            <View className="flex-1"><Text className="font-heading-bold text-white text-[17px] uppercase">Meals that matter</Text><Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">Cook with your kids and build connection.</Text></View>
+            <View className="flex-1"><Text className="font-heading-bold text-white text-[17px] uppercase">Meals that matter</Text><Text className="font-body text-muted-text text-[14px] leading-[18px] mt-xs">Cook with your kids and build connection.</Text></View>
             <Feather name="chevron-right" size={20} color={colors.lime} />
           </Pressable>
         </View>

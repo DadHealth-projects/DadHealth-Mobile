@@ -180,7 +180,15 @@ function MockupTabBar({ state, navigation, insets }: BottomTabBarProps) {
             elevation: 8,
           }}
         >
-          <Feather name="plus" size={26} color={colors.dark} />
+          <View
+  pointerEvents="none"
+  className="absolute inset-0 rounded-[18px]"
+  style={{
+    borderWidth: 3,
+    borderColor: 'rgba(0, 0, 0, 0.26)',
+  }}
+/>
+<Feather name="plus" size={26} color={colors.dark} />
         </Pressable>
       </View>
 
@@ -208,10 +216,10 @@ function MockupTabBar({ state, navigation, insets }: BottomTabBarProps) {
             style={{ paddingBottom: Math.max(insets.bottom, 12), transform: [{ translateY: sheetTranslateY }] }}
           >
             <View className="mb-[15px] h-1 w-[38px] self-center rounded-full bg-white/25" />
-            <Text className="font-body-semibold text-[13px] tracking-[1.1px] text-lime">
+            <Text className="font-body-semibold text-[14px] tracking-[1.1px] text-lime">
               LOG
             </Text>
-            <Text className="mb-[13px] mt-1 font-body text-[13px] text-white/70">
+            <Text className="mb-[13px] mt-1 font-body text-[14px] text-white/70">
               Choose what you want to log.
             </Text>
             {[
@@ -251,7 +259,7 @@ function MockupTabBar({ state, navigation, insets }: BottomTabBarProps) {
               accessibilityRole="button"
               className="mt-1 min-h-[42px] items-center justify-center"
             >
-              <Text className="font-body-semibold text-[13px] text-[rgba(200,245,90,0.9)]">
+              <Text className="font-body-semibold text-[14px] text-[rgba(200,245,90,0.9)]">
                 Cancel
               </Text>
             </Pressable>
