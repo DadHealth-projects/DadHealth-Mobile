@@ -48,7 +48,7 @@ export default function MindQuickFixes() {
     <View className="gap-sm">
       <View className="gap-xs">
         <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Four free quick fixes</Text>
-        <Text className="font-body text-muted-text text-[12px] leading-[18px]">Small ways to make room for what you need.</Text>
+        <Text className="font-body text-muted-text text-[14px] leading-[18px]">Small ways to make room for what you need.</Text>
       </View>
       <View className="gap-sm">
         {QUICK_FIXES.map((item) => (
@@ -58,7 +58,7 @@ export default function MindQuickFixes() {
             </View>
             <View className="flex-1">
               <Text className="font-heading-bold text-white text-[14px] uppercase">{item.title}</Text>
-              <Text className="font-body text-muted-text text-[11px] leading-[16px] mt-[2px]">{item.detail}</Text>
+              <Text className="font-body text-muted-text text-[14px] leading-[20px] mt-[2px]">{item.detail}</Text>
             </View>
             <Feather name="chevron-right" size={18} color={colors.lime} />
           </Pressable>
@@ -227,7 +227,7 @@ function QuickFixSession({ kind, onClose }: { kind: TimedQuickFix; onClose: () =
                 {state === 'running' ? (
                   <View className="gap-lg">
                     <Text accessibilityLiveRegion="polite" className="font-heading text-lime text-[42px] text-center">{formatTime(secondsLeft)}</Text>
-                    {kind === 'brain-dump' ? <MultilineTextInput value={draft} onChangeText={setDraft} autoFocus placeholder="Let it out..." placeholderTextColor="rgba(255,255,255,0.3)" textAlignVertical="top" accessibilityLabel="Brain dump draft" className="min-h-[300px] rounded-button border border-border bg-card p-md font-body text-white text-[15px] leading-[22px]" /> : null}
+                    {kind === 'brain-dump' ? <MultilineTextInput value={draft} onChangeText={setDraft} autoFocus placeholder="Let it out..." placeholderTextColor="rgba(255,255,255,0.6)" textAlignVertical="top" accessibilityLabel="Brain dump draft" className="min-h-[300px] rounded-button border border-border bg-card p-md font-body text-white text-[15px] leading-[22px]" /> : null}
                     {kind === 'voice' ? <Text className="font-body text-muted-text text-center">Recording stays on this device and will be deleted when you finish.</Text> : null}
                     {kind === 'body-reset' ? <Text className="font-body text-white text-[17px] leading-[26px]">{RESET_STEPS[1].instruction}</Text> : null}
                     <Pressable onPress={() => kind === 'voice' ? void finishVoice('Recording stopped and temporary audio was deleted.') : setState('complete')} accessibilityRole="button" accessibilityLabel="Finish quick fix now" className="min-h-[44px] items-center justify-center"><Text className="font-heading-bold text-lime uppercase">Finish now</Text></Pressable>
@@ -239,7 +239,7 @@ function QuickFixSession({ kind, onClose }: { kind: TimedQuickFix; onClose: () =
                     {kind === 'brain-dump' ? (
                       <>
                         <Text className="font-body text-white text-[14px] leading-[21px]">Keep this draft in your Journal, or discard it.</Text>
-                        <MultilineTextInput value={draft} onChangeText={setDraft} placeholder="Your draft" placeholderTextColor="rgba(255,255,255,0.3)" textAlignVertical="top" accessibilityLabel="Brain dump draft to keep or discard" className="min-h-[240px] rounded-button border border-border bg-card p-md font-body text-white text-[15px] leading-[22px]" />
+                        <MultilineTextInput value={draft} onChangeText={setDraft} placeholder="Your draft" placeholderTextColor="rgba(255,255,255,0.6)" textAlignVertical="top" accessibilityLabel="Brain dump draft to keep or discard" className="min-h-[240px] rounded-button border border-border bg-card p-md font-body text-white text-[15px] leading-[22px]" />
                         {user ? <LimeButton label="Keep in Journal" loading={saving} disabled={!draft.trim()} onPress={() => void keepDraft()} /> : <LimeButton label="Log in to keep in Journal" onPress={onClose} />}
                         <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Discard brain dump" className="min-h-[44px] items-center justify-center"><Text className="font-heading-bold text-muted-text uppercase">Discard</Text></Pressable>
                       </>
@@ -247,7 +247,7 @@ function QuickFixSession({ kind, onClose }: { kind: TimedQuickFix; onClose: () =
                   </View>
                 ) : null}
                 <InlineFormError message={error} />
-                {notice ? <Text accessibilityLiveRegion="polite" className="font-body text-muted-text text-[12px] text-center">{notice}</Text> : null}
+                {notice ? <Text accessibilityLiveRegion="polite" className="font-body text-muted-text text-[14px] text-center">{notice}</Text> : null}
             </View>
           </ScrollView>
         </KeyboardAvoidingView>

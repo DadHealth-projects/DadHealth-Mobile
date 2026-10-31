@@ -46,7 +46,7 @@ export default function MindPlanLockedCard({
         </View>
       </View>
 
-      <Text className="mt-md mb-md font-body text-[12px] leading-[18px] text-muted-text">
+      <Text className="mt-md mb-md font-body text-[14px] leading-[18px] text-muted-text">
         A plan built around your mood, habits and goals.
       </Text>
 
