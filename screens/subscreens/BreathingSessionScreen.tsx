@@ -127,7 +127,7 @@ export default function BreathingSessionScreen() {
                 <Text accessibilityLiveRegion="polite" className="font-heading-bold text-lime text-[15px] tracking-label uppercase">{breathPhase}</Text>
                 <Text className="font-heading text-lime text-[72px] leading-[76px]">{breathCount}</Text>
               </Animated.View>
-              <Text className="font-body text-muted-text text-[12px] mt-xl">Inhale 4 · Hold 4 · Exhale 4</Text>
+              <Text className="font-body text-muted-text text-[14px] mt-xl">Inhale 4 · Hold 4 · Exhale 4</Text>
             </>
           ) : phase === 'reset' && resetStepIndex !== null ? (
             <View className="w-full rounded-button border border-lime/25 bg-lime/5 p-lg gap-md">

@@ -165,7 +165,7 @@ export default function MindScreen({
             >
               <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Pro</Text>
               <Text className="font-heading text-white text-[20px] leading-[22px] uppercase">Personalised Mind Plan</Text>
-              <Text className="font-body text-muted-text text-[12px] leading-[18px]">
+              <Text className="font-body text-muted-text text-[14px] leading-[18px]">
                 Designed around your mood, Dad Health Score and history.
               </Text>
               <Text className="font-heading-bold text-lime text-[11px] uppercase">Open plan</Text>
@@ -261,7 +261,7 @@ export default function MindScreen({
                     <Text className="font-heading-bold text-dark text-[9px] tracking-[0.5px] uppercase">Pro</Text>
                   </View>
                 </View>
-                <Text className="font-body text-muted-text text-[12px] leading-[18px]">
+                <Text className="font-body text-muted-text text-[14px] leading-[18px]">
                   Your mood over 4 weeks, and what moves it.
                 </Text>
                 <View className="min-h-[38px] items-center justify-center rounded-button border border-lime px-md">
@@ -315,7 +315,7 @@ function MoodAccessPanel({
         </View>
         <View className="flex-1 min-w-0">
           <Text className="font-heading-bold text-white text-[17px] uppercase">{title}</Text>
-          <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">{description}</Text>
+          <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-xs">{description}</Text>
         </View>
         <Feather name="lock" size={17} color={colors.lime} />
       </View>
@@ -353,7 +353,7 @@ function MindFeatureRow({
           </Text>
         ) : null}
         <Text className="font-heading-bold text-white text-[17px] uppercase">{title}</Text>
-        <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">{description}</Text>
+        <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-xs">{description}</Text>
       </View>
       {onPress ? <Feather name="chevron-right" size={20} color={colors.lime} /> : null}
     </View>
