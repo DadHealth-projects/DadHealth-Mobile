@@ -51,7 +51,7 @@ function StreakCard({
           >
             {count === null ? 'Checking streak' : count > 0 ? `${count}-day streak` : 'Start your streak'}
           </Text>
-          <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">
+          <Text className="font-body text-muted-text text-[14px] leading-[19px] mt-xs">
             {count === null
               ? 'Your streak will appear when it is available.'
               : count > 0 ? 'Keep showing up—one check-in at a time.' : "Complete today's check-in to begin."}

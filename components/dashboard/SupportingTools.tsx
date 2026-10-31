@@ -31,7 +31,7 @@ function SupportingTools({ tools }: { tools: SupportingTool[] }) {
             </View>
             <View className="flex-1">
               <Text className="font-heading-bold text-white text-[16px] uppercase">{tool.title}</Text>
-              <Text className="font-body text-muted-text text-[12px] leading-[17px] mt-xs">{tool.detail}</Text>
+              <Text className="font-body text-muted-text text-[14px] leading-[17px] mt-xs">{tool.detail}</Text>
             </View>
             <Feather name="arrow-right" size={18} color={colors.lime} />
           </Pressable>
