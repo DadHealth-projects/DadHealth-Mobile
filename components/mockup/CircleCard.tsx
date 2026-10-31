@@ -28,14 +28,14 @@ function CircleCard({ id, leading, name, description, membersCount, joined, visi
 </View>
         <View className="flex-1 flex-row items-center justify-between gap-xs">
           <Text className="flex-1 font-heading-bold text-white text-[15px] tracking-[0.5px] uppercase" numberOfLines={2}>{name}</Text>
-          {visibility === 'private' ? <Text className="font-heading-bold text-tertiary-text text-[8px] uppercase">Private</Text> : null}
+          {visibility === 'private' ? <Text className="shrink-0 font-heading-bold text-tertiary-text text-[11px] uppercase">Private</Text> : null}
         </View>
         <Feather name="chevron-right" size={20} color={colors.lime} />
       </View>
-      {description ? <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">{description}</Text> : null}
+      {description ? <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-sm">{description}</Text> : null}
       <View className="flex-row items-center gap-md pt-md">
-        <Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.5px] uppercase">{membersCount ?? 0} {(membersCount ?? 0) === 1 ? 'dad' : 'dads'}</Text>
-        {joined ? <Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.5px] uppercase">Joined ✓</Text> : null}
+        <Text className="font-heading-bold text-tertiary-text text-[11px] tracking-[0.5px] uppercase">{membersCount ?? 0} {(membersCount ?? 0) === 1 ? 'dad' : 'dads'}</Text>
+        {joined ? <Text className="font-heading-bold text-tertiary-text text-[11px] tracking-[0.5px] uppercase">Joined ✓</Text> : null}
       </View>
     </Pressable>
   );
