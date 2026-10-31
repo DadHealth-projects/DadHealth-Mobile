@@ -52,7 +52,7 @@ function CheckInFollowUp({
             <Text className="font-heading text-white text-[24px] leading-[26px] uppercase mt-xs">
               {advice.primary.state}
             </Text>
-            <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-sm">
+            <Text className="font-body text-muted-text text-[14px] leading-[19px] mt-sm">
               {advice.primary.recommendation}
             </Text>
           </View>
@@ -84,7 +84,7 @@ function CheckInFollowUp({
               <Text className="font-heading-bold text-white text-[12px] uppercase">
                 Build my plan
               </Text>
-              <Text className="font-body text-muted-text text-[10px] leading-[14px] mt-[3px]">
+              <Text className="font-body text-muted-text text-[14px] leading-[20px] mt-[3px]">
                 A plan around your mood and score.
               </Text>
             </View>
