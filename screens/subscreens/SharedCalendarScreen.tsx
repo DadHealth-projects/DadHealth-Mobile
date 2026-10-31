@@ -493,12 +493,12 @@ export default function SharedCalendarScreen() {
             {message ? (
               <Text
                 accessibilityRole="alert"
-                className="font-body text-tertiary-text text-[13px]"
+                className="font-body text-tertiary-text text-[14px]"
               >
                 {message}
               </Text>
             ) : null}
-            <Text className="font-body text-muted-text text-[12px] leading-[18px]">
+            <Text className="font-body text-muted-text text-[14px] leading-[18px]">
               {readOnly
                 ? "Mood, journal, score and community activity are never shared."
                 : "A co-parent receives read-only access. Your mood, sleep, journal, Dad Score and community activity stay private."}
@@ -555,7 +555,7 @@ export default function SharedCalendarScreen() {
                   </Text>
                   {schedule?.co_parent_user_id ? (
                     <View className="gap-md border-y border-lime/25 py-md">
-                      <Text className="font-body text-tertiary-text text-[13px]">
+                      <Text className="font-body text-tertiary-text text-[14px]">
                         A co-parent is connected with read-only access.
                       </Text>
                       <Pressable onPress={revoke}>
@@ -673,7 +673,7 @@ export default function SharedCalendarScreen() {
                   {eventMessage ? (
                     <Text
                       accessibilityRole="alert"
-                      className="font-body text-tertiary-text text-[12px]"
+                      className="font-body text-tertiary-text text-[14px]"
                     >
                       {eventMessage}
                     </Text>
@@ -705,7 +705,7 @@ export default function SharedCalendarScreen() {
                         {event.event_type}
                       </Text>
                       {event.notes ? (
-                        <Text className="font-body text-tertiary-text text-[13px] mt-xs">
+                        <Text className="font-body text-tertiary-text text-[14px] mt-xs">
                           {event.notes}
                         </Text>
                       ) : null}
@@ -740,7 +740,7 @@ export default function SharedCalendarScreen() {
                       <Text className="font-heading-bold text-white text-[12px] uppercase">
                         {shortDate(milestone.date)} · {milestone.tag}
                       </Text>
-                      <Text className="font-body text-tertiary-text text-[13px] mt-xs">
+                      <Text className="font-body text-tertiary-text text-[14px] mt-xs">
                         {milestone.text}
                       </Text>
                     </View>

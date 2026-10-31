@@ -26,18 +26,18 @@ function ActivityTrendChart({ values, labels, locked = false }: { values: number
   return (
     <View className="w-full gap-md" accessible={locked} accessibilityLabel={locked ? 'Weekly manual activity trend preview' : undefined}>
       <View className="flex-row justify-between">
-        <Text className="font-body text-muted-text text-[11px]">Week starting</Text>
-        <Text className="font-body text-muted-text text-[11px]">Manual activity points</Text>
+        <Text className="font-body text-muted-text text-[12px]">Week starting</Text>
+        <Text className="font-body text-muted-text text-[12px]">Manual activity points</Text>
       </View>
       {labels.map((label, index) => {
         const value = Number.isFinite(values[index]) ? Math.max(0, values[index]) : 0;
         return (
           <View key={`${label}-${index}`} className="flex-row items-center gap-sm" accessible={!locked} accessibilityLabel={locked ? undefined : `Week starting ${label}: ${value} manual activity points`}>
-            <Text className="w-[48px] font-body text-muted-text text-[12px]">{label}</Text>
+            <Text className="w-[48px] font-body text-muted-text text-[14px]">{label}</Text>
             <View className="h-[14px] flex-1 overflow-hidden rounded-full bg-muted">
               {!locked && value > 0 ? <View className="h-full rounded-full bg-lime" style={{ width: `${value / maximum * 100}%` }} /> : null}
             </View>
-            <Text className="w-[48px] text-right font-body-semibold text-white text-[12px]">{locked ? '—' : `${Math.round(value)} pts`}</Text>
+            <Text className="w-[48px] text-right font-body-semibold text-white text-[14px]">{locked ? '—' : `${Math.round(value)} pts`}</Text>
           </View>
         );
       })}
@@ -114,16 +114,16 @@ export default function ManualActivityHistoryScreen() {
         {trendsAccess === true ? (
           <View className="gap-md border-b border-border pb-lg">
             <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Manual activity trend · Pro</Text>
-            {trendLoading ? <Text className="font-body text-muted-text text-[12px]">Loading weekly trend…</Text> : trendError ? (
+            {trendLoading ? <Text className="font-body text-muted-text text-[14px]">Loading weekly trend…</Text> : trendError ? (
               <View className="gap-sm">
-                <Text accessibilityRole="alert" className="font-body text-muted-text text-[12px]">We couldn't load your weekly trend. Check your connection and try again.</Text>
+                <Text accessibilityRole="alert" className="font-body text-muted-text text-[14px]">We couldn't load your weekly trend. Check your connection and try again.</Text>
                 <Pressable onPress={() => void loadTrends()} accessibilityRole="button" accessibilityLabel="Retry weekly trend" className="min-h-[44px] self-start justify-center">
                   <Text className="font-heading-bold text-lime text-[12px] uppercase">Try again</Text>
                 </Pressable>
               </View>
             ) : points.length ? (
               <ActivityTrendChart values={values} labels={labels} />
-            ) : <Text className="font-body text-muted-text text-[12px]">Your weekly trend will appear as you log activities.</Text>}
+            ) : <Text className="font-body text-muted-text text-[14px]">Your weekly trend will appear as you log activities.</Text>}
           </View>
         ) : user && entitlementKnown ? (
           <ProLockedPreview
@@ -137,11 +137,11 @@ export default function ManualActivityHistoryScreen() {
           </ProLockedPreview>
         ) : user ? (
           <View className="gap-sm border-b border-border pb-lg">
-            <Text className="font-body text-muted-text text-[13px]">Checking Dad Health Pro access.</Text>
+            <Text className="font-body text-muted-text text-[14px]">Checking Dad Health Pro access.</Text>
           </View>
         ) : (
           <View className="gap-sm border-b border-border pb-lg">
-            <Text className="font-body text-muted-text text-[13px]">Sign in to see your saved activity history and Pro trend preview.</Text>
+            <Text className="font-body text-muted-text text-[14px]">Sign in to see your saved activity history and Pro trend preview.</Text>
             <LimeButton label="Log in" onPress={() => navigation.navigate('Login')} />
           </View>
         )}
@@ -151,9 +151,9 @@ export default function ManualActivityHistoryScreen() {
             <Text className="font-heading-bold text-white text-[16px] uppercase">Logged activities</Text>
             <Pressable onPress={() => navigation.navigate('ManualActivityLog', { pillar })} accessibilityRole="button" className="min-h-[40px] flex-row items-center gap-xs px-sm active:opacity-70"><Feather name="plus" size={15} color={colors.lime} /><Text className="font-heading-bold text-lime text-[10px] uppercase">Log activity</Text></Pressable>
           </View>
-          {loading ? <Text className="font-body text-muted-text text-[13px]">Loading your activity…</Text> : null}
-          {error ? <Text className="font-body text-muted-text text-[13px]">{error}</Text> : null}
-          {!loading && !activities.length ? <Text className="font-body text-muted-text text-[13px]">No manual activities logged yet.</Text> : null}
+          {loading ? <Text className="font-body text-muted-text text-[14px]">Loading your activity…</Text> : null}
+          {error ? <Text className="font-body text-muted-text text-[14px]">{error}</Text> : null}
+          {!loading && !activities.length ? <Text className="font-body text-muted-text text-[14px]">No manual activities logged yet.</Text> : null}
           {activities.map((activity) => {
             const minimum = pillar === 'mind' ? 5 : 15;
             const underMinimum = activity.duration_minutes != null && activity.duration_minutes < minimum;
@@ -161,13 +161,13 @@ export default function ManualActivityHistoryScreen() {
               <View key={activity.id} className="gap-xs border-b border-border py-sm">
                 <View className="flex-row items-start justify-between gap-sm">
                   <Text className="flex-1 font-heading-bold text-white text-[14px] uppercase">{manualActivityLabel(activity)}</Text>
-                  <Text className="font-body text-muted-text text-[11px]">{activity.activity_date}</Text>
+                  <Text className="font-body text-muted-text text-[12px]">{activity.activity_date}</Text>
                 </View>
-                <Text className="font-body text-muted-text text-[12px]">
+                <Text className="font-body text-muted-text text-[14px]">
                   {[activity.duration_minutes != null ? `${activity.duration_minutes} min` : null, activity.intensity, activity.pillar === 'bond' ? activity.contact_day ? 'Contact day' : 'Non-contact' : null].filter(Boolean).join(' · ')}
                 </Text>
-                {underMinimum ? <Text className="font-body text-muted-text text-[11px]">Saved to history · below score minimum</Text> : null}
-                {activity.notes ? <Text className="font-body text-muted-text text-[12px] leading-[18px]">{activity.notes}</Text> : null}
+                {underMinimum ? <Text className="font-body text-muted-text text-[14px] leading-[20px]">Saved to history · below score minimum</Text> : null}
+                {activity.notes ? <Text className="font-body text-muted-text text-[14px] leading-[18px]">{activity.notes}</Text> : null}
               </View>
             );
           })}
