@@ -180,7 +180,7 @@ export default function MealPlannerScreen() {
         <View className="gap-md">
           <View>
             <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Plan filters</Text>
-            <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">Choose your targets.</Text>
+            <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-xs">Choose your targets.</Text>
           </View>
           <View className="flex-row border-y border-border">
             <DropdownTrigger icon="activity" label="Calories" value={`${calorieTarget}`} open={openFilter === 'calories'} onPress={() => setOpenFilter(openFilter === 'calories' ? null : 'calories')} />
@@ -194,7 +194,7 @@ export default function MealPlannerScreen() {
           {openFilter === 'diet' ? <DropdownOptions options={DIETS} value={dietaryPreference} onChange={(value) => { setDietaryPreference(value); setOpenFilter(null); setError(null); }} /> : null}
           <View className="gap-xs">
             <Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.8px] uppercase">Preferences</Text>
-            <TextInput value={preferences} onChangeText={(value) => { setPreferences(value); setError(null); }} placeholder="e.g. high-protein, no fish" placeholderTextColor="rgba(255,255,255,0.25)" accessibilityLabel="Other meal preferences" returnKeyType="done" onSubmitEditing={() => Keyboard.dismiss()} className="min-h-[48px] border-b border-border font-body text-white text-[14px] py-sm" />
+            <TextInput value={preferences} onChangeText={(value) => { setPreferences(value); setError(null); }} placeholder="e.g. high-protein, no fish" placeholderTextColor="rgba(255,255,255,0.6)" accessibilityLabel="Other meal preferences" returnKeyType="done" onSubmitEditing={() => Keyboard.dismiss()} className="min-h-[48px] border-b border-border font-body text-white text-[14px] py-sm" />
           </View>
         </View>
 
@@ -207,22 +207,22 @@ export default function MealPlannerScreen() {
           <View className="gap-lg border-t border-border pt-lg">
             <View className="flex-row items-center justify-between gap-sm"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Your new plan</Text><TagPill label={`${visiblePlan.plan.length} days`} tone="outline" /></View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-sm">
-              {visiblePlan.plan.map((day, index) => <Pressable key={`${day.day}-${index}`} onPress={() => setSelectedDay(index)} accessibilityRole="tab" accessibilityState={{ selected: selectedDay === index }} className={`min-h-[42px] px-md items-center justify-center border-b-2 ${selectedDay === index ? 'border-lime' : 'border-transparent'}`}><Text className={`font-heading-bold text-[12px] uppercase ${selectedDay === index ? 'text-lime' : 'text-white/40'}`}>{day.day ?? `Day ${index + 1}`}</Text></Pressable>)}
+              {visiblePlan.plan.map((day, index) => <Pressable key={`${day.day}-${index}`} onPress={() => setSelectedDay(index)} accessibilityRole="tab" accessibilityState={{ selected: selectedDay === index }} className={`min-h-[42px] px-md items-center justify-center border-b-2 ${selectedDay === index ? 'border-lime' : 'border-transparent'}`}><Text className={`font-heading-bold text-[12px] uppercase ${selectedDay === index ? 'text-lime' : 'text-white/70'}`}>{day.day ?? `Day ${index + 1}`}</Text></Pressable>)}
             </ScrollView>
             <View className="gap-md">
               <Text className="font-heading text-white text-[27px] uppercase">{displayedDay.day ?? `Day ${selectedDay + 1}`}</Text>
               {Object.entries(displayedDay.meals ?? {}).map(([mealType, meal]) => (
                 <View key={mealType} className="border-b border-border pb-md gap-xs">
-                  <View className="flex-row items-center justify-between gap-sm"><Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">{mealType}</Text><Text className="font-body text-tertiary-text text-[11px]">{meal.prep_time ?? ''}</Text></View>
+                  <View className="flex-row items-center justify-between gap-sm"><Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">{mealType}</Text><Text className="font-body text-tertiary-text text-[13px]">{meal.prep_time ?? ''}</Text></View>
                   <Text className="font-heading-bold text-white text-[16px] uppercase">{meal.name ?? 'Unavailable'}</Text>
-                  <Text className="font-body text-muted-text text-[12px] leading-[18px]">{meal.ingredients?.join(', ') ?? 'Ingredients not available'}</Text>
-                  {meal.macros ? <Text className="font-body text-tertiary-text text-[11px] uppercase">{Object.entries(meal.macros).map(([key, value]) => `${key}: ${value}`).join('  ·  ')}</Text> : null}
+                  <Text className="font-body text-muted-text text-[14px] leading-[18px]">{meal.ingredients?.join(', ') ?? 'Ingredients not available'}</Text>
+                  {meal.macros ? <Text className="font-body text-tertiary-text text-[13px] uppercase">{Object.entries(meal.macros).map(([key, value]) => `${key}: ${value}`).join('  ·  ')}</Text> : null}
                 </View>
               ))}
             </View>
-            {grocerySections.length ? <View className="gap-md"><Text className="font-heading text-white text-[28px] uppercase">Shopping list</Text>{grocerySections.map((section) => <View key={section.category} className="border-b border-border pb-md"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">{section.category}</Text><Text className="font-body text-tertiary-text text-[13px] leading-[20px] mt-xs">{section.items.join(', ')}</Text></View>)}</View> : null}
+            {grocerySections.length ? <View className="gap-md"><Text className="font-heading text-white text-[28px] uppercase">Shopping list</Text>{grocerySections.map((section) => <View key={section.category} className="border-b border-border pb-md"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">{section.category}</Text><Text className="font-body text-tertiary-text text-[14px] leading-[20px] mt-xs">{section.items.join(', ')}</Text></View>)}</View> : null}
           </View>
-        ) : user && mealPlannerAccess === true ? <Text className="font-body text-muted-text text-[13px] leading-[19px]">Your plan will appear here after you generate it.</Text> : null}
+        ) : user && mealPlannerAccess === true ? <Text className="font-body text-muted-text text-[14px] leading-[19px]">Your plan will appear here after you generate it.</Text> : null}
       </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

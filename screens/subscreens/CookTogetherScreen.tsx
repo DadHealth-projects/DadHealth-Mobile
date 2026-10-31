@@ -108,7 +108,7 @@ export default function CookTogetherScreen() {
               <Text className="font-heading-bold text-lime text-[13px] uppercase">
                 Recipe complete
               </Text>
-              <Text className="font-body text-white text-[13px] leading-[19px] mt-xs">
+              <Text className="font-body text-white text-[14px] leading-[19px] mt-xs">
                 {completion.title} was logged as {completion.activeMinutes} minutes of Bond time.
               </Text>
               {recipeData.bondScore != null ? (
@@ -197,7 +197,7 @@ export default function CookTogetherScreen() {
                         <Text className="font-heading-bold text-white text-[19px] uppercase">
                           {recipe.title}
                         </Text>
-                        <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">
+                        <Text className="font-body text-muted-text text-[14px] leading-[19px] mt-xs">
                           {recipe.description ??
                             "A simple recipe to cook with your kids."}
                         </Text>
@@ -272,7 +272,7 @@ export default function CookTogetherScreen() {
               <Text className="font-heading-bold text-white text-[30px] uppercase">
                 {active?.title}
               </Text>
-              <Text className="font-body text-muted-text text-[13px] mt-xs">
+              <Text className="font-body text-muted-text text-[14px] mt-xs">
                 {active?.prep_mins} minutes · {active?.ingredients.length} ingredients · Kid friendly
               </Text>
             </View>
@@ -315,7 +315,7 @@ export default function CookTogetherScreen() {
                     </Text>
                     {step.kid_instruction ? (
                       <View className="bg-lime/10 border border-lime/20 p-md mt-md">
-                        <Text className="font-body text-white text-[13px]">
+                        <Text className="font-body text-white text-[14px]">
                           <Text className="font-heading-bold text-lime uppercase">
                             Kid job:{" "}
                           </Text>
@@ -381,7 +381,7 @@ function Filter({
         {label}
       </Text>
       <View className="flex-row items-center justify-between mt-xs">
-        <Text className="font-body text-white text-[13px]">{value}</Text>
+        <Text className="font-body text-white text-[14px]">{value}</Text>
         <Feather
           name={open ? "chevron-up" : "chevron-down"}
           size={16}
@@ -408,7 +408,7 @@ function Options<T extends string | number>({
           onPress={() => onSelect(item.value)}
           className="min-h-[46px] flex-row items-center justify-between border-b border-white/5"
         >
-          <Text className="font-body text-white text-[13px]">{item.label}</Text>
+          <Text className="font-body text-white text-[14px]">{item.label}</Text>
           {item.value === selected ? (
             <Feather name="check" size={16} color={colors.lime} />
           ) : null}
