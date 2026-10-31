@@ -44,7 +44,7 @@ function WeeklyReportCard({
           <Text accessibilityLabel={`Current Dad Health Score ${currentScore ?? 'unavailable'} out of 100`} className="font-heading-bold text-white text-[22px] mt-xs mb-sm">
             {currentScore === null ? '—' : `${Math.round(currentScore)} / 100`}
           </Text>
-          <Text className="font-body text-muted-text text-[13px] leading-[19px]">
+          <Text className="font-body text-muted-text text-[14px] leading-[19px]">
             {PRO_MOMENTS.weeklyReport.body}
           </Text>
           <Pressable
@@ -67,15 +67,15 @@ function WeeklyReportCard({
       <SectionHeader title="Your week in Dad Health" className="mb-md" />
       <View className="border-b border-border pb-lg">
         {reportAccess === null ? (
-          <Text className="font-body text-muted-text text-[12px]">Checking Dad Health Pro access.</Text>
+          <Text className="font-body text-muted-text text-[14px]">Checking Dad Health Pro access.</Text>
         ) : loading ? (
-          <Text className="font-body text-muted-text text-[12px]">Preparing your weekly report…</Text>
+          <Text className="font-body text-muted-text text-[14px]">Preparing your weekly report…</Text>
         ) : error ? (
-          <Text className="font-body text-muted-text text-[12px]">Your weekly report is unavailable right now. Please try again.</Text>
+          <Text className="font-body text-muted-text text-[14px]">Your weekly report is unavailable right now. Please try again.</Text>
         ) : report ? (
           <WeeklyReportBody report={report} />
         ) : (
-          <Text className="font-body text-muted-text text-[13px] leading-[19px]">
+          <Text className="font-body text-muted-text text-[14px] leading-[19px]">
             Your first weekly report arrives after a full week of check-ins.
           </Text>
         )}
