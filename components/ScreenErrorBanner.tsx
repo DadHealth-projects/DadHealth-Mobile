@@ -29,7 +29,7 @@ export default function ScreenErrorBanner() {
     >
       <View className="w-full max-w-[520px] flex-row items-start gap-sm rounded-button border border-border bg-[#171A10] px-md py-sm shadow-lg">
         <Feather name="alert-circle" size={16} color={colors.lime} />
-        <Text className="flex-1 font-body text-white text-[13px] leading-[18px]">{screenError}</Text>
+        <Text className="flex-1 font-body text-white text-[14px] leading-[18px]">{screenError}</Text>
       </View>
     </View>
   );

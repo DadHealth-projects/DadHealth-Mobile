@@ -60,8 +60,8 @@ export default function PushPrePermissionPrompt() {
           <Text className="font-heading-semibold text-lime text-[13px] tracking-label uppercase mb-sm">Settings</Text>
           <Text className="font-heading text-white text-[42px] leading-[44px] uppercase">Push notifications</Text>
           <Text className="font-body text-muted-text text-[15px] leading-[23px] mt-md">All notifications are opt-in. Times are based on your dad timezone.</Text>
-          <Text className="font-body text-muted-text text-[13px] leading-[20px] mt-lg">Daily check-in: Good morning. How are you feeling today?</Text>
-          <Text className="font-body text-muted-text text-[13px] leading-[20px] mt-sm">Streak at risk: Your streak ends at midnight.</Text>
+          <Text className="font-body text-muted-text text-[14px] leading-[20px] mt-lg">Daily check-in: Good morning. How are you feeling today?</Text>
+          <Text className="font-body text-muted-text text-[14px] leading-[20px] mt-sm">Streak at risk: Your streak ends at midnight.</Text>
         </View>
         <View className="gap-md">
           <LimeButton label="Allow notifications" onPress={() => void allow()} loading={busy} />
