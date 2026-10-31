@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TextInput,
-  type TextInputInstance,
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
@@ -81,7 +80,7 @@ export default function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const passwordInputRef = useRef<TextInputInstance>(null);
+  const passwordInputRef = useRef<TextInput>(null);
 
   const [loading, setLoading] = useState<null | LoadingKind>(null);
   const [error, setError] = useState<string | null>(null);
