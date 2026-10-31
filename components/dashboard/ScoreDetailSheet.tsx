@@ -73,7 +73,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
           <View className="flex-row items-center justify-between px-lg pt-lg pb-sm">
             <View>
               <Text className="font-heading-bold text-lime text-[19px] tracking-[1px] uppercase">Score details</Text>
-              <Text className="font-body text-muted-text text-[12px] mt-xs">Your health, in context.</Text>
+              <Text className="font-body text-muted-text text-[14px] mt-xs">Your health, in context.</Text>
             </View>
             <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" className="h-[42px] w-[42px] items-center justify-center rounded-full bg-white/5">
               <Feather name="x" size={20} color={colors.text} />
@@ -93,7 +93,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
             {!isPro && entitlementKnown ? <View className="border-y border-border py-md">
               <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">{PRO_MOMENTS.score.eyebrow}</Text>
               <Text className="font-heading-bold text-white text-[16px] uppercase mt-xs">{PRO_MOMENTS.score.heading}</Text>
-              <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">
+              <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-xs">
                 {scoreTrendTease ?? PRO_MOMENTS.score.body}
               </Text>
               <Pressable onPress={onUpgrade} accessibilityRole="button" className="min-h-[42px] self-start justify-center border-b border-lime mt-sm">
@@ -106,7 +106,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
             <View>
               <SectionHeader title="Score trends" className="mb-sm" />
               {isPro ? (
-                history.loading ? <Text className="font-body text-muted-text text-[12px]">Loading your score history…</Text> : history.error ? <Text className="font-body text-muted-text text-[12px]">Your score history is unavailable right now. Please try again.</Text> : history.points.length > 0 ? (
+                history.loading ? <Text className="font-body text-muted-text text-[14px]">Loading your score history…</Text> : history.error ? <Text className="font-body text-muted-text text-[14px]">Your score history is unavailable right now. Please try again.</Text> : history.points.length > 0 ? (
                   <View className="h-[90px] flex-row items-end justify-between gap-xs border-b border-border pb-xs">
                     {history.points.slice(-8).map((point) => (
                       <View key={point.week_start} className="flex-1 items-center justify-end gap-xs">
@@ -116,14 +116,14 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
                       </View>
                     ))}
                   </View>
-                ) : <Text className="font-body text-muted-text text-[12px]">Your score history will appear after you have a week with logged activity.</Text>
+                ) : <Text className="font-body text-muted-text text-[14px]">Your score history will appear after you have a week with logged activity.</Text>
               ) : entitlementKnown ? <LockedPreview title="See your score history" onUpgrade={onUpgrade} /> : null}
             </View>
 
             <View>
               <SectionHeader title={`${month} report`} className="mb-sm" />
               {isPro ? (
-                report.loading ? <Text className="font-body text-muted-text text-[12px]">Loading your report…</Text> : report.error ? <Text className="font-body text-muted-text text-[12px]">Your report is unavailable right now. Please try again.</Text> : (
+                report.loading ? <Text className="font-body text-muted-text text-[14px]">Loading your report…</Text> : report.error ? <Text className="font-body text-muted-text text-[14px]">Your report is unavailable right now. Please try again.</Text> : (
                   <View className="flex-row flex-wrap gap-sm">
                     {reportStats.map(([value, label]) => (
                       <View key={label} className="min-h-[72px] basis-[31%] grow border border-border px-sm py-sm">
@@ -138,12 +138,12 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
 
             <View>
               <SectionHeader title="Badges" className="mb-sm" />
-              {badgeData.loading ? <Text className="font-body text-muted-text text-[12px]">Loading badges…</Text> : badgeData.earnedCount === 0 ? (
+              {badgeData.loading ? <Text className="font-body text-muted-text text-[14px]">Loading badges…</Text> : badgeData.earnedCount === 0 ? (
                 <View className="flex-row items-center gap-sm border-y border-border py-sm">
                   <Text className="text-[22px]">{badgeData.badges[0]?.icon ?? '🏅'}</Text>
                   <View className="flex-1">
                     <Text className="font-heading-bold text-lime text-[10px] uppercase">{badgeData.badges[0]?.name ?? 'Your first badge'}</Text>
-                    <Text className="font-body text-muted-text text-[11px] leading-[16px] mt-xs">Complete a check-in or log an activity to earn your first badge.</Text>
+                    <Text className="font-body text-muted-text text-[14px] leading-[20px] mt-xs">Complete a check-in or log an activity to earn your first badge.</Text>
                   </View>
                 </View>
               ) : (
@@ -151,7 +151,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
                   {badgeData.badges.slice(0, 6).map((badge) => (
                     <View key={badge.name} className="min-h-[66px] basis-[31%] grow items-center justify-center border border-lime/20 px-xs py-xs">
                       <Text className="text-[18px]">{badge.icon}</Text>
-                      <Text numberOfLines={2} className="font-heading-bold text-lime text-[9px] uppercase text-center mt-xs">{badge.name}</Text>
+                      <Text className="font-heading-bold text-lime text-[11px] uppercase text-center mt-xs">{badge.name}</Text>
                     </View>
                   ))}
                 </View>
@@ -163,7 +163,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
                 <Feather name="share-2" size={15} color={colors.lime} />
                 <Text className="font-heading-bold text-lime text-[11px] uppercase">Share report</Text>
               </Pressable>
-              {shareMessage ? <Text className="font-body text-muted-text text-[11px] mt-sm">{shareMessage}</Text> : null}
+              {shareMessage ? <Text className="font-body text-muted-text text-[14px] leading-[20px] mt-sm">{shareMessage}</Text> : null}
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -176,7 +176,7 @@ function PillarSource({ name, detail }: { name: string; detail: string }) {
   return (
     <View className="flex-row items-baseline gap-md border-b border-border py-sm">
       <Text className="w-[54px] font-heading-bold text-lime text-[10px] uppercase">{name}</Text>
-      <Text className="flex-1 font-body text-muted-text text-[12px] leading-[17px]">{detail}</Text>
+      <Text className="flex-1 font-body text-muted-text text-[14px] leading-[17px]">{detail}</Text>
     </View>
   );
 }
@@ -185,7 +185,7 @@ function LockedPreview({ title, onUpgrade }: { title: string; onUpgrade: () => v
   return (
     <View className="flex-row items-center gap-sm border-y border-border py-md">
       <Feather name="lock" size={15} color={colors.lime} />
-      <Text className="flex-1 font-body text-muted-text text-[12px]">{title} is included with Dad Health Pro.</Text>
+      <Text className="flex-1 font-body text-muted-text text-[14px]">{title} is included with Dad Health Pro.</Text>
       <Pressable onPress={onUpgrade} accessibilityRole="button" className="min-h-[40px] justify-center">
         <Text className="font-heading-bold text-lime text-[10px] uppercase">Unlock</Text>
       </Pressable>

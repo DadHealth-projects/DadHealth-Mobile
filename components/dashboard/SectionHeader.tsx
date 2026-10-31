@@ -22,7 +22,7 @@ function SectionHeader({ title, label, caption, className = '' }: SectionHeaderP
         {title}
       </Text>
       {caption ? (
-        <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">{caption}</Text>
+        <Text className="font-body text-muted-text text-[14px] leading-[19px] mt-xs">{caption}</Text>
       ) : null}
     </View>
   );
