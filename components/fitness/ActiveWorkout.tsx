@@ -251,7 +251,7 @@ export default function ActiveWorkout({
                   <Text className="font-heading-bold text-white text-[15px] tracking-[0.5px] uppercase">
                     {move.title}
                   </Text>
-                  <Text className="font-body text-muted-text text-[11px] mt-xs">{move.detail}</Text>
+                  <Text className="font-body text-muted-text text-[14px] leading-[20px] mt-xs">{move.detail}</Text>
                 </View>
                 {move.tag ? <TagPill label={move.tag} /> : null}
               </View>

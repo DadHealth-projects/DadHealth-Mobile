@@ -57,7 +57,7 @@ export default function GeneratedWorkoutSection({
         ))}
       </View>
       {workout.exercises.length > 3 ? (
-        <Text className="font-body text-tertiary-text text-[12px]">
+        <Text className="font-body text-tertiary-text text-[14px]">
           +{workout.exercises.length - 3} more moves in the full workout
         </Text>
       ) : null}
