@@ -69,7 +69,7 @@ export default function ProSubscriptionScreen() {
         {subscriptions.loading ? (
           <View className="border-y border-border py-xl gap-sm">
             <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Dad Health Pro</Text>
-            <Text accessibilityLiveRegion="polite" className="font-body text-muted-text text-[13px]">Checking your subscription…</Text>
+            <Text accessibilityLiveRegion="polite" className="font-body text-muted-text text-[14px]">Checking your subscription…</Text>
           </View>
         ) : subscriptions.status?.isPro === true ? (
           <>
@@ -83,7 +83,7 @@ export default function ProSubscriptionScreen() {
                 <Feather name="check" size={25} color={colors.lime} />
               </View>
               <Text className="font-heading-bold text-white text-[19px] uppercase">Everything is unlocked</Text>
-              <Text className="font-body text-muted-text text-[13px] leading-[20px]">
+              <Text className="font-body text-muted-text text-[14px] leading-[20px]">
                 Your Pro access works across Dad Health wherever you use this account.
               </Text>
               {subscriptions.status.primaryProvider !== 'manual' ? (
@@ -133,7 +133,7 @@ export default function ProSubscriptionScreen() {
               {THIS_WEEK_FEATURES.map((feature) => (
                 <View key={feature} className="flex-row items-start gap-sm">
                   <Feather name="check" size={17} color={colors.lime} />
-                  <Text className="font-body text-muted-text text-[13px] leading-[19px] flex-1">{feature}</Text>
+                  <Text className="font-body text-muted-text text-[14px] leading-[19px] flex-1">{feature}</Text>
                 </View>
               ))}
             </View>
@@ -150,7 +150,7 @@ export default function ProSubscriptionScreen() {
             )}
 
             {user && !subscriptions.storeAvailable && !subscriptions.loading ? (
-              <Text className="font-body text-muted-text text-[12px] leading-[18px] text-center">
+              <Text className="font-body text-muted-text text-[14px] leading-[18px] text-center">
                 Subscriptions aren’t available on this device right now.
               </Text>
             ) : null}
@@ -158,7 +158,7 @@ export default function ProSubscriptionScreen() {
         ) : (
           <View className="border-y border-border py-xl gap-sm">
             <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Dad Health Pro</Text>
-            <Text className="font-body text-muted-text text-[13px] leading-[20px]">We could not confirm your subscription. Try again before managing access.</Text>
+            <Text className="font-body text-muted-text text-[14px] leading-[20px]">We could not confirm your subscription. Try again before managing access.</Text>
             <Pressable onPress={() => void subscriptions.refreshStatus().catch(() => undefined)} accessibilityRole="button" className="min-h-[44px] self-start justify-center border-b border-lime">
               <Text className="font-heading-bold text-lime text-[11px] uppercase">Check again</Text>
             </Pressable>
@@ -167,7 +167,7 @@ export default function ProSubscriptionScreen() {
 
         <InlineFormError message={isOffline ? null : subscriptions.error} />
         {subscriptions.notice ? (
-          <Text accessibilityLiveRegion="polite" className="font-body text-lime text-[12px] leading-[18px] text-center">
+          <Text accessibilityLiveRegion="polite" className="font-body text-lime text-[14px] leading-[18px] text-center">
             {subscriptions.notice}
           </Text>
         ) : null}
@@ -188,7 +188,7 @@ export default function ProSubscriptionScreen() {
         ) : null}
 
         {subscriptions.status?.isPro === false ? (
-          <Text className="font-body text-tertiary-text text-[10px] leading-[16px] text-center">
+          <Text className="font-body text-tertiary-text text-[14px] leading-[20px] text-center">
             {trialAvailable ? '7-day free trial for eligible new subscribers. Cancel anytime. ' : ''}
             Subscription renews automatically unless cancelled. You can manage or cancel it in your {Platform.OS === 'ios' ? 'App Store' : 'Google Play'} account.
           </Text>
@@ -244,7 +244,7 @@ function PlanRow({
             </View>
           ) : null}
         </View>
-        <Text className="font-body text-muted-text text-[11px] mt-xs">{suffix}</Text>
+        <Text className="font-body text-muted-text text-[14px] leading-[20px] mt-xs">{suffix}</Text>
       </View>
       <Text className="font-heading text-lime text-[14px]">{price ?? (loadingPrice ? 'Loading price' : 'Price unavailable')}</Text>
     </Pressable>

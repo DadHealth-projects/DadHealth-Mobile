@@ -128,7 +128,7 @@ export default function TDEECalculatorScreen() {
               </View>
 
               {tdeeAccess === true ? (
-                <View className="gap-md"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Insights</Text>{insights.map((text, index) => <View key={index} className="border-l-2 border-lime pl-md"><Text className="font-body text-muted-text text-[12px] leading-[18px]">{text}</Text></View>)}</View>
+                <View className="gap-md"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Insights</Text>{insights.map((text, index) => <View key={index} className="border-l-2 border-lime pl-md"><Text className="font-body text-muted-text text-[14px] leading-[18px]">{text}</Text></View>)}</View>
               ) : tdeeAccess === false ? (
                 <ProLockedPreview lock={PRO_LOCKS.fullTdee} source="full_tdee" feature="full_tdee" userId={user?.id} onPress={openPro}>
                   <View className="gap-md">
@@ -166,7 +166,7 @@ function SegmentedControl<T extends string>({ options, value, onChange }: { opti
 }
 
 function NumberField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (value: string) => void; placeholder: string }) {
-  return <View className="flex-1 gap-xs"><Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.8px] uppercase">{label}</Text><TextInput value={value} onChangeText={(next) => onChange(next.replace(/[^0-9.]/g, ''))} placeholder={placeholder} placeholderTextColor="rgba(255,255,255,0.25)" keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'} returnKeyType="done" onSubmitEditing={() => Keyboard.dismiss()} accessibilityLabel={label} className="min-h-[48px] border-b border-border font-heading-bold text-white text-[17px] py-sm" /></View>;
+  return <View className="flex-1 gap-xs"><Text className="font-heading-bold text-tertiary-text text-[9px] tracking-[0.8px] uppercase">{label}</Text><TextInput value={value} onChangeText={(next) => onChange(next.replace(/[^0-9.]/g, ''))} placeholder={placeholder} placeholderTextColor="rgba(255,255,255,0.6)" keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'} returnKeyType="done" onSubmitEditing={() => Keyboard.dismiss()} accessibilityLabel={label} className="min-h-[48px] border-b border-border font-heading-bold text-white text-[17px] py-sm" /></View>;
 }
 
 function DropdownTrigger({ label, value, open, onPress }: { label: string; value: string; open: boolean; onPress: () => void }) {
@@ -178,9 +178,9 @@ function DropdownOptions<T extends string>({ options, value, onChange }: { optio
 }
 
 function ResultStat({ label, value, detail }: { label: string; value: string; detail?: string }) {
-  return <View className="w-[48%] min-h-[96px] rounded-button border border-border bg-card p-md"><Text numberOfLines={1} adjustsFontSizeToFit className="font-heading text-lime text-[25px] uppercase">{value}</Text><Text className="font-heading-bold text-muted-text text-[10px] uppercase mt-xs">{label}</Text>{detail ? <Text numberOfLines={1} className="font-body text-tertiary-text text-[10px] mt-xs">{detail}</Text> : null}</View>;
+  return <View className="w-[48%] min-h-[110px] rounded-button border border-border bg-card p-md"><Text numberOfLines={1} adjustsFontSizeToFit className="font-heading text-lime text-[25px] uppercase">{value}</Text><Text className="font-heading-bold text-muted-text text-[10px] uppercase mt-xs">{label}</Text>{detail ? <Text className="font-body text-tertiary-text text-[14px] leading-[18px] mt-xs">{detail}</Text> : null}</View>;
 }
 
 function TargetRow({ label, value, detail, highlighted = false }: { label: string; value: number; detail: string; highlighted?: boolean }) {
-  return <View className={`flex-row items-center justify-between gap-md border-b pb-md ${highlighted ? 'border-lime/50' : 'border-border'}`}><View className="flex-1"><Text className={`font-heading-bold text-[14px] uppercase ${highlighted ? 'text-lime' : 'text-white'}`}>{label}</Text><Text className="font-body text-tertiary-text text-[11px] mt-xs">{detail}</Text></View><Text className={`font-heading text-[25px] ${highlighted ? 'text-lime' : 'text-white'}`}>{value.toLocaleString()} <Text className="text-[11px]">kcal</Text></Text></View>;
+  return <View className={`flex-row items-center justify-between gap-md border-b pb-md ${highlighted ? 'border-lime/50' : 'border-border'}`}><View className="flex-1"><Text className={`font-heading-bold text-[14px] uppercase ${highlighted ? 'text-lime' : 'text-white'}`}>{label}</Text><Text className="font-body text-tertiary-text text-[14px] leading-[20px] mt-xs">{detail}</Text></View><Text className={`font-heading text-[25px] ${highlighted ? 'text-lime' : 'text-white'}`}>{value.toLocaleString()} <Text className="text-[11px]">kcal</Text></Text></View>;
 }
