@@ -52,7 +52,7 @@ export default function BodyProLockedCard({
         <ProBadge />
       </View>
 
-      <Text className="font-body text-[12px] leading-[18px] text-muted-text">
+      <Text className="font-body text-[14px] leading-[18px] text-muted-text">
         {description}
       </Text>
 
