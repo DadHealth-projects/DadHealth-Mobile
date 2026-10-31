@@ -79,12 +79,12 @@ export default function ActiveWorkoutScreen() {
             />
           ) : lockedAiWorkout ? (
             <View className="gap-sm border-y border-border py-lg">
-              <Text className="font-body text-muted-text text-[13px] leading-[19px]">Checking access to this workout.</Text>
+              <Text className="font-body text-muted-text text-[14px] leading-[19px]">Checking access to this workout.</Text>
               <LimeButton label="Back to Body" onPress={close} />
             </View>
           ) : !workout ? (
             <View className="gap-md border-y border-border py-lg">
-              <Text className="font-body text-muted-text text-[13px] leading-[19px]">No workout is available to start.</Text>
+              <Text className="font-body text-muted-text text-[14px] leading-[19px]">No workout is available to start.</Text>
               <LimeButton label="Back to Body" onPress={close} />
             </View>
           ) : (

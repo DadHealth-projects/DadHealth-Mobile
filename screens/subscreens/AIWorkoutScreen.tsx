@@ -162,7 +162,7 @@ export default function AIWorkoutScreen() {
               <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
                 Workout filters
               </Text>
-              <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">
+              <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-xs">
                 Set the session constraints before generating.
               </Text>
             </View>
@@ -237,7 +237,7 @@ export default function AIWorkoutScreen() {
           <ProUpgradeSection moment={PRO_LOCKS.aiWorkout} source="ai_workout" feature="ai_workout" userId={user.id} onPress={openPro} />
         ) : aiWorkoutAccess !== true ? (
           <View className="gap-sm">
-            <Text className="font-body text-muted-text text-[12px]">Check access to continue.</Text>
+            <Text className="font-body text-muted-text text-[14px]">Check access to continue.</Text>
             <LimeButton label="Check access" onPress={() => void retryEntitlementCheck()} loading={entitlementLoading} />
           </View>
         ) : library.loading ? (
