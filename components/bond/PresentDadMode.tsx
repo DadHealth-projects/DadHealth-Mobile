@@ -169,7 +169,7 @@ export default function PresentDadMode({ userId, onScoreRefresh, onViewBondScore
       <Pressable onPress={() => void open()} accessibilityRole="button" className="gap-sm border-b border-border pb-lg active:opacity-75">
         <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Present Dad Mode</Text>
         <Text className="font-heading text-white text-[21px] leading-[24px] uppercase mt-xs">60 minutes. Phone down. Just you and them.</Text>
-        <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
+        <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-sm">
           {sessionActive ? 'Your session is in progress. Tap to return to the countdown.' : sessionComplete ? 'Your session is complete.' : 'Logs to your Bond score on completion.'}
         </Text>
         <View className="self-start flex-row items-center gap-xs mt-md">
@@ -211,8 +211,8 @@ export default function PresentDadMode({ userId, onScoreRefresh, onViewBondScore
                 <Text className="font-body text-muted-text text-[14px] leading-[21px]">When the session ends it logs automatically to your Bond score.</Text>
                 <Text className="font-heading-bold text-white text-[18px] leading-[25px] mt-sm">Your child won’t remember the toys.{ '\n' }They’ll remember the time.</Text>
                 <FocusNote />
-                {introError ? <Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{introError}</Text> : null}
-                {mode.error ? <Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{mode.error}</Text> : null}
+                {introError ? <Text accessibilityRole="alert" className="font-body text-red-300 text-[14px]">{introError}</Text> : null}
+                {mode.error ? <Text accessibilityRole="alert" className="font-body text-red-300 text-[14px]">{mode.error}</Text> : null}
                 {introError ? <Pressable onPress={() => void open()} className="min-h-[40px] justify-center"><Text className="font-heading-bold text-lime text-[11px] uppercase">Retry loading</Text></Pressable> : null}
                 <LimeButton label="I'm ready. Let's go. →" onPress={() => void start()} loading={mode.busy} />
               </View>
@@ -223,7 +223,7 @@ export default function PresentDadMode({ userId, onScoreRefresh, onViewBondScore
                 <Text className="font-heading-bold text-lime text-[12px] tracking-label uppercase">Present Dad Mode</Text>
                 <Text accessibilityLiveRegion="polite" className="font-heading text-white text-[70px] leading-[78px]">{`${String(Math.floor(remainingSeconds / 60)).padStart(2, '0')}:${String(remainingSeconds % 60).padStart(2, '0')}`}</Text>
                 <Text className="font-body text-muted-text text-[16px] text-center">{timerLine(minutesLeft)}</Text>
-                {mode.error ? <Text accessibilityRole="alert" className="font-body text-red-300 text-[13px] text-center">{mode.error}</Text> : null}
+                {mode.error ? <Text accessibilityRole="alert" className="font-body text-red-300 text-[14px] text-center">{mode.error}</Text> : null}
                 {mode.error || remainingSeconds === 0 ? <LimeButton label="Retry saving session" onPress={() => void finishSession(mode.session!)} loading={mode.busy} /> : null}
                 <Pressable onPress={endEarly} disabled={mode.busy} accessibilityRole="button" className="min-h-[44px] justify-center px-md">
                   <Text className="font-heading-bold text-muted-text text-[11px] tracking-label uppercase">End session early</Text>
@@ -245,10 +245,10 @@ export default function PresentDadMode({ userId, onScoreRefresh, onViewBondScore
                 ) : (
                   <>
                     <Text className="font-body text-white text-[16px] leading-[24px]">Your time has been saved. Come back whenever it works for you.</Text>
-                    <Text className="font-body text-muted-text text-[13px]">Sessions under 5 minutes do not affect your Bond score.</Text>
+                    <Text className="font-body text-muted-text text-[14px]">Sessions under 5 minutes do not affect your Bond score.</Text>
                   </>
                 )}
-                {mode.error ? <Text accessibilityRole="alert" className="font-body text-red-300 text-[13px]">{mode.error}</Text> : null}
+                {mode.error ? <Text accessibilityRole="alert" className="font-body text-red-300 text-[14px]">{mode.error}</Text> : null}
                 <Pressable onPress={() => void dismiss()} accessibilityRole="button" className="min-h-[44px] items-center justify-center">
                   <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Done</Text>
                 </Pressable>
@@ -264,7 +264,7 @@ export default function PresentDadMode({ userId, onScoreRefresh, onViewBondScore
 function FocusNote() {
   return (
     <View className="rounded-button border border-border px-md py-sm">
-      <Text className="font-body text-muted-text text-[12px] leading-[18px]">
+      <Text className="font-body text-muted-text text-[14px] leading-[18px]">
         Want fewer interruptions? You can turn on a Focus from Control Center. Dad Health can’t activate iPhone Focus for you.
       </Text>
     </View>

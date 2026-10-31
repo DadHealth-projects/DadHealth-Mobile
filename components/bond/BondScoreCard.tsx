@@ -15,9 +15,9 @@ function BondScoreCard({ score, trend, scoreUnavailable = false, baselineBuildin
       <View className="flex-row items-center gap-lg">
         <View>
           <Text className="font-heading text-dark text-[56px] leading-[52px]">
-            {scoreUnavailable ? '—' : baselineBuilding ? <Text className="font-heading text-dark/45 text-[34px] leading-[38px] text-center">·</Text> : value}
+            {scoreUnavailable ? '—' : baselineBuilding ? <Text className="font-heading text-dark/75 text-[34px] leading-[38px] text-center">·</Text> : value}
           </Text>
-          <Text className="font-heading-bold text-dark/50 text-[10px] tracking-[1.5px] uppercase">out of 100</Text>
+          <Text className="font-heading-bold text-dark/75 text-[10px] tracking-[1.5px] uppercase">out of 100</Text>
         </View>
         <View className="flex-1">
           <View className="flex-row items-center gap-sm mb-md">
@@ -30,7 +30,7 @@ function BondScoreCard({ score, trend, scoreUnavailable = false, baselineBuildin
           </View> : null}
         </View>
       </View>
-      {!scoreUnavailable && baselineBuilding ? <Text accessibilityLiveRegion="polite" className="font-heading-bold text-dark/70 text-[11px] tracking-label uppercase mt-md text-center">Building first 7 day trend</Text> : null}
+      {!scoreUnavailable && baselineBuilding ? <Text accessibilityLiveRegion="polite" className="font-heading-bold text-dark/70 text-[14px] leading-[20px] tracking-label uppercase mt-md text-center">Building first 7 day trend</Text> : null}
     </View>
   );
 }
