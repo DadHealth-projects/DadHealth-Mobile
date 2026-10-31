@@ -65,10 +65,10 @@ function ProUpgradeSection({
         </Text>
 
         {lead ? (
-          <Text className="font-body text-white text-[13px] leading-[19px] mt-sm">{lead}</Text>
+          <Text className="font-body text-white text-[14px] leading-[19px] mt-sm">{lead}</Text>
         ) : null}
 
-        <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-sm">
+        <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-sm">
           {moment.body}
         </Text>
       </View>

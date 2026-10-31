@@ -116,12 +116,12 @@ function ProPromptModal({
               </View>
 
               {lead ? (
-                <Text className="font-body text-white text-[13px] leading-[20px]">
+                <Text className="font-body text-white text-[14px] leading-[20px]">
                   {lead}
                 </Text>
               ) : null}
 
-              <Text className="font-body text-muted-text text-[13px] leading-[20px]">
+              <Text className="font-body text-muted-text text-[14px] leading-[20px]">
                 {moment.body}
               </Text>
 
