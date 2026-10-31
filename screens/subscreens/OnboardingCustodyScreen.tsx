@@ -110,7 +110,7 @@ export default function OnboardingCustodyScreen({ navigation, route }: Props) {
                     <Text className="text-[28px] leading-[32px]">{option.icon}</Text>
                     <View className="flex-1">
                       <Text className={`font-heading-bold text-[20px] leading-[22px] uppercase ${selected ? 'text-lime' : 'text-white'}`}>{option.label}</Text>
-                      <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">{option.sub}</Text>
+                      <Text className="font-body text-muted-text text-[14px] leading-[19px] mt-xs">{option.sub}</Text>
                     </View>
                   </Card>
                 </Pressable>

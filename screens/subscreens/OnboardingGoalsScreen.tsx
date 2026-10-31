@@ -88,7 +88,7 @@ export default function OnboardingGoalsScreen() {
                     <Text className="text-[28px] leading-[32px]">{goal.icon}</Text>
                     <View className="flex-1">
                       <Text className={`font-heading-bold text-[20px] leading-[22px] uppercase ${selected ? 'text-lime' : 'text-white'}`}>{goal.title}</Text>
-                      <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">{goal.sub}</Text>
+                      <Text className="font-body text-muted-text text-[14px] leading-[19px] mt-xs">{goal.sub}</Text>
                     </View>
                   </Card>
                 </Pressable>
