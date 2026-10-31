@@ -42,8 +42,8 @@ function PillarCard({
         </Text>
 
         <Text
-          className={`mt-[3px] font-body text-[12px] leading-[18px] ${
-            lime ? 'text-dark/60' : 'text-muted-text'
+          className={`mt-[3px] font-body text-[14px] leading-[18px] ${
+            lime ? 'text-dark/75' : 'text-muted-text'
           }`}
         >
           {description}
