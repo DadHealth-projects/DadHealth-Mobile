@@ -190,7 +190,7 @@ export default function CommunityFeedScreen() {
       >
         {circleId ? <View className="min-h-[44px] flex-row items-center justify-between" accessibilityRole="header">
           <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Back to previous screen" className="min-h-[44px] flex-row items-center gap-xs"><Feather name="chevron-left" size={20} color={colors.lime} /><Text className="font-heading-bold text-lime text-[11px] uppercase">Post Thread</Text></Pressable>
-          {circleJoined === true ? <Pressable onPress={toggleCircleMembership} disabled={circleBusy} accessibilityRole="button" accessibilityState={{ selected: true, disabled: circleBusy }} accessibilityLabel={`Leave ${circle?.name ?? 'Circle'}`} className="min-h-[40px] rounded-full border border-lime/50 px-md items-center justify-center"><Text className="font-heading-bold text-[10px] uppercase text-lime">{circleBusy ? 'Saving' : 'Joined ✓'}</Text></Pressable> : <View className="w-[88px]" />}
+          {circleJoined === true ? <Pressable onPress={toggleCircleMembership} disabled={circleBusy} accessibilityRole="button" accessibilityState={{ selected: true, disabled: circleBusy }} accessibilityLabel={`Leave ${circle?.name ?? 'Circle'}`} className="min-h-[44px] rounded-full border border-lime/50 px-md items-center justify-center"><Text className="font-heading-bold text-[12px] uppercase text-lime">{circleBusy ? 'Saving' : 'Joined ✓'}</Text></Pressable> : <View className="w-[88px]" />}
         </View> : <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityLabel="Go back" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />}
         {circleId ? circleJoined === true || circleLoading ? (
           <View className="mt-xl gap-md">
@@ -206,11 +206,11 @@ export default function CommunityFeedScreen() {
 >
   {circle.name}
 </Text>
-                  {circle.visibility === 'private' ? <Text className="font-heading-bold text-tertiary-text text-[9px] uppercase mt-xs">Private Circle</Text> : null}
+                  {circle.visibility === 'private' ? <Text className="font-heading-bold text-tertiary-text text-[11px] uppercase mt-xs">Private Circle</Text> : null}
                 </View>
               </View>
-              {circle.description ? <Text numberOfLines={2} className="font-body text-muted-text text-[13px] leading-[20px]">{circle.description}</Text> : null}
-              <Text className="font-heading-bold text-tertiary-text text-[9px] uppercase mt-sm">{circle.members_count ?? 0} {circle.members_count === 1 ? 'dad' : 'dads'}</Text>
+              {circle.description ? <Text className="font-body text-muted-text text-[14px] leading-[20px]">{circle.description}</Text> : null}
+              <Text className="font-heading-bold text-tertiary-text text-[12px] uppercase mt-sm">{circle.members_count ?? 0} {circle.members_count === 1 ? 'dad' : 'dads'}</Text>
               {circleJoined === true ? <Pressable onPress={openComposer} accessibilityRole="button" className="mt-md min-h-[48px] rounded-button bg-lime items-center justify-center active:opacity-80"><Text className="font-heading-bold text-dark text-[12px] uppercase">Create Post</Text></Pressable> : null}
             </View> : null}
           </View>
@@ -229,7 +229,7 @@ export default function CommunityFeedScreen() {
         {circleId && circleJoined === true && activeCircleTab === 'about' ? <View className="mt-lg gap-md">
           <Text className="font-heading-bold text-white text-[16px] uppercase">About this Circle</Text>
           {circle?.description ? <Text className="font-body text-muted-text text-[14px] leading-[22px]">{circle.description}</Text> : <Text className="font-body text-muted-text text-[14px]">No Circle description available.</Text>}
-          <Text className="font-heading-bold text-tertiary-text text-[10px] uppercase">{circle?.members_count ?? 0} {circle?.members_count === 1 ? 'dad' : 'dads'}</Text>
+          <Text className="font-heading-bold text-tertiary-text text-[12px] uppercase">{circle?.members_count ?? 0} {circle?.members_count === 1 ? 'dad' : 'dads'}</Text>
         </View> : circleId && circleJoined !== true ? <View className="flex-1 items-center justify-center px-md">
           {circleJoined === null ? circleLoading ? <View className="h-[48px]" /> : <Pressable onPress={() => void loadCircle()} accessibilityRole="button" className="min-h-[48px] items-center justify-center"><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable>
               : circle ? <View className="w-full items-center">
@@ -244,7 +244,7 @@ export default function CommunityFeedScreen() {
                 : feed.posts.length === 0 ? <Text className="font-body text-muted-text text-[14px]">No posts yet. Be the first to share.</Text>
                   : feed.posts.map((post) => <InteractiveFeedPost key={post.id} post={post} showCircleName={!circleId} liked={feed.likedIds.has(post.id)} saved={feed.savedIds.has(post.id)} owner={Boolean(user?.id && (post.user_id === user.id || feed.anonymousOwnedIds.has(post.id)))} busy={feed.busyId === post.id || feed.likeBusyIds.has(post.id)} onLike={() => runUpdate(() => feed.toggleLike(post.id))} onSave={() => runUpdate(() => feed.toggleSave(post.id))} onThread={() => openThread(post.id)} onDelete={() => runUpdate(() => feed.deletePost(post.id))} />)}
           {(!circleId || activeCircleTab === 'discussion') && (circleId ? circleJoined === true : true) && feed.hasMore ? <View className="min-h-[48px] items-center justify-center border-y border-border mt-md">
-            {feed.loadingMore ? <ActivityIndicator color={colors.lime} size="small" /> : feed.paginationError ? <View className="flex-row items-center gap-md"><Text className="font-body text-muted-text text-[11px]">{feed.paginationError}</Text><Pressable onPress={() => void feed.loadMore()} disabled={feed.isOffline} accessibilityRole="button"><Text className="font-heading-bold text-lime text-[11px] uppercase">Retry</Text></Pressable></View> : null}
+            {feed.loadingMore ? <ActivityIndicator color={colors.lime} size="small" /> : feed.paginationError ? <View className="flex-row items-center gap-md"><Text className="font-body text-muted-text text-[14px] leading-[20px]">{feed.paginationError}</Text><Pressable onPress={() => void feed.loadMore()} disabled={feed.isOffline} accessibilityRole="button"><Text className="font-heading-bold text-lime text-[12px] uppercase">Retry</Text></Pressable></View> : null}
           </View> : null}
         </View>}
       </ScrollView>

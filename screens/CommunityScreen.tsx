@@ -254,26 +254,26 @@ export default function CommunityScreen({
       </FadeInView>
 
       <FadeInView delay={105}>
-        <Pressable onPress={() => navigation.navigate('CommunityFeed')} accessibilityRole="button" accessibilityLabel="Open Community Conversations" className="min-h-[64px] flex-row items-center gap-md rounded-card border border-border bg-card px-md active:opacity-75">
-          <View className="h-[38px] w-[38px] rounded-full bg-lime items-center justify-center"><Feather name="message-circle" size={18} color={colors.dark} /></View>
-          <View className="flex-1"><Text className="font-heading-bold text-white text-[13px] uppercase">Community Conversations</Text><Text className="font-body text-muted-text text-[11px] mt-xs">Read and share with the whole community</Text></View>
+        <Pressable onPress={() => navigation.navigate('CommunityFeed')} accessibilityRole="button" accessibilityLabel="Open Community Conversations" className="min-h-[96px] flex-row items-center gap-md rounded-card border border-border bg-card p-md active:opacity-75">
+          <View className="h-[44px] w-[44px] shrink-0 rounded-full bg-lime items-center justify-center"><Feather name="message-circle" size={20} color={colors.dark} /></View>
+          <View className="flex-1"><Text className="font-heading-bold text-white text-[13px] uppercase">Community Conversations</Text><Text className="font-body text-muted-text text-[14px] leading-[20px] mt-xs">Read and share with the whole community</Text></View>
           <Feather name="chevron-right" size={18} color={colors.lime} />
         </Pressable>
       </FadeInView>
 
       <FadeInView delay={120}>
         <SectionHeader title="Live sessions" className="mb-md" />
-        {liveSessionsLoading ? <View className="gap-sm"><View className="h-[54px] border-y border-border bg-white/[0.02]" /><View className="h-[54px] border-b border-border bg-white/[0.02]" /></View> : liveSessionsError ? null : liveSessions.length === 0 ? <Text className="font-body text-muted-text text-[13px]">No live sessions are scheduled yet.</Text> : <View>{liveSessions.map((session) => <View key={session.id} className="border-b border-border py-md gap-xs"><Text className="font-heading-bold text-lime text-[14px] uppercase">{session.title}</Text><Text className="font-body text-tertiary-text text-[11px]">{session.host_name ? `Host: ${session.host_name}` : 'Host TBD'}{session.starts_at ? ` · ${new Date(session.starts_at).toLocaleString()}` : ''}</Text>{session.summary ? <Text className="font-body text-tertiary-text text-[13px] leading-[19px] mt-xs">{session.summary}</Text> : null}</View>)}</View>}
+        {liveSessionsLoading ? <View className="gap-sm"><View className="h-[54px] border-y border-border bg-white/[0.02]" /><View className="h-[54px] border-b border-border bg-white/[0.02]" /></View> : liveSessionsError ? null : liveSessions.length === 0 ? <Text className="font-body text-muted-text text-[14px]">No live sessions are scheduled yet.</Text> : <View>{liveSessions.map((session) => <View key={session.id} className="border-b border-border py-md gap-xs"><Text className="font-heading-bold text-lime text-[14px] uppercase">{session.title}</Text><Text className="font-body text-tertiary-text text-[12px] leading-[18px]">{session.host_name ? `Host: ${session.host_name}` : 'Host TBD'}{session.starts_at ? ` · ${new Date(session.starts_at).toLocaleString()}` : ''}</Text>{session.summary ? <Text className="font-body text-tertiary-text text-[14px] leading-[19px] mt-xs">{session.summary}</Text> : null}</View>)}</View>}
       </FadeInView>
 
       <FadeInView delay={140}>
         <SectionHeader title="Trending in Dad Circles" className="mb-md" />
-        {trendingCircleLoading ? <View className="gap-sm"><View className="h-[72px] border-b border-border bg-white/[0.02]" /><View className="h-[72px] border-b border-border bg-white/[0.02]" /></View> : trendingCircleError ? null : trendingCirclePosts.length === 0 ? <Text className="font-body text-muted-text text-[13px]">No trending Circle posts yet.</Text> : <View>{trendingCirclePosts.map((post) => (
+        {trendingCircleLoading ? <View className="gap-sm"><View className="h-[72px] border-b border-border bg-white/[0.02]" /><View className="h-[72px] border-b border-border bg-white/[0.02]" /></View> : trendingCircleError ? null : trendingCirclePosts.length === 0 ? <Text className="font-body text-muted-text text-[14px]">No trending Circle posts yet.</Text> : <View>{trendingCirclePosts.map((post) => (
           <Pressable key={post.post_id} onPress={() => navigation.navigate('CommunityPostThread', { postId: post.post_id })} accessibilityRole="button" accessibilityLabel={`Open trending post from ${post.circle_name}`} className="border-b border-border py-md gap-sm active:opacity-75">
             <View className="flex-row items-center justify-between gap-md">
-              <Text numberOfLines={1} className="flex-1 font-heading-bold text-lime text-[10px] tracking-label uppercase">{post.circle_name}</Text>
-              <View className="bg-lime px-sm py-[3px]">
-                <Text className="font-heading-bold text-dark text-[9px] uppercase">{communityTagLabel(post.tag)}</Text>
+              <Text numberOfLines={1} className="flex-1 font-heading-bold text-lime text-[12px] tracking-label uppercase">{post.circle_name}</Text>
+              <View className="bg-lime px-sm py-xs">
+                <Text className="font-heading-bold text-dark text-[11px] uppercase">{communityTagLabel(post.tag)}</Text>
               </View>
             </View>
             <View className="flex-row items-center gap-sm">
@@ -286,8 +286,8 @@ export default function CommunityScreen({
                 const engagement = feed.posts.find((feedPost) => feedPost.id === post.post_id);
                 return engagement ? (
                   <View className="flex-row items-center gap-md">
-                    <View className="flex-row items-center gap-xs"><Feather name="heart" size={13} color={colors.tertiaryText} /><Text className="font-body text-tertiary-text text-[11px]">{engagement.likes_count}</Text></View>
-                    <View className="flex-row items-center gap-xs"><Feather name="message-circle" size={13} color={colors.tertiaryText} /><Text className="font-body text-tertiary-text text-[11px]">{engagement.replies_count}</Text></View>
+                    <View className="flex-row items-center gap-xs"><Feather name="heart" size={13} color={colors.tertiaryText} /><Text className="font-body text-tertiary-text text-[12px]">{engagement.likes_count}</Text></View>
+                    <View className="flex-row items-center gap-xs"><Feather name="message-circle" size={13} color={colors.tertiaryText} /><Text className="font-body text-tertiary-text text-[12px]">{engagement.replies_count}</Text></View>
                   </View>
                 ) : <View />;
               })()}
@@ -299,7 +299,7 @@ export default function CommunityScreen({
 
       <FadeInView delay={160}>
         <SectionHeader title="Trending topics" className="mb-md" />
-        {trendingLoading ? <View className="gap-sm"><View className="h-[42px] border-y border-border bg-white/[0.02]" /><View className="h-[42px] border-b border-border bg-white/[0.02]" /></View> : trendingError ? null : trendingTags.length === 0 ? <Text className="font-body text-muted-text text-[13px]">No trending tags yet.</Text> : <View>{trendingTags.map((trend) => <View key={trend.tag} className="min-h-[42px] flex-row items-center justify-between border-b border-border"><Text className="font-heading-bold text-lime text-[14px]">{trend.tag}</Text><Text className="font-heading-bold text-tertiary-text text-[11px]">{trend.count}</Text></View>)}</View>}
+        {trendingLoading ? <View className="gap-sm"><View className="h-[42px] border-y border-border bg-white/[0.02]" /><View className="h-[42px] border-b border-border bg-white/[0.02]" /></View> : trendingError ? null : trendingTags.length === 0 ? <Text className="font-body text-muted-text text-[14px]">No trending tags yet.</Text> : <View>{trendingTags.map((trend) => <View key={trend.tag} className="min-h-[42px] flex-row items-center justify-between border-b border-border"><Text className="font-heading-bold text-lime text-[14px]">{trend.tag}</Text><Text className="font-heading-bold text-tertiary-text text-[12px]">{trend.count}</Text></View>)}</View>}
       </FadeInView>
     </PillarScreen>
   );
