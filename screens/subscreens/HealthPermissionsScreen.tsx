@@ -100,7 +100,7 @@ export default function HealthPermissionsScreen() {
               </View>
               <View className="flex-1">
                 <Text className="font-heading-bold text-white text-[13px] uppercase">{title}</Text>
-                <Text className="font-body text-muted-text text-[11px] leading-[17px] mt-xs">{description}</Text>
+                <Text className="font-body text-muted-text text-[14px] leading-[20px] mt-xs">{description}</Text>
               </View>
             </View>
           ))}
@@ -116,8 +116,8 @@ export default function HealthPermissionsScreen() {
               <View className="flex-row items-center justify-between gap-md">
                 <View className="flex-1">
                   <Text className="font-heading-bold text-lime text-[12px] uppercase">{providerCopy.connected}</Text>
-                  <Text className="font-body text-muted-text text-[11px] leading-[17px] mt-xs">{isAndroid ? 'You can change what Dad Health can access anytime in Health Connect settings.' : 'You can change what Dad Health can access anytime in Apple Health or iPhone Settings.'}</Text>
-                  <Text className="font-body text-tertiary-text text-[11px] mt-xs">{formatLastSync(health.integration?.last_sync_at ?? null)}</Text>
+                  <Text className="font-body text-muted-text text-[14px] leading-[20px] mt-xs">{isAndroid ? 'You can change what Dad Health can access anytime in Health Connect settings.' : 'You can change what Dad Health can access anytime in Apple Health or iPhone Settings.'}</Text>
+                  <Text className="font-body text-tertiary-text text-[12px] mt-xs">{formatLastSync(health.integration?.last_sync_at ?? null)}</Text>
                 </View>
                 <Feather name="check-circle" size={20} color={colors.lime} />
               </View>
@@ -129,7 +129,7 @@ export default function HealthPermissionsScreen() {
           ) : (
             <>
               <Text className="font-heading-bold text-white text-[13px] uppercase">{providerCopy.connect}</Text>
-              <Text className="font-body text-muted-text text-[12px] leading-[19px]">Allow Dad Health to read your health data so Body activity stays up to date automatically.</Text>
+              <Text className="font-body text-muted-text text-[14px] leading-[19px]">Allow Dad Health to read your health data so Body activity stays up to date automatically.</Text>
               <LimeButton
                 label={providerCopy.connect}
                 onPress={() => void connect()}
@@ -137,7 +137,7 @@ export default function HealthPermissionsScreen() {
                 disabled={health.capability !== 'available'}
               />
               {health.capability !== 'available' ? (
-                <Text className="font-body text-muted-text text-[12px] leading-[19px]">{isAndroid && health.capability === 'provider_update_required' ? 'Health Connect needs to be updated before Dad Health can connect.' : providerCopy.unavailable}</Text>
+                <Text className="font-body text-muted-text text-[14px] leading-[19px]">{isAndroid && health.capability === 'provider_update_required' ? 'Health Connect needs to be updated before Dad Health can connect.' : providerCopy.unavailable}</Text>
               ) : null}
               {isAndroid && health.capability === 'available' ? (
                 <Pressable onPress={manageAccess} accessibilityRole="button" className="min-h-[44px] self-start justify-center border-b border-lime active:opacity-70">
@@ -148,7 +148,7 @@ export default function HealthPermissionsScreen() {
           )}
 
           <InlineFormError message={health.error} />
-          {message ? <Text accessibilityRole="alert" className="font-body text-lime text-[12px] leading-[18px]">{message}</Text> : null}
+          {message ? <Text accessibilityRole="alert" className="font-body text-lime text-[14px] leading-[18px]">{message}</Text> : null}
         </View>
       </ScrollView>
     </SafeAreaView>
