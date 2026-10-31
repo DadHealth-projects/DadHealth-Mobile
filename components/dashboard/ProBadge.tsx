@@ -13,7 +13,7 @@ function ProBadge({ variant = 'pro' }: { variant?: 'pro' | 'trial' }) {
       className="flex-row items-center gap-[4px] rounded-full bg-lime px-sm py-[4px]"
     >
       {isTrial ? <Feather name="check" size={10} color={colors.dark} /> : <Feather name="lock" size={10} color={colors.dark} />}
-      <Text className="font-heading-bold text-dark text-[9px] uppercase">{isTrial ? 'Trial' : 'Pro'}</Text>
+      <Text className="font-heading-bold text-dark text-[11px] uppercase">{isTrial ? 'Trial' : 'Pro'}</Text>
     </View>
   );
 }
