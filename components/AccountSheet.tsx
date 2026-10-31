@@ -270,8 +270,7 @@ export default function AccountSheet({
 
             {variant === 'account' && session && email ? (
               <Text
-                className="font-body text-tertiary-text text-[13px] text-center mb-md px-lg"
-                numberOfLines={1}
+                className="font-body text-tertiary-text text-[14px] leading-[20px] text-center mb-md px-lg"
               >
                 {email}
               </Text>

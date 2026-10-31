@@ -66,7 +66,7 @@ export default function ProLockedPreview({
         <Text className="font-heading-bold text-white text-[17px] uppercase mt-xs">
           {lock.heading}
         </Text>
-        <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">
+        <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-xs">
           {lock.body}
         </Text>
       </View>
