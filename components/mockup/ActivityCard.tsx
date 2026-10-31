@@ -43,7 +43,7 @@ function ActivityCard({
         </Text>
 
         {description ? (
-          <Text className="font-body text-muted-text text-[12px] leading-[17px] mt-xs">
+          <Text className="font-body text-muted-text text-[14px] leading-[17px] mt-xs">
             {description}
           </Text>
         ) : null}

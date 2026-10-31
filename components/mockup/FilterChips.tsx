@@ -26,7 +26,7 @@ function FilterChips<T extends string>({ options, selected, onSelect }: FilterCh
           >
             <Text
               className={`font-heading-bold text-[10px] tracking-[0.5px] uppercase ${
-                on ? 'text-lime' : 'text-white/40'
+                on ? 'text-lime' : 'text-white/70'
               }`}
             >
               {option.label}
