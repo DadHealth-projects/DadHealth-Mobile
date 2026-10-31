@@ -25,20 +25,20 @@ export default function ManualActivitySection({ pillar, userId }: { pillar: Manu
         </Pressable>
       </View>
       {loading && activities.length === 0 ? (
-        <Text className="font-body text-muted-text text-[12px]">Loading your activity…</Text>
+        <Text className="font-body text-muted-text text-[14px]">Loading your activity…</Text>
       ) : activities.length ? (
         <View className="gap-xs">
           {activities.slice(0, 3).map((activity) => (
             <View key={activity.id} className="flex-row items-center justify-between gap-sm py-xs">
-              <Text numberOfLines={1} className="flex-1 font-body text-white text-[13px]">
+              <Text className="flex-1 font-body text-white text-[14px] leading-[20px]">
                 {manualActivityLabel(activity)}
               </Text>
-              <Text className="font-body text-muted-text text-[11px]">{activity.activity_date}</Text>
+              <Text className="font-body text-muted-text text-[12px]">{activity.activity_date}</Text>
             </View>
           ))}
         </View>
       ) : (
-        <Text className="font-body text-muted-text text-[12px]">Your logged activities will appear here.</Text>
+        <Text className="font-body text-muted-text text-[14px]">Your logged activities will appear here.</Text>
       )}
       <Pressable onPress={history} accessibilityRole="button" accessibilityLabel={`View ${pillar} activity history`} className="self-start min-h-[40px] justify-center active:opacity-70">
         <Text className="font-heading-bold text-lime text-[10px] uppercase">View activity history</Text>

@@ -164,7 +164,7 @@ export default function ManualActivityLogScreen() {
                 <View className="min-h-[48px] flex-row items-center justify-between border-b border-border">
                   <View className="flex-1 pr-md">
                     <Text className="font-body-semibold text-white text-[14px]">Contact day</Text>
-                    <Text className="font-body text-muted-text text-[11px]">Context for your activity history</Text>
+                    <Text className="font-body text-muted-text text-[14px] leading-[20px]">Context for your activity history</Text>
                   </View>
                   <Switch value={contactDay} onValueChange={setContactDay} disabled={category === 'remote'} trackColor={{ false: '#383A3D', true: `${colors.lime}88` }} thumbColor={contactDay ? colors.lime : '#A5A5A5'} accessibilityLabel="Contact day" />
                 </View>
@@ -183,13 +183,13 @@ export default function ManualActivityLogScreen() {
               </Field>
 
               {showShortDurationNote ? (
-                <Text className="font-body text-muted-text text-[12px] leading-[18px]">
+                <Text className="font-body text-muted-text text-[14px] leading-[18px]">
                   {pillar === 'mind' ? 'Activities under 5 minutes don’t contribute to your score.' : 'Activities under 15 minutes don’t contribute to your score.'}
                 </Text>
               ) : null}
               {pillar === 'bond' && activityType === 'mini_partners' ? (
                 <Pressable onPress={() => { void Linking.openURL('https://dadhealth.co.uk/minipartners'); }} accessibilityRole="link" className="self-start">
-                  <Text className="font-body text-muted-text text-[11px] underline">Not a Mini Partners member? Find out more at dadhealth.co.uk/minipartners</Text>
+                  <Text className="font-body text-muted-text text-[14px] leading-[20px] underline">Not a Mini Partners member? Find out more at dadhealth.co.uk/minipartners</Text>
                 </Pressable>
               ) : null}
 
@@ -217,7 +217,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function ChoiceChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ selected }} className={`min-h-[40px] justify-center rounded-full border px-md ${selected ? 'border-lime bg-lime/15' : 'border-border bg-card'} active:opacity-70`}>
-      <Text className={`font-body-semibold text-[12px] capitalize ${selected ? 'text-lime' : 'text-muted-text'}`}>{label}</Text>
+      <Text className={`font-body-semibold text-[14px] capitalize ${selected ? 'text-lime' : 'text-muted-text'}`}>{label}</Text>
     </Pressable>
   );
 }
