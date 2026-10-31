@@ -54,7 +54,7 @@ export default function TherapistDirectoryScreen() {
           <View className="gap-md border-y border-border py-xl">
             <Feather name="lock" size={24} color={colors.lime} />
             <Text className="font-heading-bold text-white text-[18px] uppercase">Login required</Text>
-            <Text className="font-body text-muted-text text-[13px] leading-[20px]">Log in to access the therapist and counsellor directory.</Text>
+            <Text className="font-body text-muted-text text-[14px] leading-[20px]">Log in to access the therapist and counsellor directory.</Text>
             <LimeButton label="Log in" onPress={openLogin} />
           </View>
         ) : directory.loading ? (
@@ -64,7 +64,7 @@ export default function TherapistDirectoryScreen() {
         ) : directory.therapists.length === 0 ? (
           <View className="border-y border-border py-xl">
             <Text className="font-heading-bold text-white text-[17px] uppercase">No therapists available yet</Text>
-            <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">Therapist and counsellor listings will appear here.</Text>
+            <Text className="font-body text-muted-text text-[14px] leading-[19px] mt-xs">Therapist and counsellor listings will appear here.</Text>
           </View>
         ) : (
           <View className="gap-sm">
@@ -85,7 +85,7 @@ function TherapistRow({ therapist, onBook }: { therapist: Therapist; onBook: () 
         </View>
         <View className="flex-1 min-w-0">
           <Text className="font-heading-bold text-white text-[16px] uppercase">{therapist.name}</Text>
-          {therapist.spec ? <Text className="font-body text-muted-text text-[12px] leading-[18px] mt-xs">{therapist.spec}</Text> : null}
+          {therapist.spec ? <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-xs">{therapist.spec}</Text> : null}
         </View>
       </View>
       <View className="flex-row gap-md border-t border-border pt-md">
@@ -103,7 +103,7 @@ function Detail({ icon, label }: { icon: keyof typeof Feather.glyphMap; label: s
   return (
     <View className="flex-1 flex-row items-center gap-xs min-w-0">
       <Feather name={icon} size={14} color={colors.lime} />
-      <Text numberOfLines={2} className="font-body text-muted-text text-[11px] leading-[16px] flex-1">{label}</Text>
+      <Text className="font-body text-muted-text text-[14px] leading-[20px] flex-1">{label}</Text>
     </View>
   );
 }
