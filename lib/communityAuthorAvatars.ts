@@ -16,7 +16,7 @@ export async function loadCommunityAuthorAvatars(contributions: readonly Communi
   if (error || !Array.isArray(data)) return new Map<string, string>();
 
   const avatars = new Map<string, string>();
-  for (const row of data as Array<{ user_id?: unknown; avatar_url?: unknown }>) {
+  for (const row of data as Array<{ contribution_id?: unknown; avatar_url?: unknown }>) {
     if (typeof row.contribution_id === 'string' && typeof row.avatar_url === 'string' && row.avatar_url.trim()) {
       avatars.set(row.contribution_id, row.avatar_url.trim());
     }

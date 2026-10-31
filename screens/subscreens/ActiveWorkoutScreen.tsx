@@ -19,7 +19,7 @@ import { useDashboard } from '../../hooks/useDashboard';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { useFitnessLibrary } from '../../hooks/useFitnessLibrary';
 import ProUpgradeSection from '../../components/ProUpgradeSection';
-import { PRO_LOCKS } from '../../lib/proMoments';
+import { PRO_MOMENTS } from '../../lib/proMoments';
 import { navigateToProSubscription } from '../../lib/proNavigation';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -71,7 +71,7 @@ export default function ActiveWorkoutScreen() {
             <PillarSkeleton cards={3} />
           ) : lockedAiWorkout && aiWorkoutAccess === false ? (
             <ProUpgradeSection
-              moment={PRO_LOCKS.aiWorkout}
+              moment={PRO_MOMENTS.aiWorkout}
               source="ai_workout"
               feature="ai_workout"
               userId={user?.id}

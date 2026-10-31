@@ -23,7 +23,7 @@ import { useEntitlement } from '../../hooks/useEntitlement';
 import type { FitnessWorkout } from '../../hooks/useFitnessLibrary';
 import { useFitnessLibrary } from '../../hooks/useFitnessLibrary';
 import { generateAIWorkout, WorkoutGenerationError } from '../../lib/aiWorkout';
-import { PRO_LOCKS } from '../../lib/proMoments';
+import { PRO_MOMENTS } from '../../lib/proMoments';
 import { navigateToProSubscription } from '../../lib/proNavigation';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -234,7 +234,7 @@ export default function AIWorkoutScreen() {
         {!user ? (
           <LimeButton label="Log in to generate" onPress={openLogin} />
         ) : aiWorkoutAccess === false ? (
-          <ProUpgradeSection moment={PRO_LOCKS.aiWorkout} source="ai_workout" feature="ai_workout" userId={user.id} onPress={openPro} />
+          <ProUpgradeSection moment={PRO_MOMENTS.aiWorkout} source="ai_workout" feature="ai_workout" userId={user.id} onPress={openPro} />
         ) : aiWorkoutAccess !== true ? (
           <View className="gap-sm">
             <Text className="font-body text-muted-text text-[14px]">Check access to continue.</Text>
