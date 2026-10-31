@@ -37,7 +37,7 @@ export default function GlobalConnectivityToast() {
     >
       <View className={`max-w-[520px] flex-row items-center gap-sm rounded-button border bg-[#171A10] px-md py-sm shadow-lg ${border}`}>
         <Feather name={icon} size={15} color={accent} />
-        <Text className="flex-1 font-body text-white text-[13px] leading-[18px]">{message}</Text>
+        <Text className="flex-1 font-body text-white text-[14px] leading-[18px]">{message}</Text>
       </View>
     </View>
   );

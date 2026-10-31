@@ -23,7 +23,7 @@ export default function InlineFormError({ message, surface = 'dark', className =
       accessibilityRole="alert"
       className={`border-l-2 pl-md ${onLime ? 'border-[#7F1D1D]' : 'border-[#F87171]'} ${className}`}
     >
-      <Text className={`font-body text-[13px] leading-[19px] ${onLime ? 'text-[#7F1D1D]' : 'text-[#F87171]'}`}>
+      <Text className={`font-body text-[14px] leading-[19px] ${onLime ? 'text-[#7F1D1D]' : 'text-[#F87171]'}`}>
         {message}
       </Text>
     </View>
