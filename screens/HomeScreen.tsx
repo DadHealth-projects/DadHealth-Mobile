@@ -77,7 +77,11 @@ export default function HomeScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.lime} />
           }
         >
-        <AppTopBar showBrand />
+        <AppTopBar
+          showBrand
+          brandAlign="center"
+          brandSource={require('../assets/02. DAD HEALTH LOGO_COLOR_Dark BG.png')}
+        />
 
         <FadeInView>
           <ScreenHero

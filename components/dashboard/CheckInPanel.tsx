@@ -35,10 +35,10 @@ function CheckInPanel({
 }: CheckInPanelProps) {
   return (
     <View>
-      <Text className="font-heading-bold text-dark/75 text-[14px] tracking-[0.5px] uppercase mb-sm">How&apos;s your head today?</Text>
+      <Text className="font-heading-bold text-dark/60 text-[11px] tracking-[0.5px] uppercase mb-sm">How&apos;s your head today?</Text>
       <MoodCheckInRow selectedKey={selectedKey} onSelect={onSelectMood} disabled={saving} />
 
-      <Text className="font-heading-bold text-dark/75 text-[14px] tracking-[0.5px] uppercase mt-lg mb-sm">
+      <Text className="font-heading-bold text-dark/60 text-[11px] tracking-[0.5px] uppercase mt-lg mb-sm">
         How are you feeling physically?
       </Text>
       <CheckInScaleRow
@@ -48,7 +48,7 @@ function CheckInPanel({
         disabled={saving}
       />
 
-      <Text className="font-heading-bold text-dark/75 text-[14px] tracking-[0.5px] uppercase mt-lg mb-sm">How connected do you feel today?</Text>
+      <Text className="font-heading-bold text-dark/60 text-[11px] tracking-[0.5px] uppercase mt-lg mb-sm">How connected do you feel today?</Text>
       <CheckInScaleRow
         options={['Disconnected', 'Distant', 'Neutral', 'Connected', 'Very connected']}
         selectedValue={connectionLevel}
@@ -58,12 +58,12 @@ function CheckInPanel({
 
       <View className="flex-row items-end gap-sm mt-md">
         <View className="flex-1">
-          <Text className="font-heading-bold text-dark/75 text-[12px] tracking-[0.5px] uppercase mb-xs">Sleep (optional)</Text>
+          <Text className="font-heading-bold text-dark/50 text-[10px] tracking-[0.5px] uppercase mb-xs">Sleep (optional)</Text>
           <TextInput
             value={sleep}
             onChangeText={(value) => onChangeSleep(value.replace(/[^0-9.]/g, ''))}
             placeholder="Add sleep hours"
-            placeholderTextColor="rgba(10,10,10,0.75)"
+            placeholderTextColor="rgba(10,10,10,0.35)"
             keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'decimal-pad'}
             returnKeyType="done"
             onSubmitEditing={() => Keyboard.dismiss()}
@@ -122,9 +122,9 @@ function CheckInScaleRow({
             accessibilityRole="radio"
             accessibilityState={{ checked: selected }}
             accessibilityLabel={label}
-            className={`flex-1 min-h-[52px] rounded-[8px] border px-1 py-2 items-center justify-center ${selected ? 'border-dark bg-dark' : 'border-dark/20'}`}
+            className={`flex-1 min-h-[52px] rounded-[8px] border px-1 py-2 items-center justify-center ${selected ? 'border-dark bg-dark/10' : 'border-dark/20'}`}
           >
-            <Text className={`font-heading-bold text-[12px] leading-[15px] uppercase text-center ${selected ? 'text-lime' : 'text-dark/75'}`}>
+            <Text className="font-heading-bold text-[9px] leading-[11px] uppercase text-center text-dark/60">
               {label}
             </Text>
           </Pressable>
