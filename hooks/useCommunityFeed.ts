@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 
 import { useNetworkStatus } from '../contexts/NetworkContext';
 import { readCommunityCache, writeCommunityCache } from '../lib/offlineStorage';
 import { loadCommunityAuthorAvatars } from '../lib/communityAuthorAvatars';
 import { deleteCommunityPost, toggleCommunityPostLike, toggleCommunityPostSave } from '../lib/communityPostActions';
 import { supabase } from '../lib/supabase';
+import { buildCommunityInFilters, createRefreshDeduper, createRealtimeRefreshScheduler, isCommunityFeedChangeRelevant } from '../lib/communityRealtime.mjs';
 
 export type CommunityFeedPost = { id: string; user_id: string | null; content: string; tag: string; circle_id: string | null; circle_name: string | null; anonymous: boolean; author_initials: string; author_name: string; author_meta: string; avatar_url: string | null; created_at: string; likes_count: number; replies_count: number };
 
@@ -21,11 +24,22 @@ type CommunityPostRow = {
   created_at: string | null;
 };
 
+type CommunityChangePayload = {
+  table?: string;
+  eventType?: string;
+  old?: Record<string, unknown>;
+  new?: Record<string, unknown>;
+};
+
 let communityFeedChannelSequence = 0;
 const PAGE_SIZE = 50;
 
 export function useCommunityFeed(userId?: string, circleId?: string) {
   const { isOffline } = useNetworkStatus();
+  const focused = useIsFocused();
+  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
+  const screenActiveRef = useRef(false);
+  screenActiveRef.current = focused && appState === 'active';
   const [posts, setPosts] = useState<CommunityFeedPost[]>([]);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
@@ -43,6 +57,13 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
   const likeLocks = useRef(new Set<string>());
   const otherActionLocks = useRef(new Set<string>());
   const requestSequence = useRef(0);
+  const refreshDeduper = useRef(createRefreshDeduper());
+  const postsRef = useRef(posts);
+  postsRef.current = posts;
+  const realtimePostIds = posts.map((post) => post.id).sort();
+  const realtimePostIdsKey = realtimePostIds.join(',');
+  const realtimePostIdFilters = buildCommunityInFilters(realtimePostIds, 'post_id');
+  const [membershipEventVersion, setMembershipEventVersion] = useState(0);
   const cacheOwner = useRef<string | null>(userId ?? null);
   const clearCirclePosts = useCallback(() => {
     setPosts((current) => current.filter((post) => post.circle_id === null));
@@ -51,7 +72,11 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
     setAnonymousOwnedIds(new Set());
   }, []);
 
-  const refresh = useCallback(async (silent = false) => {
+  const refresh = useCallback((silent = false): Promise<void> => {
+    const nextOwner = userId ?? null;
+    const requestKey = `${nextOwner ?? 'guest'}:${circleId ?? 'global'}`;
+    return refreshDeduper.current(requestKey, async () => {
+    if (!screenActiveRef.current) return;
     const requestId = ++requestSequence.current;
     if (!silent) setLoading(true);
     setError(null);
@@ -59,7 +84,6 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
     nextOffset.current = 0;
     setHasMore(false);
 
-    const nextOwner = userId ?? null;
     if (cacheOwner.current !== nextOwner) {
       cacheOwner.current = nextOwner;
       setPosts([]);
@@ -143,6 +167,7 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
     } finally {
       if (requestId === requestSequence.current) setLoading(false);
     }
+    });
   }, [circleId, isOffline, userId]);
 
   const loadMore = useCallback(async () => {
@@ -187,24 +212,66 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
     }
   }, [circleId, hasMore, isOffline, loading, loadingMore, userId]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
-    if (isOffline) { clearCirclePosts(); return; }
-    // Each effect setup gets a fresh channel name. Effect cleanup removes channels
-    // asynchronously, so reusing a name can return an already-subscribed channel
-    // during a fast reconnect/remount.
+    const appStateSubscription = AppState.addEventListener('change', setAppState);
+    return () => appStateSubscription.remove();
+  }, []);
+
+  useEffect(() => {
+    if (focused && appState === 'active') void refresh();
+    return () => { requestSequence.current += 1; };
+  }, [appState, focused, refresh]);
+
+  useEffect(() => {
+    if (!focused || appState !== 'active' || isOffline || !userId) return;
+
+    const scheduler = createRealtimeRefreshScheduler(() => refresh(true));
     const channelId = `${Date.now()}-${++communityFeedChannelSequence}`;
-    const channel = supabase.channel(`community-mobile-${channelId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => void refresh(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => void refresh(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => void refresh(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'saved_posts' }, () => void refresh(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_circles' }, () => {
+    const handleMembershipChange = (payload: CommunityChangePayload) => {
+      if (!isCommunityFeedChangeRelevant(payload, { circleId, visiblePostIds: new Set(), userId })) return;
+      setMembershipEventVersion((version) => version + 1);
+      const changedCircleIds = [payload.old, payload.new].flatMap((row) => {
+        if (!row || typeof row !== 'object') return [];
+        const changedCircleId = row.circle_id;
+        return typeof changedCircleId === 'string' ? [changedCircleId] : [];
+      });
+      if (circleId && (changedCircleIds.length === 0 || changedCircleIds.includes(circleId))) {
         clearCirclePosts();
-        void refresh(true);
-      }).subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [circleId, clearCirclePosts, isOffline, refresh, userId]);
+        scheduler.schedule();
+      }
+    };
+    let channel = supabase.channel(`community-mobile-${channelId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, (payload) => {
+        const visiblePostIds = new Set(postsRef.current.map((post) => post.id));
+        if (isCommunityFeedChangeRelevant(payload, { circleId, visiblePostIds, userId })) scheduler.schedule();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_circles', filter: `user_id=eq.${userId}` }, handleMembershipChange);
+
+    for (const postIdFilter of realtimePostIdFilters) {
+      channel = channel
+        // One filtered listener per table and ID chunk covers INSERT/UPDATE/
+        // DELETE. DELETE filters may not be applied by Postgres Changes, so
+        // relevance is checked against the payload and visible post IDs.
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'likes', filter: postIdFilter }, (payload) => {
+          const visiblePostIds = new Set(postsRef.current.map((post) => post.id));
+          if (isCommunityFeedChangeRelevant(payload, { circleId, visiblePostIds, userId })) scheduler.schedule();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: postIdFilter }, (payload) => {
+          const visiblePostIds = new Set(postsRef.current.map((post) => post.id));
+          if (isCommunityFeedChangeRelevant(payload, { circleId, visiblePostIds, userId })) scheduler.schedule();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'saved_posts', filter: `user_id=eq.${userId},${postIdFilter}` }, (payload) => {
+          const visiblePostIds = new Set(postsRef.current.map((post) => post.id));
+          if (isCommunityFeedChangeRelevant(payload, { circleId, visiblePostIds, userId })) scheduler.schedule();
+        });
+    }
+    channel.subscribe();
+
+    return () => {
+      scheduler.dispose();
+      void supabase.removeChannel(channel);
+    };
+  }, [appState, circleId, clearCirclePosts, focused, isOffline, realtimePostIdsKey, refresh, userId]);
 
   const toggleLike = useCallback(async (postId: string) => {
     if (!userId) return 'Log in to like posts.';
@@ -263,7 +330,7 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
     } finally { otherActionLocks.current.delete(postId); setBusyId(null); }
   }, [isOffline, refresh, userId]);
 
-  return { posts, likedIds, savedIds, anonymousOwnedIds, loading, loadingMore, hasMore, paginationError, busyId, likeBusyIds, error, showingCached, isOffline, refresh, loadMore, clearCirclePosts, toggleLike, toggleSave, deletePost };
+  return { posts, likedIds, savedIds, anonymousOwnedIds, loading, loadingMore, hasMore, paginationError, busyId, likeBusyIds, error, showingCached, isOffline, refresh, loadMore, clearCirclePosts, membershipEventVersion, toggleLike, toggleSave, deletePost };
 }
 
 async function hydratePosts(rows: CommunityPostRow[], userId?: string) {

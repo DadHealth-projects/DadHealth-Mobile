@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, AppState, type AppStateStatus, Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Crypto from 'expo-crypto';
 
@@ -14,6 +14,7 @@ import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { trackEvent } from '../../lib/analytics';
 import { communityTagLabel } from '../../lib/communityLabels';
 import { loadCommunityAuthorAvatars } from '../../lib/communityAuthorAvatars';
+import { createRefreshDeduper, createRealtimeRefreshScheduler, isCommunityCommentChangeRelevant, isCommunityCommentLikeRelevant, isCommunityPostActivityChangeRelevant } from '../../lib/communityRealtime.mjs';
 import { deleteCommunityPost, toggleCommunityPostLike, toggleCommunityPostSave } from '../../lib/communityPostActions';
 import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
@@ -28,8 +29,17 @@ export default function CommunityPostThreadScreen() {
   const route = useRoute<RouteProp<AppStackParamList, 'CommunityPostThread'>>();
   const { user } = useAuth();
   const { isOffline, showOfflineAction } = useNetworkStatus();
+  const focused = useIsFocused();
+  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState ?? 'unknown');
+  const screenActiveRef = useRef(false);
+  screenActiveRef.current = focused && appState === 'active';
   const [post, setPost] = useState<PostDetails | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
+  const commentIdsRef = useRef<Set<string>>(new Set());
+  const likeIdsRef = useRef<Set<string>>(new Set());
+  const savedPostRowIdRef = useRef<string | null>(null);
+  const loadSequence = useRef(0);
+  const loadDeduper = useRef(createRefreshDeduper());
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [owner, setOwner] = useState(false);
@@ -49,7 +59,11 @@ export default function CommunityPostThreadScreen() {
   const [commentSafeToRetry, setCommentSafeToRetry] = useState(false);
   const commentSubmitInFlight = useRef(false);
 
-  const load = useCallback(async (silent = false) => {
+  const load = useCallback((silent = false): Promise<void> => {
+    const requestKey = `${user?.id ?? 'guest'}:${route.params.postId}`;
+    return loadDeduper.current(requestKey, async () => {
+    if (!screenActiveRef.current) return;
+    const requestId = ++loadSequence.current;
     if (isOffline) { setLoading(false); setError(null); return; }
     if (!silent) setLoading(true);
     try {
@@ -57,6 +71,7 @@ export default function CommunityPostThreadScreen() {
       supabase.from('posts').select('id,user_id,content,author_name,author_initials,anonymous,tag,circle_id,created_at').eq('id', route.params.postId).maybeSingle(),
       supabase.from('comments').select('id,user_id,content,parent_id,created_at,anonymous,author_name').eq('post_id', route.params.postId).order('created_at', { ascending: true }),
     ]);
+    if (requestId !== loadSequence.current) return;
     if (postResult.error || commentResult.error || !postResult.data) {
       if (!postResult.error && !postResult.data) setPost(null);
       setError('We could not load this conversation. Please try again.');
@@ -66,10 +81,11 @@ export default function CommunityPostThreadScreen() {
     const row = postResult.data;
     const [circleResult, likesResult, savedResult, anonymousOwnerResult] = await Promise.all([
       row.circle_id ? supabase.from('circles').select('name,icon').eq('id', String(row.circle_id)).maybeSingle() : Promise.resolve({ data: null, error: null }),
-      supabase.from('likes').select('user_id').eq('post_id', route.params.postId),
-      user?.id ? supabase.from('saved_posts').select('post_id').eq('post_id', route.params.postId).eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+      supabase.from('likes').select('id,user_id').eq('post_id', route.params.postId),
+      user?.id ? supabase.from('saved_posts').select('id,post_id').eq('post_id', route.params.postId).eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
       user?.id ? supabase.from('anonymous_post_owners').select('post_id').eq('post_id', route.params.postId).eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ]);
+    if (requestId !== loadSequence.current) return;
     if (circleResult.error || likesResult.error || savedResult.error || anonymousOwnerResult.error) {
       setError('We could not load all Community activity. Please try again.');
       setLoading(false);
@@ -80,6 +96,7 @@ export default function CommunityPostThreadScreen() {
     const commentLikesResult = commentIds.length
       ? await supabase.from('comment_likes').select('comment_id,user_id').in('comment_id', commentIds)
       : { data: [], error: null };
+    if (requestId !== loadSequence.current) return;
     if (commentLikesResult.error) { setError('We could not load all Community activity. Please try again.'); setLoading(false); return; }
     const likeCounts = new Map<string, number>();
     const likedCommentIds = new Set<string>();
@@ -96,10 +113,12 @@ export default function CommunityPostThreadScreen() {
         ...rows.map((item) => ({ contribution_id: String(item.id), kind: 'comment' as const, anonymous: item.anonymous === true })),
       ]),
     ]);
+    if (requestId !== loadSequence.current) return;
     let activityWarning: string | null = profileResult.error ? 'We could not load all Community activity. Please try again.' : null;
     const names = new Map((profileResult.data ?? []).map((profile: { user_id: string; display_name: string | null }) => [String(profile.user_id), profile.display_name?.trim() || null]));
     if (names.size < userIds.length || [...names.values()].some((name) => !name)) {
       const authorResult = await supabase.rpc('get_comment_author_names', { p_user_ids: userIds });
+      if (requestId !== loadSequence.current) return;
       if (authorResult.error) activityWarning = 'We could not load all Community activity. Please try again.';
       (authorResult.data ?? []).forEach((profile: { user_id: string; display_name: string | null }) => {
         if (profile.display_name?.trim()) names.set(String(profile.user_id), profile.display_name.trim());
@@ -115,34 +134,60 @@ export default function CommunityPostThreadScreen() {
     });
     setLiked(Boolean(user?.id && likesResult.data?.some((item: { user_id: string }) => item.user_id === user.id)));
     setSaved(Boolean(savedResult.data));
+    likeIdsRef.current = new Set((likesResult.data ?? []).map((item: { id: string }) => String(item.id)));
+    savedPostRowIdRef.current = savedResult.data?.id ? String(savedResult.data.id) : null;
     setOwner(Boolean(user?.id && (row.user_id === user.id || anonymousOwnerResult.data)));
-    setComments(rows.map((item) => {
+    const nextComments = rows.map((item) => {
       const id = String(item.id);
       const storedAuthor = String(item.author_name ?? '').trim();
       const resolvedAuthor = storedAuthor || names.get(String(item.user_id)) || (String(item.user_id) === user?.id ? 'You' : 'Dad');
       const anonymous = item.anonymous === true;
       return { id, user_id: String(item.user_id), content: String(item.content), parent_id: item.parent_id ? String(item.parent_id) : null, created_at: String(item.created_at), anonymous, author: anonymous ? 'Anonymous' : resolvedAuthor, author_initials: anonymous ? 'A' : safeInitials(resolvedAuthor), avatar_url: anonymous ? null : avatarUrls.get(id) ?? null, likes_count: likeCounts.get(id) ?? 0, user_liked: likedCommentIds.has(id) };
-    }));
+    });
+    commentIdsRef.current = new Set(nextComments.map((comment) => comment.id));
+    setComments(nextComments);
     setError(activityWarning);
     } catch {
-      setError('We could not load this conversation. Please try again.');
+      if (requestId === loadSequence.current) setError('We could not load this conversation. Please try again.');
     } finally {
-      setLoading(false);
+      if (requestId === loadSequence.current) setLoading(false);
     }
+    });
   }, [isOffline, route.params.postId, user?.id]);
 
   useEffect(() => {
+    const appStateSubscription = AppState.addEventListener('change', setAppState);
+    return () => appStateSubscription.remove();
+  }, []);
+
+  useEffect(() => {
+    if (!focused || appState !== 'active') return;
     void load();
-    if (isOffline) return;
+    if (isOffline || !user?.id) return () => { loadSequence.current += 1; };
+
+    const scheduler = createRealtimeRefreshScheduler(() => load(true));
     const channel = supabase.channel(`mobile-thread-${route.params.postId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts', filter: `id=eq.${route.params.postId}` }, () => void load(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `post_id=eq.${route.params.postId}` }, () => void load(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'comment_likes' }, () => void load(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'likes', filter: `post_id=eq.${route.params.postId}` }, () => void load(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'saved_posts', filter: `post_id=eq.${route.params.postId}` }, () => void load(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts', filter: `id=eq.${route.params.postId}` }, () => scheduler.schedule())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `post_id=eq.${route.params.postId}` }, (payload) => {
+        if (isCommunityCommentChangeRelevant(payload, route.params.postId, commentIdsRef.current)) scheduler.schedule();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comment_likes' }, (payload) => {
+        if (isCommunityCommentLikeRelevant(payload, commentIdsRef.current)) scheduler.schedule();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'likes', filter: `post_id=eq.${route.params.postId}` }, (payload) => {
+        if (isCommunityPostActivityChangeRelevant(payload, route.params.postId, likeIdsRef.current, user?.id)) scheduler.schedule();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'saved_posts', filter: `user_id=eq.${user?.id},post_id=eq.${route.params.postId}` }, (payload) => {
+        const visibleSavedIds = new Set(savedPostRowIdRef.current ? [savedPostRowIdRef.current] : []);
+        if (isCommunityPostActivityChangeRelevant(payload, route.params.postId, visibleSavedIds, user?.id)) scheduler.schedule();
+      })
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [isOffline, load, route.params.postId]);
+    return () => {
+      loadSequence.current += 1;
+      scheduler.dispose();
+      void supabase.removeChannel(channel);
+    };
+  }, [appState, focused, isOffline, load, route.params.postId, user?.id]);
 
   const roots = useMemo(() => comments.filter((comment) => !comment.parent_id), [comments]);
   const replies = useMemo(() => { const map = new Map<string, Comment[]>(); comments.filter((comment) => comment.parent_id).forEach((comment) => { const list = map.get(comment.parent_id!) ?? []; list.push(comment); map.set(comment.parent_id!, list); }); return map; }, [comments]);

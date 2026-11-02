@@ -97,15 +97,9 @@ export default function CommunityScreen({
   }, [isOffline]);
 
   const loadTrending = useCallback(async () => {
+    if (isOffline) return;
     setTrendingLoading(true);
     setTrendingError(null);
-    if (isOffline) {
-      const counts = new Map<string, number>();
-      feed.posts.forEach((post) => { if (post.tag) { const tag = communityTagLabel(`#${post.tag.replace(/^#/, '')}`); counts.set(tag, (counts.get(tag) ?? 0) + 1); } });
-      setTrendingTags([...counts.entries()].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count).slice(0, 5));
-      setTrendingLoading(false);
-      return;
-    }
     try {
       const { data: trends, error: trendError } = await supabase.rpc('trending_post_tags', { limit_n: 5 });
       if (trendError || !Array.isArray(trends)) {
@@ -116,7 +110,7 @@ export default function CommunityScreen({
     } catch {
       setTrendingError('We could not load trending topics. Please try again.');
     } finally { setTrendingLoading(false); }
-  }, [feed.error, feed.posts, isOffline]);
+  }, [isOffline]);
 
   const loadTrendingCirclePosts = useCallback(async () => {
     setTrendingCircleLoading(true);
@@ -160,21 +154,29 @@ export default function CommunityScreen({
     }
   }, [feed.refresh, loadCircles, loadLiveSessions, loadTrending, loadTrendingCirclePosts, refresh]);
   useEffect(() => {
-    if (isOffline || !user?.id) return;
-    const channel = supabase.channel(`community-circle-memberships-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_circles', filter: `user_id=eq.${user.id}` }, () => {
-        feed.clearCirclePosts();
-        setTrendingCirclePosts([]);
-        void Promise.all([loadCircles(true), loadTrendingCirclePosts()]);
-      }).subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [feed.clearCirclePosts, isOffline, loadCircles, loadTrendingCirclePosts, user?.id]);
+    if (feed.membershipEventVersion === 0) return;
+    setTrendingCirclePosts([]);
+    void Promise.all([loadCircles(true), loadTrendingCirclePosts()]);
+  }, [feed.membershipEventVersion, loadCircles, loadTrendingCirclePosts]);
 
-  useEffect(() => { void loadTrending(); }, [loadTrending]);
+  useEffect(() => {
+    if (!isOffline) return;
+    const counts = new Map<string, number>();
+    feed.posts.forEach((post) => {
+      if (post.tag) {
+        const tag = communityTagLabel(`#${post.tag.replace(/^#/, '')}`);
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      }
+    });
+    setTrendingTags([...counts.entries()].map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count).slice(0, 5));
+    setTrendingLoading(false);
+    setTrendingError(null);
+  }, [feed.posts, isOffline]);
+
   useFocusEffect(useCallback(() => {
-    void Promise.all([feed.refresh(true), loadTrendingCirclePosts()]);
+    void Promise.all([loadTrending(), loadTrendingCirclePosts()]);
     return undefined;
-  }, [feed.refresh, loadTrendingCirclePosts]));
+  }, [loadTrending, loadTrendingCirclePosts]));
 
   useEffect(() => { void loadCircles(); }, [loadCircles]);
   useEffect(() => { void loadLiveSessions(); }, [loadLiveSessions]);

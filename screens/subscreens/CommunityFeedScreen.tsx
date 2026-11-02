@@ -106,9 +106,14 @@ export default function CommunityFeedScreen() {
       initialFocusRef.current = false;
       return undefined;
     }
-    void Promise.all([feed.refresh(true), loadCircle(true)]);
+    void loadCircle(true);
     return undefined;
-  }, [feed.refresh, loadCircle]));
+  }, [loadCircle]));
+
+  useEffect(() => {
+    if (feed.membershipEventVersion === 0 || !circleId) return;
+    void loadCircle(true);
+  }, [circleId, feed.membershipEventVersion, loadCircle]);
 
   const onRefresh = useCallback(async () => {
     if (refreshInFlight.current) return;

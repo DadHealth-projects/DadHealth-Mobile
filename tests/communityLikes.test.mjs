@@ -36,14 +36,14 @@ test('post-like state is loaded and reconciled through the existing refresh/real
   assert.match(screen, /feed\.busyId === post\.id \|\| feed\.likeBusyIds\.has\(post\.id\)/);
 });
 
-test('Community realtime setup uses a fresh non-identifying channel before subscribing', async () => {
+test('Community feed realtime listeners filter by visible records and require an active authenticated screen', async () => {
   const hook = await read('hooks/useCommunityFeed.ts');
-  const effectStart = hook.indexOf("useEffect(() => {\n    if (isOffline) { clearCirclePosts(); return; }");
-  const effectEnd = hook.indexOf("\n  }, [circleId, clearCirclePosts, isOffline, refresh, userId]);", effectStart);
-  const realtimeEffect = hook.slice(effectStart, effectEnd);
 
-  assert.match(realtimeEffect, /const channelId = `\$\{Date\.now\(\)\}-\$\{\+\+communityFeedChannelSequence\}`/);
-  assert.match(realtimeEffect, /supabase\.channel\(`community-mobile-\$\{channelId\}`\)/);
-  assert.ok(realtimeEffect.indexOf(".on('postgres_changes'") < realtimeEffect.indexOf('.subscribe()'));
-  assert.doesNotMatch(realtimeEffect, /userId|user\?\.id/);
+  assert.match(hook, /useIsFocused\(\)/);
+  assert.match(hook, /appState !== 'active' \|\| isOffline \|\| !userId/);
+  assert.match(hook, /filter: `user_id=eq\.\$\{userId\}`/);
+  assert.match(hook, /isCommunityFeedChangeRelevant\(payload/);
+  assert.match(hook, /scheduler\.schedule\(\)/);
+  assert.match(hook, /scheduler\.dispose\(\)/);
+  assert.match(hook, /supabase\.removeChannel\(channel\)/);
 });

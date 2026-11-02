@@ -31,7 +31,9 @@ test('Circle feed scopes posts; Community Conversations reads global posts only'
   assert.doesNotMatch(hook, /rpc\('get_community_global_feed'/);
   assert.match(hook, /if \(!circleId\) await writeCommunityCache/);
   assert.match(hook, /clearCirclePosts/);
-  assert.match(community, /community-circle-memberships/);
+  assert.doesNotMatch(community, /supabase\.channel\(/);
+  assert.match(hook, /table: 'user_circles', filter: `user_id=eq\.\$\{userId\}`/);
+  assert.match(hook, /membershipEventVersion/);
   assert.match(feed, /CreateCommunityPost', circleId \? \{ circleId \}/);
   assert.match(community, /navigation\.navigate\('CommunityFeed', \{ circleId \}\)/);
   assert.match(circleCard, /onOpen\(id\)/);
@@ -73,7 +75,8 @@ test('Circle thread hides posts from nonmembers and keeps member-only composer',
   assert.match(feed, /This circle is here when you need it\./);
   assert.match(feed, /circleId && circleJoined !== true/);
   assert.match(feed, /navigation\.navigate\('CreateCommunityPost', circleId \? \{ circleId \} : undefined\)/);
-  assert.match(feed, /feed\.refresh\(true\)/);
+  assert.match(feed, /useFocusEffect[\s\S]*?loadCircle\(true\)/);
+  assert.match(feed, /feed\.refresh\(\)/);
   assert.match(feed, /feed\.loadMore\(\)/);
 });
 
@@ -166,5 +169,6 @@ test('Create Post preserves Circle context and General posts use null circle_id'
   assert.match(create, /savingRef\.current/);
   assert.match(create, /navigation\.goBack\(\)/);
   assert.match(feed, /useFocusEffect/);
-  assert.match(feed, /feed\.refresh\(true\)/);
+  assert.match(feed, /useFocusEffect/);
+  assert.match(feed, /feed\.refresh\(\)/);
 });
