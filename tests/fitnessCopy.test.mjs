@@ -12,10 +12,10 @@ test('Fitness uses the selected workout name, move count, duration and equipment
   assert.match(source, /const workoutMeta = selectedWorkout[\s\S]*?\$\{selectedWorkout\.duration_mins\} min/);
   assert.match(source, /const workoutMeta = selectedWorkout[\s\S]*?EQUIPMENT_LABEL\[selectedWorkout\.equipment\]/);
   assert.match(source, /EQUIPMENT_LABEL\[selectedWorkout\.equipment\]/);
-  assert.match(source, /<Text className="font-body text-muted-text[^>]*>[\s\S]*\{workoutMeta\}[\s\S]*<\/Text>/);
+  assert.match(source, /<Text className="font-body text-muted-text[^>]*>[\s\S]*selectedWorkout\s*\?[\s\S]*workoutMeta[\s\S]*<\/Text>/);
   assert.doesNotMatch(source, /sub=\{workoutMeta\}/);
   assert.match(source, /\{workoutName\}/);
-  assert.match(source, /\{workoutMeta\}/);
+  assert.match(source, /\?\s*workoutMeta/);
   assert.doesNotMatch(source, /workout \+ meal planner hub/i);
 });
 
@@ -66,4 +66,15 @@ test('Fitness replaces missing-data zeros with useful onboarding prompts', async
   assert.doesNotMatch(summary, /weightDisplay: '0'/);
   assert.doesNotMatch(summary, /stepsDisplay: '0'/);
   assert.doesNotMatch(summary, /activeDisplay: '0 min'/);
+});
+
+test('Workout Library opens as a modal and sends the selected workout ID to the existing session', async () => {
+  const source = await readFile(new URL('screens/FitnessScreen.tsx', root), 'utf8');
+
+  assert.match(source, /accessibilityLabel="Open Workout Library"/);
+  assert.match(source, /<Modal[\s\S]*?visible=\{workoutLibraryOpen\}/);
+  assert.match(source, /accessibilityLabel="Close Workout Library"/);
+  assert.match(source, /navigation\.navigate\('ActiveWorkout', \{ workoutId: workout\.id \}\)/);
+  assert.match(source, /const availableWorkouts = useMemo\([\s\S]*?workoutLibraryAccess === true[\s\S]*?weeklyWorkoutAccess/);
+  assert.doesNotMatch(source, /SectionHeader title="Workout library"/);
 });

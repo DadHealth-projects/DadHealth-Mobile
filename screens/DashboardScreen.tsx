@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { User } from '@supabase/supabase-js';
-import { useNavigation, useRoute, type NavigationProp } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../components/AppTopBar';
 import type { DashboardSection } from '../components/AccountSheet';
@@ -117,10 +117,11 @@ export function DashboardScreenContent({
   onScoreDetailRequestConsumed?: () => void;
 }) {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
+  const isFocused = useIsFocused();
   const route = useRoute();
   const { requestMoment } = useUpgradeMomentManager();
   const { data, loading, error: dashboardError, syncError, checkingIn, refresh, saveCheckIn } = useDashboard(user.id);
-  const weeklyWorkoutState = useFitnessLibrary(user.id, activeSection === 'HOME');
+  const weeklyWorkoutState = useFitnessLibrary(user.id, activeSection === 'HOME', activeSection === 'HOME' && isFocused);
   const cookTogetherState = useCookTogetherRecipes(user.id);
   const {
     weeklyWorkout,
@@ -515,7 +516,7 @@ export function DashboardScreenContent({
           {!data ? (
             <View className="gap-md">
               {checkInMessage ? (
-                <Text accessibilityLiveRegion="polite" className="font-body text-lime text-[14px] leading-[19px]">{checkInMessage}</Text>
+                <Text accessibilityLiveRegion="polite" className="font-body text-lime text-[13px] leading-[19px]">{checkInMessage}</Text>
               ) : !dashboardError || isOffline ? (
                 <>
                   <DadScoreCard
@@ -527,7 +528,7 @@ export function DashboardScreenContent({
                   />
                   <View onLayout={captureCheckInOffset} className="bg-lime rounded-card px-xl py-xl mt-lg">
                     <Text className="font-heading-bold text-dark text-[22px] uppercase mb-xs">Today's check-in</Text>
-                    <Text className="font-body text-dark/75 text-[14px] leading-[18px] mb-lg">One question for your Mind, Body and Bond.</Text>
+                    <Text className="font-body text-dark/60 text-[13px] leading-[18px] mb-lg">One question for your Mind, Body and Bond.</Text>
                     <CheckInPanel
                       selectedKey={moodKey}
                       onSelectMood={handleSelectMood}
@@ -546,7 +547,7 @@ export function DashboardScreenContent({
               ) : (
                 <View accessibilityLiveRegion="polite" className="bg-card rounded-card px-xl py-lg">
                   <Text className="font-heading-bold text-white text-[16px] uppercase">Check-in status unavailable</Text>
-                  <Text className="font-body text-muted-text text-[14px] leading-[19px] mt-xs">
+                  <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">
                     Pull down to check your saved check-in again.
                   </Text>
                 </View>
@@ -587,7 +588,7 @@ export function DashboardScreenContent({
               {data.checkedInToday === null ? (
                 <View accessibilityLiveRegion="polite" className="bg-card rounded-card px-xl py-lg">
                   <Text className="font-heading-bold text-white text-[16px] uppercase">Check-in status</Text>
-                  <Text className="font-body text-muted-text text-[14px] leading-[19px] mt-xs">
+                  <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">
                     Checking whether today's check-in is saved.
                   </Text>
                 </View>
@@ -597,7 +598,7 @@ export function DashboardScreenContent({
                   <Text className="font-heading-bold text-dark text-[22px] uppercase mb-xs">Today's check-in</Text>
                   {!data.checkedInToday && !showCheckInSuccess ? (
                     <>
-                      <Text className="font-body text-dark/75 text-[14px] leading-[18px] mb-lg">One question for your Mind, Body and Bond.</Text>
+                      <Text className="font-body text-dark/60 text-[13px] leading-[18px] mb-lg">One question for your Mind, Body and Bond.</Text>
                     <CheckInPanel
                       selectedKey={moodKey}
                       onSelectMood={handleSelectMood}
@@ -617,7 +618,7 @@ export function DashboardScreenContent({
                       <Text className="font-heading-bold text-dark text-[24px]">✓</Text>
                       <View className="flex-1">
                         <Text className="font-heading-bold text-dark text-[16px] uppercase">Check-in complete</Text>
-                        <Text accessibilityLiveRegion="polite" className="font-body text-dark/75 text-[14px] leading-[19px] mt-xs">
+                        <Text accessibilityLiveRegion="polite" className="font-body text-dark/65 text-[13px] leading-[19px] mt-xs">
                           {checkInMessage ?? 'Your check-in is saved for Mind, Body and Bond.'}
                         </Text>
                       </View>
