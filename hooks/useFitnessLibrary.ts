@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 import { useNetworkStatus } from '../contexts/NetworkContext';
 import { supabase } from '../lib/supabase';
+import { createFitnessLibraryRefreshGate, shouldRefreshFitnessLibraryOnResume } from '../lib/fitnessLibraryRefresh';
 import { selectWeeklyWorkout } from '../lib/weeklyWorkoutSelection';
 
 export type FitnessWorkoutExercise = {
@@ -106,7 +107,12 @@ async function loadFitnessLibrary(userId: string | undefined, forceFresh: boolea
   return request;
 }
 
-export function useFitnessLibrary(userId?: string, enabled = true) {
+export function useFitnessLibrary(
+  userId?: string,
+  enabled = true,
+  appStateRefreshEnabled = enabled,
+  focusRefreshEnabled = enabled,
+) {
   const { isOffline } = useNetworkStatus();
   const [workouts, setWorkouts] = useState<FitnessWorkout[]>([]);
   const [weeklyWorkout, setWeeklyWorkout] = useState<FitnessWorkout | null>(null);
@@ -115,6 +121,7 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
   const [error, setError] = useState<string | null>(null);
   const latestRequest = useRef(0);
   const hasFocused = useRef(false);
+  const [automaticRefreshGate] = useState(() => createFitnessLibraryRefreshGate());
 
   const load = useCallback(async (forceFresh: boolean) => {
     const requestId = ++latestRequest.current;
@@ -133,16 +140,27 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
     setError(null);
     setAssignmentKnown(false);
     setWeeklyWorkout(null);
-    const result = await loadFitnessLibrary(userId, forceFresh);
-    if (requestId !== latestRequest.current) return;
-    setWorkouts(result.workouts);
-    setWeeklyWorkout(result.weeklyWorkout);
-    setAssignmentKnown(result.assignmentKnown);
-    setError(result.error);
-    setLoading(false);
+    try {
+      const result = await loadFitnessLibrary(userId, forceFresh);
+      if (requestId !== latestRequest.current) return;
+      setWorkouts(result.workouts);
+      setWeeklyWorkout(result.weeklyWorkout);
+      setAssignmentKnown(result.assignmentKnown);
+      setError(result.error);
+    } catch {
+      if (requestId !== latestRequest.current) return;
+      setError(userId
+        ? 'We could not load your workouts. Please try again.'
+        : 'We could not load the workout library. Please try again.');
+    } finally {
+      if (requestId === latestRequest.current) setLoading(false);
+    }
   }, [enabled, isOffline, userId]);
 
   const refresh = useCallback(() => load(true), [load]);
+  const refreshAutomatically = useCallback((source: 'focus' | 'resume') => {
+    void automaticRefreshGate(source, () => load(true));
+  }, [automaticRefreshGate, load]);
 
   useEffect(() => {
     void load(false);
@@ -153,15 +171,21 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
       hasFocused.current = true;
       return;
     }
-    if (userId && !isOffline) void load(true);
-  }, [isOffline, load, userId]));
+    if (userId && !isOffline && enabled && focusRefreshEnabled) refreshAutomatically('focus');
+  }, [enabled, focusRefreshEnabled, isOffline, refreshAutomatically, userId]));
 
   useEffect(() => {
     let previousState = AppState.currentState;
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active' && previousState !== 'active' && userId) {
-        if (!isOffline) void load(true);
-        else latestRequest.current += 1;
+      const resumed = nextState === 'active' && previousState !== 'active' && Boolean(userId);
+      if (resumed) {
+        if (isOffline) latestRequest.current += 1;
+        else if (shouldRefreshFitnessLibraryOnResume({
+          nextState,
+          previousState,
+          userId,
+          enabled: appStateRefreshEnabled,
+        })) refreshAutomatically('resume');
       }
       previousState = nextState;
     });
@@ -169,7 +193,7 @@ export function useFitnessLibrary(userId?: string, enabled = true) {
       latestRequest.current += 1;
       subscription.remove();
     };
-  }, [isOffline, load, userId]);
+  }, [appStateRefreshEnabled, isOffline, refreshAutomatically, userId]);
 
   return { workouts, weeklyWorkout, assignmentKnown, loading, error, refresh };
 }

@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import type { DashboardSection } from '../components/AccountSheet';
@@ -29,6 +30,8 @@ import { PRO_LOCKS, PRO_MOMENTS } from '../lib/proMoments';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 import { syncAppleHealthIfConnected } from '../lib/appleHealth';
 import { navigateToProSubscription } from '../lib/proNavigation';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '../theme';
 
 const EMPTY_BODY_WEEK = [0, 0, 0, 0, 0, 0, 0];
 
@@ -84,11 +87,12 @@ export default function FitnessScreen({
   const { data: fitnessSummary, loading: summaryLoading, refresh: refreshSummary } = useFitnessSummary(
     standalone ? user?.id : undefined,
   );
-  const fitnessLibrary = useFitnessLibrary(user?.id, standalone);
+  const fitnessLibrary = useFitnessLibrary(user?.id, standalone, standalone, false);
   const refreshLibrary = fitnessLibrary.refresh;
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
+  const [workoutLibraryOpen, setWorkoutLibraryOpen] = useState(false);
   const [accessCheckAttempted, setAccessCheckAttempted] = useState(false);
   const checkEntitlement = useCallback(async () => {
     setAccessCheckAttempted(true);
@@ -188,7 +192,7 @@ export default function FitnessScreen({
       onSelectDashboardSection={onSelectDashboardSection}
     >
       <GlobalErrorToastReporter message={data?.scoreError} />
-      <GlobalErrorToastReporter message={fitnessLibrary.error} />
+      <GlobalErrorToastReporter message={workoutLibraryOpen ? null : fitnessLibrary.error} />
       <FadeInView>
         {standalone ? (
           <View>
@@ -310,23 +314,69 @@ export default function FitnessScreen({
         )}
       </FadeInView>
 
-      {standalone ? (
+            {standalone ? (
         <FadeInView delay={165}>
           <View>
-            <SectionHeader title="Workout library" className="mb-md" />
-            <FlatSection className="gap-md">
-              <View className="flex-row items-center justify-between gap-sm">
-                <Text className="font-heading-bold text-muted-text text-[11px] tracking-[1px] uppercase">
+            <Pressable
+              onPress={() => setWorkoutLibraryOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Open Workout Library"
+              className="flex-row items-center gap-md border-b border-border py-md"
+            >
+              <MaterialCommunityIcons name="dumbbell" size={23} color={colors.lime} />
+              <View className="flex-1">
+                <Text className="font-heading-bold text-white text-[16px] uppercase">Workout Library</Text>
+                <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-xs">
+                  Browse all available workouts
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={20} color={colors.lime} />
+            </Pressable>
+          </View>
+        </FadeInView>
+      ) : null}
+
+      {standalone ? (
+        <Modal
+          visible={workoutLibraryOpen}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={() => setWorkoutLibraryOpen(false)}
+        >
+          <SafeAreaView edges={['top', 'left', 'right', 'bottom']} className="flex-1 bg-dark">
+            <View className="flex-row items-center justify-between border-b border-border px-lg py-md">
+              <View className="flex-1">
+                <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Body</Text>
+                <Text className="font-heading-bold text-white text-[22px] uppercase mt-xs">Workout Library</Text>
+              </View>
+              <Pressable
+                onPress={() => setWorkoutLibraryOpen(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close Workout Library"
+                hitSlop={12}
+                className="h-11 w-11 items-center justify-center rounded-full border border-border"
+              >
+                <Feather name="x" size={22} color={colors.text} />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20, paddingBottom: 40 }}>
+              <View className="flex-row items-center justify-between gap-sm mb-md">
+                <Text className="font-heading-bold text-muted-text text-[11px] tracking-[1px] uppercase flex-1">
                   {!hasUser ? 'Log in to view available workouts' : workoutLibraryAccess === true ? 'All available workouts' : workoutLibraryAccess === false ? 'This week’s workout and saved workouts' : 'Checking access'}
                 </Text>
                 {hasUser ? <TagPill label={`${availableWorkouts.length} shown`} tone="outline" /> : null}
               </View>
-
+              {fitnessLibrary.error ? (
+                <View className="gap-md mb-md">
+                  <InlineFormError message={fitnessLibrary.error} />
+                  <LimeButton label="Try again" onPress={() => void refreshLibrary()} loading={fitnessLibrary.loading} />
+                </View>
+              ) : null}
               {fitnessLibrary.loading && hasUser ? (
                 <View className="gap-sm py-sm">
                   {[0, 1, 2].map((item) => <View key={item} className="h-[64px] rounded-button bg-white/5" />)}
                 </View>
-              ) : availableWorkouts.length === 0 ? (
+              ) : fitnessLibrary.error ? null : availableWorkouts.length === 0 ? (
                 <View className="py-md">
                   <Text className="font-body text-muted-text text-[14px] leading-[19px]">
                     {!hasUser
@@ -341,34 +391,37 @@ export default function FitnessScreen({
               ) : (
                 <View className="gap-sm">
                   {availableWorkouts.map((workout) => {
-                  const selected = selectedWorkout?.id === workout.id;
-                  return (
-                    <Pressable
-                      key={workout.id}
-                      onPress={() => setSelectedWorkoutId(workout.id)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Select ${workout.title}`}
-                      accessibilityState={{ selected }}
-                      className={`rounded-button border p-md active:opacity-80 ${
-                        selected ? 'border-lime bg-lime/10' : 'border-border bg-dark/30'
-                      }`}
-                    >
-                      <Text className="font-heading-bold text-white text-[15px] tracking-[0.5px] uppercase">
-                        {workout.title}
-                      </Text>
-                      <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-xs">
-                        {workout.duration_mins} min · {EQUIPMENT_LABEL[workout.equipment]} · {FOCUS_LABEL[workout.focus]}
-                      </Text>
-                    </Pressable>
-                  );
+                    const selected = selectedWorkout?.id === workout.id;
+                    return (
+                      <Pressable
+                        key={workout.id}
+                        onPress={() => {
+                          setSelectedWorkoutId(workout.id);
+                          setWorkoutLibraryOpen(false);
+                          navigation.navigate('ActiveWorkout', { workoutId: workout.id });
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Select ${workout.title}`}
+                        accessibilityState={{ selected }}
+                        className={`rounded-button border p-md active:opacity-80 ${
+                          selected ? 'border-lime bg-lime/10' : 'border-border bg-dark/30'
+                        }`}
+                      >
+                        <Text className="font-heading-bold text-white text-[15px] tracking-[0.5px] uppercase">
+                          {workout.title}
+                        </Text>
+                        <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-xs">
+                          {workout.duration_mins} min · {EQUIPMENT_LABEL[workout.equipment]} · {FOCUS_LABEL[workout.focus]}
+                        </Text>
+                      </Pressable>
+                    );
                   })}
                 </View>
               )}
-            </FlatSection>
-          </View>
-        </FadeInView>
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
       ) : null}
-
       {standalone ? (
         <FadeInView delay={190}>
           {aiWorkoutAccess === true ? (
