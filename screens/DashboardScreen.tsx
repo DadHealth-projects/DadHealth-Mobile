@@ -402,6 +402,14 @@ export function DashboardScreenContent({
     return null;
   }, [assignmentKnown, todayFocus, weeklyWorkout, workoutError, workoutLoading]);
 
+  const officialDadDateSuggestion = data?.dadDates?.find(
+    (activity) => activity.source === 'admin' && activity.user_id === null,
+  );
+  const officialDadDateTime = officialDadDateSuggestion?.time_of_day?.trim();
+  const officialDadDateTimeLabel = officialDadDateTime && !/^any\s+time$/i.test(officialDadDateTime)
+    ? officialDadDateTime
+    : null;
+
   const supportingTools = useMemo<SupportingTool[]>(() => [
     {
       key: 'workout',
@@ -440,11 +448,11 @@ export function DashboardScreenContent({
     {
       key: 'bond',
       icon: 'heart',
-      title: data?.dadDates?.[0]?.name ?? 'Bond suggestion',
-      detail: data?.dadDates?.[0]?.time ?? 'Find one simple way to connect today.',
+      title: officialDadDateSuggestion?.name ?? 'Bond suggestion',
+      detail: officialDadDateTimeLabel ?? 'Find one simple way to connect today.',
       onPress: () => navigation.navigate('Tabs', { screen: 'Bond' }),
     },
-  ], [assignmentKnown, data?.dadDates, isOffline, navigation, recipeAssignmentKnown, recipeLoading, weeklyRecipe, weeklyRecipeError, weeklyWorkout, workoutError, workoutLoading]);
+  ], [assignmentKnown, isOffline, navigation, officialDadDateSuggestion?.name, officialDadDateTimeLabel, recipeAssignmentKnown, recipeLoading, weeklyRecipe, weeklyRecipeError, weeklyWorkout, workoutError, workoutLoading]);
 
   const captureCheckInOffset = useCallback((event: LayoutChangeEvent) => {
     checkInOffset.current = event.nativeEvent.layout.y;

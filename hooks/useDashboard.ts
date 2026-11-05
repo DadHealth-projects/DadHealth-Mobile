@@ -30,10 +30,18 @@ export type Reminder = {
 
 export type DadDateItem = {
   id: string;
+  user_id: string | null;
   icon: string | null;
   name: string;
+  booking_url: string | null;
+  description: string | null;
+  distance_miles: number | null;
+  address: string | null;
+  requires_booking: boolean | null;
+  source: 'admin' | 'ai_search' | null;
   age_range: string | null;
   budget: string | null;
+  time_of_day: string | null;
   time: string | null;
   duration_minutes: number | null;
 };
@@ -127,6 +135,8 @@ export type DashboardData = {
 
   // ── Bond (web dashboardPreview/BondScreen.tsx) ──
   dadDates: DadDateItem[];
+  savedDadActivities: DadDateItem[];
+  savedDadActivitiesError: string | null;
   milestones: MilestoneItem[];
   mealPlan: MealPlanSummary | null;
 
@@ -190,6 +200,42 @@ function textOrNull(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
 }
 
+function mapDadDateRows(rows: unknown[] | null | undefined): DadDateItem[] {
+  return (rows ?? []).flatMap((value) => {
+    if (typeof value !== 'object' || value === null) return [];
+    const row = value as Record<string, unknown>;
+    const name = textOrNull(row.name);
+    if (!name) return [];
+    const duration = typeof row.duration_minutes === 'number' ? row.duration_minutes : null;
+    const source: DadDateItem['source'] = row.source === 'admin' || row.source === 'ai_search'
+      ? row.source
+      : null;
+    return [{
+      id: String(row.id ?? name),
+      user_id: textOrNull(row.user_id),
+      icon: textOrNull(row.icon),
+      name,
+      booking_url: textOrNull(row.booking_url),
+      description: textOrNull(row.description),
+      distance_miles: typeof row.distance_miles === 'number' && Number.isFinite(row.distance_miles)
+        ? row.distance_miles
+        : null,
+      address: textOrNull(row.address),
+      requires_booking: typeof row.requires_booking === 'boolean' ? row.requires_booking : null,
+      source,
+      age_range: textOrNull(row.age_range),
+      budget: textOrNull(row.budget),
+      time_of_day: textOrNull(row.time_of_day),
+      duration_minutes: duration,
+      time: textOrNull(row.time_of_day) ?? (
+        duration !== null
+          ? (duration >= 60 ? `${Math.floor(duration / 60)} hr` : `${duration} min`)
+          : null
+      ),
+    }];
+  });
+}
+
 async function withTimeout<T>(promise: Promise<T>, ms = 12000): Promise<T> {
   return Promise.race([
     promise,
@@ -234,7 +280,7 @@ async function fetchDashboard(userId: string): Promise<DashboardFetchResult> {
     milestoneCountResult,
     milestonesResult,
     dadDatesResult,
-    savedDadDatesCountResult,
+    savedDadDatesResult,
     weightResult,
     todayWorkoutsResult,
     bodyWeekResult,
@@ -266,8 +312,16 @@ async function fetchDashboard(userId: string): Promise<DashboardFetchResult> {
     supabase.from('journal_entries').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('created_at', monthStart).lte('created_at', `${monthEndDate}T23:59:59`),
     supabase.from('milestones').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('date', monthStart).lte('date', monthEndDate),
     supabase.from('milestones').select('id,date,text,photo_url').eq('user_id', userId).order('date', { ascending: false }).limit(8),
-    supabase.from('dad_dates').select('id,icon,name,age_range,budget,time_of_day,duration_minutes'),
-    supabase.from('dad_dates').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('source', 'ai_search'),
+    supabase
+      .from('dad_dates')
+      .select('id,user_id,icon,name,booking_url,description,distance_miles,address,requires_booking,source,age_range,budget,time_of_day,duration_minutes')
+      .eq('source', 'admin')
+      .is('user_id', null),
+    supabase
+      .from('dad_dates')
+      .select('id,user_id,icon,name,booking_url,description,distance_miles,address,requires_booking,source,age_range,budget,time_of_day,duration_minutes', { count: 'exact' })
+      .eq('user_id', userId)
+      .eq('source', 'ai_search'),
     supabase.from('body_metrics').select('value').eq('user_id', userId).eq('metric_type', 'weight').order('recorded_at', { ascending: false }).limit(2),
     supabase.from('workout_sessions').select('duration_minutes').eq('user_id', userId).gte('performed_at', todayStart.toISOString()).lte('performed_at', todayEnd.toISOString()),
     supabase.from('workout_sessions').select('exercise_name,performed_at,duration_minutes').eq('user_id', userId).gte('performed_at', bodyWeekStart.toISOString()).lt('performed_at', bodyWeekEnd.toISOString()),
@@ -339,25 +393,11 @@ async function fetchDashboard(userId: string): Promise<DashboardFetchResult> {
     : null;
 
   // Bond ─────────────────────────────────────────────────────────────────────
-  const dadDates = ((dadDatesResult.error ? [] : (dadDatesResult.data ?? [])) as Array<Record<string, unknown>>)
-    .flatMap((row) => {
-      const name = textOrNull(row.name);
-      if (!name) return [];
-      const duration = typeof row.duration_minutes === 'number' ? row.duration_minutes : null;
-      return [{
-        id: String(row.id ?? name),
-        icon: textOrNull(row.icon),
-        name,
-        age_range: textOrNull(row.age_range),
-        budget: textOrNull(row.budget),
-        duration_minutes: duration,
-        time: textOrNull(row.time_of_day) ?? (
-          duration !== null
-            ? (duration >= 60 ? `${Math.floor(duration / 60)} hr` : `${duration} min`)
-            : null
-        ),
-      }];
-    });
+  const dadDates = mapDadDateRows(dadDatesResult.error ? [] : dadDatesResult.data)
+    .filter((activity) => activity.source === 'admin' && activity.user_id === null);
+  const savedDadActivities = mapDadDateRows(
+    savedDadDatesResult.error ? [] : savedDadDatesResult.data,
+  ).filter((activity) => activity.user_id === userId && activity.source === 'ai_search');
 
   const milestones = ((milestonesResult.error ? [] : (milestonesResult.data ?? [])) as Array<Record<string, unknown>>)
     .flatMap((row) => {
@@ -440,6 +480,8 @@ async function fetchDashboard(userId: string): Promise<DashboardFetchResult> {
       streak: Boolean(streakResult.error),
       entitlement: subscriptionStatusResult.failed,
       score: Boolean(scoresResult.error),
+      dadDates: Boolean(dadDatesResult.error),
+      savedDadActivities: Boolean(savedDadDatesResult.error),
     },
     data: {
     displayName: profile?.display_name ?? (typeof dashboard?.display_name === 'string' ? dashboard.display_name : null),
@@ -487,6 +529,10 @@ async function fetchDashboard(userId: string): Promise<DashboardFetchResult> {
     featuredWorkoutMeta,
 
     dadDates,
+    savedDadActivities,
+    savedDadActivitiesError: savedDadDatesResult.error
+      ? "We couldn't load your saved activities. Please retry."
+      : null,
     milestones,
     mealPlan,
 
@@ -496,7 +542,7 @@ async function fetchDashboard(userId: string): Promise<DashboardFetchResult> {
     reportStats: {
       workouts: monthWorkouts,
       journal: journalCountResult.count ?? 0,
-      dadDates: savedDadDatesCountResult.count ?? 0,
+      dadDates: savedDadDatesResult.count ?? 0,
     },
     badges,
     },
