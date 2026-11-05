@@ -3,6 +3,8 @@ export type DashboardReadFailures = {
   streak?: boolean;
   entitlement?: boolean;
   score?: boolean;
+  dadDates?: boolean;
+  savedDadActivities?: boolean;
 };
 
 export function mergeDashboardRefreshState<T>(
