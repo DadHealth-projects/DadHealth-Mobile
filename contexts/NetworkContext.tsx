@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 
-export type OfflineAction = 'community_post' | 'community_thread' | 'community_update' | 'cook_together' | 'dad_days_open' | 'dad_days_search' | 'dad_days_save' | 'weekly_challenge' | 'present_dad' | 'ai_workout' | 'meal_plan' | 'milestone_update' | 'notification_settings' | 'profile_photo' | 'shared_calendar' | 'therapist_booking' | 'workout_log' | 'subscriptions';
+export type OfflineAction = 'community_post' | 'community_thread' | 'community_update' | 'cook_together' | 'dad_days_open' | 'dad_days_search' | 'dad_days_save' | 'dad_days_remove' | 'weekly_challenge' | 'present_dad' | 'ai_workout' | 'meal_plan' | 'milestone_update' | 'notification_settings' | 'profile_photo' | 'shared_calendar' | 'therapist_booking' | 'workout_log' | 'subscriptions';
 
 /**
  * Transient bottom snackbar. Used for short connectivity transitions and
@@ -41,6 +41,7 @@ const OFFLINE_ACTION_MESSAGES: Record<OfflineAction, string> = {
   dad_days_open: 'Activity websites need an internet connection. Reconnect and try again.',
   dad_days_search: 'Dad Days search needs an internet connection. Reconnect and try again.',
   dad_days_save: 'Reconnect to save this Dad Day.',
+  dad_days_remove: 'Reconnect to remove this saved Dad Day.',
   weekly_challenge: 'Weekly Challenge updates need an internet connection. Reconnect and try again.',
   present_dad: 'Present Dad Mode needs an internet connection. Reconnect and try again.',
   ai_workout: 'Workout generation needs an internet connection. Reconnect and try again.',

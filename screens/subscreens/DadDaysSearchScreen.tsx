@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, AppState, Keyboard, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { ActivityIndicator, Alert, AppState, Keyboard, Linking, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation, useRoute, type NavigationProp } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import * as SecureStore from 'expo-secure-store';
 
@@ -13,7 +13,7 @@ import ProUpgradeSection from '../../components/ProUpgradeSection';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
-import { useDashboard } from '../../hooks/useDashboard';
+import { useDashboard, type DadDateItem } from '../../hooks/useDashboard';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { useUpgradeMomentManager } from '../../contexts/UpgradeMomentContext';
 import { trackEvent } from '../../lib/analytics';
@@ -26,6 +26,15 @@ import { colors } from '../../theme';
 type Budget = 'free' | 'under_20' | 'over_20';
 type ChildAge = 'toddler' | 'primary' | 'teen';
 type SearchResult = { name: string; description: string; address: string; distanceMiles: number; estimatedCost: string; ageRange: string; websiteUrl: string; requiresBooking: boolean };
+type ResultCardData = {
+  name: string;
+  description?: string | null;
+  address?: string | null;
+  distanceMiles?: number | null;
+  estimatedCost?: string | null;
+  ageRange?: string | null;
+  websiteUrl?: string | null;
+};
 type QuickFilter = '60_minutes' | 'under_20' | 'raining' | 'active' | 'creative' | 'at_home';
 
 const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL ?? 'https://www.dadhealth.co.uk').replace(/\/$/, '');
@@ -49,7 +58,7 @@ export default function DadDaysSearchScreen() {
   const { requestMoment } = useUpgradeMomentManager();
   const { user, session } = useAuth();
   const { isOffline, showOfflineAction } = useNetworkStatus();
-  const { data: dashboardData, loading: dashboardLoading, refresh: refreshDashboard } = useDashboard(user?.id);
+  const { data: dashboardData, loading: dashboardLoading, error: dashboardError, refresh: refreshDashboard } = useDashboard(user?.id);
   const entitlement = useEntitlement({
     isPro: dashboardData?.isPro ?? null,
     trialActive: dashboardData?.trialActive ?? null,
@@ -69,7 +78,36 @@ export default function DadDaysSearchScreen() {
   const [locating, setLocating] = useState(false);
   const [searching, setSearching] = useState(false);
   const [savingName, setSavingName] = useState<string | null>(null);
+  const [removingActivityId, setRemovingActivityId] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<{ id: string; message: string } | null>(null);
+  const [removedActivityIds, setRemovedActivityIds] = useState<Set<string>>(() => new Set());
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [savedActivitiesOpen, setSavedActivitiesOpen] = useState(false);
+  const saveInFlightKeys = useRef(new Set<string>());
+  const removeInFlightIds = useRef(new Set<string>());
+  const savedActivitiesReady = Array.isArray(dashboardData?.savedDadActivities);
+  const savedActivities = (dashboardData?.savedDadActivities ?? []).filter(
+    (activity) => activity.user_id === user?.id
+      && activity.source === 'ai_search'
+      && !removedActivityIds.has(activity.id)
+  );
+  const savedActivitiesError = dashboardData?.savedDadActivitiesError
+    ?? (!savedActivitiesReady && !dashboardLoading
+      ? dashboardError ?? "We couldn't verify your saved activities. Please retry."
+      : null);
+
+const isActivitySaved = (result: SearchResult) =>
+  savedActivities.some((activity) => {
+    const savedUrl = activity.booking_url?.trim().toLowerCase();
+    const resultUrl = result.websiteUrl?.trim().toLowerCase();
+
+    if (savedUrl && resultUrl) {
+      return savedUrl === resultUrl
+        && activity.name.trim().toLowerCase() === result.name.trim().toLowerCase();
+    }
+
+    return activity.name.trim().toLowerCase() === result.name.trim().toLowerCase();
+  });
   // Two inline slots: location problems sit under the location fields, search
   // problems sit next to the search action.
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -220,17 +258,74 @@ export default function DadDaysSearchScreen() {
   const save = useCallback(async (result: SearchResult) => {
     if (!user?.id) return;
     if (isOffline) { showOfflineAction('dad_days_save'); return; }
+    const saveKey = `${result.name.trim().toLowerCase()}|${result.websiteUrl.trim().toLowerCase()}`;
+    if (saveInFlightKeys.current.has(saveKey) || isActivitySaved(result)) return;
+    saveInFlightKeys.current.add(saveKey);
     setSavingName(result.name);
     setSaveError(null);
-    const saveResult = await supabase.from('dad_dates').insert({ user_id: user.id, icon: 'map-pin', name: result.name, age_range: result.ageRange, budget: result.estimatedCost, duration_minutes: 120, time_of_day: 'Any time', source: 'ai_search', booking_url: result.websiteUrl, address: result.address, requires_booking: result.requiresBooking });
-    if (saveResult.error) setSaveError({ name: result.name, message: 'We could not save this activity. Please try again.' });
-    else {
+    try {
+      const saveResult = await supabase.from('dad_dates').insert({
+        user_id: user.id,
+        icon: 'map-pin',
+        name: result.name,
+        description: result.description,
+        distance_miles: Number.isFinite(result.distanceMiles) ? result.distanceMiles : null,
+        age_range: result.ageRange,
+        budget: result.estimatedCost,
+        duration_minutes: 120,
+        time_of_day: 'Any time',
+        source: 'ai_search',
+        booking_url: result.websiteUrl,
+        address: result.address,
+        requires_booking: result.requiresBooking,
+      });
+      if (saveResult.error) {
+        setSaveError({ name: result.name, message: 'We could not save this activity. Please try again.' });
+        return;
+      }
       trackEvent('dad_days_result_saved', { activityName: result.name, budget }, user.id);
       await refreshDashboard();
-      Alert.alert('Saved', 'This activity was added to your Dad Date Ideas.');
+      Alert.alert('Saved', 'This activity was added to your saved Dad Days.');
+    } catch {
+      setSaveError({ name: result.name, message: 'We could not save this activity. Please try again.' });
+    } finally {
+      saveInFlightKeys.current.delete(saveKey);
+      setSavingName(null);
     }
-    setSavingName(null);
-  }, [budget, isOffline, refreshDashboard, showOfflineAction, user?.id]);
+  }, [budget, isActivitySaved, isOffline, refreshDashboard, showOfflineAction, user?.id]);
+
+  const removeSavedActivity = useCallback(async (activity: DadDateItem) => {
+    if (!user?.id) return;
+    if (isOffline) { showOfflineAction('dad_days_remove'); return; }
+    if (removeInFlightIds.current.has(activity.id)) return;
+
+    removeInFlightIds.current.add(activity.id);
+    setRemovingActivityId(activity.id);
+    setRemoveError(null);
+    try {
+      const { data: deleted, error: deleteError } = await supabase
+        .from('dad_dates')
+        .delete()
+        .eq('id', activity.id)
+        .eq('user_id', user.id)
+        .eq('source', 'ai_search')
+        .select('id')
+        .maybeSingle();
+
+      if (deleteError || !deleted) {
+        setRemoveError({ id: activity.id, message: 'We could not remove this saved activity. Please try again.' });
+        return;
+      }
+
+      setRemovedActivityIds((current) => new Set(current).add(activity.id));
+      await refreshDashboard();
+    } catch {
+      setRemoveError({ id: activity.id, message: 'We could not remove this saved activity. Please try again.' });
+    } finally {
+      removeInFlightIds.current.delete(activity.id);
+      setRemovingActivityId(null);
+    }
+  }, [isOffline, refreshDashboard, showOfflineAction, user?.id]);
 
   const locationLabel = coords ? (postcode ? postcode : 'Current location') : 'No location set';
   const openResultWebsite = (url: string) => {
@@ -239,6 +334,7 @@ export default function DadDaysSearchScreen() {
   };
 
   return (
+    <>
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerClassName="px-lg pt-lg pb-xl gap-xl">
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />
@@ -304,12 +400,144 @@ export default function DadDaysSearchScreen() {
                 ) : null}
               </>
             )}
+            <View className="mt-md">
+              <Pressable
+                onPress={() => setSavedActivitiesOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Open Saved Activities"
+                className="flex-row items-center gap-md border-b border-border py-md"
+              >
+                <Feather name="bookmark" size={23} color={colors.lime} />
+
+                <View className="flex-1">
+                  <Text className="font-heading-bold text-white text-[16px] uppercase">
+                    Saved Activities
+                  </Text>
+                  <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-xs">
+                    View your saved Dad Days
+                  </Text>
+                </View>
+
+                <Feather name="chevron-right" size={20} color={colors.lime} />
+              </Pressable>
+            </View>
           </View>
         )}
 
-        {results.length > 0 ? <View className="gap-md border-t border-border pt-xl"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Activities found ({results.length})</Text><FeaturedResult result={results[0]} saving={savingName === results[0].name} error={!isOffline && saveError?.name === results[0].name ? saveError.message : null} onOpen={() => openResultWebsite(results[0].websiteUrl)} onSave={() => void save(results[0])} /><View className="gap-md">{results.slice(1).map((result) => <ResultRow key={result.name} result={result} saving={savingName === result.name} error={!isOffline && saveError?.name === result.name ? saveError.message : null} onOpen={() => openResultWebsite(result.websiteUrl)} onSave={() => void save(result)} />)}</View></View> : null}
+        {results.length > 0 ? <View className="gap-md border-t border-border pt-xl"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Activities found ({results.length})</Text><FeaturedResult result={results[0]} saving={savingName === results[0].name} saved={isActivitySaved(results[0])} error={!isOffline && saveError?.name === results[0].name ? saveError.message : null} onOpen={() => openResultWebsite(results[0].websiteUrl)} onSave={() => void save(results[0])} /><View className="gap-md">{results.slice(1).map((result) => <ResultRow key={result.name} result={result} saving={savingName === result.name} saved={isActivitySaved(result)} error={!isOffline && saveError?.name === result.name ? saveError.message : null} onOpen={() => openResultWebsite(result.websiteUrl)} onSave={() => void save(result)} />)}</View></View> : null}
       </ScrollView>
     </SafeAreaView>
+    <Modal
+      visible={savedActivitiesOpen}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={() => setSavedActivitiesOpen(false)}
+    >
+      <SafeAreaProvider>
+        <SafeAreaView
+          edges={['top', 'bottom', 'left', 'right']}
+          className="flex-1 bg-dark"
+        >
+          <View className="flex-row items-center justify-between border-b border-border px-lg py-md">
+            <View className="flex-1">
+              <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
+                Dad Days
+              </Text>
+              <Text className="font-heading-bold text-white text-[22px] uppercase mt-xs">
+                Saved Activities
+              </Text>
+            </View>
+
+            <Pressable
+              onPress={() => setSavedActivitiesOpen(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Close Saved Activities"
+              hitSlop={12}
+              className="h-11 w-11 items-center justify-center rounded-full border border-border"
+            >
+              <Feather name="x" size={22} color={colors.text} />
+            </Pressable>
+          </View>
+
+          <ScrollView
+            contentContainerStyle={{
+              paddingHorizontal: 24,
+              paddingTop: 20,
+              paddingBottom: 40,
+            }}
+          >
+            <View className="gap-md">
+              {dashboardLoading && !savedActivitiesReady ? (
+                <ActivityIndicator color={colors.lime} />
+              ) : savedActivitiesError && savedActivities.length === 0 ? (
+                <View className="gap-md">
+                  <InlineFormError message={savedActivitiesError} />
+                  <Pressable
+                    onPress={() => void refreshDashboard()}
+                    disabled={dashboardLoading}
+                    accessibilityRole="button"
+                    className="min-h-[44px] items-center justify-center border-b border-lime disabled:opacity-50"
+                  >
+                    <Text className="font-heading-bold text-lime text-[11px] uppercase">
+                      {dashboardLoading ? 'Loading' : 'Try again'}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : savedActivities.length === 0 ? (
+                <Text className="font-body text-muted-text text-[14px]">
+                  No saved activities yet. Search for Dad Days and bookmark
+                  activities you'd like to try.
+                </Text>
+              ) : (
+                <>
+                  {savedActivitiesError ? (
+                    <View className="gap-md">
+                      <InlineFormError message={savedActivitiesError} />
+                      <Pressable
+                        onPress={() => void refreshDashboard()}
+                        disabled={dashboardLoading}
+                        accessibilityRole="button"
+                        className="min-h-[44px] items-center justify-center border-b border-lime disabled:opacity-50"
+                      >
+                        <Text className="font-heading-bold text-lime text-[11px] uppercase">
+                          {dashboardLoading ? 'Loading' : 'Try again'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                  <FeaturedResult
+                    result={toResultCardData(savedActivities[0])}
+                    saving={false}
+                    saved
+                    savedView
+                    removing={removingActivityId === savedActivities[0].id}
+                    error={removeError?.id === savedActivities[0].id ? removeError.message : null}
+                    onOpen={() => savedActivities[0].booking_url && openResultWebsite(savedActivities[0].booking_url)}
+                    onRemove={() => void removeSavedActivity(savedActivities[0])}
+                  />
+                  <View className="gap-md">
+                    {savedActivities.slice(1).map((activity) => (
+                      <ResultRow
+                        key={activity.id}
+                        result={toResultCardData(activity)}
+                        saving={false}
+                        saved
+                        savedView
+                        removing={removingActivityId === activity.id}
+                        error={removeError?.id === activity.id ? removeError.message : null}
+                        onOpen={() => activity.booking_url && openResultWebsite(activity.booking_url)}
+                        onRemove={() => void removeSavedActivity(activity)}
+                      />
+                    ))}
+                  </View>
+                </>
+              )}
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    </Modal>
+    </>
   );
 }
 
@@ -331,12 +559,178 @@ function openSecureWebsite(value: string) {
   }
 }
 
-function ResultRow({ result, saving, error, onOpen, onSave }: { result: SearchResult; saving: boolean; error: string | null; onOpen: () => void; onSave: () => void }) {
-  return <View className="rounded-button border border-border bg-card p-md gap-md"><Text className="font-heading-bold text-white text-[17px] uppercase">{result.name}</Text><Text className="font-body text-muted-text text-[14px] leading-[20px]">{result.description}</Text><View className="flex-row flex-wrap gap-sm"><Meta icon="navigation" text={`${result.distanceMiles.toFixed(1)} miles`} /><Meta icon="credit-card" text={result.estimatedCost} /><Meta icon="users" text={result.ageRange} /></View><Text className="font-body text-tertiary-text text-[14px] leading-[20px]">{result.address}</Text><InlineFormError message={error} /><View className="flex-row gap-sm"><Pressable onPress={onOpen} className="flex-1 min-h-[44px] rounded-button bg-lime items-center justify-center"><Text className="font-heading-bold text-dark text-[11px] uppercase">Find out more</Text></Pressable><Pressable onPress={onSave} disabled={saving} className="flex-1 min-h-[44px] rounded-button border border-lime items-center justify-center disabled:opacity-50"><Text className="font-heading-bold text-lime text-[11px] uppercase">{saving ? 'Saving' : 'Save to list'}</Text></Pressable></View></View>;
+type ResultCardProps = {
+  result: ResultCardData;
+  saving: boolean;
+  saved: boolean;
+  savedView?: boolean;
+  removing?: boolean;
+  error: string | null;
+  onOpen: () => void;
+  onSave?: () => void;
+  onRemove?: () => void;
+};
+
+function ResultRow({ result, saving, saved, savedView = false, removing = false, error, onOpen, onSave, onRemove }: ResultCardProps) {
+  return (
+    <View className="rounded-button border border-border bg-card p-md gap-md">
+      <View className="flex-row items-start justify-between gap-sm">
+        <Text className="flex-1 font-heading-bold text-white text-[17px] uppercase">
+          {result.name}
+        </Text>
+        <MaterialCommunityIcons
+          name={saved ? 'bookmark' : 'bookmark-outline'}
+          size={26}
+          color={saved ? colors.lime : colors.tertiaryText}
+        />
+      </View>
+
+      {(!savedView || result.description) ? (
+        <Text className="font-body text-muted-text text-[14px] leading-[20px]">
+          {result.description ?? ''}
+        </Text>
+      ) : null}
+
+      <View className="flex-row flex-wrap gap-sm">
+        {!savedView || (typeof result.distanceMiles === 'number' && Number.isFinite(result.distanceMiles)) ? (
+          <Meta icon="navigation" text={`${typeof result.distanceMiles === 'number' ? result.distanceMiles.toFixed(1) : ''} miles`} />
+        ) : null}
+        {!savedView || result.estimatedCost ? <Meta icon="credit-card" text={result.estimatedCost ?? ''} /> : null}
+        {!savedView || result.ageRange ? <Meta icon="users" text={result.ageRange ?? ''} /> : null}
+      </View>
+
+      {(!savedView || result.address) ? (
+        <Text className="font-body text-tertiary-text text-[14px] leading-[20px]">
+          {result.address ?? ''}
+        </Text>
+      ) : null}
+
+      <InlineFormError message={error} />
+
+      <View className="flex-row gap-sm">
+        {!savedView || result.websiteUrl ? (
+          <Pressable onPress={onOpen} className="flex-1 min-h-[44px] rounded-button bg-lime items-center justify-center">
+            <Text className="font-heading-bold text-dark text-[11px] uppercase">
+              Find out more
+            </Text>
+          </Pressable>
+        ) : null}
+
+        {savedView ? (
+          <Pressable
+            onPress={onRemove}
+            disabled={removing}
+            accessibilityRole="button"
+            accessibilityLabel="Remove from Saved"
+            className={`min-h-[44px] rounded-button border border-lime items-center justify-center disabled:opacity-50 ${savedView && !result.websiteUrl ? 'w-full' : 'flex-1'}`}
+          >
+            <Text className="font-heading-bold text-lime text-[11px] uppercase">
+              {removing ? 'Removing...' : 'Remove from Saved'}
+            </Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={onSave}
+            disabled={saving || saved}
+            className="flex-1 min-h-[44px] rounded-button border border-lime items-center justify-center disabled:opacity-50"
+          >
+            <Text className="font-heading-bold text-lime text-[11px] uppercase">
+              {saved ? 'Saved' : saving ? 'Saving' : 'Save to list'}
+            </Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
 }
 
-function FeaturedResult({ result, saving, error, onOpen, onSave }: { result: SearchResult; saving: boolean; error: string | null; onOpen: () => void; onSave: () => void }) {
-  return <View className="rounded-button border border-lime/50 bg-lime/[0.06] p-md gap-md"><Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">Featured family day</Text><Text className="font-heading text-white text-[22px] uppercase">{result.name}</Text><Text className="font-body text-muted-text text-[14px] leading-[20px]">{result.description}</Text><View className="flex-row flex-wrap gap-sm"><Meta icon="navigation" text={`${result.distanceMiles.toFixed(1)} miles`} /><Meta icon="credit-card" text={result.estimatedCost} /><Meta icon="users" text={result.ageRange} /></View><InlineFormError message={error} /><Pressable onPress={onOpen} className="min-h-[44px] rounded-button bg-lime items-center justify-center"><Text className="font-heading-bold text-dark text-[11px] uppercase">Find out more</Text></Pressable><Pressable onPress={onSave} disabled={saving} className="min-h-[40px] items-center justify-center border-b border-lime"><Text className="font-heading-bold text-lime text-[11px] uppercase">{saving ? 'Saving' : 'Save to list'}</Text></Pressable></View>;
+function FeaturedResult({ result, saving, saved, savedView = false, removing = false, error, onOpen, onSave, onRemove }: ResultCardProps) {
+  return (
+    <View className="rounded-button border border-lime/50 bg-lime/[0.06] p-md gap-md">
+      <View className="flex-row items-center justify-between gap-sm">
+        <Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">
+          Featured family day
+        </Text>
+        <MaterialCommunityIcons
+          name={saved ? 'bookmark' : 'bookmark-outline'}
+          size={26}
+          color={saved ? colors.lime : colors.tertiaryText}
+        />
+      </View>
+
+      <Text className="font-heading text-white text-[22px] uppercase">
+        {result.name}
+      </Text>
+
+      {(!savedView || result.description) ? (
+        <Text className="font-body text-muted-text text-[14px] leading-[20px]">
+          {result.description ?? ''}
+        </Text>
+      ) : null}
+
+      <View className="flex-row flex-wrap gap-sm">
+      {!savedView || (typeof result.distanceMiles === 'number' && Number.isFinite(result.distanceMiles)) ? (
+        <Meta icon="navigation" text={`${typeof result.distanceMiles === 'number' ? result.distanceMiles.toFixed(1) : ''} miles`} />
+        ) : null}
+      {!savedView || result.estimatedCost ? <Meta icon="credit-card" text={result.estimatedCost ?? ''} /> : null}
+      {!savedView || result.ageRange ? <Meta icon="users" text={result.ageRange ?? ''} /> : null}
+      </View>
+
+      {savedView && result.address ? (
+        <Text className="font-body text-tertiary-text text-[14px] leading-[20px]">
+          {result.address}
+        </Text>
+      ) : null}
+
+      <InlineFormError message={error} />
+
+      {!savedView || result.websiteUrl ? (
+        <Pressable
+          onPress={onOpen}
+          className="min-h-[44px] rounded-button bg-lime items-center justify-center"
+        >
+          <Text className="font-heading-bold text-dark text-[11px] uppercase">
+            Find out more
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {savedView ? (
+        <Pressable
+          onPress={onRemove}
+          disabled={removing}
+          accessibilityRole="button"
+          accessibilityLabel="Remove from Saved"
+          className="min-h-[40px] items-center justify-center border-b border-lime disabled:opacity-50"
+        >
+          <Text className="font-heading-bold text-lime text-[11px] uppercase">
+            {removing ? 'Removing...' : 'Remove from Saved'}
+          </Text>
+        </Pressable>
+      ) : (
+        <Pressable
+          onPress={onSave}
+          disabled={saving || saved}
+          className="min-h-[40px] items-center justify-center border-b border-lime"
+        >
+          <Text className="font-heading-bold text-lime text-[11px] uppercase">
+            {saved ? 'Saved' : saving ? 'Saving' : 'Save to list'}
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
 }
 
+function toResultCardData(activity: DadDateItem): ResultCardData {
+  return {
+    name: activity.name,
+    description: activity.description,
+    address: activity.address,
+    distanceMiles: activity.distance_miles,
+    estimatedCost: activity.budget,
+    ageRange: activity.age_range,
+    websiteUrl: activity.booking_url,
+  };
+}
 function Meta({ icon, text }: { icon: keyof typeof Feather.glyphMap; text: string }) { return <View className="flex-row items-center gap-xs"><Feather name={icon} size={13} color={colors.lime} /><Text className="font-body text-muted-text text-[14px] leading-[20px]">{text}</Text></View>; }
