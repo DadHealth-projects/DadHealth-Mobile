@@ -34,10 +34,17 @@ type CommunityChangePayload = {
 let communityFeedChannelSequence = 0;
 const PAGE_SIZE = 50;
 
+function getInitialAppState(): AppStateStatus {
+  const state = AppState.currentState;
+  return state === 'active' || state === 'background' || state === 'inactive' || state === 'extension' || state === 'unknown'
+    ? state
+    : 'unknown';
+}
+
 export function useCommunityFeed(userId?: string, circleId?: string) {
   const { isOffline } = useNetworkStatus();
   const focused = useIsFocused();
-  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
+  const [appState, setAppState] = useState<AppStateStatus>(getInitialAppState);
   const screenActiveRef = useRef(false);
   screenActiveRef.current = focused && appState === 'active';
   const [posts, setPosts] = useState<CommunityFeedPost[]>([]);

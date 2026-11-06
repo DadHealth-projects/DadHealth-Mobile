@@ -24,13 +24,20 @@ import { dashboardIcon } from '../../lib/dashboardIcons';
 type Comment = { id: string; user_id: string; content: string; parent_id: string | null; created_at: string; anonymous: boolean; author: string; author_initials: string; avatar_url: string | null; likes_count: number; user_liked: boolean };
 type PostDetails = { id: string; user_id: string | null; content: string; author_name: string; author_initials: string; avatar_url: string | null; anonymous: boolean; tag: string; circle_name: string | null; created_at: string; likes_count: number; replies_count: number };
 
+function getInitialAppState(): AppStateStatus {
+  const state = AppState.currentState;
+  return state === 'active' || state === 'background' || state === 'inactive' || state === 'extension' || state === 'unknown'
+    ? state
+    : 'unknown';
+}
+
 export default function CommunityPostThreadScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const route = useRoute<RouteProp<AppStackParamList, 'CommunityPostThread'>>();
   const { user } = useAuth();
   const { isOffline, showOfflineAction } = useNetworkStatus();
   const focused = useIsFocused();
-  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState ?? 'unknown');
+  const [appState, setAppState] = useState<AppStateStatus>(getInitialAppState);
   const screenActiveRef = useRef(false);
   screenActiveRef.current = focused && appState === 'active';
   const [post, setPost] = useState<PostDetails | null>(null);
