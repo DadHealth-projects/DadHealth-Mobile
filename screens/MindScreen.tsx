@@ -204,7 +204,7 @@ export default function MindScreen({
             eyebrow="I just need to talk"
             title="Community"
             description="Connect with dads going through the same chapter as you."
-            onPress={() => navigation.navigate('CommunityFeed')}
+            onPress={() => navigation.navigate('Tabs', { screen: 'Squad' })}
             accessibilityLabel="Open Dad Health Community"
           />
         </View>

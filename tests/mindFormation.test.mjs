@@ -41,7 +41,8 @@ test('Mind keeps the existing action routes', async () => {
   assert.match(source, /<MindQuickFixes\s*\/>/);
   assert.match(source, /eyebrow="Private journal"[\s\S]*?navigate\('Journal'\)/);
   assert.match(source, /eyebrow="Talk to someone"[\s\S]*?navigate\('TherapistDirectory'\)/);
-  assert.match(source, /eyebrow="I just need to talk"[\s\S]*?navigate\('CommunityFeed'\)/);
+  assert.match(source, /eyebrow="I just need to talk"[\s\S]*?navigate\('Tabs', \{ screen: 'Squad' \}\)/);
+  assert.doesNotMatch(source, /eyebrow="I just need to talk"[\s\S]*?navigate\('CommunityPostThread'/);
 });
 
 test('Mood This Week is available to Free and View Mood Trends remains the Pro entry point', async () => {
