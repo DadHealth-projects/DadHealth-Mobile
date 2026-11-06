@@ -199,7 +199,8 @@ test('conversion moments stay compact until the user asks for Pro', async () => 
   assert.ok(prompt.includes('Not now'));
   assert.ok(prompt.includes('onRequestClose={onDismiss}'));
   assert.ok(prompt.includes('onPress={onDismiss}'));
-  assert.ok(dashboard.includes("proTease={scoreInsightsAccess === false ? 'Unlock my insights' : undefined}"));
+  assert.ok(dashboard.includes('proTease="Your insights"'));
+  assert.ok(dashboard.includes('proTeaseLocked={scoreInsightsAccess === false}'));
   assert.ok(aiWorkout.includes("payload.code === 'pro_required'"));
   assert.equal(aiWorkout.includes('free_limit_reached'), false);
   assert.ok(dadDays.includes('free Dad Days searches used this month.'));

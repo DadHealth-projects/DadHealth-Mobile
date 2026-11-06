@@ -20,7 +20,8 @@ test('Today routes feature access through shared keys and keeps unknown state ne
   assert.match(streak, /freezeAccess === false && onUpgrade/);
   assert.match(streak, /freezeAccess === true/);
   assert.match(weekly, /reportAccess === null/);
-  assert.match(screen, /scoreInsightsAccess === false \? 'Unlock my insights'/);
+  assert.match(screen, /proTease="Your insights"/);
+  assert.match(screen, /proTeaseLocked=\{scoreInsightsAccess === false\}/);
   assert.match(screen, /isWeeklyReportDay\(\)/);
 });
 
