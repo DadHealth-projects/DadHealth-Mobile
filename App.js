@@ -1,6 +1,7 @@
 import './global.css';
 
-import React from 'react';
+import React, { useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from '@react-navigation/native';
@@ -48,8 +49,20 @@ const navTheme = {
 };
 
 export default function App() {
+  const [fontLoadAttempt, setFontLoadAttempt] = useState(0);
+  const retryFontLoad = () => setFontLoadAttempt((attempt) => attempt + 1);
+
+  return (
+    <FontLoadingGate
+      key={fontLoadAttempt}
+      onRetry={retryFontLoad}
+    />
+  );
+}
+
+function FontLoadingGate({ onRetry }) {
   // Map @expo-google-fonts modules to the family names used in tailwind.config.js / theme.ts.
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     'Barlow-Regular': Barlow_400Regular,
     'Barlow-Medium': Barlow_500Medium,
     'Barlow-SemiBold': Barlow_600SemiBold,
@@ -58,11 +71,49 @@ export default function App() {
     'BarlowCondensed-ExtraBold': BarlowCondensed_800ExtraBold,
   });
 
+  if (fontError) {
+    return <FontLoadingFailure onRetry={onRetry} />;
+  }
+
   // Keep the branded loading surface visible until fonts are ready.
   if (!fontsLoaded) {
     return <Splash />;
   }
 
+  return <AppContent />;
+}
+
+function FontLoadingFailure({ onRetry }) {
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.dark }}>
+      <Splash />
+      <View
+        style={{
+          position: 'absolute',
+          left: 24,
+          right: 24,
+          bottom: 40,
+          alignItems: 'center',
+        }}
+      >
+        <Text style={{ color: colors.text, fontSize: 15, textAlign: 'center' }}>
+          Dad Health couldn&apos;t load its fonts. Try again to continue.
+        </Text>
+        <Pressable
+          onPress={onRetry}
+          accessibilityRole="button"
+          className="mt-md min-h-[48px] min-w-[140px] items-center justify-center rounded-button bg-lime px-lg"
+        >
+          <Text style={{ color: colors.dark, fontSize: 16, fontWeight: '700' }}>
+            Try again
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function AppContent() {
   return (
     <SafeAreaProvider>
       <NetworkProvider>

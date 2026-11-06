@@ -20,9 +20,26 @@ test('startup uses the DH logo before JavaScript content is ready', async () => 
     backgroundColor: '#0A0A0A',
     imageWidth: 200,
   });
+  assert.match(app, /const \[fontsLoaded, fontError\] = useFonts/);
   assert.match(app, /if \(!fontsLoaded\) \{\s*return <Splash \/>;/);
   assert.match(splash, /02\. DAD HEALTH LOGO_COLOR_Dark BG\.png/);
   assert.doesNotMatch(splash, /BrandWordmark/);
+});
+
+test('successful font loading continues into the existing app content', async () => {
+  const app = await source('App.js');
+
+  assert.match(app, /if \(fontError\) \{\s*return <FontLoadingFailure onRetry=\{onRetry\} \/>;\s*\}/);
+  assert.match(app, /if \(!fontsLoaded\) \{\s*return <Splash \/>;\s*\}\s*\n\s*return <AppContent \/>;/);
+});
+
+test('font-loading errors show a branded retry action that retries font loading', async () => {
+  const app = await source('App.js');
+
+  assert.match(app, /key=\{fontLoadAttempt\}/);
+  assert.match(app, /const retryFontLoad = \(\) => setFontLoadAttempt\(\(attempt\) => attempt \+ 1\)/);
+  assert.match(app, /Dad Health couldn&apos;t load its fonts\. Try again to continue\./);
+  assert.match(app, /<Pressable\s+onPress=\{onRetry\}[\s\S]*?>[\s\S]*?Try again/);
 });
 
 test('public Home renders fallback content immediately and reserves its skeleton for manual refresh', async () => {
