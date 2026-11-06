@@ -25,7 +25,7 @@ function MoodCheckInRow({
   lowestLabel,
 }: MoodCheckInRowProps) {
   return (
-    <View className="flex-row gap-2">
+    <View className="flex-row gap-[3px]">
       {MOOD_OPTIONS.map((option) => {
         const selected = option.key === selectedKey;
 
@@ -37,7 +37,7 @@ function MoodCheckInRow({
             accessibilityRole="radio"
             accessibilityState={{ checked: selected }}
             accessibilityLabel={option.key === 'very-low' ? lowestLabel ?? option.label : option.label}
-            className={`flex-1 items-center justify-center rounded-[8px] border px-1 py-2 ${
+            className={`flex-1 items-center justify-center rounded-[8px] border px-[1px] py-2 ${
               selected
                 ? 'border-dark bg-dark/10'
                 : 'border-dark/15 bg-transparent'
@@ -47,7 +47,13 @@ function MoodCheckInRow({
               {option.emoji}
             </Text>
 
-            <Text className="mt-[2px] text-[8px] uppercase tracking-[0.5px] font-heading-bold text-dark/60 text-center">
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+              allowFontScaling={false}
+              className="mt-[2px] text-[10px] font-heading-bold text-dark/60 text-center"
+            >
               {option.key === 'very-low' ? lowestLabel ?? option.label : option.label}
             </Text>
           </Pressable>
