@@ -51,7 +51,7 @@ test('single-line and numeric inputs expose native search or done actions', asyn
     source('screens/subscreens/DadDaysSearchScreen.tsx'),
     source('screens/subscreens/ManualActivityLogScreen.tsx'),
     source('screens/subscreens/TDEECalculatorScreen.tsx'),
-    source('components/dashboard/CheckInPanel.tsx'),
+    source('components/dashboard/DailyCheckInModal.tsx'),
     source('screens/subscreens/LoginScreen.tsx'),
   ]);
 

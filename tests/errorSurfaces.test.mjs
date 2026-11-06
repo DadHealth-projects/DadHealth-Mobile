@@ -72,7 +72,7 @@ test('form validation and submission errors render inline, never in the banner o
     'screens/subscreens/WeeklyChallengeScreen.tsx',
     'screens/subscreens/HealthPermissionsScreen.tsx',
     'screens/subscreens/ProSubscriptionScreen.tsx',
-    'components/dashboard/CheckInPanel.tsx',
+    'components/dashboard/DailyCheckInModal.tsx',
     'components/fitness/ActiveWorkout.tsx',
   ];
   const files = await Promise.all(inlineScreens.map(source));
