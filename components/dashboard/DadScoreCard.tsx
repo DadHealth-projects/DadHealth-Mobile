@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useRef } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { formatScoreTrend } from '../../lib/scoreTrends';
 import { trackEvent } from '../../lib/analytics';
@@ -27,6 +27,7 @@ type DadScoreCardProps = {
   actionLabel?: string;
   onAction?: () => void;
   proTease?: string;
+  proTeaseLocked?: boolean;
   userId?: string;
   lockedValues?: boolean;
   compactBottom?: boolean;
@@ -47,33 +48,45 @@ function DadScoreCard({
   actionLabel,
   onAction,
   proTease,
+  proTeaseLocked = false,
   userId,
   lockedValues = false,
   compactBottom = false,
   children,
 }: DadScoreCardProps) {
+  const { width: windowWidth } = useWindowDimensions();
+  const compactWidth = windowWidth < 360;
+  const scoreRingSize = compactWidth ? 104 : 116;
+  const ringScoreFontSize = compactWidth ? 44 : 50;
+  const pillarLabelClass = compactWidth ? 'text-[11px]' : 'text-[12px]';
   const lockViewed = useRef(false);
   useEffect(() => {
-    if (!proTease || lockViewed.current) return;
+    if (!proTease || !proTeaseLocked || lockViewed.current) return;
     lockViewed.current = true;
     trackEvent('lock_viewed', { feature: 'score_insights', source: 'score' }, userId);
-  }, [proTease, userId]);
+  }, [proTease, proTeaseLocked, userId]);
   return (
     <View className={`bg-lime rounded-t-[18px] px-xl pt-xl ${compactBottom ? 'pb-md' : 'pb-lg'}`}>
       <View className="flex-row items-center gap-lg">
         {ring ? (
-          <View className="h-[100px] w-[100px] rounded-full border-[5px] border-dark items-center justify-center">
-            <Text className="font-heading text-dark text-[40px] leading-[40px]">
+          <View style={{ width: scoreRingSize, height: scoreRingSize }} className="rounded-full border-[5px] border-dark items-center justify-center">
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+              style={{ fontSize: ringScoreFontSize, lineHeight: ringScoreFontSize }}
+              className="font-heading text-dark"
+            >
               {lockedValues ? <Feather name="lock" size={22} color="#080808" /> : scoreUnavailable ? '—' : baselineBuilding ? <Text className="font-heading text-dark/75 text-[30px] leading-[34px] text-center">·</Text> : score ?? missingScore}
             </Text>
 
-            <Text className="font-heading-bold text-dark/75 text-[9px] tracking-[1.5px] uppercase">
+            <Text adjustsFontSizeToFit numberOfLines={1} className="font-heading-bold text-dark/75 text-[10px] tracking-[1.5px] uppercase">
               {scoreLabel}
             </Text>
           </View>
         ) : (
           <View>
-            <Text className="font-heading text-dark text-[56px] leading-[52px]">
+            <Text className="font-heading text-dark" style={{ fontSize: compactWidth ? 60 : 66, lineHeight: compactWidth ? 58 : 64 }}>
               {lockedValues ? <Feather name="lock" size={28} color="#080808" /> : scoreUnavailable ? '—' : baselineBuilding ? <Text className="font-heading text-dark/75 text-[34px] leading-[38px] text-center">·</Text> : score ?? missingScore}
             </Text>
             <Text className="font-heading-bold text-dark/75 text-[10px] tracking-[1.5px] uppercase">
@@ -109,7 +122,7 @@ function DadScoreCard({
               style={showWarning ? { backgroundColor: 'rgba(184, 74, 66, 0.2)' } : undefined}
             >
               <View className="flex-row justify-between mb-[3px]">
-                <Text className="font-heading-bold text-dark/75 text-[10px] uppercase tracking-[0.5px]">
+                <Text adjustsFontSizeToFit numberOfLines={1} className={`font-heading-bold text-dark/75 ${pillarLabelClass} uppercase tracking-[0.5px]`}>
                   {item.label}
                 </Text>
 
@@ -191,7 +204,7 @@ function DadScoreCard({
       ) : null}
 
       {proTease ? (
-        <Text className="self-center font-heading-bold text-dark/70 text-[10px] tracking-[1px] uppercase mt-sm">
+        <Text className="self-center font-heading-bold text-dark/70 text-[14px] tracking-[1px] uppercase mt-lg">
           {proTease}
         </Text>
       ) : null}

@@ -35,8 +35,12 @@ test('baseline state hides placeholder values and trends, but preserves zero and
     assert.ok(component.includes('Building first 7 day trend'));
     assert.match(component, /baselineBuilding/);
   }
-  assert.match(card, /scoreUnavailable \? '—' : baselineBuilding \? <Text className="font-heading text-dark\/45 text-\[30px\] leading-\[34px\] text-center">·<\/Text> : score \?\? missingScore/);
-  assert.match(card, /scoreUnavailable \? \(\s*<Text className="font-heading-bold text-dark\/60 text-\[10px\]">—<\/Text>\s*\) : baselineBuilding \? \(/);
+  assert.match(card, /scoreUnavailable \? '—' : baselineBuilding \? <Text className="font-heading text-dark\/75 text-\[30px\] leading-\[34px\] text-center">·<\/Text> : score \?\? missingScore/);
+  assert.match(card, /scoreRingSize = compactWidth \? 104 : 116/);
+  assert.match(card, /ringScoreFontSize = compactWidth \? 44 : 50/);
+  assert.match(card, /adjustsFontSizeToFit/);
+  assert.match(card, /compactWidth \? 'text-\[11px\]' : 'text-\[12px\]'/);
+  assert.match(card, /lockedValues \? <Feather[\s\S]*? : scoreUnavailable \? <Text className="font-heading-bold text-dark\/75 text-\[10px\]">—<\/Text> : baselineBuilding/);
   assert.match(card, /!baselineBuilding && \(item\.trend != null \|\| item\.showNeutralTrend\)/);
   assert.match(card, /item\.value !== null && !scoreUnavailable/);
   assert.match(card, /formatScoreTrend\(item\.trend\)/);
@@ -44,7 +48,7 @@ test('baseline state hides placeholder values and trends, but preserves zero and
   assert.match(pillarRow, /scoreUnavailable \? \([\s\S]*?—<\/Text>\s*\) : baselineBuilding \? \([\s\S]*?text-muted-text\/60 text-\[20px\].*·/);
   assert.match(pillarRow, /Building first 7 day trend/);
   assert.match(pillarRow, /Math\.round\(score \?\? 0\)\}%/);
-  assert.match(bondCard, /scoreUnavailable \? '—' : baselineBuilding \? <Text className="font-heading text-dark\/45 text-\[34px\] leading-\[38px\] text-center">·<\/Text> : value/);
+  assert.match(bondCard, /scoreUnavailable \? '—' : baselineBuilding \? <Text className="font-heading text-dark\/75 text-\[34px\] leading-\[38px\] text-center">·<\/Text> : value/);
   assert.match(bondCard, /!scoreUnavailable && !baselineBuilding/);
   assert.match(bondCard, /Math\.round\(score \?\? 0\)/);
 });
