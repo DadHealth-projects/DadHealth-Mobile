@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { createOneSignalAuthLifecycle } from '../lib/oneSignalAuthLifecycle.js';
 
 const root = new URL('../', import.meta.url);
 
@@ -36,6 +37,87 @@ test('Expo web never initializes the native OneSignal bridge', async () => {
   assert.ok(
     router.indexOf("Platform.OS === 'web'") < router.indexOf("TurboModuleRegistry.get('OneSignal')"),
   );
+});
+
+function createPushCallRecorder() {
+  const calls = [];
+  const lifecycle = createOneSignalAuthLifecycle(
+    (userId) => calls.push({ method: 'login', userId }),
+    () => calls.push({ method: 'logout' }),
+  );
+  return { calls, lifecycle };
+}
+
+test('OneSignal auth lifecycle does not log out during cold or signed-out startup', () => {
+  const { calls, lifecycle } = createPushCallRecorder();
+
+  lifecycle.update(true, null);
+  lifecycle.update(false, null);
+
+  assert.deepEqual(calls, []);
+});
+
+test('OneSignal auth lifecycle logs in once after session restoration settles', () => {
+  const { calls, lifecycle } = createPushCallRecorder();
+
+  lifecycle.update(true, null);
+  lifecycle.update(true, 'restored-user');
+  lifecycle.update(false, 'restored-user');
+
+  assert.deepEqual(calls, [{ method: 'login', userId: 'restored-user' }]);
+});
+
+test('OneSignal auth lifecycle logs out exactly once after a real sign-out', () => {
+  const { calls, lifecycle } = createPushCallRecorder();
+
+  lifecycle.update(false, 'signed-in-user');
+  lifecycle.update(false, null);
+  lifecycle.update(false, null);
+
+  assert.deepEqual(calls, [
+    { method: 'login', userId: 'signed-in-user' },
+    { method: 'logout' },
+  ]);
+});
+
+test('OneSignal auth lifecycle ignores repeated renders for the same user', () => {
+  const { calls, lifecycle } = createPushCallRecorder();
+
+  lifecycle.update(false, 'same-user');
+  lifecycle.update(false, 'same-user');
+  lifecycle.update(false, 'same-user');
+
+  assert.deepEqual(calls, [{ method: 'login', userId: 'same-user' }]);
+});
+
+test('OneSignal auth lifecycle handles account switches and loading transitions', () => {
+  const { calls, lifecycle } = createPushCallRecorder();
+
+  lifecycle.update(false, 'account-a');
+  lifecycle.update(true, null);
+  lifecycle.update(true, 'account-b');
+  lifecycle.update(false, 'account-b');
+  lifecycle.update(false, 'account-b');
+  lifecycle.update(false, null);
+  lifecycle.update(false, null);
+
+  assert.deepEqual(calls, [
+    { method: 'login', userId: 'account-a' },
+    { method: 'login', userId: 'account-b' },
+    { method: 'logout' },
+  ]);
+});
+
+test('OneSignal manager uses the tested lifecycle helper and keeps initialization', async () => {
+  const [manager, auth] = await Promise.all([
+    readFile(new URL('components/OneSignalManager.tsx', root), 'utf8'),
+    readFile(new URL('contexts/AuthContext.tsx', root), 'utf8'),
+  ]);
+
+  assert.match(manager, /createOneSignalAuthLifecycle\(loginPushUser, logoutPushUser\)/);
+  assert.match(manager, /initializePushNotifications\(\)/);
+  assert.doesNotMatch(auth, /logoutPushUser/);
+  assert.match(auth, /await supabase\.auth\.signOut\(\)/);
 });
 
 test('Present Dad completion is requested through the server RPC, not a direct row update', async () => {
