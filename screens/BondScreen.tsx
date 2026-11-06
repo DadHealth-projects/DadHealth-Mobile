@@ -71,6 +71,15 @@ export default function BondScreen({
           scoreUnavailable={Boolean(data?.scoreError)}
           baselineBuilding={Boolean(data && !data.scoreError && !data.baselineAvailable)}
         />
+        <Pressable
+          onPress={onViewBondScore}
+          accessibilityRole="button"
+          accessibilityLabel="View your report"
+          className="self-start flex-row items-center gap-xs mt-md active:opacity-70"
+        >
+          <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">View your report</Text>
+          <Feather name="arrow-right" size={15} color={colors.lime} />
+        </Pressable>
         {!data?.scoreError && data?.baselineAvailable && (bondScore == null || bondScore === 0) ? (
           <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-sm">
             Log a Bond activity below to start contributing to your score.

@@ -104,7 +104,7 @@ test('Community home follows approved order, keeps global posts, and removes Rec
   assert.match(community, /communityCircles\.map\(\(circle\) =>/);
   assert.doesNotMatch(community, /Math\.ceil\(communityCircles\.length \/ 2\)/);
   assert.match(navigation, /name="CommunityFeed"/);
-  assert.match(mind, /navigation\.navigate\('CommunityFeed'\)/);
+  assert.match(mind, /navigation\.navigate\('Tabs', \{ screen: 'Squad' \}\)/);
   assert.match(community, /rows\.slice\(0, 4\)/);
   assert.match(community, /second\.count - first\.count/);
   assert.match(community, /navigation\.navigate\('CommunityPostThread'/);
@@ -171,4 +171,15 @@ test('Create Post preserves Circle context and General posts use null circle_id'
   assert.match(feed, /useFocusEffect/);
   assert.match(feed, /useFocusEffect/);
   assert.match(feed, /feed\.refresh\(\)/);
+});
+
+test('readable top-level comments from any author can receive replies', async () => {
+  const [thread, policies] = await Promise.all([
+    source('screens/subscreens/CommunityPostThreadScreen.tsx'),
+    source('../dadHealth/supabase/rls-policies.sql'),
+  ]);
+
+  assert.match(thread, /roots\.map\(\(comment\)[\s\S]*?onReply=\{\(\) => \{ setReplyTo\(comment\.id\)/);
+  assert.match(thread, /payload: \{ id, user_id: user\.id, post_id: route\.params\.postId, content, parent_id: replyTo \}/);
+  assert.match(policies, /create policy "Members can comment on readable posts" on comments for insert to authenticated with check \(auth\.uid\(\) = user_id and public\.can_read_community_post\(post_id\)\)/);
 });
