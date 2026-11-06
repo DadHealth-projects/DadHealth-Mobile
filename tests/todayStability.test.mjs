@@ -86,7 +86,7 @@ test('Today retains loaded content during refresh and shows neutral failed-read 
     source('components/dashboard/StreakCard.tsx'),
     source('components/dashboard/WeeklyReportCard.tsx'),
   ]);
-  assert.match(screen, /const showHomeSkeleton = \(!data && !dashboardError\);/);
+  assert.match(screen, /const showHomeSkeleton = \(!data && !dashboardError\) \|\| waitForPromptDecision;/);
   assert.match(screen, /data\.checkedInToday === null/);
   assert.match(hook, /checkedInToday: moodsResult\.error \? null/);
   assert.match(streak, /streak === null/);
