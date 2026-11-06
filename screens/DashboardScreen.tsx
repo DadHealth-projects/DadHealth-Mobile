@@ -1,15 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AppState,
   KeyboardAvoidingView,
-  type LayoutChangeEvent,
   Platform,
   Pressable,
   RefreshControl,
   ScrollView,
-  type ScrollViewInstance,
   Text,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { User } from '@supabase/supabase-js';
 import { useIsFocused, useNavigation, useRoute, type NavigationProp } from '@react-navigation/native';
@@ -18,7 +18,7 @@ import AppTopBar from '../components/AppTopBar';
 import type { DashboardSection } from '../components/AccountSheet';
 import ChallengeCard from '../components/dashboard/ChallengeCard';
 import CheckInFollowUp from '../components/dashboard/CheckInFollowUp';
-import CheckInPanel from '../components/dashboard/CheckInPanel';
+import DailyCheckInModal from '../components/dashboard/DailyCheckInModal';
 import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
 import DadScoreCard from '../components/dashboard/DadScoreCard';
 import FadeInView from '../components/FadeInView';
@@ -31,7 +31,6 @@ import StreakCard from '../components/dashboard/StreakCard';
 import SupportingTools, { type SupportingTool } from '../components/dashboard/SupportingTools';
 import TodayFocusCard from '../components/dashboard/TodayFocusCard';
 import WeeklyReportCard from '../components/dashboard/WeeklyReportCard';
-import type { MoodKey } from '../components/mockup/MoodCheckInRow';
 import { useAuth } from '../contexts/AuthContext';
 import { refreshDashboardForUser, useDashboard } from '../hooks/useDashboard';
 import { useFitnessLibrary } from '../hooks/useFitnessLibrary';
@@ -45,6 +44,7 @@ import {
   getScoreBreakdown,
   toLocalDateKey,
 } from '../lib/dashboard.utils';
+import dailyCheckInPrompt, { type DailyCheckInPromptState } from '../lib/dailyCheckInPrompt.js';
 import type { CheckInAction } from '../lib/checkInRecommendation';
 import { showCrisisSupportDetails } from '../lib/crisisSupport';
 import { navigateToProSubscription } from '../lib/proNavigation';
@@ -60,6 +60,7 @@ import type { AppStackParamList } from '../navigation/AppNavigator';
 
 // TODAY top-centre brand logo (dark-background colour logo).
 const TODAY_LOGO = require('../assets/02. DAD HEALTH LOGO_COLOR_Dark BG.png');
+const attemptedCheckInPromptSessions = new Set<string>();
 
 /** Signed-in dashboard screen, kept separate from the public Home experience. */
 export default function DashboardScreen({
@@ -71,6 +72,18 @@ export default function DashboardScreen({
 }) {
   const { user } = useAuth();
   const [activeSection, setActiveSection] = useState<DashboardSection>('HOME');
+  const [foregroundSessionId, setForegroundSessionId] = useState(0);
+
+  useEffect(() => {
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && previousState !== 'active') {
+        setForegroundSessionId((sessionId) => sessionId + 1);
+      }
+      previousState = state;
+    });
+    return () => subscription.remove();
+  }, []);
 
   if (!user?.id) return null;
 
@@ -86,7 +99,9 @@ export default function DashboardScreen({
   else if (activeSection === 'COMMUNITY') screen = <CommunityScreen {...sectionProps} />;
   else screen = (
     <DashboardScreenContent
+      key={user.id}
       user={user}
+      foregroundSessionId={foregroundSessionId}
       activeSection={activeSection}
       onSelectSection={setActiveSection}
       openScoreDetail={openScoreDetail || activeSection === 'PROGRESS'}
@@ -105,17 +120,20 @@ export default function DashboardScreen({
  */
 export function DashboardScreenContent({
   user,
+  foregroundSessionId,
   activeSection = 'HOME',
   onSelectSection,
   openScoreDetail = false,
   onScoreDetailRequestConsumed,
 }: {
   user: User;
+  foregroundSessionId: number;
   activeSection?: DashboardSection;
   onSelectSection?: (section: DashboardSection) => void;
   openScoreDetail?: boolean;
   onScoreDetailRequestConsumed?: () => void;
 }) {
+  const { pendingBiometricEnrollment } = useAuth();
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const isFocused = useIsFocused();
   const route = useRoute();
@@ -147,20 +165,24 @@ export function DashboardScreenContent({
   const weeklyReportAccess = entitlement.can('weekly_report');
   const streakFreezeAccess = entitlement.can('streak_freeze');
   const { dismissToast, isOffline } = useNetworkStatus();
-  // Web pre-selects mood 3 ("Good") and 7 hours of sleep.
-  const [moodKey, setMoodKey] = useState<MoodKey>('good');
-  const [moodValue, setMoodValue] = useState(4);
-  const [energyLevel, setEnergyLevel] = useState<number | null>(null);
-  const [connectionLevel, setConnectionLevel] = useState<number | null>(null);
-  const [sleep, setSleep] = useState('');
-  const [checkInError, setCheckInError] = useState<string | null>(null);
-  const [checkInMessage, setCheckInMessage] = useState<string | null>(null);
-  const [showCheckInSuccess, setShowCheckInSuccess] = useState(false);
+  const [checkInModalOpen, setCheckInModalOpen] = useState(false);
+  const [scoreSheetOpen, setScoreSheetOpen] = useState(false);
+  const [reminderMessage, setReminderMessage] = useState<string | null>(null);
+  const [promptDecisionReadyKey, setPromptDecisionReadyKey] = useState<string | null>(null);
+  const promptStateRef = useRef<DailyCheckInPromptState | null>(null);
+  const promptSessionRequestKey = useRef<string | null>(null);
   const refreshInFlight = useRef(false);
-  const scrollRef = useRef<ScrollViewInstance>(null);
-  const checkInOffset = useRef(0);
   const [refreshing, setRefreshing] = useState(false);
-  const showHomeSkeleton = !data && !dashboardError;
+  const todayDate = toLocalDateKey(new Date());
+  const promptDecisionKey = `${user.id}:${todayDate}:${foregroundSessionId}`;
+  const dailyCheckInStorageKey = `dadhealth.daily-check-in-prompt.v2.${user.id}`;
+  const waitForPromptDecision = Boolean(
+    isFocused && activeSection === 'HOME' && data?.checkedInToday === false &&
+    !checkInModalOpen && !scoreSheetOpen && !openScoreDetail && !pendingBiometricEnrollment &&
+    !attemptedCheckInPromptSessions.has(promptDecisionKey) &&
+    promptDecisionReadyKey !== promptDecisionKey,
+  );
+  const showHomeSkeleton = (!data && !dashboardError) || waitForPromptDecision;
 
   const displayName = useMemo(
     () => greetingFirstName(data?.displayName, user),
@@ -215,64 +237,12 @@ export function DashboardScreenContent({
     [data?.reminders],
   );
 
-  const handleSelectMood = useCallback((key: MoodKey, value: number) => {
-    setMoodKey(key);
-    setMoodValue(value);
-    setCheckInError(null);
-    setCheckInMessage(null);
-  }, []);
-
-  const handleChangeSleep = useCallback((value: string) => {
-    setSleep(value);
-    setCheckInError(null);
-    setCheckInMessage(null);
-  }, []);
-
-  const handleSelectEnergy = useCallback((value: number) => {
-    setEnergyLevel(value);
-    setCheckInError(null);
-    setCheckInMessage(null);
-  }, []);
-
-  const handleSelectConnection = useCallback((value: number) => {
-    setConnectionLevel(value);
-    setCheckInError(null);
-    setCheckInMessage(null);
-  }, []);
-
-  useEffect(() => {
-    if (!showCheckInSuccess) return undefined;
-    const timer = setTimeout(() => setShowCheckInSuccess(false), 3500);
-    return () => clearTimeout(timer);
-  }, [showCheckInSuccess]);
-
-  const handleCheckIn = useCallback(async () => {
-    setCheckInError(null);
-    setCheckInMessage(null);
-    const sleepHours = sleep.trim() ? Number(sleep) : null;
-    if (sleep.trim() && (sleepHours == null || !Number.isFinite(sleepHours) || sleepHours < 0 || sleepHours > 12)) {
-      setCheckInError('Enter sleep between 0 and 12 hours, or leave it blank.');
-      return;
-    }
-    if (energyLevel === null) {
-      setCheckInError('Choose your energy level.');
-      return;
-    }
-    if (connectionLevel === null) {
-      setCheckInError('Choose your connection level.');
-      return;
-    }
-    const result = await saveCheckIn(moodValue, energyLevel, connectionLevel, sleepHours);
-    if (result.inFlight) return;
-    if (result.error) setCheckInError(result.error);
-    else if (result.queued) {
-      setCheckInMessage("Saved on this device. It will sync when you're back online. Your Mind, Body and Bond answers are saved.");
-      setShowCheckInSuccess(true);
-    } else {
-      setCheckInMessage(result.warning ?? 'Check-in saved for Mind, Body and Bond.');
-      setShowCheckInSuccess(true);
-    }
-  }, [connectionLevel, energyLevel, moodValue, saveCheckIn, sleep]);
+  const handleCheckIn = useCallback(async ({ moodValue, energyLevel, connectionLevel, sleepHours }: {
+    moodValue: number;
+    energyLevel: number;
+    connectionLevel: number;
+    sleepHours: number | null;
+  }) => saveCheckIn(moodValue, energyLevel, connectionLevel, sleepHours), [saveCheckIn]);
 
   const todayFocus = useMemo(() => {
     if (data?.checkedInToday === null && data?.recommendedAction === 'checkin') return null;
@@ -290,16 +260,16 @@ export function DashboardScreenContent({
   // Read today's persisted pillar answers and legacy Stress for follow-up.
   const checkedInMood = useMemo(() => {
     const today = toLocalDateKey(new Date());
-    return data?.moodLogs.find((log) => log.date === today)?.mood_value ?? moodValue;
-  }, [data?.moodLogs, moodValue]);
+    return data?.moodLogs.find((log) => log.date === today)?.mood_value ?? 4;
+  }, [data?.moodLogs]);
   const checkedInEnergy = useMemo(() => {
     const today = toLocalDateKey(new Date());
-    return data?.moodLogs.find((log) => log.date === today)?.energy_level ?? energyLevel;
-  }, [data?.moodLogs, energyLevel]);
+    return data?.moodLogs.find((log) => log.date === today)?.energy_level ?? null;
+  }, [data?.moodLogs]);
   const checkedInConnection = useMemo(() => {
     const today = toLocalDateKey(new Date());
-    return data?.moodLogs.find((log) => log.date === today)?.connection_level ?? connectionLevel;
-  }, [connectionLevel, data?.moodLogs]);
+    return data?.moodLogs.find((log) => log.date === today)?.connection_level ?? null;
+  }, [data?.moodLogs]);
   const checkedInStress = useMemo(() => {
     const today = toLocalDateKey(new Date());
     return data?.moodLogs.find((log) => log.date === today)?.stress_level ?? null;
@@ -317,9 +287,97 @@ export function DashboardScreenContent({
     navigateToProSubscription(navigation, source, context, user.id, interaction, feature);
   }, [navigation, user.id]);
 
-  const [scoreSheetOpen, setScoreSheetOpen] = useState(false);
   const scoreDetailRequestHandled = useRef(false);
   const openScoreInsights = useCallback(() => setScoreSheetOpen(true), []);
+
+  const openDailyCheckIn = useCallback(() => {
+    attemptedCheckInPromptSessions.add(promptDecisionKey);
+    setPromptDecisionReadyKey(promptDecisionKey);
+    setReminderMessage(null);
+    setCheckInModalOpen(true);
+  }, [promptDecisionKey]);
+
+  const initialCheckInAnswers = useMemo(() => {
+    const today = toLocalDateKey(new Date());
+    const log = data?.moodLogs.find((entry) => entry.date === today);
+    return {
+      moodValue: log?.mood_value ?? null,
+      energyLevel: log?.energy_level ?? null,
+      connectionLevel: log?.connection_level ?? null,
+    };
+  }, [data?.moodLogs]);
+
+  useEffect(() => {
+    if (!isFocused || activeSection !== 'HOME' || !data || data.checkedInToday === null || loading) return undefined;
+
+    if (data.checkedInToday) {
+      setPromptDecisionReadyKey(promptDecisionKey);
+      return undefined;
+    }
+
+    if (checkInModalOpen) {
+      attemptedCheckInPromptSessions.add(promptDecisionKey);
+      setPromptDecisionReadyKey(promptDecisionKey);
+      return undefined;
+    }
+
+    if (scoreSheetOpen || pendingBiometricEnrollment || openScoreDetail) {
+      setPromptDecisionReadyKey(promptDecisionKey);
+      return undefined;
+    }
+
+    if (attemptedCheckInPromptSessions.has(promptDecisionKey)) {
+      setPromptDecisionReadyKey(promptDecisionKey);
+      return undefined;
+    }
+
+    if (promptSessionRequestKey.current === promptDecisionKey) return undefined;
+
+    promptSessionRequestKey.current = promptDecisionKey;
+    let active = true;
+
+    const applyDecision = (storedState: DailyCheckInPromptState) => {
+      const decision = dailyCheckInPrompt.getNextDailyCheckInPrompt(
+        storedState,
+        user.id,
+        todayDate,
+        false,
+      );
+      promptStateRef.current = decision.state;
+      attemptedCheckInPromptSessions.add(promptDecisionKey);
+      promptSessionRequestKey.current = null;
+      setPromptDecisionReadyKey(promptDecisionKey);
+      if (!decision.shouldShow || decision.reminderNumber === null) return;
+
+      setReminderMessage(dailyCheckInPrompt.dailyCheckInReminderCopy(decision.reminderNumber));
+      setCheckInModalOpen(true);
+      void AsyncStorage.setItem(dailyCheckInStorageKey, JSON.stringify(decision.state)).catch(() => undefined);
+    };
+
+    const currentState = promptStateRef.current;
+    if (currentState?.userId === user.id && currentState.date === todayDate) {
+      applyDecision(currentState);
+    } else {
+      void AsyncStorage.getItem(dailyCheckInStorageKey)
+        .then((rawState) => {
+          if (!active) return;
+          const storedState = dailyCheckInPrompt.parseDailyCheckInPromptState(rawState, user.id, todayDate);
+          promptStateRef.current = storedState;
+          applyDecision(storedState);
+        })
+        .catch(() => {
+          if (!active) return;
+          const emptyState = dailyCheckInPrompt.parseDailyCheckInPromptState(null, user.id, todayDate);
+          promptStateRef.current = emptyState;
+          applyDecision(emptyState);
+        });
+    }
+
+    return () => {
+      active = false;
+      if (promptSessionRequestKey.current === promptDecisionKey) promptSessionRequestKey.current = null;
+    };
+  }, [activeSection, checkInModalOpen, dailyCheckInStorageKey, data, isFocused, loading, openScoreDetail, pendingBiometricEnrollment, promptDecisionKey, scoreSheetOpen, todayDate, user.id]);
 
   useEffect(() => {
     if (openScoreDetail && !scoreDetailRequestHandled.current) {
@@ -355,7 +413,7 @@ export function DashboardScreenContent({
 
   const openFocus = useCallback(() => {
     if (todayFocus === 'checkin') {
-      scrollRef.current?.scrollTo({ y: Math.max(0, checkInOffset.current - 16), animated: true });
+      openDailyCheckIn();
     } else if (todayFocus === 'mind') {
       navigation.navigate('BreathingSession');
     } else if (todayFocus === 'body') {
@@ -364,7 +422,7 @@ export function DashboardScreenContent({
     } else if (todayFocus === 'bond') {
       navigation.navigate('Tabs', { screen: 'Bond' });
     }
-  }, [navigation, todayFocus, weeklyWorkout?.id]);
+  }, [navigation, openDailyCheckIn, todayFocus, weeklyWorkout?.id]);
 
   const focusContent = useMemo(() => {
     if (todayFocus === 'checkin') return {
@@ -454,10 +512,6 @@ export function DashboardScreenContent({
     },
   ], [assignmentKnown, isOffline, navigation, officialDadDateSuggestion?.name, officialDadDateTimeLabel, recipeAssignmentKnown, recipeLoading, weeklyRecipe, weeklyRecipeError, weeklyWorkout, workoutError, workoutLoading]);
 
-  const captureCheckInOffset = useCallback((event: LayoutChangeEvent) => {
-    checkInOffset.current = event.nativeEvent.layout.y;
-  }, []);
-
   const handleRefresh = useCallback(async () => {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
@@ -502,7 +556,6 @@ export function DashboardScreenContent({
     >
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          ref={scrollRef}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           contentContainerClassName="px-lg pt-lg pb-[120px] gap-lg"
@@ -522,45 +575,13 @@ export function DashboardScreenContent({
           <GlobalErrorToastReporter message={syncError} />
 
           {!data ? (
-            <View className="gap-md">
-              {checkInMessage ? (
-                <Text accessibilityLiveRegion="polite" className="font-body text-lime text-[13px] leading-[19px]">{checkInMessage}</Text>
-              ) : !dashboardError || isOffline ? (
-                <>
-                  <DadScoreCard
-                    score={null}
-                    compactBottom
-                    items={[{ label: 'Mind', value: null }, { label: 'Body', value: null }, { label: 'Bond', value: null }]}
-                    missingScore="—"
-                    missingItemValue="—"
-                  />
-                  <View onLayout={captureCheckInOffset} className="bg-lime rounded-card px-xl py-xl mt-lg">
-                    <Text className="font-heading-bold text-dark text-[22px] uppercase mb-xs">Today's check-in</Text>
-                    <Text className="font-body text-dark/60 text-[13px] leading-[18px] mb-lg">One question for your Mind, Body and Bond.</Text>
-                    <CheckInPanel
-                      selectedKey={moodKey}
-                      onSelectMood={handleSelectMood}
-                      energyLevel={energyLevel}
-                      onSelectEnergy={handleSelectEnergy}
-                      connectionLevel={connectionLevel}
-                      onSelectConnection={handleSelectConnection}
-                      sleep={sleep}
-                      onChangeSleep={handleChangeSleep}
-                      onSave={() => void handleCheckIn()}
-                      saving={checkingIn}
-                      error={checkInError}
-                    />
-                  </View>
-                </>
-              ) : (
-                <View accessibilityLiveRegion="polite" className="bg-card rounded-card px-xl py-lg">
-                  <Text className="font-heading-bold text-white text-[16px] uppercase">Check-in status unavailable</Text>
-                  <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">
-                    Pull down to check your saved check-in again.
-                  </Text>
-                </View>
-              )}
-            </View>
+            <DadScoreCard
+              score={null}
+              compactBottom
+              items={[{ label: 'Mind', value: null }, { label: 'Body', value: null }, { label: 'Bond', value: null }]}
+              missingScore="—"
+              missingItemValue="—"
+            />
           ) : null}
 
           {data ? (
@@ -580,7 +601,8 @@ export function DashboardScreenContent({
                     items={scoreItems}
                     title="Dad Health Score"
                     scoreLabel="of 100"
-                    proTease={scoreInsightsAccess === false ? 'Unlock my insights' : undefined}
+                    proTease="Your insights"
+                    proTeaseLocked={scoreInsightsAccess === false}
                     userId={user.id}
                     compactBottom
                   />
@@ -592,49 +614,6 @@ export function DashboardScreenContent({
                   />
                 </View>
               </FadeInView>
-
-              {data.checkedInToday === null ? (
-                <View accessibilityLiveRegion="polite" className="bg-card rounded-card px-xl py-lg">
-                  <Text className="font-heading-bold text-white text-[16px] uppercase">Check-in status</Text>
-                  <Text className="font-body text-muted-text text-[13px] leading-[19px] mt-xs">
-                    Checking whether today's check-in is saved.
-                  </Text>
-                </View>
-              ) : !data.checkedInToday || showCheckInSuccess ? (
-              <FadeInView delay={180}>
-                <View onLayout={captureCheckInOffset} className="bg-lime rounded-card px-xl py-xl">
-                  <Text className="font-heading-bold text-dark text-[22px] uppercase mb-xs">Today's check-in</Text>
-                  {!data.checkedInToday && !showCheckInSuccess ? (
-                    <>
-                      <Text className="font-body text-dark/60 text-[13px] leading-[18px] mb-lg">One question for your Mind, Body and Bond.</Text>
-                    <CheckInPanel
-                      selectedKey={moodKey}
-                      onSelectMood={handleSelectMood}
-                      energyLevel={energyLevel}
-                      onSelectEnergy={handleSelectEnergy}
-                      connectionLevel={connectionLevel}
-                      onSelectConnection={handleSelectConnection}
-                      sleep={sleep}
-                      onChangeSleep={handleChangeSleep}
-                      onSave={() => void handleCheckIn()}
-                      saving={checkingIn}
-                      error={checkInError}
-                    />
-                    </>
-                  ) : (
-                    <View className="flex-row items-start gap-md mt-md">
-                      <Text className="font-heading-bold text-dark text-[24px]">✓</Text>
-                      <View className="flex-1">
-                        <Text className="font-heading-bold text-dark text-[16px] uppercase">Check-in complete</Text>
-                        <Text accessibilityLiveRegion="polite" className="font-body text-dark/65 text-[13px] leading-[19px] mt-xs">
-                          {checkInMessage ?? 'Your check-in is saved for Mind, Body and Bond.'}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                </View>
-              </FadeInView>
-              ) : null}
 
               {data.checkedInToday ? (
                 <FadeInView delay={190}>
@@ -652,10 +631,6 @@ export function DashboardScreenContent({
               ) : null}
 
               <FadeInView delay={200}>
-                {focusContent ? <TodayFocusCard {...focusContent} onPress={openFocus} /> : null}
-              </FadeInView>
-
-              <FadeInView delay={240}>
                 <StreakCard
                   streak={data.streak}
                   freezeAccess={streakFreezeAccess}
@@ -664,6 +639,19 @@ export function DashboardScreenContent({
                   userId={user.id}
                   onUpgrade={() => openPro('streak_freeze', 'Freeze your streak once a week', 'lock')}
                 />
+              </FadeInView>
+
+              <FadeInView delay={220}>
+                <ChallengeCard
+                  challenge={data.challenge}
+                  onOpenChallenge={data.challenge
+                    ? () => navigation.navigate('WeeklyChallenge', { challengeId: data.challenge!.id })
+                    : undefined}
+                />
+              </FadeInView>
+
+              <FadeInView delay={240}>
+                {focusContent ? <TodayFocusCard {...focusContent} onPress={openFocus} /> : null}
               </FadeInView>
 
               {showWeeklyReport ? (
@@ -689,15 +677,6 @@ export function DashboardScreenContent({
                 <SupportingTools tools={supportingTools} />
               </FadeInView>
 
-              <FadeInView delay={300}>
-                <ChallengeCard
-                  challenge={data.challenge}
-                  onOpenChallenge={data.challenge
-                    ? () => navigation.navigate('WeeklyChallenge', { challengeId: data.challenge!.id })
-                    : undefined}
-                />
-              </FadeInView>
-
               {reminders.length > 0 ? (
                 <FadeInView delay={320}>
                   <RemindersList reminders={reminders} />
@@ -720,6 +699,15 @@ export function DashboardScreenContent({
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
+      <DailyCheckInModal
+        key={user.id}
+        visible={checkInModalOpen}
+        reminderMessage={reminderMessage}
+        initialAnswers={initialCheckInAnswers}
+        saving={checkingIn}
+        onClose={() => setCheckInModalOpen(false)}
+        onSave={handleCheckIn}
+      />
     </SafeAreaView>
   );
 }

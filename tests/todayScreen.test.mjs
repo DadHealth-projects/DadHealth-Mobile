@@ -17,12 +17,12 @@ test('Today follows the approved score-led hierarchy', async () => {
   const ordered = [
     '<GreetingHeader',
     '<DadScoreCard',
-    "Today's check-in",
-    // One focus is the free recommendation and sits directly after the check-in.
-    '<TodayFocusCard',
+    '<CheckInFollowUp',
     '<StreakCard',
-    '<SupportingTools',
     '<ChallengeCard',
+    '<TodayFocusCard',
+    '<WeeklyReportCard',
+    '<SupportingTools',
     '<RemindersList',
   ].map((needle) => signedIn.indexOf(needle));
 
@@ -37,11 +37,12 @@ test('Today follows the approved score-led hierarchy', async () => {
 });
 
 test('daily check-in uses approved Mind, Body, Bond wording with optional Sleep', async () => {
-  const [panel, moods, dashboard, screen] = await Promise.all([
-    source('components/dashboard/CheckInPanel.tsx'),
+  const [modal, moods, dashboard, screen, prompt] = await Promise.all([
+    source('components/dashboard/DailyCheckInModal.tsx'),
     source('components/mockup/MoodCheckInRow.tsx'),
     source('hooks/useDashboard.ts'),
     source('screens/DashboardScreen.tsx'),
+    source('lib/dailyCheckInPrompt.js'),
   ]);
 
   const moodLabels = [...moods.matchAll(/label: '([^']+)'/g)].map((match) => match[1]);
@@ -49,23 +50,64 @@ test('daily check-in uses approved Mind, Body, Bond wording with optional Sleep'
   const moodValues = [...moods.matchAll(/label: '[^']+', value: (\d)/g)].map((match) => Number(match[1]));
   assert.deepEqual(moodValues, [1, 2, 3, 4, 5]);
   for (const label of ['Exhausted', 'Tired', 'Okay', 'Good', 'Energised', 'Disconnected', 'Distant', 'Neutral', 'Connected', 'Very connected']) {
-    assert.ok(panel.includes(`'${label}'`), `Missing check-in option: ${label}`);
+    assert.ok(modal.includes(`'${label}'`), `Missing check-in option: ${label}`);
   }
-  assert.ok(panel.includes("How&apos;s your head today?"));
-  assert.ok(panel.includes('How are you feeling physically?'));
-  assert.ok(panel.includes('How connected do you feel today?'));
-  assert.equal(panel.includes('Overwhelmed'), false);
-  assert.equal(panel.includes('How stressed do you feel today?'), false);
-  assert.ok(panel.includes('Sleep (optional)'));
-  assert.ok(panel.includes('const value = index + 1;'));
-  assert.equal(panel.includes('lowestLabel='), false);
+  assert.ok(modal.includes("How's your head today?"));
+  assert.ok(modal.includes('How are you feeling physically?'));
+  assert.ok(modal.includes('How connected do you feel today?'));
+  assert.equal(modal.includes('Overwhelmed'), false);
+  assert.equal(modal.includes('How stressed do you feel today?'), false);
+  assert.ok(modal.includes('>Sleep</Text>'));
+  assert.ok(modal.includes('Add sleep hours (optional)'));
+  assert.ok(modal.includes('accessibilityLabel={label}'));
+  assert.ok(modal.includes('accessibilityState={{ checked: selected }}'));
+  assert.ok(modal.includes('{option.emoji}'));
+  assert.ok(modal.includes('setMoodValue(option.value)'));
+  assert.ok(modal.includes('setEnergyLevel(index + 1)'));
+  assert.ok(modal.includes('setConnectionLevel(index + 1)'));
+  assert.equal(screen.includes('<CheckInPanel'), false);
+  assert.ok(screen.includes('<DailyCheckInModal'));
+  assert.ok(screen.includes('reminderMessage={reminderMessage}'));
+  assert.ok(screen.includes('waitForPromptDecision'));
+  assert.ok(screen.includes('AsyncStorage.setItem(dailyCheckInStorageKey, JSON.stringify(decision.state))'));
+  assert.ok(screen.includes("state === 'active' && previousState !== 'active'"));
+  assert.ok(screen.includes('setForegroundSessionId((sessionId) => sessionId + 1)'));
+  assert.ok(screen.includes('attemptedCheckInPromptSessions.has(promptDecisionKey)'));
+  assert.ok(screen.includes('attemptedCheckInPromptSessions.add(promptDecisionKey)'));
+  assert.ok(screen.includes('const dailyCheckInStorageKey = `dadhealth.daily-check-in-prompt.v2.${user.id}`'));
+  assert.ok(prompt.includes('MAX_DAILY_CHECK_IN_PROMPTS = 3'));
+  assert.ok(prompt.includes('A moment for you. How are you feeling today?'));
+  assert.ok(prompt.includes('You skipped your check-in earlier. Got a minute for yourself?'));
+  assert.ok(prompt.includes("Still haven't checked in today? Take a moment when you're ready."));
+  assert.ok(screen.includes('if (checkInModalOpen)'));
+  assert.ok(screen.includes('if (scoreSheetOpen || pendingBiometricEnrollment || openScoreDetail)'));
+  assert.ok(modal.includes('Skip for now'));
+  assert.ok(modal.includes('{reminderMessage ??'));
+  assert.ok(modal.includes("onRequestClose={close}"));
+  assert.ok(modal.includes('transparent'));
+  assert.ok(modal.includes('bg-black/70'));
+  assert.ok(modal.includes('const modalHeight = height * 0.85'));
+  assert.ok(modal.includes('style={{ flexShrink: 1 }}'));
+  assert.equal(modal.includes('contentContainerStyle={{ flexGrow: 1 }}'), false);
+  assert.ok(modal.includes('<ScrollView'));
+  assert.ok(modal.includes('inputAccessoryViewID={Platform.OS === \'ios\' ? SLEEP_INPUT_ACCESSORY_ID : undefined}'));
+  assert.ok(modal.includes('<InputAccessoryView nativeID={SLEEP_INPUT_ACCESSORY_ID}>'));
+  assert.ok(modal.includes('onSubmitEditing={() => Keyboard.dismiss()}'));
+  assert.ok(modal.indexOf('</ScrollView>') > modal.indexOf('label="Continue"'));
+  assert.equal(modal.includes('automaticallyAdjustKeyboardInsets'), false);
+  assert.equal(modal.includes('presentationStyle="fullScreen"'), false);
+  assert.equal(modal.includes('>Dad Health</Text>'), false);
+  assert.ok(modal.indexOf('accessibilityLabel="Skip for now"') < modal.indexOf('</ScrollView>'));
+  assert.equal(modal.includes('<Feather name="x"'), false);
+  assert.ok(modal.includes("setStage(stage === 'mind' ? 'body' : 'bond')"));
+  assert.ok(modal.includes("setStage('mind')"));
   const publicHome = await source('screens/HomeScreen.tsx');
   assert.ok(publicHome.includes('lowestLabel="Very low"'));
   assert.ok(dashboard.includes('payload: { date, moodValue, energyLevel, connectionLevel, sleepHours }'));
   assert.ok(dashboard.includes('stress_level: log.stress_level ?? null'));
   assert.ok(dashboard.includes('const saveCheckIn = useCallback(async ('));
   assert.ok(screen.includes('saveCheckIn(moodValue, energyLevel, connectionLevel, sleepHours)'));
-  assert.ok(screen.includes('Check-in saved for Mind, Body and Bond.'));
+  assert.ok(modal.includes('Check-in saved for Mind, Body and Bond.'));
 });
 
 test('online and offline check-in saves preserve omitted fields and replay old queue payloads', async () => {
@@ -162,7 +204,7 @@ test('lowest-pillar focus uses approved tie order and existing destinations', as
   assert.ok(screen.includes("navigation.navigate('Tabs', { screen: 'Bond' })"));
   assert.ok(screen.includes("actionLabel: 'Start five-minute reset'"));
   assert.ok(screen.includes("title: 'Take a five-minute reset'"));
-  assert.ok(screen.includes("actionLabel: 'Start workout'"));
+  assert.ok(screen.includes("actionLabel: weeklyWorkout ? 'Start workout' : 'View Body'"));
   assert.ok(screen.includes("actionLabel: 'Open Present Dad Mode'"));
 });
 
@@ -187,7 +229,7 @@ test('Today score card and detail sheet use canonical values for Free and Pro', 
   assert.equal(screen.includes('selectTodayFocus'), false);
   assert.ok(hook.includes('total_score,weakest_pillar,recommended_action'));
   assert.ok(scoreCard.includes('trend.arrow'));
-  assert.ok(screen.includes("proTease={scoreInsightsAccess === false ? 'Unlock my insights' : undefined}"));
+  assert.ok(screen.includes('proTease="Your insights"'));
   assert.ok(screen.includes('accessibilityLabel="Open Dad Health Score details"'));
   assert.equal(screen.includes('lockedValues={!data.isPro}'), false);
   const detail = await source('components/dashboard/ScoreDetailSheet.tsx');
@@ -247,13 +289,14 @@ test('Body and Bond can each lead when Mind is not the lowest answer', () => {
 });
 
 test('Today uses the assigned Cook Together recipe for Free and Pro users', async () => {
-  const [screen, hook, cookHook] = await Promise.all([
+  const [screen, fitnessHook, cookHook] = await Promise.all([
     source('screens/DashboardScreen.tsx'),
-    source('hooks/useDashboard.ts'),
+    source('hooks/useFitnessLibrary.ts'),
     source('hooks/useCookTogetherRecipes.ts'),
   ]);
 
-  assert.ok(hook.includes(".from('workouts').select('id,title,duration_mins,equipment,exercises').eq('source', 'admin')"));
+  assert.ok(fitnessHook.includes(".from('workouts')"));
+  assert.ok(fitnessHook.includes(".eq('source', 'admin')"));
   assert.ok(screen.includes("key: 'workout'"));
   assert.ok(screen.includes("key: 'meal'"));
   assert.ok(screen.includes("key: 'bond'"));
@@ -268,16 +311,22 @@ test('Today uses the assigned Cook Together recipe for Free and Pro users', asyn
 });
 
 test('completed check-in confirms all three pillars without showing stale scores', async () => {
-  const screen = await source('screens/DashboardScreen.tsx');
+  const [screen, modal] = await Promise.all([
+    source('screens/DashboardScreen.tsx'),
+    source('components/dashboard/DailyCheckInModal.tsx'),
+  ]);
 
-  assert.ok(screen.includes('Check-in complete'));
-  assert.ok(screen.includes("setCheckInMessage(result.warning ?? 'Check-in saved for Mind, Body and Bond.')"));
-  assert.ok(screen.includes('Saved on this device. It will sync when you\'re back online. Your Mind, Body and Bond answers are saved.'));
-  assert.ok(screen.includes('Your check-in is saved for Mind, Body and Bond.'));
+  assert.ok(modal.includes('Check-in complete'));
+  assert.ok(modal.includes('await onSave({ moodValue, energyLevel, connectionLevel, sleepHours })'));
+  assert.ok(modal.includes('Saved on this device. It will sync when you\'re back online.'));
+  assert.ok(modal.includes('<AnswerSummary icon="wind" label="Mind"'));
+  assert.ok(modal.includes('<AnswerSummary icon="activity" label="Body"'));
+  assert.ok(modal.includes('<AnswerSummary icon="heart" label="Bond"'));
   assert.equal(screen.includes('Your Mind, Body and Bond scores will refresh shortly.'), false);
   assert.equal(screen.includes('Your Mind score is now'), false);
-  assert.ok(screen.includes('setTimeout(() => setShowCheckInSuccess(false), 3500)'));
-  assert.ok(screen.includes('!data.checkedInToday || showCheckInSuccess'));
+  assert.ok(screen.includes('saveCheckIn(moodValue, energyLevel, connectionLevel, sleepHours)'));
+  assert.ok(screen.includes('refreshDashboardForUser'));
+  assert.equal(screen.includes('<CheckInPanel'), false);
 });
 
 test('Today uses flat sections and warns only for real critical pillar scores', async () => {
