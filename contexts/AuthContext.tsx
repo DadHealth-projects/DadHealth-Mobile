@@ -16,7 +16,6 @@ import {
   hasBiometricCredentials,
 } from '../lib/biometric';
 import { isOnboardingComplete } from '../lib/onboarding';
-import { logoutPushUser } from '../lib/pushNotifications';
 import { pauseAndClearOfflineUser } from '../lib/offlineSync';
 
 type AuthResult = { error: string | null };
@@ -226,7 +225,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // account can become active on this device.
     if (signedOutUserId) await pauseAndClearOfflineUser(signedOutUserId);
 
-    logoutPushUser();
     await supabase.auth.signOut();
   }, [user?.id]);
 
