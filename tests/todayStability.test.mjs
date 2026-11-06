@@ -1,11 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import refreshStateModule from '../lib/dashboardRefreshState.js';
-import entitlementAccess from '../lib/proEntitlementAccess.js';
-
-const { mergeDashboardRefreshState } = refreshStateModule;
-const { canAccessFeature } = entitlementAccess;
+import { mergeDashboardRefreshState } from '../lib/dashboardRefreshState.js';
+import { canAccessFeature } from '../lib/proEntitlementAccess.js';
 const root = new URL('../', import.meta.url);
 const source = (path) => readFile(new URL(path, root), 'utf8');
 
@@ -109,5 +106,6 @@ test('Free weekly-report teaser receives the canonical score and does not fetch 
   ]);
   assert.match(screen, /currentScore=\{data\.totalScore\}/);
   assert.match(card, /Current Dad Health Score/);
-  assert.match(reportHook, /if \(!userId \|\| !isPro \|\| !enabled \|\| isOffline\)/);
+  assert.ok(reportHook.indexOf('if (!key || !isPro || !enabled)') < reportHook.indexOf('void fetchReport(key)'));
+  assert.match(reportHook, /if \(isOffline\) \{[\s\S]*?loading: false,[\s\S]*?return \(\) =>/);
 });

@@ -15,7 +15,7 @@ test('Health Connect is pinned and requests only the approved read permissions',
   const appData = JSON.parse(appConfig);
 
   assert.equal(packageData.dependencies['react-native-health-connect'], '4.1.3');
-  assert.equal(packageData.dependencies['expo-build-properties'], '~57.0.22');
+  assert.equal(packageData.dependencies['expo-build-properties'], '~58.0.12');
 
   const expectedPermissions = [
     'android.permission.health.READ_STEPS',
