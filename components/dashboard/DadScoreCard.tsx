@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useRef } from 'react';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatScoreTrend } from '../../lib/scoreTrends';
 import { trackEvent } from '../../lib/analytics';
 
@@ -31,6 +31,8 @@ type DadScoreCardProps = {
   userId?: string;
   lockedValues?: boolean;
   compactBottom?: boolean;
+  onInsightsPress?: () => void;
+  accessibilityLabel?: string;
   children?: React.ReactNode;
 };
 
@@ -52,13 +54,16 @@ function DadScoreCard({
   userId,
   lockedValues = false,
   compactBottom = false,
+  onInsightsPress,
+  accessibilityLabel,
   children,
 }: DadScoreCardProps) {
   const { width: windowWidth } = useWindowDimensions();
   const compactWidth = windowWidth < 360;
-  const scoreRingSize = compactWidth ? 104 : 116;
-  const ringScoreFontSize = compactWidth ? 44 : 50;
-  const pillarLabelClass = compactWidth ? 'text-[11px]' : 'text-[12px]';
+  const scoreRingSize = compactWidth ? 108 : 120;
+  const ringScoreFontSize = compactWidth ? 46 : 52;
+  const pillarLabelClass = compactWidth ? 'text-[12px]' : 'text-[13px]';
+  const CardContainer = onInsightsPress ? Pressable : View;
   const lockViewed = useRef(false);
   useEffect(() => {
     if (!proTease || !proTeaseLocked || lockViewed.current) return;
@@ -66,7 +71,12 @@ function DadScoreCard({
     trackEvent('lock_viewed', { feature: 'score_insights', source: 'score' }, userId);
   }, [proTease, proTeaseLocked, userId]);
   return (
-    <View className={`bg-lime rounded-t-[18px] px-xl pt-xl ${compactBottom ? 'pb-md' : 'pb-lg'}`}>
+    <CardContainer
+      onPress={onInsightsPress}
+      accessibilityRole={onInsightsPress ? 'button' : undefined}
+      accessibilityLabel={onInsightsPress ? accessibilityLabel ?? 'Open Your Insights' : undefined}
+      className={`bg-lime rounded-t-[18px] px-xl pt-[28px] ${compactBottom ? 'pb-[20px]' : 'pb-[28px]'}`}
+    >
       <View className="flex-row items-center gap-lg">
         {ring ? (
           <View style={{ width: scoreRingSize, height: scoreRingSize }} className="rounded-full border-[5px] border-dark items-center justify-center">
@@ -80,7 +90,7 @@ function DadScoreCard({
               {lockedValues ? <Feather name="lock" size={22} color="#080808" /> : scoreUnavailable ? '—' : baselineBuilding ? <Text className="font-heading text-dark/75 text-[30px] leading-[34px] text-center">·</Text> : score ?? missingScore}
             </Text>
 
-            <Text adjustsFontSizeToFit numberOfLines={1} className="font-heading-bold text-dark/75 text-[10px] tracking-[1.5px] uppercase">
+            <Text adjustsFontSizeToFit numberOfLines={1} className="font-heading-bold text-dark/75 text-[11px] tracking-[1.5px] uppercase">
               {scoreLabel}
             </Text>
           </View>
@@ -89,7 +99,7 @@ function DadScoreCard({
             <Text className="font-heading text-dark" style={{ fontSize: compactWidth ? 60 : 66, lineHeight: compactWidth ? 58 : 64 }}>
               {lockedValues ? <Feather name="lock" size={28} color="#080808" /> : scoreUnavailable ? '—' : baselineBuilding ? <Text className="font-heading text-dark/75 text-[34px] leading-[38px] text-center">·</Text> : score ?? missingScore}
             </Text>
-            <Text className="font-heading-bold text-dark/75 text-[10px] tracking-[1.5px] uppercase">
+            <Text className="font-heading-bold text-dark/75 text-[11px] tracking-[1.5px] uppercase">
               {scoreLabel}
             </Text>
           </View>
@@ -106,7 +116,7 @@ function DadScoreCard({
           ) : (
             <>
           {title ? (
-            <Text className="font-heading-bold text-dark text-[13px] uppercase tracking-[0.5px] mb-md">
+            <Text className="font-heading-bold text-dark text-[14px] uppercase tracking-[0.5px] mb-md">
               {title}
             </Text>
           ) : null}
@@ -121,10 +131,19 @@ function DadScoreCard({
               className={`mb-sm rounded-[7px] ${showWarning ? 'px-sm py-xs' : ''}`}
               style={showWarning ? { backgroundColor: 'rgba(184, 74, 66, 0.2)' } : undefined}
             >
-              <View className="flex-row justify-between mb-[3px]">
-                <Text adjustsFontSizeToFit numberOfLines={1} className={`font-heading-bold text-dark/75 ${pillarLabelClass} uppercase tracking-[0.5px]`}>
-                  {item.label}
-                </Text>
+              <View className="flex-row items-center justify-between mb-[3px]">
+                <View className="flex-row items-center gap-xs">
+                  {item.label.toLowerCase() === 'mind' ? (
+                    <MaterialCommunityIcons name="brain" size={18} color="#0A0A0A" />
+                  ) : item.label.toLowerCase() === 'body' ? (
+                    <MaterialCommunityIcons name="dumbbell" size={18} color="#0A0A0A" />
+                  ) : item.label.toLowerCase() === 'bond' ? (
+                    <MaterialCommunityIcons name="account-group" size={18} color="#0A0A0A" />
+                  ) : null}
+                  <Text adjustsFontSizeToFit numberOfLines={1} className={`font-heading-bold text-dark/75 ${pillarLabelClass} uppercase tracking-[0.5px]`}>
+                    {item.label}
+                  </Text>
+                </View>
 
                 {lockedValues ? (
                   <Feather name="lock" size={11} color="#080808" />
@@ -142,11 +161,11 @@ function DadScoreCard({
                   )
                 ) : (
                   <View className="flex-row items-center gap-xs">
-                    <Text className="font-heading-bold text-dark/75 text-[10px]">
+                    <Text className="font-heading-bold text-dark/75 text-[11px]">
                       {item.value}%
                     </Text>
                     {showTrend && !scoreUnavailable ? (
-                      <Text className="font-heading-bold text-dark text-[10px]">
+                      <Text className="font-heading-bold text-dark text-[11px]">
                         {trend.arrow}{trend.change == null ? '' : ` ${trend.change} pts`}
                       </Text>
                     ) : null}
@@ -203,16 +222,26 @@ function DadScoreCard({
         </Pressable>
       ) : null}
 
-      {proTease ? (
+      {proTease && !onInsightsPress ? (
         <Text className="self-center font-heading-bold text-dark/70 text-[14px] tracking-[1px] uppercase mt-lg">
           {proTease}
         </Text>
       ) : null}
 
-      <View className="items-center mt-xl">
-        <View className="w-[120px] h-[4px] rounded-full bg-dark/10" />
-      </View>
-    </View>
+      {onInsightsPress ? (
+        <View className="min-h-[56px] flex-row items-center justify-center gap-sm rounded-full bg-dark/10 px-lg mt-lg">
+          <Feather name="bar-chart-2" size={20} color="#0A0A0A" />
+          <Text className="font-heading-bold text-dark text-[14px] tracking-[0.5px] uppercase">
+            Your Insights
+          </Text>
+          <Feather name="arrow-right" size={20} color="#0A0A0A" />
+        </View>
+      ) : (
+        <View className="items-center mt-xl">
+          <View className="w-[120px] h-[4px] rounded-full bg-dark/10" />
+        </View>
+      )}
+    </CardContainer>
   );
 }
 

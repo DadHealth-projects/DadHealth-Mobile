@@ -605,12 +605,8 @@ export function DashboardScreenContent({
                     proTeaseLocked={scoreInsightsAccess === false}
                     userId={user.id}
                     compactBottom
-                  />
-                  <Pressable
-                    onPress={openScoreInsights}
-                    accessibilityRole="button"
+                    onInsightsPress={openScoreInsights}
                     accessibilityLabel="Open Dad Health Score details"
-                    className="absolute inset-0"
                   />
                 </View>
               </FadeInView>
