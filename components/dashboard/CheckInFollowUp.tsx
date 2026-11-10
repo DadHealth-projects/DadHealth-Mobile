@@ -1,4 +1,5 @@
 import React, { memo, useEffect, useMemo, useRef } from 'react';
+import { Feather } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
 
 import { checkInRecommendation, type CheckInAction } from '../../lib/checkInRecommendation';
@@ -68,29 +69,27 @@ function CheckInFollowUp({
           </Pressable>
         </View>
 
-        {planAccess !== null ? <View className="gap-sm">
+        {planAccess !== null ? (
           <Pressable
             onPress={onPlan}
             accessibilityRole="button"
             accessibilityLabel={planAccess ? 'Build my plan' : 'Build my plan with Dad Health Pro'}
-            className="min-h-[60px] flex-row items-center justify-between gap-md rounded-[8px] bg-[#111214] px-md active:opacity-70"
-            style={{
-              borderWidth: 1,
-              borderStyle: 'dotted',
-              borderColor: 'rgba(200,245,90,0.45)',
-            }}
+            className="min-h-[60px] flex-row items-center justify-between gap-md py-md active:opacity-70"
           >
             <View className="flex-1">
-              <Text className="font-heading-bold text-white text-[12px] uppercase">
-                Build my plan
-              </Text>
-              <Text className="font-body text-muted-text text-[14px] leading-[20px] mt-[3px]">
-                A plan around your mood and score.
+              <Text>
+                <Text className="font-heading-bold text-white text-[14px] uppercase">
+                  Build my plan
+                </Text>
+                <Text className="font-body text-muted-text text-[14px] leading-[20px]">
+                  {' · A plan around your mood and score'}
+                </Text>
               </Text>
             </View>
             {planAccess === false ? <ProBadge /> : null}
+            <Feather name="arrow-right" size={18} color="#FFFFFF" />
           </Pressable>
-        </View> : null}
+        ) : null}
       </View>
     </View>
   );
