@@ -57,6 +57,7 @@ import CommunityScreen from './CommunityScreen';
 import FitnessScreen from './FitnessScreen';
 import MindScreen from './MindScreen';
 import type { AppStackParamList } from '../navigation/AppNavigator';
+import TodayWorkoutCard from '../components/dashboard/TodayWorkoutCard';
 
 // TODAY top-centre brand logo (dark-background colour logo).
 const TODAY_LOGO = require('../assets/02. DAD HEALTH LOGO_COLOR_Dark BG.png');
@@ -470,23 +471,6 @@ export function DashboardScreenContent({
 
   const supportingTools = useMemo<SupportingTool[]>(() => [
     {
-      key: 'workout',
-      icon: 'activity',
-      title: weeklyWorkout?.title ?? 'Weekly workout',
-      detail: weeklyWorkout
-        ? `${weeklyWorkout.duration_mins} min · ${weeklyWorkout.exercises.length} ${weeklyWorkout.exercises.length === 1 ? 'move' : 'moves'}`
-        : workoutError
-          ? "Couldn't load this week's workout. Pull to refresh."
-          : workoutLoading
-            ? "Checking this week's workout…"
-            : assignmentKnown
-              ? 'No workout assigned this week. Check Body for updates.'
-              : 'Connect to the internet to check this week’s workout.',
-      onPress: () => weeklyWorkout?.id
-        ? navigation.navigate('ActiveWorkout', { workoutId: weeklyWorkout.id })
-        : navigation.navigate('Tabs', { screen: 'Fit' }),
-    },
-    {
       key: 'meal',
       icon: 'coffee',
       title: weeklyRecipe?.title ?? 'Cook Together',
@@ -609,6 +593,33 @@ export function DashboardScreenContent({
                     accessibilityLabel="Open Dad Health Score details"
                   />
                 </View>
+              </FadeInView>
+
+              <FadeInView delay={120}>
+                <TodayWorkoutCard
+                  title={weeklyWorkout?.title ?? 'Your weekly workout'}
+                  detail={
+                    weeklyWorkout
+                      ? `${weeklyWorkout.duration_mins} min · ${weeklyWorkout.exercises.length} ${
+                          weeklyWorkout.exercises.length === 1 ? 'move' : 'moves'
+                        }`
+                      : workoutError
+                        ? "Couldn't load your workout. Pull down to refresh."
+                        : workoutLoading
+                          ? 'Checking your workout…'
+                          : assignmentKnown
+                            ? 'No workout assigned this week. Check Body for updates.'
+                            : 'Connect to the internet to check your workout.'
+                  }
+                  hasWorkout={Boolean(weeklyWorkout?.id)}
+                  onPress={() =>
+                    weeklyWorkout?.id
+                      ? navigation.navigate('ActiveWorkout', {
+                          workoutId: weeklyWorkout.id,
+                        })
+                      : navigation.navigate('Tabs', { screen: 'Fit' })
+                  }
+                />
               </FadeInView>
 
               {data.checkedInToday ? (
