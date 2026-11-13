@@ -93,17 +93,17 @@ test('Moment 7 counts searches used, as the brief words it', async () => {
   assert.ok(dadDays.includes('FREE_LIMIT = 3'));
 });
 
-test('Moment 4 shows contextual Dad Days Pro value at two of three searches without changing the quota', async () => {
+test('Dad Days has no second-search teaser and retains the exhausted-quota modal', async () => {
   const dadDays = await source('screens/subscreens/DadDaysSearchScreen.tsx');
 
-  assert.ok(dadDays.includes("searchesUsed === FREE_LIMIT - 1"));
-  assert.ok(dadDays.includes('moment={PRO_MOMENTS.dadDays}'));
-  assert.ok(dadDays.includes('Pro gives you unlimited searches personalised for your child.'));
-  assert.ok(dadDays.includes("id: 'dadDays'"));
+  assert.equal(dadDays.includes("searchesUsed === FREE_LIMIT - 1"), false);
+  assert.equal(dadDays.includes('moment={PRO_MOMENTS.dadDays}'), false);
+  assert.equal(dadDays.includes('<ProUpgradeSection'), false);
+  assert.equal(dadDays.includes("id: 'dadDays'"), false);
   assert.ok(dadDays.includes("if (limitReached) {"));
   assert.ok(dadDays.includes("id: 'dadDaysCounter'"));
   assert.ok(dadDays.includes('const FREE_LIMIT = 3;'));
-  assert.ok(dadDays.includes("body.error === 'search_limit_reached' || response.status === 403"));
+  assert.ok(dadDays.includes("response.status === 403 && body.error === 'search_limit_reached'"));
 });
 
 test('Moment 5 follows Body progress context and keeps the canonical score row free', async () => {
@@ -205,7 +205,7 @@ test('conversion moments stay compact until the user asks for Pro', async () => 
   assert.equal(aiWorkout.includes('free_limit_reached'), false);
   assert.ok(dadDays.includes('free Dad Days searches used this month.'));
   assert.ok(dadDays.includes("id: 'dadDaysCounter'"));
-  assert.ok(dadDays.includes('<ProUpgradeSection'));
+  assert.equal(dadDays.includes('<ProUpgradeSection'), false);
   assert.ok(weekly.includes('Learn about weekly Dad Health reports'));
   assert.ok(scoreDetails.includes('See your score history'));
   assert.ok(scoreDetails.includes('Your monthly report'));
