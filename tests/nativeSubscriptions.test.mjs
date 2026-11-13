@@ -27,7 +27,7 @@ test('native purchases are bound to the signed-in account and verified before fi
     source('lib/nativeSubscriptions.ts'),
     source('hooks/useNativeSubscriptions.ts'),
   ]);
-  const verifyIndex = hook.indexOf('verifyNativePurchase(purchase)');
+  const verifyIndex = hook.indexOf('verifyNativePurchase(purchase, scope.owner!)');
   const finishIndex = hook.indexOf('finishTransaction', verifyIndex);
   assert.match(hook, /appAccountToken: preparation\.appAccountToken/);
   assert.match(hook, /obfuscatedAccountId: preparation\.obfuscatedAccountId/);
@@ -65,11 +65,11 @@ test('the approved mobile Pro entry points route to one native subscription scre
   assert.match(navigator, /name="ProSubscription"/);
   assert.match(account, /navigateToProSubscription\(navigation, 'account'/);
   assert.match(dashboard, /navigateToProSubscription\(navigation, source, context/);
-  assert.match(proNavigation, /StackActions\.push\('ProSubscription', \{ source, context \}\)/);
+  assert.match(proNavigation, /StackActions\.push\('ProSubscription', \{ source, context, feature \}\)/);
   // Prices come from the store only. No hardcoded amount may ship in the paywall.
   assert.doesNotMatch(screen, /£\d/);
   assert.match(screen, /displayPrice \?\? null/);
-  assert.match(screen, /Start my 7-day free trial/);
+  assert.match(screen, /Start 7-day free trial/);
   assert.match(screen, /Restore purchases/);
   assert.match(screen, /Manage subscription/);
   assert.doesNotMatch(screen, /\/pricing|Stripe|PaymentSheet/);
@@ -81,16 +81,17 @@ test('native paywall leads with annual value and restrained personalisation copy
     source('components/dashboard/UpgradeProCard.tsx'),
   ]);
 
-  assert.match(screen, /Make Dad Health\\npersonal/);
-  assert.match(screen, /The version of you your kids deserve/);
+  assert.match(screen, /Unlock the\\nfull experience/);
+  assert.match(screen, /Go further with personalised plans/);
   assert.match(screen, /suffix: 'per year'/);
-  assert.match(screen, /Loading price/);
+  assert.doesNotMatch(screen, /Price unavailable|Loading price/);
   assert.match(screen, /7-day free trial for eligible new subscribers\. Cancel anytime\./);
   assert.ok(screen.indexOf('title="Annual"') < screen.indexOf('title="Monthly"'));
   assert.match(screen, /const THIS_WEEK_FEATURES = \[/);
   const featureBlock = /const THIS_WEEK_FEATURES = \[([\s\S]*?)\] as const;/.exec(screen)?.[1] ?? '';
   assert.equal((featureBlock.match(/^  '/gm) ?? []).length, 3);
-  assert.match(screen, /What Pro can do this week/);
+  assert.ok(screen.indexOf('THIS_WEEK_FEATURES.map') < screen.indexOf('title="Annual"'));
+  assert.doesNotMatch(screen, /ScreenHero/);
   // Moment 1 lives under the score on Today and pulls its copy from one place.
   assert.match(prompt, /PRO_MOMENTS\.score/);
   assert.doesNotMatch(prompt, /Upgrade to Pro/);
