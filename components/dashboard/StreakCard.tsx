@@ -73,17 +73,13 @@ function StreakCard({
           onPress={onUpgrade}
           accessibilityRole="button"
           accessibilityLabel="Freeze your streak once a week with Dad Health Pro"
-          className="min-h-[44px] flex-row items-center justify-between gap-sm rounded-[8px] bg-card px-md active:opacity-70"
-          style={{
-            borderWidth: 1,
-            borderStyle: 'dotted',
-            borderColor: 'rgba(200,245,90,0.45)',
-          }}
+          className="min-h-[60px] flex-row items-center justify-between gap-md py-md active:opacity-70"
         >
-          <Text className="flex-1 font-heading-bold text-white text-[10px] tracking-label uppercase">
+          <Text className="flex-1 font-heading-bold text-white text-[14px] uppercase">
             Freeze your streak once a week
           </Text>
           <ProBadge />
+          <Feather name="arrow-right" size={18} color="#FFFFFF" />
         </Pressable>
       ) : null}
     </View>

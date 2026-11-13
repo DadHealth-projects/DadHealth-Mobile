@@ -119,15 +119,6 @@ export default function FitnessScreen({
     ?? (workoutLibraryAccess === true ? null : fitnessLibrary.assignmentError);
   const libraryEmptyKnown = fitnessLibrary.hasLoaded
     && (workoutLibraryAccess === true || (workoutLibraryAccess === false && fitnessLibrary.assignmentKnown));
-  useEffect(() => {
-    if (!__DEV__ || !workoutLibraryOpen) return;
-    console.info('[workout-library]', {
-      access: workoutLibraryAccess === null ? 'unknown' : workoutLibraryAccess ? 'pro' : 'free',
-      fetchedCount: fitnessLibrary.workouts.length,
-      visibleCount: availableWorkouts.length,
-      loaded: fitnessLibrary.hasLoaded,
-    });
-  }, [workoutLibraryOpen, workoutLibraryAccess, fitnessLibrary.workouts.length, availableWorkouts.length, fitnessLibrary.hasLoaded]);
   const selectedWorkout = useMemo(
     () => availableWorkouts.find((workout) => workout.id === selectedWorkoutId)
       ?? fitnessLibrary.weeklyWorkout
