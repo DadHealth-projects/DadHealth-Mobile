@@ -11,7 +11,8 @@ const today = await readFile(new URL('../screens/DashboardScreen.tsx', import.me
 
 test('weekly workout comes from the server assignment, never newest-workout fallback', () => {
   assert.match(library, /from\('free_weekly_workout_assignments'\)/);
-  assert.match(library, /setWeeklyWorkout\(selectWeeklyWorkout\(adminWorkouts, assignment\)\)/);
+  assert.match(library, /weeklyWorkout: selectWeeklyWorkout\(adminWorkouts, assignment\)/);
+  assert.match(library, /if \(result.assignmentKnown\) \{\s*setWeeklyWorkout\(result.weeklyWorkout\)/);
   assert.doesNotMatch(library, /loadNativeSubscriptionStatus/);
   assert.doesNotMatch(dashboard, /free_weekly_workout_assignments|suggestedWorkout/);
 });
@@ -29,12 +30,13 @@ test('Today and Body select same assigned workout; Today opens its exact ID', ()
   assert.equal(selectWeeklyWorkout([newerUnassigned, assigned], { workout_id: assigned.id }), assigned);
   assert.equal(selectWeeklyWorkout([newerUnassigned, assigned], null), null);
 
-  assert.match(today, /useFitnessLibrary\(user\.id\)/);
-  assert.match(body, /useFitnessLibrary\(user\?\.id, standalone\)/);
-  assert.match(today, /navigation\.navigate\('ActiveWorkout', \{ workoutId: weeklyWorkout\.id \}\)/);
+  assert.match(today, /useFitnessLibrary\(user\.id, activeSection === 'HOME', activeSection === 'HOME' && isFocused\)/);
+  assert.match(body, /useFitnessLibrary\(user\?\.id, standalone, standalone, false\)/);
+  assert.match(today, /navigation\.navigate\('ActiveWorkout', \{\s*workoutId: weeklyWorkout\.id,?\s*\}\)/);
   assert.doesNotMatch(today, /data\?\.suggestedWorkout/);
   assert.match(today, /else navigation\.navigate\('Tabs', \{ screen: 'Fit' \}\)/);
-  assert.match(today, /No workout has been assigned this week yet/);
+  assert.match(today, /No workout scheduled this week/);
+  assert.match(today, /screen: 'Fit',\s*params: \{ openWorkoutLibrary: true \}/);
 });
 
 test('Today refresh reloads assignment and separates loading, unavailable, offline and failure', () => {

@@ -36,6 +36,7 @@ type FitnessLibrarySnapshot = {
   weeklyWorkout: FitnessWorkout | null;
   assignmentKnown: boolean;
   error: string | null;
+  assignmentError: string | null;
 };
 
 const fitnessLibraryRequests = new Map<string, Promise<FitnessLibrarySnapshot>>();
@@ -63,7 +64,7 @@ async function fetchFitnessLibrary(userId?: string): Promise<FitnessLibrarySnaps
         .eq('source', 'ai_generated')
         .order('created_at', { ascending: false })
       : Promise.resolve({ data: [], error: null }),
-    assignmentQuery,
+    Promise.resolve(assignmentQuery).catch(() => ({ data: null, error: true })),
   ]);
 
   if (adminResult.error || generatedResult.error) {
@@ -71,6 +72,7 @@ async function fetchFitnessLibrary(userId?: string): Promise<FitnessLibrarySnaps
       workouts: [],
       weeklyWorkout: null,
       assignmentKnown: false,
+      assignmentError: null,
       error: userId
         ? 'We could not load your workouts. Please try again.'
         : 'We could not load the workout library. Please try again.',
@@ -84,7 +86,8 @@ async function fetchFitnessLibrary(userId?: string): Promise<FitnessLibrarySnaps
     workouts: [...generatedWorkouts, ...adminWorkouts],
     weeklyWorkout: selectWeeklyWorkout(adminWorkouts, assignment),
     assignmentKnown: !assignmentResult.error,
-    error: assignmentResult.error ? 'We could not confirm this week’s Free workout. Please try again.' : null,
+    error: null,
+    assignmentError: assignmentResult.error ? 'We could not confirm this week’s Free workout. Please try again.' : null,
   };
 }
 
@@ -119,12 +122,28 @@ export function useFitnessLibrary(
   const [assignmentKnown, setAssignmentKnown] = useState(false);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [contentOwner, setContentOwner] = useState(userId);
+  const retainedOwner = useRef(userId);
+  const currentOwner = useRef(userId);
+  currentOwner.current = userId;
   const latestRequest = useRef(0);
   const hasFocused = useRef(false);
   const [automaticRefreshGate] = useState(() => createFitnessLibraryRefreshGate());
 
   const load = useCallback(async (forceFresh: boolean) => {
     const requestId = ++latestRequest.current;
+    if (retainedOwner.current !== userId) {
+      retainedOwner.current = userId;
+      setContentOwner(userId);
+      setWorkouts([]);
+      setWeeklyWorkout(null);
+      setAssignmentKnown(false);
+      setAssignmentError(null);
+      setHasLoaded(false);
+      setError(null);
+    }
     if (!enabled) {
       setLoading(false);
       return;
@@ -132,28 +151,34 @@ export function useFitnessLibrary(
     if (isOffline) {
       setLoading(false);
       setError(null);
-      setAssignmentKnown(false);
       return;
     }
 
     setLoading(true);
     setError(null);
-    setAssignmentKnown(false);
-    setWeeklyWorkout(null);
+    // Keep the current assignment and workout visible during refresh.
     try {
       const result = await loadFitnessLibrary(userId, forceFresh);
-      if (requestId !== latestRequest.current) return;
-      setWorkouts(result.workouts);
-      setWeeklyWorkout(result.weeklyWorkout);
-      setAssignmentKnown(result.assignmentKnown);
-      setError(result.error);
+      if (requestId !== latestRequest.current || currentOwner.current !== userId) return;
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setWorkouts(result.workouts);
+        setHasLoaded(true);
+        setAssignmentError(result.assignmentError);
+        if (result.assignmentKnown) {
+          setWeeklyWorkout(result.weeklyWorkout);
+          setAssignmentKnown(true);
+        }
+        setError(null);
+      }
     } catch {
-      if (requestId !== latestRequest.current) return;
+      if (requestId !== latestRequest.current || currentOwner.current !== userId) return;
       setError(userId
         ? 'We could not load your workouts. Please try again.'
         : 'We could not load the workout library. Please try again.');
     } finally {
-      if (requestId === latestRequest.current) setLoading(false);
+      if (requestId === latestRequest.current && currentOwner.current === userId) setLoading(false);
     }
   }, [enabled, isOffline, userId]);
 
@@ -195,5 +220,17 @@ export function useFitnessLibrary(
     };
   }, [appStateRefreshEnabled, isOffline, refreshAutomatically, userId]);
 
-  return { workouts, weeklyWorkout, assignmentKnown, loading, error, refresh };
+  const sameOwner = contentOwner === userId;
+  return {
+    workouts: sameOwner ? workouts : [],
+    weeklyWorkout: sameOwner ? weeklyWorkout : null,
+    assignmentKnown: sameOwner && assignmentKnown,
+    hasLoaded: sameOwner && hasLoaded,
+    loading: sameOwner ? loading : enabled,
+    error: sameOwner ? error ?? assignmentError : null,
+    libraryError: sameOwner ? error : null,
+    assignmentError: sameOwner ? assignmentError : null,
+    isOffline,
+    refresh,
+  };
 }
