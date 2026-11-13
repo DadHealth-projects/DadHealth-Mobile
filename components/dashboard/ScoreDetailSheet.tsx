@@ -24,9 +24,10 @@ type Props = {
   entitlementKnown?: boolean;
   userId: string;
   onUpgrade: () => void;
+  onDismiss?: () => void;
 };
 
-export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavailable = false, baselineBuilding = false, items, isPro, entitlementKnown = true, userId, onUpgrade }: Props) {
+export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavailable = false, baselineBuilding = false, items, isPro, entitlementKnown = true, userId, onUpgrade, onDismiss }: Props) {
   const sheetUserId = visible ? userId : undefined;
   const report = useProgressReport(sheetUserId, isPro);
   const badgeData = useProgressBadges(sheetUserId);
@@ -66,7 +67,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} onDismiss={onDismiss}>
       <View className="flex-1 justify-end bg-black/55">
         <Pressable accessibilityRole="button" accessibilityLabel="Close score details" onPress={onClose} className="h-[10%]" />
         <SafeAreaView edges={['bottom']} className="h-[70%] rounded-t-[28px] bg-[#111214]">

@@ -168,6 +168,7 @@ export function DashboardScreenContent({
   const { dismissToast, isOffline } = useNetworkStatus();
   const [checkInModalOpen, setCheckInModalOpen] = useState(false);
   const [scoreSheetOpen, setScoreSheetOpen] = useState(false);
+  const scoreUpgradePending = useRef<string | null>(null);
   const [reminderMessage, setReminderMessage] = useState<string | null>(null);
   const [promptDecisionReadyKey, setPromptDecisionReadyKey] = useState<string | null>(null);
   const promptStateRef = useRef<DailyCheckInPromptState | null>(null);
@@ -396,10 +397,24 @@ export function DashboardScreenContent({
     if (activeSection === 'PROGRESS') onSelectSection?.('HOME');
   }, [activeSection, onSelectSection]);
 
+  const requestScoreUpgrade = useCallback(() => {
+    if (scoreUpgradePending.current) return;
+    scoreUpgradePending.current = user.id;
+    setScoreSheetOpen(false);
+  }, [user.id]);
+
+  const finishScoreDismissal = useCallback(() => {
+    if (!scoreUpgradePending.current) return;
+    const owner = scoreUpgradePending.current;
+    scoreUpgradePending.current = null;
+    if (owner !== user.id) return;
+    openPro('score', 'Understand your score', 'lock', 'score_insights');
+  }, [openPro, user.id]);
+
   const openCheckInPlan = useCallback(() => {
     if (buildMyPlanAccess === false) {
       requestMoment({
-        id: 'checkIn', screen: route.key, feature: 'mind_plan',
+        id: 'checkIn', trigger: 'explicit', screen: route.key, feature: 'mind_plan',
         isPro: entitlement.isPro, trialActive: entitlement.trialActive,
         loading: entitlement.loading, featureAccess: buildMyPlanAccess,
         hasCompletedAction: Boolean(data?.checkedInToday), userId: user.id,
@@ -669,7 +684,7 @@ export function DashboardScreenContent({
                     error={weeklyReportError}
                     userId={user.id}
                     onUpgrade={() => requestMoment({
-                      id: 'weeklyReport', screen: route.key, feature: 'weekly_report',
+                      id: 'weeklyReport', trigger: 'explicit', screen: route.key, feature: 'weekly_report',
                       isPro: entitlement.isPro, trialActive: entitlement.trialActive,
                       loading: entitlement.loading, featureAccess: weeklyReportAccess,
                       hasCompletedAction: Boolean(data.checkedInToday || data.moodLogs.length > 0), userId: user.id,
@@ -698,7 +713,8 @@ export function DashboardScreenContent({
                 isPro={scoreInsightsAccess === true}
                 entitlementKnown={scoreInsightsAccess !== null}
                 userId={user.id}
-                  onUpgrade={() => openPro('score', 'Understand your score', 'lock', 'score_insights')}
+                onUpgrade={requestScoreUpgrade}
+                onDismiss={finishScoreDismissal}
               />
             </>
           ) : null}
