@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useNetworkStatus } from '../contexts/NetworkContext';
-import { readOfflineQueue } from '../lib/offlineStorage';
+import { readOfflineQueue, subscribeOfflineSync } from '../lib/offlineStorage';
 import { setOfflineSyncUser, syncOfflineQueue } from '../lib/offlineSync';
 
 const OFFLINE_NOTICE_DELAY_MS = 1500;
@@ -19,6 +19,17 @@ export default function OfflineSyncManager() {
   const userId = user?.id ?? null;
   const confirmedOffline = useRef(false);
   const offlineNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncedCount = useRef(0);
+  const currentUser = useRef(userId);
+  currentUser.current = userId;
+
+  useEffect(() => {
+    syncedCount.current = 0;
+    confirmedOffline.current = false;
+    return subscribeOfflineSync((event) => {
+      if (event.userId === userId && currentUser.current === userId && event.status === 'synced') syncedCount.current += 1;
+    });
+  }, [userId]);
 
   const sync = useCallback(async () => {
     if (!userId || !isKnown || isOffline) return;
@@ -62,14 +73,18 @@ export default function OfflineSyncManager() {
     if (!confirmedOffline.current) return;
     confirmedOffline.current = false;
 
-    showSyncingNotice();
+    const completedBefore = syncedCount.current;
     let active = true;
     void (async () => {
       try {
+        if (!userId) return;
+        const queued = await readOfflineQueue(userId);
+        if (!active || currentUser.current !== userId) return;
+        if (queued.some((item) => !item.failedMessage)) showSyncingNotice();
         await sync();
-        if (!active || !userId) return;
+        if (!active || currentUser.current !== userId) return;
         const remaining = await readOfflineQueue(userId);
-        if (active && remaining.length === 0) showCaughtUpNotice();
+        if (active && currentUser.current === userId && syncedCount.current > completedBefore && remaining.length === 0) showCaughtUpNotice();
       } catch {
         // Item-level sync state remains the source of truth when a retry cannot finish.
       }

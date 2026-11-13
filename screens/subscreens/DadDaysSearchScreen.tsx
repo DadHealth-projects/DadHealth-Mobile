@@ -9,7 +9,6 @@ import * as SecureStore from 'expo-secure-store';
 import AppTopBar from '../../components/AppTopBar';
 import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
-import ProUpgradeSection from '../../components/ProUpgradeSection';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
@@ -17,7 +16,6 @@ import { useDashboard, type DadDateItem } from '../../hooks/useDashboard';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { useUpgradeMomentManager } from '../../contexts/UpgradeMomentContext';
 import { trackEvent } from '../../lib/analytics';
-import { PRO_MOMENTS } from '../../lib/proMoments';
 import { supabase } from '../../lib/supabase';
 import { withLocationDeadline } from '../../lib/locationDeadline';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
@@ -232,7 +230,7 @@ const isActivitySaved = (result: SearchResult) =>
     if (isOffline) { showOfflineAction('dad_days_search'); return; }
     if (!coords) { setLocationError('Use your location or enter a postcode first.'); return; }
     if (limitReached) {
-      requestMoment({ id: 'dadDaysCounter', screen: route.key, feature: 'dad_days_unlimited', isPro: entitlement.isPro, trialActive: entitlement.trialActive, loading: entitlement.loading, featureAccess: dadDaysAccess, hasCompletedAction: searchesUsed > 0, lead: `${searchesUsedLabel} Your allowance resets on the first of next month.`, userId: user?.id });
+      requestMoment({ id: 'dadDaysCounter', trigger: 'explicit', screen: route.key, feature: 'dad_days_unlimited', isPro: entitlement.isPro, trialActive: entitlement.trialActive, loading: entitlement.loading, featureAccess: dadDaysAccess, hasCompletedAction: searchesUsed > 0, lead: `${searchesUsedLabel} Your allowance resets on the first of next month.`, userId: user?.id });
       return;
     }
     setSearching(true); setSearchError(null); setResults([]);
@@ -244,7 +242,7 @@ const isActivitySaved = (result: SearchResult) =>
       });
       const body = await response.json() as { results?: SearchResult[]; searchesUsed?: number; error?: string };
       if (response.status === 401) { setSearchError('Your session has expired. Please log in again.'); return; }
-      if (body.error === 'search_limit_reached' || response.status === 403) { setSearchesUsed(FREE_LIMIT); requestMoment({ id: 'dadDaysCounter', screen: route.key, feature: 'dad_days_unlimited', isPro: entitlement.isPro, trialActive: entitlement.trialActive, loading: entitlement.loading, featureAccess: dadDaysAccess, hasCompletedAction: searchesUsed > 0, lead: `${FREE_LIMIT} of ${FREE_LIMIT} free Dad Days searches used this month. Your allowance resets on the first of next month.`, userId: user.id }); trackEvent('dad_days_search_limit_reached', { searchesUsed: FREE_LIMIT }, user.id); return; }
+      if (response.status === 403 && body.error === 'search_limit_reached') { setSearchesUsed(FREE_LIMIT); requestMoment({ id: 'dadDaysCounter', trigger: 'explicit', screen: route.key, feature: 'dad_days_unlimited', isPro: entitlement.isPro, trialActive: entitlement.trialActive, loading: entitlement.loading, featureAccess: dadDaysAccess, hasCompletedAction: searchesUsed > 0, lead: `${FREE_LIMIT} of ${FREE_LIMIT} free Dad Days searches used this month. Your allowance resets on the first of next month.`, userId: user.id }); trackEvent('dad_days_search_limit_reached', { searchesUsed: FREE_LIMIT }, user.id); return; }
       if (!response.ok) { setSearchError(response.status === 429 ? "You're searching too quickly. Wait a moment and try again." : 'We could not search for Dad Days. Please try again.'); return; }
       const nextResults = body.results ?? [];
       setResults(nextResults);
@@ -386,17 +384,6 @@ const isActivitySaved = (result: SearchResult) =>
                   <Text className="font-body text-tertiary-text text-[14px] leading-[20px] text-center">
                     {searchesUsedLabel}
                   </Text>
-                ) : null}
-                {accessReady && !isPro && searchesUsed === FREE_LIMIT - 1 ? (
-                  <ProUpgradeSection
-                    moment={PRO_MOMENTS.dadDays}
-                    feature="dad_days_unlimited"
-                    userId={user.id}
-                    lead={`${searchesUsed} of ${FREE_LIMIT} free searches used. Pro gives you unlimited searches personalised for your child.`}
-                    source="dadDays"
-                    onPress={() => requestMoment({ id: 'dadDays', screen: route.key, feature: 'dad_days_unlimited', isPro: entitlement.isPro, trialActive: entitlement.trialActive, loading: entitlement.loading, featureAccess: dadDaysAccess, hasCompletedAction: searchesUsed > 0, lead: `${searchesUsed} of ${FREE_LIMIT} free searches used. Pro gives you unlimited searches personalised for your child.`, userId: user.id })}
-                    size="sm"
-                  />
                 ) : null}
               </>
             )}
