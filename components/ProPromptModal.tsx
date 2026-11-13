@@ -20,6 +20,7 @@ type ProPromptModalProps = {
   moment: ProMoment;
   onUpgrade: () => void;
   onDismiss: () => void;
+  onDismissed: () => void;
   lead?: string | null;
 };
 
@@ -28,6 +29,7 @@ function ProPromptModal({
   moment,
   onUpgrade,
   onDismiss,
+  onDismissed,
   lead,
 }: ProPromptModalProps) {
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -62,6 +64,7 @@ function ProPromptModal({
       statusBarTranslucent
       navigationBarTranslucent
       onRequestClose={onDismiss}
+      onDismiss={onDismissed}
     >
       <View className="flex-1 justify-end">
         <Animated.View
