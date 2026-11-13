@@ -1,7 +1,7 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
 
 import type { DashboardSection } from '../components/AccountSheet';
 import FadeInView from '../components/FadeInView';
@@ -28,6 +28,7 @@ import { useFitnessSummary } from '../hooks/useFitnessSummary';
 import { MOOD_WEEK_LABELS } from '../lib/dashboard.utils';
 import { PRO_LOCKS, PRO_MOMENTS } from '../lib/proMoments';
 import type { AppStackParamList } from '../navigation/AppNavigator';
+import type { BottomTabsParamList } from '../navigation/BottomTabNavigator';
 import { syncAppleHealthIfConnected } from '../lib/appleHealth';
 import { navigateToProSubscription } from '../lib/proNavigation';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -72,6 +73,9 @@ export default function FitnessScreen({
   const { user } = useAuth();
   const hasUser = Boolean(user?.id);
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
+  const tabNavigation = useNavigation<NavigationProp<BottomTabsParamList, 'Fit'>>();
+  const route = useRoute<RouteProp<BottomTabsParamList, 'Fit'>>();
+  const openWorkoutLibrary = route.name === 'Fit' && route.params?.openWorkoutLibrary === true;
   const standalone = !dashboardSection;
   const { data, loading, error, refresh } = useDashboard(user?.id);
   const entitlement = useEntitlement({
@@ -93,6 +97,11 @@ export default function FitnessScreen({
   const [refreshing, setRefreshing] = useState(false);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
   const [workoutLibraryOpen, setWorkoutLibraryOpen] = useState(false);
+  useEffect(() => {
+    if (!standalone || !openWorkoutLibrary) return;
+    setWorkoutLibraryOpen(true);
+    tabNavigation.setParams({ openWorkoutLibrary: undefined });
+  }, [tabNavigation, openWorkoutLibrary, standalone]);
   const [accessCheckAttempted, setAccessCheckAttempted] = useState(false);
   const checkEntitlement = useCallback(async () => {
     setAccessCheckAttempted(true);
@@ -106,6 +115,19 @@ export default function FitnessScreen({
         : [],
     [fitnessLibrary.weeklyWorkout?.id, fitnessLibrary.workouts, weeklyWorkoutAccess, workoutLibraryAccess],
   );
+  const libraryProblem = fitnessLibrary.libraryError
+    ?? (workoutLibraryAccess === true ? null : fitnessLibrary.assignmentError);
+  const libraryEmptyKnown = fitnessLibrary.hasLoaded
+    && (workoutLibraryAccess === true || (workoutLibraryAccess === false && fitnessLibrary.assignmentKnown));
+  useEffect(() => {
+    if (!__DEV__ || !workoutLibraryOpen) return;
+    console.info('[workout-library]', {
+      access: workoutLibraryAccess === null ? 'unknown' : workoutLibraryAccess ? 'pro' : 'free',
+      fetchedCount: fitnessLibrary.workouts.length,
+      visibleCount: availableWorkouts.length,
+      loaded: fitnessLibrary.hasLoaded,
+    });
+  }, [workoutLibraryOpen, workoutLibraryAccess, fitnessLibrary.workouts.length, availableWorkouts.length, fitnessLibrary.hasLoaded]);
   const selectedWorkout = useMemo(
     () => availableWorkouts.find((workout) => workout.id === selectedWorkoutId)
       ?? fitnessLibrary.weeklyWorkout
@@ -344,10 +366,9 @@ export default function FitnessScreen({
           onRequestClose={() => setWorkoutLibraryOpen(false)}
         >
           <SafeAreaView edges={['top', 'left', 'right', 'bottom']} className="flex-1 bg-dark">
-            <View className="flex-row items-center justify-between border-b border-border px-lg py-md">
+            <View className="flex-row items-center justify-between border-b border-border px-lg pb-md" style={{ paddingTop: 48 }}>
               <View className="flex-1">
-                <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Body</Text>
-                <Text className="font-heading-bold text-white text-[22px] uppercase mt-xs">Workout Library</Text>
+                <Text className="font-heading-bold text-white text-[22px] uppercase">Workout Library</Text>
               </View>
               <Pressable
                 onPress={() => setWorkoutLibraryOpen(false)}
@@ -364,30 +385,43 @@ export default function FitnessScreen({
                 <Text className="font-heading-bold text-muted-text text-[11px] tracking-[1px] uppercase flex-1">
                   {!hasUser ? 'Log in to view available workouts' : workoutLibraryAccess === true ? 'All available workouts' : workoutLibraryAccess === false ? 'This week’s workout and saved workouts' : 'Checking access'}
                 </Text>
-                {hasUser ? <TagPill label={`${availableWorkouts.length} shown`} tone="outline" /> : null}
+                {hasUser && libraryEmptyKnown ? <TagPill label={`${availableWorkouts.length} shown`} tone="outline" /> : null}
               </View>
-              {fitnessLibrary.error ? (
+              {libraryProblem ? (
                 <View className="gap-md mb-md">
-                  <InlineFormError message={fitnessLibrary.error} />
+                  <InlineFormError message={libraryProblem} />
                   <LimeButton label="Try again" onPress={() => void refreshLibrary()} loading={fitnessLibrary.loading} />
                 </View>
               ) : null}
-              {fitnessLibrary.loading && hasUser ? (
-                <View className="gap-sm py-sm">
-                  {[0, 1, 2].map((item) => <View key={item} className="h-[64px] rounded-button bg-white/5" />)}
-                </View>
-              ) : fitnessLibrary.error ? null : availableWorkouts.length === 0 ? (
-                <View className="py-md">
-                  <Text className="font-body text-muted-text text-[14px] leading-[19px]">
-                    {!hasUser
-                      ? 'Log in to see workouts available to your account.'
-                      : workoutLibraryAccess === false && !fitnessLibrary.weeklyWorkout
-                      ? fitnessLibrary.assignmentKnown
-                        ? 'No workout has been assigned this week yet.'
-                        : 'The weekly workout is unavailable until it can be confirmed.'
-                      : 'No workouts are available yet.'}
+              {hasUser && workoutLibraryAccess === null ? (
+                <View className="gap-md py-md items-center">
+                  <Text className="font-body text-muted-text text-center">
+                    {loading ? 'Checking your access?' : "We couldn't verify your access. Please try again."}
                   </Text>
+                  {!loading ? <LimeButton label="Retry" onPress={() => void checkEntitlement()} /> : null}
                 </View>
+              ) : null}
+              {availableWorkouts.length === 0 ? (
+                !hasUser ? (
+                  <Text className="font-body text-muted-text">Log in to see workouts available to your account.</Text>
+                ) : workoutLibraryAccess === null ? null : fitnessLibrary.loading ? (
+                  <View className="gap-sm py-sm">
+                    {[0, 1, 2].map((item) => <View key={item} className="h-[64px] rounded-button bg-white/5" />)}
+                  </View>
+                ) : libraryProblem ? null : (
+                  <View className="py-md">
+                    <Text className="font-body text-muted-text text-[14px] leading-[19px]">
+                      {fitnessLibrary.isOffline
+                        ? 'No saved workouts are available here. Connect to the internet and try again.'
+                        : !libraryEmptyKnown
+                          ? 'Your workout library could not be confirmed. Please try again.'
+                          : workoutLibraryAccess === false
+                            ? 'No workout has been assigned this week yet.'
+                            : 'No workouts are available yet.'}
+                    </Text>
+                    {!fitnessLibrary.isOffline && !libraryEmptyKnown ? <LimeButton label="Retry" onPress={() => void refreshLibrary()} /> : null}
+                  </View>
+                )
               ) : (
                 <View className="gap-sm">
                   {availableWorkouts.map((workout) => {
