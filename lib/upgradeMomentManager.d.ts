@@ -2,6 +2,7 @@ import type { ProMomentId } from './proMoments';
 
 export type UpgradeMomentRequest = {
   id: ProMomentId;
+  trigger?: 'automatic' | 'explicit';
   screen: string;
   isPro: boolean | null;
   trialActive: boolean | null;
