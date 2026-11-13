@@ -183,7 +183,8 @@ export function DashboardScreenContent({
     !attemptedCheckInPromptSessions.has(promptDecisionKey) &&
     promptDecisionReadyKey !== promptDecisionKey,
   );
-  const showHomeSkeleton = (!data && !dashboardError) || waitForPromptDecision;
+  const showHomeSkeleton =
+  !data && loading && !dashboardError;
 
   const displayName = useMemo(
     () => greetingFirstName(data?.displayName, user),
@@ -603,13 +604,7 @@ export function DashboardScreenContent({
                       ? `${weeklyWorkout.duration_mins} min · ${weeklyWorkout.exercises.length} ${
                           weeklyWorkout.exercises.length === 1 ? 'move' : 'moves'
                         }`
-                      : workoutError
-                        ? "Couldn't load your workout. Pull down to refresh."
-                        : workoutLoading
-                          ? 'Checking your workout…'
-                          : assignmentKnown
-                            ? 'No workout assigned this week. Check Body for updates.'
-                            : 'Connect to the internet to check your workout.'
+                      : 'No workout scheduled this week. Explore the workout library to find something that works for you.'
                   }
                   hasWorkout={Boolean(weeklyWorkout?.id)}
                   onPress={() =>
@@ -617,7 +612,10 @@ export function DashboardScreenContent({
                       ? navigation.navigate('ActiveWorkout', {
                           workoutId: weeklyWorkout.id,
                         })
-                      : navigation.navigate('Tabs', { screen: 'Fit' })
+                      : navigation.navigate('Tabs', {
+                          screen: 'Fit',
+                          params: { openWorkoutLibrary: true },
+                        })
                   }
                 />
               </FadeInView>

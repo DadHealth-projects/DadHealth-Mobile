@@ -18,7 +18,9 @@ function TodayWorkoutCard({
   hasWorkout,
   onPress,
 }: TodayWorkoutCardProps) {
-  const actionLabel = hasWorkout ? 'Start workout' : 'View Body';
+  const actionLabel = hasWorkout
+  ? 'Start workout'
+  : 'Explore workouts';
 
   return (
     <View>
