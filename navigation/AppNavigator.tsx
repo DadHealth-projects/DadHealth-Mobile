@@ -62,7 +62,7 @@ export type AppStackParamList = {
   PrivacySecurity: undefined;
   TermsPrivacy: undefined;
   HealthPermissions: undefined;
-  ProSubscription: { source: string; context?: string } | undefined;
+  ProSubscription: { source: string; context?: string; feature?: string } | undefined;
   WeeklyChallenge: { challengeId: string };
   ManualActivityLog: { pillar: ManualActivityPillar };
   ManualActivityHistory: { pillar: ManualActivityPillar };
