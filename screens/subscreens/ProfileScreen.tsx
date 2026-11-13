@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -27,7 +27,7 @@ export default function ProfileScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { session, user } = useAuth();
   const { isOffline, showOfflineAction } = useNetworkStatus();
-  const { data: dashboardData, loading: dashboardLoading } = useDashboard(user?.id);
+  const { data: dashboardData, loading: dashboardLoading, refresh: refreshDashboard } = useDashboard(user?.id);
   const entitlement = useEntitlement({
     isPro: dashboardData?.isPro ?? null,
     trialActive: dashboardData?.trialActive ?? null,
@@ -39,38 +39,73 @@ export default function ProfileScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const email = user?.email ?? '0';
   const initial = (user?.email?.[0] ?? '?').toUpperCase();
+  // Display-only retention: feature access still comes from canonical entitlement checks.
+  const membershipSnapshot = useRef<{
+    owner: string | undefined;
+    verified: { isPro: boolean; trialActive: boolean } | null;
+    retrying: boolean;
+  }>({ owner: user?.id, verified: null, retrying: false });
+  if (membershipSnapshot.current.owner !== user?.id) {
+    membershipSnapshot.current = { owner: user?.id, verified: null, retrying: false };
+  }
+  if (user?.id && typeof entitlement.isPro === 'boolean') {
+    membershipSnapshot.current.verified = {
+      isPro: entitlement.isPro,
+      trialActive: entitlement.trialActive === true,
+    };
+  }
+  const verifiedMembership = membershipSnapshot.current.verified;
   const membershipAccess = entitlement.can('mind_plan');
-  const membershipTitle = dashboardLoading
-    ? 'Checking membership'
-    : membershipAccess === null
-      ? 'Membership status unavailable'
-      : entitlement.isPro && entitlement.trialActive === true
-        ? 'Pro Trial'
-        : entitlement.isPro
-          ? 'Dad Health Pro'
-          : 'Free Plan';
-  const membershipDescription = dashboardLoading
-    ? 'Confirming your access with Dad Health.'
-    : membershipAccess === null
-      ? 'Check your connection, then view membership details.'
-      : entitlement.isPro && entitlement.trialActive === true
-        ? 'Your trial includes Dad Health Pro access.'
-        : entitlement.isPro
-          ? 'Your Pro membership and access are active.'
-          : 'Get more from your health insights and plans.';
-  const membershipAction = dashboardLoading || membershipAccess === null
-    ? 'Check Membership'
-    : membershipAccess === false
-      ? 'Upgrade to Pro'
-      : 'View Membership';
+  const membershipTitle = verifiedMembership
+    ? verifiedMembership.isPro
+      ? verifiedMembership.trialActive ? 'Pro Trial' : 'Dad Health Pro'
+      : 'Free Plan'
+    : dashboardLoading
+      ? 'Membership'
+      : 'Unable to load membership';
+  const membershipDescription = !verifiedMembership ? null
+    : verifiedMembership.isPro
+      ? verifiedMembership.trialActive ? 'Your trial includes Dad Health Pro access.'
+        : 'Your Pro membership and access are active.'
+      : 'Get more from your health insights and plans.';
+  const retryMembership = useCallback(async () => {
+    const scope = membershipSnapshot.current;
+    if (!scope.owner || scope.owner !== user?.id || scope.retrying || dashboardLoading) return;
+    scope.retrying = true;
+    try { await refreshDashboard(); }
+    catch { /* Keep the existing card's unknown state; do not infer a connection fault. */ }
+    finally { scope.retrying = false; }
+  }, [dashboardLoading, refreshDashboard, user?.id]);
 
   const openMembership = useCallback(() => {
-    if (!dashboardLoading && membershipAccess === false) {
-      navigateToProSubscription(navigation, 'profile_membership', 'Membership', user?.id);
+    if (!verifiedMembership) {
+      if (!dashboardLoading) void retryMembership();
       return;
     }
-    navigation.navigate('ProSubscription', { source: 'profile_membership', context: 'Membership' });
-  }, [dashboardLoading, membershipAccess, navigation, user?.id]);
+
+    if (membershipAccess === false) {
+      navigateToProSubscription(
+        navigation,
+        'profile_membership',
+        'Membership',
+        user?.id
+      );
+      return;
+    }
+
+    navigation.navigate('ProSubscription', {
+      source: 'profile_membership',
+      context: 'Membership',
+      feature: 'profile_membership'
+    });
+  }, [
+    verifiedMembership,
+    dashboardLoading,
+    retryMembership,
+    membershipAccess,
+    navigation,
+    user?.id
+  ]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -199,7 +234,7 @@ export default function ProfileScreen() {
               <Pressable
                 onPress={openMembership}
                 accessibilityRole="button"
-                accessibilityLabel={`${membershipAction}. ${membershipTitle}`}
+                accessibilityLabel={`Membership. ${membershipTitle}`}
                 className="active:opacity-80"
               >
                 <Card className="flex-row items-center gap-md">
@@ -207,10 +242,14 @@ export default function ProfileScreen() {
                     <Feather name="award" size={22} color={colors.dark} />
                   </View>
                   <View className="flex-1">
-                    <Text className="font-heading-semibold text-muted-text text-[11px] uppercase">Membership</Text>
+                    <Text className="font-heading-semibold text-white text-[11px] uppercase">Membership</Text>
                     <Text className="font-heading-bold text-white text-[16px] mt-xs">{membershipTitle}</Text>
-                    <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-xs">{membershipDescription}</Text>
-                    <Text className="font-heading-bold text-lime text-[11px] uppercase mt-md">{membershipAction}</Text>
+                    {membershipDescription ? <Text className="font-body text-white text-[14px] leading-[18px] mt-xs">{membershipDescription}</Text> : null}
+                    {!dashboardLoading && !verifiedMembership ? (
+                      <Text className="font-body text-white text-[13px] mt-xs">
+                        Tap to try again
+                      </Text>
+                    ) : null}
                   </View>
                   <Feather name="chevron-right" size={20} color={colors.tertiaryText} />
                 </Card>

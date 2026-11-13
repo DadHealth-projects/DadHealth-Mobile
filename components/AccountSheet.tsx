@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -70,6 +70,15 @@ export default function AccountSheet({
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const route = useRoute();
   const { session, user, signOut } = useAuth();
+  const ownerScope = useMemo(() => ({ owner: user?.id }), [user?.id]);
+  const currentOwner = useRef(ownerScope);
+  currentOwner.current = ownerScope;
+  const pendingMembership = useRef<{ scope: typeof ownerScope; action: () => void } | null>(null);
+  useEffect(() => {
+    currentOwner.current = ownerScope;
+    pendingMembership.current = null;
+    return () => { if (currentOwner.current === ownerScope) currentOwner.current = { owner: undefined }; };
+  }, [ownerScope]);
   // Shared dashboard store — no extra fetch. Pro members should never be shown
   // an upgrade entry point.
   const { data: dashboardData, loading: dashboardLoading } = useDashboard(user?.id);
@@ -83,28 +92,54 @@ export default function AccountSheet({
   // translateY in px: 0 = fully open, sheetHeight = fully closed (off-screen).
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
+  const visibilityCycle = useMemo(() => ({ visible, ownerScope }), [visible, ownerScope]);
+  const currentCycle = useRef(visibilityCycle);
+  currentCycle.current = visibilityCycle;
+  const openingFrame = useRef<number | null>(null);
+  const dismissalCycle = useRef<typeof visibilityCycle | null>(null);
+  const cancelOpeningFrame = () => {
+    if (openingFrame.current !== null) cancelAnimationFrame(openingFrame.current);
+    openingFrame.current = null;
+  };
   const animateTo = (toValue: number, onDone?: () => void) => {
+    const cycle = currentCycle.current;
+    if (toValue === 0 && !cycle.visible) return;
     Animated.timing(translateY, {
       toValue,
       duration: ANIM_MS,
       useNativeDriver: true,
     }).start(({ finished }) => {
-      if (finished) onDone?.();
+      if (finished && currentCycle.current === cycle) onDone?.();
     });
   };
 
   useEffect(() => {
+    currentCycle.current = visibilityCycle;
+    cancelOpeningFrame();
+    dismissalCycle.current = null;
     if (visible) {
+      // A reopened sheet must never execute an earlier membership request.
+      pendingMembership.current = null;
       setMounted(true);
-      // Start fully off-screen (guaranteed below the sheet regardless of its
-      // measured height), then slide up.
       translateY.setValue(SCREEN_HEIGHT);
-      requestAnimationFrame(() => animateTo(0));
+      openingFrame.current = requestAnimationFrame(() => {
+        openingFrame.current = null;
+        if (currentCycle.current === visibilityCycle) animateTo(0);
+      });
     } else if (mounted) {
-      animateTo(sheetHeight, () => setMounted(false));
+      animateTo(sheetHeight, () => {
+        dismissalCycle.current = visibilityCycle;
+        setMounted(false);
+      });
     }
+    return () => {
+      cancelOpeningFrame();
+      dismissalCycle.current = null;
+      if (currentCycle.current === visibilityCycle) currentCycle.current = { ...visibilityCycle };
+      translateY.stopAnimation();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+  }, [visibilityCycle]);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;
@@ -142,6 +177,21 @@ export default function AccountSheet({
     if (action) setTimeout(action, ANIM_MS);
   };
 
+  const closeMembership = (action: () => void) => {
+    if (pendingMembership.current || currentOwner.current !== ownerScope) return;
+    cancelOpeningFrame();
+    pendingMembership.current = { scope: ownerScope, action };
+    onClose();
+  };
+  const finishMembershipDismissal = () => {
+    const next = pendingMembership.current;
+    if (currentOwner.current !== ownerScope || next?.scope !== ownerScope) return;
+    if (visible || mounted || currentCycle.current !== visibilityCycle || dismissalCycle.current !== visibilityCycle) return;
+    dismissalCycle.current = null;
+    pendingMembership.current = null;
+    next.action();
+  };
+
   const dashboardRows: Array<{ icon: keyof typeof Feather.glyphMap; title: string; section: DashboardSection }> = [
     { icon: 'home', title: 'Home', section: 'HOME' },
     { icon: 'activity', title: 'Body', section: 'FITNESS' },
@@ -157,11 +207,11 @@ export default function AccountSheet({
     {
       icon: 'award',
       title: isConfirmedFree ? 'Upgrade to Pro' : 'Dad Health Pro',
-      onPress: () => closeThen(() => {
+      onPress: () => closeMembership(() => {
         if (isConfirmedFree) {
           navigateToProSubscription(navigation, 'account', 'Dad Health Pro', user?.id);
         } else {
-          navigation.navigate('ProSubscription', { source: 'account_membership', context: 'Membership' });
+          navigation.navigate('ProSubscription', { source: 'account_membership', context: 'Membership', feature: 'account_membership' });
         }
       }),
     },
@@ -215,8 +265,6 @@ export default function AccountSheet({
 
   const email = user?.email ?? null;
 
-  if (!mounted) return null;
-
   return (
     <Modal
       visible={mounted}
@@ -224,6 +272,7 @@ export default function AccountSheet({
       animationType="none"
       statusBarTranslucent
       onRequestClose={onClose}
+      onDismiss={finishMembershipDismissal}
     >
       {/* Backdrop */}
       <Animated.View
