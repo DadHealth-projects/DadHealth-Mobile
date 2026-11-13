@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import vm from 'node:vm';
+import ts from 'typescript';
 
 import { createUpgradeMomentSession } from '../lib/upgradeMomentManager.js';
 
@@ -69,17 +71,47 @@ test('only one upgrade moment can be active across screens', () => {
   assert.equal(manager.request(freeRequest({ id: 'aiWorkout', screen: 'ai-route' })), true);
 });
 
-test('upgrade navigation carries source and context; Not now returns by popping route', async () => {
+test('upgrade navigation carries source and context; single top chevron pops the route for Free and Pro', async () => {
   const [navigation, paywall, provider] = await Promise.all([
     read('lib/proNavigation.ts'),
     read('screens/subscreens/ProSubscriptionScreen.tsx'),
     read('contexts/UpgradeMomentContext.tsx'),
   ]);
-  assert.match(navigation, /navigation\.dispatch\(StackActions\.push\('ProSubscription', \{ source, context \}\)\)/);
+  assert.match(navigation, /navigation\.dispatch\(StackActions\.push\('ProSubscription', \{ source, context, feature \}\)\)/);
   assert.match(navigation, /trackEvent\('lock_tapped', \{ feature, source \}/);
   assert.match(navigation, /trackEvent\('paywall_opened', \{ feature, source \}/);
-  assert.match(paywall, /navigation\.goBack\(\)/);
-  assert.match(paywall, /accessibilityLabel="Not now"/);
+  const source = ts.createSourceFile('ProSubscriptionScreen.tsx', paywall, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const exits = [];
+  function visit(node) {
+    if (ts.isJsxElement(node) && node.openingElement.tagName.getText(source) === 'Pressable'
+
+      && node.openingElement.attributes.properties.some((attribute) =>
+        ts.isJsxAttribute(attribute) && attribute.name.getText(source) === 'accessibilityLabel'
+          && attribute.initializer?.getText(source) === '"Close Dad Health Pro"')) {
+      exits.push(node);
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  assert.equal(exits.length, 1, 'one labelled exit button');
+  assert.doesNotMatch(paywall, /'Not now'|accessibilityLabel="Back"/);
+  const buttonCode = ts.transpileModule(`(${exits[0].getText(source)})`, {
+    compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  for (const [isPro, label] of [[false, 'Close Dad Health Pro'], [true, 'Close Dad Health Pro']]) {
+    let backCalls = 0;
+    const button = vm.runInNewContext(buttonCode, {
+      React: { createElement: (type, props, ...children) => ({ type, props, children }) },
+      Pressable: 'Pressable', Text: 'Text', View: 'View', Feather: 'Icon', colors: { text: '#fff' },
+      subscriptions: { status: { isPro } },
+      navigation: { goBack: () => { backCalls++; } },
+    });
+    assert.equal(button.props.accessibilityLabel, label);
+    assert.equal(button.children[0].children[0].props.name, 'chevron-left');
+    assert.equal(backCalls, 0, 'render must not navigate');
+    button.props.onPress();
+    assert.equal(backCalls, 1, `${label} uses navigation.goBack()`);
+  }
   assert.match(provider, /StackActions\.push\('ProSubscription', \{/);
   assert.match(provider, /source: request\.id/);
   assert.match(provider, /context: request\.lead \?\? PRO_MOMENTS\[request\.id\]\.body/);
@@ -108,9 +140,9 @@ test('upgrade analytics carry feature and source', async () => {
     assert.ok(provider.includes(`trackEvent('${event}'`));
   }
   assert.match(provider, /upgrade_moment_dismissed', \{ feature: active\.feature, source: active\.id \}/);
-  assert.match(provider, /if \(!manager\.request\(request\)\) return false;[\s\S]*?upgrade_moment_shown/);
-  assert.match(provider, /if \(!manager\.dismiss\(active\.screen\)\) return;[\s\S]*?upgrade_moment_dismissed/);
-  assert.match(provider, /if \(!manager\.dismiss\(request\.screen\)\) return;[\s\S]*?paywall_opened/);
+  assert.match(provider, /if \(!scope\.manager\.request\(request\)\) return false;[\s\S]*?upgrade_moment_shown/);
+  assert.match(provider, /pending\.current = \{ request: active, upgrade \};[\s\S]*?upgrade_moment_dismissed/);
+  assert.match(provider, /if \(!scope\.manager\.dismiss\(next\.request\.screen\)\) return;[\s\S]*?paywall_opened/);
 
   const lockSurfaces = [proLocked, proUpgrade, bodyLocked, scoreCard, checkIn, scoreDetails, streak, weekly, mind, mindPlan];
   for (const surface of lockSurfaces) {
