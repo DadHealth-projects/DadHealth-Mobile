@@ -10,6 +10,7 @@ import {
   type MembershipSubscription,
   resolveNativePlanEligibility,
   nativeSubscriptionUserMessage,
+  NativeSubscriptionError,
   nativeProductIds,
   openSubscriptionManagement,
   prepareNativePurchase,
@@ -20,7 +21,14 @@ import {
   type SubscriptionPlan,
 } from '../lib/nativeSubscriptions';
 
-type Operation = { kind: 'purchase' | 'restore' | 'callback'; processing: boolean };
+let diagnosticSequence = 0;
+const diagnosticId = () => `iap-${Date.now().toString(36)}-${++diagnosticSequence}`;
+function iapLog(stage: string, fields: Record<string, unknown> = {}) {
+  if ((typeof __DEV__ !== 'undefined' && __DEV__) || (typeof process !== 'undefined' && process.env.EXPO_PUBLIC_IAP_DEBUG === 'true')) {
+    console.info(`[DadHealthIAP][mobile] ${stage}`, fields);
+  }
+}
+type Operation = { kind: 'purchase' | 'restore' | 'callback'; processing: boolean; diagnosticId: string };
 type TransactionResult = { summary: NativeSubscriptionStatus; finishFailed: boolean };
 type Transaction = { summary?: NativeSubscriptionStatus; finished: boolean; work?: Promise<TransactionResult> };
 
@@ -72,6 +80,7 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
   const refreshStatus = useCallback(async () => {
     if (!scope.owner || !isCurrent()) return;
     const requestId = ++statusRequestId.current;
+    iapLog('status refresh started', { requestId });
     setStatusLoading(true);
     setStatusError(null);
     try {
@@ -79,9 +88,11 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       const next = await loadNativeSubscriptionStatus(scope.owner);
       if (!isCurrent() || statusRequestId.current !== requestId) return;
       setStatus(next);
+      iapLog('status refresh completed', { requestId, isPro: next.isPro, status: next.status });
       scope.loadFailed = false;
       return next;
     } catch (statusError) {
+      iapLog('status refresh failed', { requestId });
       if (isCurrent() && statusRequestId.current === requestId) {
         scope.loadFailed = true;
         setStatusError(offline.current ? 'You are offline. Reconnect and try again.'
@@ -96,6 +107,7 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
   const refreshMembership = useCallback(async () => {
     if (!scope.owner || !isCurrent()) return false;
     const request = ++scope.membershipRequest;
+    iapLog('membership refresh started', { request });
     const lifecycle = scope.lifecycle;
     const valid = () => isCurrent() && lifecycle === scope.lifecycle && request === scope.membershipRequest;
     setMembershipLoading(true); setMembershipError(null);
@@ -103,8 +115,11 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       if (offline.current) throw new Error('offline');
       const next = await loadNativeMembership(scope.owner);
       if (!valid()) return false;
-      setMemberships(next); return true;
+      setMemberships(next);
+      iapLog('membership refresh completed', { request, count: next.length });
+      return true;
     } catch {
+      iapLog('membership refresh failed', { request });
       if (valid()) setMembershipError('We could not confirm your membership details. Please try again.');
       return false;
     } finally { if (valid()) setMembershipLoading(false); }
@@ -199,24 +214,38 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
     }
     if (entry.work) return entry.work;
     const transaction = entry;
+    const operationId = scope.operation?.diagnosticId ?? diagnosticId();
     transaction.work = (async () => {
+      iapLog('verification started', { operationId, cachedVerification: Boolean(transaction.summary) });
       const summary = transaction.summary
         ? await loadNativeSubscriptionStatus(scope.owner!)
-        : await verifyNativePurchase(purchase, scope.owner!);
+        : await verifyNativePurchase(purchase, scope.owner!, operationId);
+      iapLog('verification succeeded', { operationId, isPro: summary.isPro, status: summary.status });
       if (!isCurrent() || lifecycle !== scope.lifecycle) throw new Error('Account changed');
       transaction.summary = summary;
       publishSummary(summary);
+      iapLog('UI state updated', { operationId, isPro: summary.isPro });
       if (!transaction.finished) {
         try {
+          iapLog('transaction finish started', { operationId });
           await iap.finishTransaction({ purchase, isConsumable: false });
           transaction.finished = true;
+          iapLog('transaction finish completed', { operationId });
         } catch {
+          iapLog('transaction finish failed', { operationId });
           return { summary, finishFailed: true };
         }
       }
       return { summary, finishFailed: false };
     })();
     try { return await transaction.work; }
+    catch (error) {
+      iapLog('verification failed', {
+        operationId,
+        code: error instanceof NativeSubscriptionError ? error.code : 'unknown',
+      });
+      throw error;
+    }
     finally { transaction.work = undefined; }
   }, [scope, isCurrent, publishSummary]);
 
@@ -238,7 +267,8 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
     }
     if (purchase.purchaseState !== 'purchased') return;
     scope.purchaseAwaitingOutcome = false;
-    const operation = scope.operation ?? { kind: 'callback' as const, processing: false };
+    const operation = scope.operation ?? { kind: 'callback' as const, processing: false, diagnosticId: diagnosticId() };
+    iapLog('callback processing', { operationId: operation.diagnosticId, kind: operation.kind });
     scope.operation = operation;
     operation.processing = true;
     setPurchasing(true);
@@ -256,6 +286,7 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       if (isCurrent() && scope.operation === operation) setError(nativeSubscriptionUserMessage(purchaseError, "We couldn't verify your purchase. Please try again."));
     } finally {
       if (isCurrent() && scope.operation === operation) {
+        iapLog('purchase state reset', { operationId: operation.diagnosticId });
         scope.operation = null;
         setPurchasing(false);
         while (isCurrent() && !scope.operation && scope.queued.size) {
@@ -297,9 +328,23 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
     setLoading(true);
     const iap = getNativeIapModule();
     const updateSubscription = iap?.purchaseUpdatedListener((purchase) => {
-      if (scope.lifecycle === lifecycle) void processPurchase(purchase);
+      if (!isCurrent() || scope.lifecycle !== lifecycle) return;
+
+      // An unsolicited callback is a recovered transaction, not a new
+      // purchase initiated by tapping Subscribe.
+      iapLog('purchase callback', {
+        operationId: scope.operation?.diagnosticId,
+        unsolicited: !scope.purchaseAwaitingOutcome,
+        activeOperation: scope.operation?.kind ?? null,
+        purchaseState: purchase.purchaseState,
+        productId: purchase.productId,
+        hasPurchaseToken: Boolean(purchase.purchaseToken),
+        awaitingOutcome: scope.purchaseAwaitingOutcome,
+      });
+      void processPurchase(purchase);
     });
     const errorSubscription = iap?.purchaseErrorListener((purchaseError) => {
+      iapLog('purchase error callback', { operationId: scope.operation?.diagnosticId, code: purchaseError.code });
       if (!isCurrent() || scope.lifecycle !== lifecycle || !scope.purchaseAwaitingOutcome
         || (scope.operation && (scope.operation.kind !== 'purchase' || scope.operation.processing))) return;
       scope.purchaseAwaitingOutcome = false;
@@ -346,7 +391,8 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
     return () => subscription.remove();
   }, [scope, retry, refreshAfterManagement]);
 
-  const purchase = useCallback(async (plan: SubscriptionPlan) => {
+  const purchase = useCallback(async (plan: SubscriptionPlan, source: 'button' | 'unknown' = 'unknown') => {
+    iapLog('purchase invoked', { source, plan, blocked: !isCurrent() || Boolean(scope.operation || scope.management) });
     if (!isCurrent() || scope.operation || scope.management) return;
     const iap = getNativeIapModule();
     const product = products.find((item) => item.plan === plan);
@@ -355,21 +401,26 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       setError('We could not confirm this subscription option. Please try again.');
       return;
     }
-    const operation: Operation = { kind: 'purchase', processing: false };
+    const operation: Operation = { kind: 'purchase', processing: false, diagnosticId: diagnosticId() };
+    iapLog('purchase requested', { operationId: operation.diagnosticId, plan, source, hasUserId: Boolean(scope.owner) });
     scope.operation = operation;
     scope.purchaseAwaitingOutcome = true;
     setPurchasing(true);
     setError(null);
     setNotice(null);
     try {
+      iapLog('preparation started', { operationId: operation.diagnosticId });
       const preparation = await prepareNativePurchase(plan, scope.owner);
+      iapLog('preparation completed', { operationId: operation.diagnosticId });
       if (!isCurrent() || scope.operation !== operation) return;
       if (preparation.productId !== product.productId) throw new Error('This subscription is not available right now.');
       if (preparation.provider === 'apple') {
+        iapLog('opening Apple checkout', { operationId: operation.diagnosticId, productId: product.productId });
         await iap.requestPurchase({
           type: 'subs',
           request: { apple: { sku: product.productId, appAccountToken: preparation.appAccountToken } },
         });
+        iapLog('requestPurchase resolved', { operationId: operation.diagnosticId });
       } else {
         if (product.basePlanId !== preparation.basePlanId || !product.offerToken) {
           throw new Error('This subscription offer is not available right now.');
@@ -384,7 +435,11 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
         });
       }
     } catch (purchaseError) {
+      iapLog('purchase request rejected', { operationId: operation.diagnosticId,
+        code: purchaseError instanceof NativeSubscriptionError ? purchaseError.code
+          : typeof purchaseError === 'object' && purchaseError && 'code' in purchaseError ? String(purchaseError.code) : 'unknown' });
       if (!isCurrent() || scope.operation !== operation || operation.processing) return;
+      iapLog('purchase state reset', { operationId: operation.diagnosticId, reason: 'request_rejected' });
       scope.purchaseAwaitingOutcome = false;
       scope.operation = null;
       setPurchasing(false);
@@ -392,11 +447,8 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       setError(message ? nativeSubscriptionUserMessage(purchaseError, message) : null);
       setNotice(message ? null : 'Purchase cancelled.');
     } finally {
-      if (isCurrent() && scope.operation === operation && !operation.processing) {
-        scope.operation = null;
-        setPurchasing(false);
-        setNotice('Purchase confirmation has not arrived. Use Restore purchases to check.');
-      }
+      // requestPurchase may return before the purchase listener receives
+      // the transaction. Do not treat that as failed confirmation.
     }
   }, [scope, isCurrent, products, storeAvailable, status]);
 
@@ -407,7 +459,8 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       setError('Purchases can only be restored from the Dad Health app installed through the store.');
       return;
     }
-    const operation: Operation = { kind: 'restore', processing: true };
+    const operation: Operation = { kind: 'restore', processing: true, diagnosticId: diagnosticId() };
+    iapLog('restore initiated', { operationId: operation.diagnosticId });
     scope.operation = operation;
     scope.purchaseAwaitingOutcome = false;
     const valid = () => isCurrent() && scope.operation === operation;
@@ -436,6 +489,7 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       if (!valid() || !latest) return;
       const provider = Platform.OS === 'ios' ? 'apple' : 'google';
       const restoredAccess = verified > 0 && latest.isPro && latest.activeProviders.includes(provider);
+      iapLog('restore completed', { operationId: operation.diagnosticId, verified, failed, finishFailed, restoredAccess });
       setNotice(null);
       if (failed) {
         setError(restoredAccess
@@ -455,6 +509,7 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       if (valid()) {
         setNotice(null);
         setError('We could not complete restore. Any confirmed access is unchanged. Please try again.');
+        iapLog('restore failed', { operationId: operation.diagnosticId });
       }
     } finally {
       if (isCurrent() && scope.operation === operation) {

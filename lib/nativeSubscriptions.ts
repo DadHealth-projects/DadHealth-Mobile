@@ -159,7 +159,7 @@ export async function prepareNativePurchase(plan: SubscriptionPlan, expectedOwne
   return preparation;
 }
 
-export async function verifyNativePurchase(purchase: Purchase, expectedOwner: string): Promise<NativeSubscriptionStatus> {
+export async function verifyNativePurchase(purchase: Purchase, expectedOwner: string, diagnosticId?: string): Promise<NativeSubscriptionStatus> {
   if (!purchase.purchaseToken) {
     throw new NativeSubscriptionError('Your purchase is still being processed by the store.', 'purchase_pending');
   }
@@ -168,6 +168,8 @@ export async function verifyNativePurchase(purchase: Purchase, expectedOwner: st
     `/api/native-subscriptions/verify/${provider}`,
     {
       method: 'POST',
+      headers: diagnosticId && ((typeof __DEV__ !== 'undefined' && __DEV__) || process.env.EXPO_PUBLIC_IAP_DEBUG === 'true')
+        ? { 'X-IAP-Debug-ID': diagnosticId } : undefined,
       body: JSON.stringify(
         provider === 'apple'
           ? { signedTransaction: purchase.purchaseToken }
