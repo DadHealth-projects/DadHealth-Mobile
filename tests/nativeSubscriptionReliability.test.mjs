@@ -332,10 +332,29 @@ test('paywall renders trial/paid CTAs, blocks unknown/loading and wires Retry pl
   unknown.nodes.find((n) => n.type === 'Pressable' && JSON.stringify(n.children).includes('Retry')).props.onPress();
   unknown.nodes.find((n) => n.props?.accessibilityLabel === 'Close Dad Health Pro').props.onPress();
   assert.deepEqual(unknown.actions, ['retry', 'back']);
-  const loading = screen({ catalogLoading: true }); assert.doesNotMatch(loading.text, /Start 7-day|Subscribe"/);
+  const loading = screen({ catalogLoading: true, products: [], storeAvailable: false }); assert.doesNotMatch(loading.text, /Start 7-day|Subscribe"/);
   assert.doesNotMatch(loading.text, /Checking subscription|"Retry"/);
   const unsupported = screen({ products: [], storeAvailable: false, storeSupported: false });
   assert.doesNotMatch(unsupported.text, />Retry|"Retry"/); assert.match(unsupported.text, /available on this device/);
+});
+
+test('loaded paywall keeps its CTA and wording during refresh but blocks purchase until settled', () => {
+  for (const eligibility of ['eligible', 'ineligible']) {
+    const products = [{ plan: 'annual', displayPrice: 'GBP 49.99', trialEligibility: eligibility }];
+    const label = eligibility === 'eligible' ? 'Start 7-day free trial' : 'Subscribe';
+    for (const progress of [{ catalogLoading: true }, { statusLoading: true }]) {
+      const refreshing = screen({ products, ...progress });
+      const button = refreshing.nodes.find(n => n.type === 'Pressable' && n.props.accessibilityLabel === label);
+      assert.ok(button);
+      assert.equal(button.props.disabled, true);
+      assert.match(refreshing.text, /GBP 49.99/);
+    }
+    const ready = screen({ products });
+    const button = ready.nodes.find(n => n.type === 'Pressable' && n.props.accessibilityLabel === label);
+    assert.equal(Boolean(button.props.disabled), false);
+    button.props.onPress();
+    assert.deepEqual(ready.actions, ['purchase']);
+  }
 });
 
 

@@ -20,6 +20,12 @@ const THIS_WEEK_FEATURES = [
   'Get workouts, Dad Days and plans built around your life',
 ] as const;
 
+function iapScreenLog(stage: string, fields: Record<string, unknown> = {}) {
+  if ((typeof __DEV__ !== 'undefined' && __DEV__) || (typeof process !== 'undefined' && process.env.EXPO_PUBLIC_IAP_DEBUG === 'true')) {
+    console.info(`[DadHealthIAP][mobile] ${stage}`, fields);
+  }
+}
+
 export default function ProSubscriptionScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { user } = useAuth();
@@ -31,9 +37,24 @@ export default function ProSubscriptionScreen() {
     if (user?.id) void refreshDashboardForUser(user.id);
   }, [user?.id]);
   const subscriptions = useNativeSubscriptions(user?.id, refreshEntitlement);
+  useEffect(() => {
+    iapScreenLog('screen mounted');
+    return () => iapScreenLog('screen unmounted');
+  }, []);
+  useEffect(() => {
+    iapScreenLog('screen state', {
+      selectedPlan, loading: subscriptions.loading, purchasing: subscriptions.purchasing,
+      restoring: subscriptions.restoring, catalogLoading: subscriptions.catalogLoading,
+      statusLoading: subscriptions.statusLoading, isPro: subscriptions.status?.isPro ?? null,
+      status: subscriptions.status?.status ?? null, hasActionError: Boolean(subscriptions.actionError),
+      hasStatusError: Boolean(subscriptions.statusError), hasCatalogError: Boolean(subscriptions.catalogError),
+    });
+  }, [selectedPlan, subscriptions.loading, subscriptions.purchasing, subscriptions.restoring,
+    subscriptions.catalogLoading, subscriptions.statusLoading, subscriptions.status,
+    subscriptions.actionError, subscriptions.statusError, subscriptions.catalogError]);
   const selectedProduct = subscriptions.products.find((product) => product.plan === selectedPlan);
-  const trialAvailable = !subscriptions.catalogLoading && selectedProduct?.trialEligibility === 'eligible';
-  const optionReady = !subscriptions.catalogLoading && subscriptions.storeAvailable
+  const trialAvailable = selectedProduct?.trialEligibility === 'eligible';
+  const optionReady = subscriptions.storeAvailable
     && Boolean(selectedProduct?.displayPrice.trim()) && selectedProduct?.trialEligibility !== 'unknown'
     && Boolean(selectedProduct);
   const providerLabel = providerName(subscriptions.status?.primaryProvider ?? null);
@@ -190,9 +211,13 @@ export default function ProSubscriptionScreen() {
               <ProAction label="Log in to continue" onPress={() => navigation.navigate('Login')} />
             ) : optionReady ? (
               <ProAction label={trialAvailable ? 'Start 7-day free trial' : 'Subscribe'}
-                onPress={() => isOffline ? showOfflineAction('subscriptions') : void subscriptions.purchase(selectedPlan)}
+                onPress={() => {
+                  iapScreenLog('Subscribe pressed', { selectedPlan, offline: isOffline });
+                  if (isOffline) showOfflineAction('subscriptions');
+                  else void subscriptions.purchase(selectedPlan, 'button');
+                }}
                 loading={subscriptions.purchasing}
-                disabled={subscriptions.restoring || subscriptions.status?.canPurchase !== true} />
+                disabled={checking || subscriptions.managing || subscriptions.restoring || subscriptions.status?.canPurchase !== true} />
             ) : null}
             {user && !subscriptions.storeSupported && !subscriptions.loading ? (
               <Text className="font-body text-white text-[13px] leading-[18px] text-center">Subscriptions aren’t available on this device right now.</Text>
