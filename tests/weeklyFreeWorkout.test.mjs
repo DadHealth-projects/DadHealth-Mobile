@@ -11,7 +11,7 @@ const today = await readFile(new URL('../screens/DashboardScreen.tsx', import.me
 
 test('weekly workout comes from the server assignment, never newest-workout fallback', () => {
   assert.match(library, /from\('free_weekly_workout_assignments'\)/);
-  assert.match(library, /weeklyWorkout: selectWeeklyWorkout\(adminWorkouts, assignment\)/);
+  assert.match(library, /const weeklyWorkout = selectWeeklyWorkout\(adminWorkouts, assignment\)/);
   assert.match(library, /if \(result.assignmentKnown\) \{\s*setWeeklyWorkout\(result.weeklyWorkout\)/);
   assert.doesNotMatch(library, /loadNativeSubscriptionStatus/);
   assert.doesNotMatch(dashboard, /free_weekly_workout_assignments|suggestedWorkout/);
@@ -20,8 +20,8 @@ test('weekly workout comes from the server assignment, never newest-workout fall
 test('Free Body shows assigned workout and explicit empty state; Pro library remains full', () => {
   assert.match(body, /workoutLibraryAccess === true\s*\?/);
   assert.match(body, /fitnessLibrary\.weeklyWorkout\?\.id/);
-  assert.match(body, /No workout has been assigned this week yet/);
-  assert.match(body, /workoutLibraryAccess === false \? 'This week’s workout and saved workouts'/);
+  assert.match(body, /No workout has been assigned yet/);
+  assert.match(body, /workoutLibraryAccess === false \? 'Free and featured workouts'/);
 });
 
 test('Today and Body select same assigned workout; Today opens its exact ID', () => {

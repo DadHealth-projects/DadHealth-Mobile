@@ -58,7 +58,7 @@ function modal(fitnessLibrary, access, loading = false) {
   const expression = source.match(/const availableWorkouts = useMemo\(\s*\(\) => ([\s\S]*?),\n    \[/)[1];
   const state = { fitnessLibrary, workoutLibraryAccess: access, weeklyWorkoutAccess: true, hasUser: true, loading };
   state.availableWorkouts = vm.runInNewContext(expression, state);
-  const definitions = source.slice(source.indexOf('  const libraryProblem ='), source.indexOf('  useEffect(() => {', source.indexOf('  const libraryProblem =')));
+  const definitions = source.slice(source.indexOf('  const libraryProblem ='), source.indexOf('  const selectedWorkout ='));
   const start = source.indexOf('<ScrollView contentContainerStyle={{ paddingHorizontal: 24');
   const jsx = source.slice(start, source.indexOf('</ScrollView>', start) + '</ScrollView>'.length);
   const exports = {}, actions = [];
@@ -136,4 +136,98 @@ test('Today request opens existing modal once and is consumed before normal retu
   vm.runInNewContext(compile(effect), state); assert.equal(state.opened, 1);
   assert.match(body, /accessibilityLabel="Close Workout Library"/);
   assert.match(body, /onRequestClose=\{\(\) => setWorkoutLibraryOpen\(false\)\}/);
+});
+
+test('explicit Free admin workouts do not need an assignment; Pro and AI stay gated', async () => {
+  const h = harness();
+  h.replies.admin.data.push({ ...workout('free'), access_level: 'free' });
+  h.replies.assignment = { data: null, error: null };
+  await h.settle();
+  assert.deepEqual(Array.from(modal(h.result, false).visible, (w) => w.id), ['free']);
+  assert.deepEqual(Array.from(modal(h.result, true).visible, (w) => w.id), ['mine', 'weekly', 'other', 'free']);
+  assert.deepEqual(Array.from(modal(h.result, null).visible, (w) => w.id), ['free']);
+  h.replies.assignment = { data: null, error: true };
+  await h.result.refresh(); h.render();
+  assert.deepEqual(Array.from(modal(h.result, false).visible, (w) => w.id), ['free']);
+  assert.doesNotMatch(modal(h.result, false).text, /No Free workouts/);
+  h.unmount();
+});
+
+test('Free library with no assignment and zero rows has a genuine empty state', async () => {
+  const h = harness();
+  h.replies.admin = { data: [], error: null };
+  h.replies.generated = { data: [], error: null };
+  h.replies.assignment = { data: null, error: null };
+  await h.settle();
+  assert.match(modal(h.result, false).text, /No Free workouts are available yet/);
+  h.unmount();
+});
+
+test('refresh preserves Free workouts and weekly assignment through a failed read', async () => {
+  const h = harness();
+  h.replies.admin.data.push({ ...workout('free'), access_level: 'free' });
+  await h.settle();
+  let release;
+  h.replies.admin = new Promise((resolve) => { release = resolve; });
+  const pending = h.result.refresh(); h.render();
+  assert.deepEqual(Array.from(modal(h.result, false).visible, (w) => w.id), ['weekly', 'free']);
+  assert.equal(h.result.weeklyWorkout.id, 'weekly');
+  release({ data: null, error: true }); await pending; h.render();
+  assert.deepEqual(Array.from(modal(h.result, false).visible, (w) => w.id), ['weekly', 'free']);
+  assert.equal(h.result.weeklyWorkout.id, 'weekly');
+  h.unmount();
+});
+
+test('workout refresh does not replace content with checking copy; last logged sits in heading row', () => {
+  const body = read('screens/FitnessScreen.tsx'), today = read('screens/DashboardScreen.tsx');
+  assert.doesNotMatch(body + today, /Checking this week.{1,3}s workout/);
+  const heading = body.slice(body.indexOf('<SectionHeader title="Body this week"'), body.indexOf('<MiniBarChart'));
+  assert.match(heading, /Last logged/);
+  assert.equal((body.match(/Last logged/g) ?? []).length, 1);
+});
+
+test('weekly refresh keeps confirmed empty, then replaces assignment and handles removal', async () => {
+  const h = harness();
+  h.replies.assignment = { data: null, error: null }; await h.settle();
+  assert.equal(h.result.assignmentKnown, true);
+  let release;
+  h.replies.assignment = new Promise((resolve) => { release = resolve; });
+  const pending = h.result.refresh(); h.render();
+  assert.equal(h.result.assignmentKnown, true);
+  assert.equal(h.result.weeklyWorkout, null);
+  release({ data: { workout_id: 'other' }, error: null }); await pending; h.render();
+  assert.equal(h.result.weeklyWorkout.id, 'other');
+  h.replies.assignment = { data: null, error: true };
+  await h.result.refresh(); h.render();
+  assert.equal(h.result.weeklyWorkout.id, 'other');
+  assert.ok(h.result.assignmentError);
+  h.replies.assignment = { data: null, error: null };
+  await h.result.refresh(); h.render();
+  assert.equal(h.result.weeklyWorkout, null);
+  assert.equal(h.result.assignmentKnown, true);
+  assert.equal(h.result.assignmentError, null);
+  h.unmount();
+});
+
+test('an assigned workout missing from the catalog is unavailable, not confirmed empty', async () => {
+  const h = harness();
+  h.replies.assignment = { data: { workout_id: 'unreadable' }, error: null };
+  await h.settle();
+  assert.equal(h.result.assignmentKnown, false);
+  assert.ok(h.result.assignmentError);
+  h.unmount();
+});
+
+test('first unresolved or offline assignment never becomes confirmed empty', async () => {
+  const h = harness(); let release;
+  h.replies.assignment = new Promise((resolve) => { release = resolve; });
+  await tick(); h.render();
+  assert.equal(h.result.assignmentKnown, false);
+  assert.equal(h.result.loading, true);
+  h.offline(true); h.render();
+  assert.equal(h.result.assignmentKnown, false);
+  assert.equal(h.result.loading, false);
+  release({ data: null, error: null }); await h.settle();
+  assert.equal(h.result.assignmentKnown, false);
+  h.unmount();
 });
