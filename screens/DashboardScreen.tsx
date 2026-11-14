@@ -460,11 +460,9 @@ export function DashboardScreenContent({
         ? `${weeklyWorkout.exercises.length} ${weeklyWorkout.exercises.length === 1 ? 'move' : 'moves'} · ${weeklyWorkout.duration_mins} min`
         : workoutError
           ? "Couldn't load this week's workout. Pull to refresh."
-          : workoutLoading
-            ? "Checking this week's workout…"
-            : assignmentKnown
-              ? 'No workout has been assigned this week yet. Check Body for updates.'
-              : 'Connect to the internet to check this week’s workout.',
+          : assignmentKnown
+            ? 'No workout has been assigned this week yet. Check Body for updates.'
+            : isOffline ? 'Connect to the internet to check this week’s workout.' : 'Explore workouts in Body.',
       actionLabel: weeklyWorkout ? 'Start workout' : 'View Body',
       icon: 'activity' as const,
     };
@@ -475,7 +473,7 @@ export function DashboardScreenContent({
       icon: 'heart' as const,
     };
     return null;
-  }, [assignmentKnown, todayFocus, weeklyWorkout, workoutError, workoutLoading]);
+  }, [assignmentKnown, isOffline, todayFocus, weeklyWorkout, workoutError]);
 
   const officialDadDateSuggestion = data?.dadDates?.find(
     (activity) => activity.source === 'admin' && activity.user_id === null,
