@@ -24,6 +24,7 @@ export type FitnessWorkout = {
   focus: 'full_body' | 'upper' | 'lower' | 'core';
   exercises: FitnessWorkoutExercise[];
   source: 'admin' | 'ai_generated';
+  access_level?: 'free' | 'pro';
 };
 
 type WeeklyWorkoutAssignmentRow = {
@@ -44,7 +45,7 @@ const fitnessLibraryRequests = new Map<string, Promise<FitnessLibrarySnapshot>>(
 async function fetchFitnessLibrary(userId?: string): Promise<FitnessLibrarySnapshot> {
   const adminQuery = supabase
     .from('workouts')
-    .select('id,title,duration_mins,equipment,focus,exercises,source')
+    .select('id,title,duration_mins,equipment,focus,exercises,source,access_level')
     .eq('source', 'admin')
     .order('created_at', { ascending: false });
   const assignmentQuery = supabase
@@ -59,7 +60,7 @@ async function fetchFitnessLibrary(userId?: string): Promise<FitnessLibrarySnaps
     userId
       ? supabase
         .from('workouts')
-        .select('id,title,duration_mins,equipment,focus,exercises,source')
+        .select('id,title,duration_mins,equipment,focus,exercises,source,access_level')
         .eq('user_id', userId)
         .eq('source', 'ai_generated')
         .order('created_at', { ascending: false })
@@ -82,12 +83,15 @@ async function fetchFitnessLibrary(userId?: string): Promise<FitnessLibrarySnaps
   const adminWorkouts = (adminResult.data ?? []) as FitnessWorkout[];
   const generatedWorkouts = (generatedResult.data ?? []) as FitnessWorkout[];
   const assignment = assignmentResult.data as WeeklyWorkoutAssignmentRow | null;
+  const weeklyWorkout = selectWeeklyWorkout(adminWorkouts, assignment);
+  // An assignment whose workout cannot be read is not a confirmed empty week.
+  const assignmentUnavailable = Boolean(assignmentResult.error || (assignment && !weeklyWorkout));
   return {
     workouts: [...generatedWorkouts, ...adminWorkouts],
-    weeklyWorkout: selectWeeklyWorkout(adminWorkouts, assignment),
-    assignmentKnown: !assignmentResult.error,
+    weeklyWorkout,
+    assignmentKnown: !assignmentUnavailable,
     error: null,
-    assignmentError: assignmentResult.error ? 'We could not confirm this week’s Free workout. Please try again.' : null,
+    assignmentError: assignmentUnavailable ? 'We could not confirm this week’s Free workout. Please try again.' : null,
   };
 }
 
