@@ -85,10 +85,14 @@ export default function FitnessScreen({
   });
   const aiWorkoutAccess = hasUser ? entitlement.can('ai_workout') : null;
   const mealPlannerAccess = hasUser ? entitlement.can('meal_planner') : null;
-  const workoutLibraryAccess = hasUser ? entitlement.can('workout_library') : null;
+  const workoutLibraryAccess = hasUser
+  ? entitlement.can('workout_library') === true
+    ? true
+    : false
+  : null;
   const weeklyWorkoutAccess = hasUser && entitlement.can('free_weekly_workout') === true;
   const trendsAccess = entitlement.can('trends');
-  const { data: fitnessSummary, loading: summaryLoading, refresh: refreshSummary } = useFitnessSummary(
+  const { data: fitnessSummary, refresh: refreshSummary } = useFitnessSummary(
     standalone ? user?.id : undefined,
   );
   const fitnessLibrary = useFitnessLibrary(user?.id, standalone, standalone, false);
@@ -111,7 +115,9 @@ export default function FitnessScreen({
     () => workoutLibraryAccess === true
       ? fitnessLibrary.workouts
       : weeklyWorkoutAccess
-        ? fitnessLibrary.workouts.filter((workout) => workout.id === fitnessLibrary.weeklyWorkout?.id)
+        ? fitnessLibrary.workouts.filter((workout) => workout.source === 'admin' && (
+          workout.access_level === 'free' || workout.id === fitnessLibrary.weeklyWorkout?.id
+        ))
         : [],
     [fitnessLibrary.weeklyWorkout?.id, fitnessLibrary.workouts, weeklyWorkoutAccess, workoutLibraryAccess],
   );
@@ -120,7 +126,8 @@ export default function FitnessScreen({
   const libraryEmptyKnown = fitnessLibrary.hasLoaded
     && (workoutLibraryAccess === true || (workoutLibraryAccess === false && fitnessLibrary.assignmentKnown));
   const selectedWorkout = useMemo(
-    () => availableWorkouts.find((workout) => workout.id === selectedWorkoutId)
+    () => workoutLibraryAccess !== true ? fitnessLibrary.weeklyWorkout
+      : availableWorkouts.find((workout) => workout.id === selectedWorkoutId)
       ?? fitnessLibrary.weeklyWorkout
       ?? (workoutLibraryAccess === true ? availableWorkouts.find((workout) => workout.source === 'admin') : null)
       ?? null,
@@ -128,7 +135,8 @@ export default function FitnessScreen({
   );
   const moveCount = selectedWorkout?.exercises?.length ?? 0;
   const moveCountLabel = formatMoveCount(moveCount);
-  const workoutName = selectedWorkout?.title.trim() ?? 'No featured workout this week';
+  const workoutName = selectedWorkout?.title.trim()
+    ?? (fitnessLibrary.assignmentKnown ? 'No featured workout this week' : 'Your workout this week');
   const workoutMeta = selectedWorkout
     ? `${moveCountLabel} · ${selectedWorkout.duration_mins} min · ${EQUIPMENT_LABEL[selectedWorkout.equipment]}`
     : moveCountLabel;
@@ -195,7 +203,8 @@ export default function FitnessScreen({
 
   return (
     <PillarScreen
-      loading={(loading && !data) || (standalone && summaryLoading)}
+      loading={loading && !data}
+      preserveContentOnRefresh
       skeleton={<PillarSkeleton cards={3} />}
       refreshing={refreshing}
       onRefresh={hasUser ? onRefresh : undefined}
@@ -229,7 +238,14 @@ export default function FitnessScreen({
       <ManualActivitySection pillar="body" userId={user?.id} />
 
       <FadeInView delay={90}>
-        <SectionHeader title="Body this week" className="mb-md" />
+        <View className="flex-row items-center justify-between gap-sm mb-md">
+          <SectionHeader title="Body this week" className="flex-shrink" />
+          {standalone && fitnessSummary.latestLoggedDate ? (
+            <Text className="font-heading-semibold text-tertiary-text text-[11px] tracking-[1px] uppercase text-right">
+              Last logged {fitnessSummary.latestLoggedDate}
+            </Text>
+          ) : null}
+        </View>
         <FlatSection>
           <MiniBarChart
             values={data?.bodyWeekSeries ?? EMPTY_BODY_WEEK}
@@ -244,16 +260,6 @@ export default function FitnessScreen({
           ) : null}
         </FlatSection>
       </FadeInView>
-
-      {standalone ? (
-        <FadeInView delay={100}>
-          {fitnessSummary.latestLoggedDate ? (
-            <Text className="font-heading-semibold text-tertiary-text text-[11px] tracking-[1px] uppercase mt-sm">
-              Last logged {fitnessSummary.latestLoggedDate}
-            </Text>
-          ) : null}
-        </FadeInView>
-      ) : null}
 
       <FadeInView delay={110}>
         <View className="gap-sm">
@@ -296,15 +302,27 @@ export default function FitnessScreen({
                 <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-sm">
                   {selectedWorkout
                     ? workoutMeta
-                    : fitnessLibrary.loading
-                      ? 'Checking this week’s workout…'
-                      : fitnessLibrary.assignmentKnown
-                        ? 'No workout has been assigned yet. Check back after Admin schedules this week’s workout.'
-                        : 'This week’s workout could not be confirmed. Check your connection and try again.'}
+                    : fitnessLibrary.assignmentKnown
+                      ? 'No workout has been assigned yet. Check back after Admin schedules this week’s workout.'
+                      : fitnessLibrary.isOffline ? 'This week’s workout is not available offline yet.' : null}
                 </Text>
               </View>
               {selectedWorkout ? <TagPill label={FOCUS_LABEL[selectedWorkout.focus]} /> : null}
             </View>
+            {!selectedWorkout && !fitnessLibrary.assignmentKnown && fitnessLibrary.loading ? (
+              <PillarSkeleton cards={1} />
+            ) : null}
+            {fitnessLibrary.error ? (
+              <View className="gap-xs">
+                <Text className="font-body text-muted-text text-[12px]">Could not update this week’s workout.</Text>
+                <Pressable onPress={() => void refreshLibrary()} disabled={fitnessLibrary.loading || fitnessLibrary.isOffline}
+                  accessibilityRole="button" accessibilityLabel="Retry weekly workout"
+                  accessibilityState={{ disabled: fitnessLibrary.loading || fitnessLibrary.isOffline }}
+                  className="self-start min-h-[44px] justify-center">
+                  <Text className="font-body-semibold text-lime text-[13px]">Try again</Text>
+                </Pressable>
+              </View>
+            ) : null}
             {selectedWorkout ? (
               <LimeButton label="Start workout →" onPress={hasUser ? openActiveWorkout : requireAuth} />
             ) : null}
@@ -374,24 +392,10 @@ export default function FitnessScreen({
             <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20, paddingBottom: 40 }}>
               <View className="flex-row items-center justify-between gap-sm mb-md">
                 <Text className="font-heading-bold text-muted-text text-[11px] tracking-[1px] uppercase flex-1">
-                  {!hasUser ? 'Log in to view available workouts' : workoutLibraryAccess === true ? 'All available workouts' : workoutLibraryAccess === false ? 'This week’s workout and saved workouts' : 'Checking access'}
+                  {!hasUser ? 'Log in to view available workouts' : workoutLibraryAccess === true ? 'All available workouts' : workoutLibraryAccess === false ? 'Free and featured workouts' : 'Checking access'}
                 </Text>
                 {hasUser && libraryEmptyKnown ? <TagPill label={`${availableWorkouts.length} shown`} tone="outline" /> : null}
               </View>
-              {libraryProblem ? (
-                <View className="gap-md mb-md">
-                  <InlineFormError message={libraryProblem} />
-                  <LimeButton label="Try again" onPress={() => void refreshLibrary()} loading={fitnessLibrary.loading} />
-                </View>
-              ) : null}
-              {hasUser && workoutLibraryAccess === null ? (
-                <View className="gap-md py-md items-center">
-                  <Text className="font-body text-muted-text text-center">
-                    {loading ? 'Checking your access?' : "We couldn't verify your access. Please try again."}
-                  </Text>
-                  {!loading ? <LimeButton label="Retry" onPress={() => void checkEntitlement()} /> : null}
-                </View>
-              ) : null}
               {availableWorkouts.length === 0 ? (
                 !hasUser ? (
                   <Text className="font-body text-muted-text">Log in to see workouts available to your account.</Text>
@@ -407,7 +411,7 @@ export default function FitnessScreen({
                         : !libraryEmptyKnown
                           ? 'Your workout library could not be confirmed. Please try again.'
                           : workoutLibraryAccess === false
-                            ? 'No workout has been assigned this week yet.'
+                            ? 'No Free workouts are available yet.'
                             : 'No workouts are available yet.'}
                     </Text>
                     {!fitnessLibrary.isOffline && !libraryEmptyKnown ? <LimeButton label="Retry" onPress={() => void refreshLibrary()} /> : null}

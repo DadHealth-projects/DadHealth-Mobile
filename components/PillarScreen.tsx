@@ -15,6 +15,8 @@ type PillarScreenProps = {
   loading?: boolean;
   skeleton?: React.ReactNode;
   refreshing?: boolean;
+  /** Opt in per screen while the remaining refresh paths are reviewed. */
+  preserveContentOnRefresh?: boolean;
   onRefresh?: () => void;
   error?: string | null;
   errorMessage: string;
@@ -32,6 +34,7 @@ export default function PillarScreen({
   loading = false,
   skeleton,
   refreshing = false,
+  preserveContentOnRefresh = false,
   onRefresh,
   error = null,
   errorMessage,
@@ -50,16 +53,16 @@ export default function PillarScreen({
   }, [dismissToast, onRefresh]);
 
   useEffect(() => {
-    if (!refreshing) {
+    if (!refreshing || preserveContentOnRefresh) {
       setRefreshSkeletonExpired(false);
       return;
     }
 
     const timer = setTimeout(() => setRefreshSkeletonExpired(true), REFRESH_SKELETON_MAX_MS);
     return () => clearTimeout(timer);
-  }, [refreshing]);
+  }, [refreshing, preserveContentOnRefresh]);
 
-  const showSkeleton = loading || (refreshing && !refreshSkeletonExpired);
+  const showSkeleton = loading || (!preserveContentOnRefresh && refreshing && !refreshSkeletonExpired);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
