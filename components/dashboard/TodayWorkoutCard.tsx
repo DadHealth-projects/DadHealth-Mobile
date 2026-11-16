@@ -33,7 +33,7 @@ function TodayWorkoutCard({
             <Feather name="activity" size={21} color={colors.dark} />
           </View>
           <View className="flex-1 gap-xs">
-            <Text className="font-heading-bold text-white text-[21px] leading-[23px] uppercase">
+            <Text className="font-heading-bold text-white text-[22px] leading-[24px] uppercase">
               {title}
             </Text>
             <Text className="font-body text-muted-text text-[14px] leading-[20px]">
