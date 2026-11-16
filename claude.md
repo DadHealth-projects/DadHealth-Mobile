@@ -374,9 +374,11 @@ Preserve the completed Change 05 entitlement implementation.
 
 # WEEKLY REPORT / STREAK
 
+Milestone 3, Item 02 is COMPLETED AND HUMAN-ACCEPTED (2026-11-16). A/B acceptance is preserved. Khushbu reports database verification and the device checklist passed; Jamie confirmed weekly push receipt. These are human-reported verification results. This accepted scope supersedes the historical weekly-report deferral and teaser-gap notes below.
+
 Week boundaries are Monday–Sunday.
 
-Weekly report release is Sunday after 08:00 according to the existing implementation.
+Superseded: the earlier Sunday 08:00 release no longer applies. Item 02 releases saved reports Sunday 06:00 Europe/London (GMT/BST); push delivery separately respects account-local 21:00-08:00 quiet hours.
 
 Free receives the approved teaser/basic information.
 

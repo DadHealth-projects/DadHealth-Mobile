@@ -83,11 +83,11 @@ test('Today retains loaded content during refresh and shows neutral failed-read 
     source('components/dashboard/StreakCard.tsx'),
     source('components/dashboard/WeeklyReportCard.tsx'),
   ]);
-  assert.match(screen, /const showHomeSkeleton = \(!data && !dashboardError\) \|\| waitForPromptDecision;/);
-  assert.match(screen, /data\.checkedInToday === null/);
-  assert.match(hook, /checkedInToday: moodsResult\.error \? null/);
-  assert.match(streak, /streak === null/);
-  assert.match(report, /currentScore/);
+  assert.match(screen, /const showHomeSkeleton =\s*!data && loading && !dashboardError;/);
+  assert.match(screen, /checkedInToday === null/);
+  assert.match(hook, /checkedInToday: moodsResult\.error \|\| !accountDate \? null/);
+  assert.match(streak, /status\?\.state === 'current' \? status.count : null/);
+  assert.match(report, /reportDates\(report.weekStart, report.weekEndExclusive\)/);
 });
 
 test('resume refresh is active-screen scoped and coalesces with an in-flight dashboard read', async () => {
@@ -98,14 +98,30 @@ test('resume refresh is active-screen scoped and coalesces with an in-flight das
   assert.doesNotMatch(hook, /useEffect\(\(\) => \{\s*if \(!userId\) return;\s*let previousState = AppState\.currentState/);
 });
 
-test('Free weekly-report teaser receives the canonical score and does not fetch the Pro report', async () => {
-  const [screen, card, reportHook] = await Promise.all([
-    source('screens/DashboardScreen.tsx'),
-    source('components/dashboard/WeeklyReportCard.tsx'),
-    source('hooks/useWeeklyReport.ts'),
-  ]);
-  assert.match(screen, /currentScore=\{data\.totalScore\}/);
-  assert.match(card, /Current Dad Health Score/);
-  assert.ok(reportHook.indexOf('if (!key || !isPro || !enabled)') < reportHook.indexOf('void fetchReport(key)'));
-  assert.match(reportHook, /if \(isOffline\) \{[\s\S]*?loading: false,[\s\S]*?return \(\) =>/);
+test('Free weekly-report entry opens saved reports without substituting Today scores', async () => {
+  const vm = await import('node:vm');
+  const ts = (await import('typescript')).default;
+  const exports = {};
+  const react = { memo: fn => fn, createElement: (type,props,...children) => ({type,props:{...props,children}}) };
+  const mocks = {
+    react: {...react,default:react}, '@expo/vector-icons': {Feather:'Feather'},
+    'react-native': {Pressable:'Pressable',Text:'Text',View:'View'},
+    '../../theme': {colors:{lime:'lime'}},
+    '../../lib/weeklyReport': {reportDates:(start,end)=>`${start}/${end}`},
+  };
+  vm.runInNewContext(ts.transpileModule(await source('components/dashboard/WeeklyReportCard.tsx'), {
+    compilerOptions: {module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.React},
+  }).outputText,{exports,require:name=>{assert.ok(name in mocks,name);return mocks[name];}});
+  let opened=0;
+  const report={access:'free',weekStart:'2026-11-09',weekEndExclusive:'2026-11-16'};
+  const card=exports.default({report,currentScore:123456,onOpen:()=>opened++});
+  const text=JSON.stringify(card);
+  assert.match(text,/2026-11-09\/2026-11-16/);
+  assert.doesNotMatch(text,/123456|Current Dad Health Score/);
+  card.props.children[0].props.onPress();assert.equal(opened,1);
+  const empty=exports.default({report:null,onOpen:()=>opened++});
+  assert.match(JSON.stringify(empty),/View your weekly summary/);
+  empty.props.children[0].props.onPress();assert.equal(opened,2);
+  const screen=await source('screens/DashboardScreen.tsx');
+  assert.match(screen,/report=\{latestReport.report\}/);
 });
