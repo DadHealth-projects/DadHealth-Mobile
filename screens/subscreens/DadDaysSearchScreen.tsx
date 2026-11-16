@@ -113,6 +113,9 @@ const isActivitySaved = (result: SearchResult) =>
   const [saveError, setSaveError] = useState<{ name: string; message: string } | null>(null);
   const [openFilter, setOpenFilter] = useState<'budget' | 'radius' | 'age' | null>(null);
   const accessRequestId = useRef(0);
+  const scrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
+  const revealResults = useRef(false);
+  const [resultsVersion, setResultsVersion] = useState(0);
 
   useEffect(() => {
     void SecureStore.getItemAsync(RADIUS_KEY).then((saved) => {
@@ -245,6 +248,11 @@ const isActivitySaved = (result: SearchResult) =>
       if (response.status === 403 && body.error === 'search_limit_reached') { setSearchesUsed(FREE_LIMIT); requestMoment({ id: 'dadDaysCounter', trigger: 'explicit', screen: route.key, feature: 'dad_days_unlimited', isPro: entitlement.isPro, trialActive: entitlement.trialActive, loading: entitlement.loading, featureAccess: dadDaysAccess, hasCompletedAction: searchesUsed > 0, lead: `${FREE_LIMIT} of ${FREE_LIMIT} free Dad Days searches used this month. Your allowance resets on the first of next month.`, userId: user.id }); trackEvent('dad_days_search_limit_reached', { searchesUsed: FREE_LIMIT }, user.id); return; }
       if (!response.ok) { setSearchError(response.status === 429 ? "You're searching too quickly. Wait a moment and try again." : 'We could not search for Dad Days. Please try again.'); return; }
       const nextResults = body.results ?? [];
+      if (nextResults.length > 0) {
+        Keyboard.dismiss();
+        revealResults.current = true;
+        setResultsVersion(version => version + 1);
+      }
       setResults(nextResults);
       setSearchesUsed(body.searchesUsed ?? searchesUsed);
       if (nextResults.length === 0) setSearchError('No activities were found nearby. Increase the radius or change the budget.');
@@ -334,7 +342,7 @@ const isActivitySaved = (result: SearchResult) =>
   return (
     <>
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerClassName="px-lg pt-lg pb-xl gap-xl">
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerClassName="px-lg pt-lg pb-xl gap-xl">
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />
         <ScreenHero eyebrow="Dad Days" headline={'Find your\nnext day out'} sub="Search nearby activities by age, budget and distance." />
 
@@ -411,7 +419,18 @@ const isActivitySaved = (result: SearchResult) =>
           </View>
         )}
 
-        {results.length > 0 ? <View className="gap-md border-t border-border pt-xl"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Activities found ({results.length})</Text><FeaturedResult result={results[0]} saving={savingName === results[0].name} saved={isActivitySaved(results[0])} error={!isOffline && saveError?.name === results[0].name ? saveError.message : null} onOpen={() => openResultWebsite(results[0].websiteUrl)} onSave={() => void save(results[0])} /><View className="gap-md">{results.slice(1).map((result) => <ResultRow key={result.name} result={result} saving={savingName === result.name} saved={isActivitySaved(result)} error={!isOffline && saveError?.name === result.name ? saveError.message : null} onOpen={() => openResultWebsite(result.websiteUrl)} onSave={() => void save(result)} />)}</View></View> : null}
+        {results.length > 0 ? <View
+          key={resultsVersion}
+          className="gap-md border-t border-border pt-xl"
+          onLayout={({ nativeEvent }) => {
+            if (!revealResults.current) return;
+            revealResults.current = false;
+            scrollRef.current?.scrollTo({
+              y: Math.max(0, nativeEvent.layout.y - 16),
+              animated: true,
+            });
+          }}
+        ><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Activities found ({results.length})</Text><FeaturedResult result={results[0]} saving={savingName === results[0].name} saved={isActivitySaved(results[0])} error={!isOffline && saveError?.name === results[0].name ? saveError.message : null} onOpen={() => openResultWebsite(results[0].websiteUrl)} onSave={() => void save(results[0])} /><View className="gap-md">{results.slice(1).map((result) => <ResultRow key={result.name} result={result} saving={savingName === result.name} saved={isActivitySaved(result)} error={!isOffline && saveError?.name === result.name ? saveError.message : null} onOpen={() => openResultWebsite(result.websiteUrl)} onSave={() => void save(result)} />)}</View></View> : null}
       </ScrollView>
     </SafeAreaView>
     <Modal

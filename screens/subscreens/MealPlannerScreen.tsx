@@ -5,7 +5,6 @@ import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
-import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
 import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
 import ProUpgradeSection from '../../components/ProUpgradeSection';
@@ -15,7 +14,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useEntitlement } from '../../hooks/useEntitlement';
-import { useFitnessLibrary } from '../../hooks/useFitnessLibrary';
 import { PRO_LOCKS } from '../../lib/proMoments';
 import { navigateToProSubscription } from '../../lib/proNavigation';
 import { supabase } from '../../lib/supabase';
@@ -34,6 +32,17 @@ const DIETS = [
   { value: 'glutenFree', label: 'Gluten-free' },
   { value: 'dairyFree', label: 'Dairy-free' },
 ] as const;
+
+const MEAL_ORDER: Record<string, number> = {
+  breakfast: 0,
+  lunch: 1,
+  dinner: 2,
+  snack: 3,
+  snacks: 3,
+};
+
+const mealOrder = (name: string) =>
+  MEAL_ORDER[name.trim().toLowerCase()] ?? 99;
 
 type Meal = { name?: string; ingredients?: string[]; macros?: Record<string, string | number>; prep_time?: string };
 type GrocerySection = { category: string; items: string[] };
@@ -54,7 +63,6 @@ export default function MealPlannerScreen() {
     loading: entitlementLoading,
   });
   const mealPlannerAccess = entitlement.can('meal_planner');
-  const library = useFitnessLibrary(user?.id, true);
   const [accessCheckAttempted, setAccessCheckAttempted] = useState(false);
   const [calorieTarget, setCalorieTarget] = useState<(typeof CALORIES)[number]>(2200);
   const [mealsPerDay, setMealsPerDay] = useState<(typeof MEALS)[number]>(4);
@@ -68,6 +76,9 @@ export default function MealPlannerScreen() {
   const [error, setError] = useState<string | null>(null);
   const [openFilter, setOpenFilter] = useState<'calories' | 'meals' | 'adults' | 'diet' | null>(null);
   const savedPlanRequest = useRef(0);
+  const scrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
+  const revealResults = useRef(false);
+  const [resultsVersion, setResultsVersion] = useState(0);
 
   const visiblePlan = mealPlannerAccess === true && generatedPlanUserId === user?.id ? generatedPlan : null;
   const displayedDay = visiblePlan?.plan[selectedDay];
@@ -146,6 +157,10 @@ export default function MealPlannerScreen() {
       });
       const payload = await response.json() as MealPlan & { error?: string };
       if (!response.ok) throw new Error('generation_failed');
+      Keyboard.dismiss();
+      setOpenFilter(null);
+      revealResults.current = true;
+      setResultsVersion(version => version + 1);
       setGeneratedPlan(payload);
       setGeneratedPlanUserId(userId);
       setSelectedDay(0);
@@ -168,6 +183,7 @@ export default function MealPlannerScreen() {
         style={{ flex: 1 }}
       >
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
@@ -175,7 +191,6 @@ export default function MealPlannerScreen() {
       >
         <AppTopBar leftAccessory={<Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />
         <ScreenHero eyebrow="Meal planner" headline={'Fuel your\nwhole week'} sub="Set your needs. Get five days of meals and one shopping list." />
-        <GlobalErrorToastReporter message={library.error} />
 
         <View className="gap-md">
           <View>
@@ -200,18 +215,53 @@ export default function MealPlannerScreen() {
 
         <View className="gap-sm">
           <InlineFormError message={isOffline ? null : error ?? (accessCheckAttempted ? entitlement.verificationMessage : null)} />
-          {!user ? <LimeButton label="Log in to generate" onPress={openLogin} /> : mealPlannerAccess === false ? <ProUpgradeSection moment={PRO_LOCKS.mealPlanner} source="meal_planner" feature="meal_planner" userId={user.id} onPress={openPro} /> : mealPlannerAccess !== true ? <LimeButton label="Check access" onPress={() => void retryEntitlementCheck()} loading={entitlementLoading} /> : library.loading ? <LimeButton label="Loading meal planner" loading /> : <LimeButton label={visiblePlan ? 'Regenerate meal plan' : 'Generate meal plan'} onPress={() => void generate()} loading={generating} />}
+          {!user ? (
+  <LimeButton label="Log in to generate" onPress={openLogin} />
+) : mealPlannerAccess === false ? (
+  <ProUpgradeSection
+    moment={PRO_LOCKS.mealPlanner}
+    source="meal_planner"
+    feature="meal_planner"
+    userId={user.id}
+    onPress={openPro}
+  />
+) : mealPlannerAccess !== true ? (
+  <LimeButton
+    label={entitlementLoading ? 'Checking access' : 'Check access'}
+    onPress={() => void retryEntitlementCheck()}
+    loading={entitlementLoading}
+  />
+) : (
+  <LimeButton
+    label={visiblePlan ? 'Regenerate meal plan' : 'Generate meal plan'}
+    onPress={() => void generate()}
+    loading={generating}
+  />
+)}
         </View>
 
         {visiblePlan && displayedDay ? (
-          <View className="gap-lg border-t border-border pt-lg">
-            <View className="flex-row items-center justify-between gap-sm"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Your new plan</Text><TagPill label={`${visiblePlan.plan.length} days`} tone="outline" /></View>
+          <View
+            key={resultsVersion}
+            className="gap-lg border-t border-border pt-lg"
+            onLayout={({ nativeEvent }) => {
+              if (!revealResults.current) return;
+              revealResults.current = false;
+              scrollRef.current?.scrollTo({
+                y: Math.max(0, nativeEvent.layout.y - 16),
+                animated: true,
+              });
+            }}
+          >
+            <View className="flex-row items-center justify-between gap-sm"><Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Your meal plan</Text><TagPill label={`${visiblePlan.plan.length} days`} tone="outline" /></View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-sm">
               {visiblePlan.plan.map((day, index) => <Pressable key={`${day.day}-${index}`} onPress={() => setSelectedDay(index)} accessibilityRole="tab" accessibilityState={{ selected: selectedDay === index }} className={`min-h-[42px] px-md items-center justify-center border-b-2 ${selectedDay === index ? 'border-lime' : 'border-transparent'}`}><Text className={`font-heading-bold text-[12px] uppercase ${selectedDay === index ? 'text-lime' : 'text-white/70'}`}>{day.day ?? `Day ${index + 1}`}</Text></Pressable>)}
             </ScrollView>
             <View className="gap-md">
               <Text className="font-heading text-white text-[27px] uppercase">{displayedDay.day ?? `Day ${selectedDay + 1}`}</Text>
-              {Object.entries(displayedDay.meals ?? {}).map(([mealType, meal]) => (
+              {Object.entries(displayedDay.meals ?? {})
+                .sort(([a], [b]) => mealOrder(a) - mealOrder(b))
+                .map(([mealType, meal]) => (
                 <View key={mealType} className="border-b border-border pb-md gap-xs">
                   <View className="flex-row items-center justify-between gap-sm"><Text className="font-heading-bold text-lime text-[10px] tracking-label uppercase">{mealType}</Text><Text className="font-body text-tertiary-text text-[13px]">{meal.prep_time ?? ''}</Text></View>
                   <Text className="font-heading-bold text-white text-[16px] uppercase">{meal.name ?? 'Unavailable'}</Text>
