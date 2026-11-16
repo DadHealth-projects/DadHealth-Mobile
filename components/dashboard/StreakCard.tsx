@@ -42,13 +42,13 @@ function StreakCard({
             numberOfLines={1}
             adjustsFontSizeToFit
             minimumFontScale={0.85}
-            className="font-heading-bold text-white text-[22px] leading-[24px] uppercase"
+            className="font-heading-bold text-white text-[22px] leading-[26px] uppercase"
           >
             {count !== null
               ? count > 0 ? `${count}-day streak` : 'Start your streak'
               : error ? 'Streak unavailable' : 'Your check-in streak'}
           </Text>
-          <Text className="font-body text-muted-text text-[14px] leading-[20px] mt-xs">
+          <Text className="font-body text-white text-[14px] leading-[20px] mt-xs">
             {error
               ? status
                 ? 'Showing your last verified streak.'
@@ -88,7 +88,7 @@ function StreakCard({
           accessibilityLabel="Freeze your streak once a week with Dad Health Pro"
           className="min-h-[60px] flex-row items-center justify-between gap-md py-md active:opacity-70"
         >
-          <Text className="flex-1 font-heading-bold text-white text-[22px] uppercase leading-[24px]">
+          <Text className="flex-1 font-heading-bold text-white text-[22px] uppercase leading-[26px]">
             Freeze your streak once a week
           </Text>
           <ProBadge />

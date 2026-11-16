@@ -15,8 +15,8 @@ function WeeklyReportCard({ report, onOpen }: {
         <Feather name="file-text" size={21} color={colors.dark} />
       </View>
       <View className="flex-1">
-        <Text className="font-heading-bold text-white text-[22px] uppercase leading-[24px]">Your weekly report</Text>
-        <Text className="font-body text-muted-text text-[14px] mt-xs">
+        <Text className="font-heading-bold text-white text-[22px] uppercase leading-[26px]">Your weekly report</Text>
+        <Text className="font-body text-white text-[14px] leading-[20px] mt-xs">
           {report
             ? `${reportDates(report.weekStart, report.weekEndExclusive)} · View your week`
             : 'View your weekly summary'}
