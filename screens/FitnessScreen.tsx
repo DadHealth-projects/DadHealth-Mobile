@@ -254,7 +254,7 @@ export default function FitnessScreen({
             height={72}
           />
           {data && data.bodyWeekSeries.every((value) => value === 0) ? (
-            <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-sm">
+            <Text className="font-body text-white text-[14px] leading-[20px] mt-sm">
               Your weekly activity will appear here as you complete workouts.
             </Text>
           ) : null}
@@ -296,10 +296,10 @@ export default function FitnessScreen({
                 <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
                   {workoutLibraryAccess === true ? 'Available workout' : 'Your workout this week'}
                 </Text>
-                <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">
+                <Text className="font-heading-bold text-white text-[22px] leading-[26px] uppercase mt-xs">
                   {workoutName}
                 </Text>
-                <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-sm">
+                <Text className="font-body text-white text-[14px] leading-[20px] mt-sm">
                   {selectedWorkout
                     ? workoutMeta
                     : fitnessLibrary.assignmentKnown
@@ -332,7 +332,7 @@ export default function FitnessScreen({
             <Text className="font-heading-bold text-white text-[18px] tracking-[0.5px] uppercase">
               {data.featuredWorkoutTitle}
             </Text>
-            <Text className="font-body text-muted-text text-[14px] leading-[18px]">
+            <Text className="font-body text-white text-[14px] leading-[20px]">
               {data.featuredWorkoutMeta ?? 'Latest logged session'}
             </Text>
           </FlatSection>
@@ -357,7 +357,7 @@ export default function FitnessScreen({
               <MaterialCommunityIcons name="dumbbell" size={23} color={colors.lime} />
               <View className="flex-1">
                 <Text className="font-heading-bold text-white text-[16px] uppercase">Workout Library</Text>
-                <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-xs">
+                <Text className="font-body text-white text-[14px] leading-[20px] mt-xs">
                   Browse all available workouts
                 </Text>
               </View>
@@ -439,7 +439,7 @@ export default function FitnessScreen({
                         <Text className="font-heading-bold text-white text-[15px] tracking-[0.5px] uppercase">
                           {workout.title}
                         </Text>
-                        <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-xs">
+                        <Text className="font-body text-white text-[14px] leading-[20px] mt-xs">
                           {workout.duration_mins} min · {EQUIPMENT_LABEL[workout.equipment]} · {FOCUS_LABEL[workout.focus]}
                         </Text>
                       </Pressable>
@@ -460,10 +460,10 @@ export default function FitnessScreen({
                   <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
                     AI workout
                   </Text>
-                  <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">
+                  <Text className="font-heading-bold text-white text-[22px] leading-[26px] uppercase mt-xs">
                     Built around your day
                   </Text>
-                  <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-sm">
+                  <Text className="font-body text-white text-[14px] leading-[20px] mt-sm">
                     Choose your time, equipment and focus. Generate a workout you can start immediately.
                   </Text>
                 </View>
@@ -505,20 +505,20 @@ export default function FitnessScreen({
     <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
       AI workout
     </Text>
-    <Text className="font-heading text-white text-[28px] leading-[30px] uppercase">
+    <Text className="font-heading-bold text-white text-[22px] leading-[26px] uppercase">
       Built around your day
     </Text>
-    <Text className="font-body text-muted-text text-[14px] leading-[18px]">
+    <Text className="font-body text-white text-[14px] leading-[20px]">
       Choose your time, equipment and focus. Generate a workout you can start immediately.
     </Text>
     <InlineFormError
       message={accessCheckAttempted ? entitlement.verificationMessage : null}
     />
     <LimeButton
-      label="Generate workout"
-      onPress={() => void checkEntitlement()}
-      loading={loading}
-    />
+  label={loading ? 'Checking access' : 'Check access'}
+  onPress={() => void checkEntitlement()}
+  loading={loading}
+/>
   </FlatSection>
 )}
         </FadeInView>
@@ -531,8 +531,8 @@ export default function FitnessScreen({
               <View className="flex-row items-start justify-between gap-md">
                 <View className="flex-1">
                   <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Meal planner</Text>
-                  <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">Eat like you train</Text>
-                  <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-sm">
+                  <Text className="font-heading-bold text-white text-[22px] leading-[26px] uppercase mt-xs">Eat like you train</Text>
+                  <Text className="font-body text-white text-[14px] leading-[20px] mt-sm">
                     A personalised 5-day plan with recipes, macros and a shopping list — built around your goals.
                   </Text>
                 </View>
@@ -571,20 +571,20 @@ export default function FitnessScreen({
               <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
                 Meal planner
               </Text>
-              <Text className="font-heading text-white text-[28px] leading-[30px] uppercase">
+              <Text className="font-heading-bold text-white text-[22px] leading-[26px] uppercase">
                 Eat like you train
               </Text>
-              <Text className="font-body text-muted-text text-[14px] leading-[18px]">
+              <Text className="font-body text-white text-[14px] leading-[20px]">
                 A personalised 5-day plan with recipes, macros and a shopping list — built around your goals.
               </Text>
               <InlineFormError
                 message={accessCheckAttempted ? entitlement.verificationMessage : null}
               />
               <LimeButton
-                label="Open meal planner"
-                onPress={() => void checkEntitlement()}
-                loading={loading}
-              />
+  label={loading ? 'Checking access' : 'Check access'}
+  onPress={() => void checkEntitlement()}
+  loading={loading}
+/>
             </FlatSection>
           )}
         </FadeInView>
@@ -609,10 +609,10 @@ export default function FitnessScreen({
             <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
               Calorie calculator
             </Text>
-            <Text className="font-heading text-white text-[28px] leading-[30px] uppercase mt-xs">
+            <Text className="font-heading-bold text-white text-[22px] leading-[26px] uppercase mt-xs">
               Know your number
             </Text>
-            <Text className="font-body text-muted-text text-[14px] leading-[18px] mt-sm">
+            <Text className="font-body text-white text-[14px] leading-[20px] mt-sm">
               Find the daily calories your body needs to perform, recover and feel like yourself.
             </Text>
           </View>
