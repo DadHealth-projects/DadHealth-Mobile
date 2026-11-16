@@ -80,7 +80,6 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
   const refreshStatus = useCallback(async () => {
     if (!scope.owner || !isCurrent()) return;
     const requestId = ++statusRequestId.current;
-    iapLog('status refresh started', { requestId });
     setStatusLoading(true);
     setStatusError(null);
     try {
@@ -88,11 +87,9 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       const next = await loadNativeSubscriptionStatus(scope.owner);
       if (!isCurrent() || statusRequestId.current !== requestId) return;
       setStatus(next);
-      iapLog('status refresh completed', { requestId, isPro: next.isPro, status: next.status });
       scope.loadFailed = false;
       return next;
     } catch (statusError) {
-      iapLog('status refresh failed', { requestId });
       if (isCurrent() && statusRequestId.current === requestId) {
         scope.loadFailed = true;
         setStatusError(offline.current ? 'You are offline. Reconnect and try again.'
