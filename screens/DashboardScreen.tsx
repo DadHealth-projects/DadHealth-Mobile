@@ -1,3 +1,4 @@
+import { checkInDate } from '../lib/checkInCalendar';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppState,
@@ -30,6 +31,8 @@ import ScreenTransition from '../components/ScreenTransition';
 import StreakCard from '../components/dashboard/StreakCard';
 import SupportingTools, { type SupportingTool } from '../components/dashboard/SupportingTools';
 import TodayFocusCard from '../components/dashboard/TodayFocusCard';
+import WeeklyReportSheet from '../components/dashboard/WeeklyReportSheet';
+import { useStreakStatus } from '../hooks/useStreakStatus';
 import WeeklyReportCard from '../components/dashboard/WeeklyReportCard';
 import { useAuth } from '../contexts/AuthContext';
 import { refreshDashboardForUser, useDashboard } from '../hooks/useDashboard';
@@ -42,14 +45,13 @@ import { CAPS } from '../lib/dashboardCaps';
 import {
   getDashboardScore,
   getScoreBreakdown,
-  toLocalDateKey,
 } from '../lib/dashboard.utils';
 import dailyCheckInPrompt, { type DailyCheckInPromptState } from '../lib/dailyCheckInPrompt.js';
 import type { CheckInAction } from '../lib/checkInRecommendation';
 import { showCrisisSupportDetails } from '../lib/crisisSupport';
 import { navigateToProSubscription } from '../lib/proNavigation';
 import { greetingFirstName } from '../lib/userDisplay';
-import { isWeeklyReportDay } from '../lib/weeklyReport';
+import { isReportWeek } from '../lib/weeklyReport';
 import { useWeeklyReport } from '../hooks/useWeeklyReport';
 import { colors } from '../theme';
 import BondScreen from './BondScreen';
@@ -67,9 +69,13 @@ const attemptedCheckInPromptSessions = new Set<string>();
 export default function DashboardScreen({
   openScoreDetail = false,
   onScoreDetailRequestConsumed,
+  openWeeklyReport,
+  onWeeklyReportRequestConsumed,
 }: {
   openScoreDetail?: boolean;
   onScoreDetailRequestConsumed?: () => void;
+  openWeeklyReport?: string;
+  onWeeklyReportRequestConsumed?: () => void;
 }) {
   const { user } = useAuth();
   const [activeSection, setActiveSection] = useState<DashboardSection>('HOME');
@@ -85,6 +91,8 @@ export default function DashboardScreen({
     });
     return () => subscription.remove();
   }, []);
+
+  useEffect(() => { if (openWeeklyReport) setActiveSection('HOME'); }, [openWeeklyReport]);
 
   if (!user?.id) return null;
 
@@ -106,6 +114,8 @@ export default function DashboardScreen({
       activeSection={activeSection}
       onSelectSection={setActiveSection}
       openScoreDetail={openScoreDetail || activeSection === 'PROGRESS'}
+      openWeeklyReport={openWeeklyReport}
+      onWeeklyReportRequestConsumed={onWeeklyReportRequestConsumed}
       onScoreDetailRequestConsumed={onScoreDetailRequestConsumed}
     />
   );
@@ -126,6 +136,8 @@ export function DashboardScreenContent({
   onSelectSection,
   openScoreDetail = false,
   onScoreDetailRequestConsumed,
+  openWeeklyReport,
+  onWeeklyReportRequestConsumed,
 }: {
   user: User;
   foregroundSessionId: number;
@@ -133,6 +145,8 @@ export function DashboardScreenContent({
   onSelectSection?: (section: DashboardSection) => void;
   openScoreDetail?: boolean;
   onScoreDetailRequestConsumed?: () => void;
+  openWeeklyReport?: string;
+  onWeeklyReportRequestConsumed?: () => void;
 }) {
   const { pendingBiometricEnrollment } = useAuth();
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
@@ -168,19 +182,35 @@ export function DashboardScreenContent({
   const { dismissToast, isOffline } = useNetworkStatus();
   const [checkInModalOpen, setCheckInModalOpen] = useState(false);
   const [scoreSheetOpen, setScoreSheetOpen] = useState(false);
+  const [checkInNativePresented, setCheckInNativePresented] = useState(false);
+  const [scoreNativePresented, setScoreNativePresented] = useState(false);
+  useEffect(() => { if (checkInModalOpen && Platform.OS === 'ios') setCheckInNativePresented(true); }, [checkInModalOpen]);
+  useEffect(() => { if (scoreSheetOpen && Platform.OS === 'ios') setScoreNativePresented(true); }, [scoreSheetOpen]);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportNativePresented, setReportNativePresented] = useState(false);
+  useEffect(() => { if (reportOpen && Platform.OS === 'ios') setReportNativePresented(true); }, [reportOpen]);
+  const [reportWeek, setReportWeek] = useState<string | undefined>();
+  const reportUpgradePending = useRef<string | null>(null);
+  const reportMounted = useRef(true);
+  useEffect(() => { reportMounted.current = true; return () => { reportMounted.current = false; reportUpgradePending.current = null; }; }, []);
   const scoreUpgradePending = useRef<string | null>(null);
   const [reminderMessage, setReminderMessage] = useState<string | null>(null);
   const [promptDecisionReadyKey, setPromptDecisionReadyKey] = useState<string | null>(null);
   const promptStateRef = useRef<DailyCheckInPromptState | null>(null);
   const promptSessionRequestKey = useRef<string | null>(null);
+  const pendingPrompt = useRef<{ key: string; state: DailyCheckInPromptState } | null>(null);
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
-  const todayDate = toLocalDateKey(new Date());
+  const todayDate = checkInDate(data?.checkInCalendar);
   const promptDecisionKey = `${user.id}:${todayDate}:${foregroundSessionId}`;
+  const promptPresentation = useRef({ key: promptDecisionKey, visible: checkInModalOpen });
+  promptPresentation.current = { key: promptDecisionKey, visible: checkInModalOpen };
   const dailyCheckInStorageKey = `dadhealth.daily-check-in-prompt.v2.${user.id}`;
+  const checkedInToday = todayDate && data?.checkedInToday !== null
+    ? data?.moodLogs.some(log => log.date === todayDate) ?? null : null;
   const waitForPromptDecision = Boolean(
-    isFocused && activeSection === 'HOME' && data?.checkedInToday === false &&
-    !checkInModalOpen && !scoreSheetOpen && !openScoreDetail && !pendingBiometricEnrollment &&
+    isFocused && activeSection === 'HOME' && checkedInToday === false &&
+    !checkInModalOpen && !scoreSheetOpen && !reportOpen && !reportNativePresented && !openWeeklyReport && !openScoreDetail && !pendingBiometricEnrollment &&
     !attemptedCheckInPromptSessions.has(promptDecisionKey) &&
     promptDecisionReadyKey !== promptDecisionKey,
   );
@@ -256,27 +286,42 @@ export function DashboardScreenContent({
     return null;
   }, [data?.bodyScore, data?.bondScore, data?.checkedInToday, data?.mindScore, data?.recommendedAction]);
 
-  // The report is part of Today on Sunday after its configured 08:00 release.
-  const showWeeklyReport = isWeeklyReportDay();
-  const { report: weeklyReport, loading: weeklyReportLoading, error: weeklyReportError } = useWeeklyReport(user?.id, weeklyReportAccess === true, showWeeklyReport);
+  const latestReport = useWeeklyReport(user.id, weeklyReportAccess);
+  const requestedReport = useWeeklyReport(
+    user.id,
+    weeklyReportAccess,
+    reportWeek,
+    reportOpen && Boolean(reportWeek),
+  );
+  const shownReport = reportWeek ? requestedReport : latestReport;
+  const liveStreak = useStreakStatus(user.id);
+  useEffect(() => { if (checkedInToday) void liveStreak.refresh(); }, [checkedInToday, liveStreak.refresh]);
+  useEffect(() => {
+    // Retain the request while another native modal is visible. No forced dismissal.
+    if (!isFocused || !openWeeklyReport || checkInModalOpen || checkInNativePresented || scoreSheetOpen || scoreNativePresented || openScoreDetail || pendingBiometricEnrollment) return;
+    if (isReportWeek(openWeeklyReport)) {
+      setReportWeek(openWeeklyReport); setReportOpen(true);
+    }
+    onWeeklyReportRequestConsumed?.();
+  }, [isFocused, openWeeklyReport, checkInModalOpen, checkInNativePresented, scoreSheetOpen, scoreNativePresented, openScoreDetail, pendingBiometricEnrollment, onWeeklyReportRequestConsumed]);
 
   // Read today's persisted pillar answers and legacy Stress for follow-up.
   const checkedInMood = useMemo(() => {
-    const today = toLocalDateKey(new Date());
+    const today = todayDate;
     return data?.moodLogs.find((log) => log.date === today)?.mood_value ?? 4;
-  }, [data?.moodLogs]);
+  }, [data?.moodLogs, todayDate]);
   const checkedInEnergy = useMemo(() => {
-    const today = toLocalDateKey(new Date());
+    const today = todayDate;
     return data?.moodLogs.find((log) => log.date === today)?.energy_level ?? null;
-  }, [data?.moodLogs]);
+  }, [data?.moodLogs, todayDate]);
   const checkedInConnection = useMemo(() => {
-    const today = toLocalDateKey(new Date());
+    const today = todayDate;
     return data?.moodLogs.find((log) => log.date === today)?.connection_level ?? null;
-  }, [data?.moodLogs]);
+  }, [data?.moodLogs, todayDate]);
   const checkedInStress = useMemo(() => {
-    const today = toLocalDateKey(new Date());
+    const today = todayDate;
     return data?.moodLogs.find((log) => log.date === today)?.stress_level ?? null;
-  }, [data?.moodLogs]);
+  }, [data?.moodLogs, todayDate]);
 
   const openCheckInAction = useCallback((action: CheckInAction) => {
     if (action === 'breathing') navigation.navigate('BreathingSession');
@@ -294,37 +339,48 @@ export function DashboardScreenContent({
   const openScoreInsights = useCallback(() => setScoreSheetOpen(true), []);
 
   const openDailyCheckIn = useCallback(() => {
-    attemptedCheckInPromptSessions.add(promptDecisionKey);
+    if (reportOpen || reportNativePresented) return;
+    pendingPrompt.current = null;
     setPromptDecisionReadyKey(promptDecisionKey);
     setReminderMessage(null);
     setCheckInModalOpen(true);
-  }, [promptDecisionKey]);
+  }, [promptDecisionKey, reportOpen, reportNativePresented]);
+
+  const confirmCheckInShown = useCallback(() => {
+    if (!reportMounted.current || !promptPresentation.current.visible
+      || promptPresentation.current.key !== promptDecisionKey) return;
+    attemptedCheckInPromptSessions.add(promptDecisionKey);
+    const pending = pendingPrompt.current;
+    if (!pending || pending.key !== promptDecisionKey) return;
+    pendingPrompt.current = null; // Repeated native onShow must count only once.
+    promptStateRef.current = pending.state;
+    void AsyncStorage.setItem(dailyCheckInStorageKey, JSON.stringify(pending.state)).catch(() => undefined);
+  }, [promptDecisionKey, dailyCheckInStorageKey]);
 
   const initialCheckInAnswers = useMemo(() => {
-    const today = toLocalDateKey(new Date());
+    const today = todayDate;
     const log = data?.moodLogs.find((entry) => entry.date === today);
     return {
       moodValue: log?.mood_value ?? null,
       energyLevel: log?.energy_level ?? null,
       connectionLevel: log?.connection_level ?? null,
     };
-  }, [data?.moodLogs]);
+  }, [data?.moodLogs, todayDate]);
 
   useEffect(() => {
-    if (!isFocused || activeSection !== 'HOME' || !data || data.checkedInToday === null || loading) return undefined;
+    if (!todayDate || !isFocused || activeSection !== 'HOME' || !data || checkedInToday === null || loading) return undefined;
 
-    if (data.checkedInToday) {
+    if (checkedInToday) {
       setPromptDecisionReadyKey(promptDecisionKey);
       return undefined;
     }
 
     if (checkInModalOpen) {
-      attemptedCheckInPromptSessions.add(promptDecisionKey);
       setPromptDecisionReadyKey(promptDecisionKey);
       return undefined;
     }
 
-    if (scoreSheetOpen || pendingBiometricEnrollment || openScoreDetail) {
+    if (reportOpen || reportNativePresented || checkInNativePresented || openWeeklyReport || scoreSheetOpen || pendingBiometricEnrollment || openScoreDetail) {
       setPromptDecisionReadyKey(promptDecisionKey);
       return undefined;
     }
@@ -346,15 +402,18 @@ export function DashboardScreenContent({
         todayDate,
         false,
       );
-      promptStateRef.current = decision.state;
-      attemptedCheckInPromptSessions.add(promptDecisionKey);
+      promptStateRef.current = storedState;
       promptSessionRequestKey.current = null;
       setPromptDecisionReadyKey(promptDecisionKey);
-      if (!decision.shouldShow || decision.reminderNumber === null) return;
+      if (!decision.shouldShow || decision.reminderNumber === null) {
+        attemptedCheckInPromptSessions.add(promptDecisionKey);
+        return;
+      }
+      pendingPrompt.current = { key: promptDecisionKey, state: decision.state };
 
       setReminderMessage(dailyCheckInPrompt.dailyCheckInReminderCopy(decision.reminderNumber));
       setCheckInModalOpen(true);
-      void AsyncStorage.setItem(dailyCheckInStorageKey, JSON.stringify(decision.state)).catch(() => undefined);
+
     };
 
     const currentState = promptStateRef.current;
@@ -380,7 +439,7 @@ export function DashboardScreenContent({
       active = false;
       if (promptSessionRequestKey.current === promptDecisionKey) promptSessionRequestKey.current = null;
     };
-  }, [activeSection, checkInModalOpen, dailyCheckInStorageKey, data, isFocused, loading, openScoreDetail, pendingBiometricEnrollment, promptDecisionKey, scoreSheetOpen, todayDate, user.id]);
+  }, [activeSection, checkInModalOpen, dailyCheckInStorageKey, data, checkedInToday, isFocused, loading, openScoreDetail, pendingBiometricEnrollment, promptDecisionKey, reportOpen, reportNativePresented, checkInNativePresented, openWeeklyReport, scoreSheetOpen, todayDate, user.id]);
 
   useEffect(() => {
     if (openScoreDetail && !scoreDetailRequestHandled.current) {
@@ -404,6 +463,7 @@ export function DashboardScreenContent({
   }, [user.id]);
 
   const finishScoreDismissal = useCallback(() => {
+    if (reportMounted.current) setScoreNativePresented(false);
     if (!scoreUpgradePending.current) return;
     const owner = scoreUpgradePending.current;
     scoreUpgradePending.current = null;
@@ -521,12 +581,14 @@ export function DashboardScreenContent({
         isOffline ? refresh() : refreshDashboardForUser(user.id),
         refreshWeeklyWorkout(),
         refreshCookTogether(),
+        latestReport.refresh(),
+        liveStreak.refresh(),
       ]);
     } finally {
       refreshInFlight.current = false;
       setRefreshing(false);
     }
-  }, [dismissToast, isOffline, refresh, refreshCookTogether, refreshWeeklyWorkout, user.id]);
+  }, [dismissToast, isOffline, refresh, refreshCookTogether, refreshWeeklyWorkout, latestReport.refresh, liveStreak.refresh, user.id]);
 
   if (showHomeSkeleton) {
     return (
@@ -633,7 +695,7 @@ export function DashboardScreenContent({
                 />
               </FadeInView>
 
-              {data.checkedInToday ? (
+              {checkedInToday ? (
                 <FadeInView delay={190}>
                   <CheckInFollowUp
                     moodValue={checkedInMood}
@@ -650,14 +712,24 @@ export function DashboardScreenContent({
 
               <FadeInView delay={200}>
                 <StreakCard
-                  streak={data.streak}
+                  status={liveStreak.data}
+                  error={liveStreak.error}
+                  onRetry={() => void liveStreak.refresh()}
                   freezeAccess={streakFreezeAccess}
-                  freezeUsedThisWeek={data.freezeUsedThisWeek}
-                  freezesRemaining={data.freezesRemaining}
                   userId={user.id}
                   onUpgrade={() => openPro('streak_freeze', 'Freeze your streak once a week', 'lock')}
                 />
               </FadeInView>
+
+              <WeeklyReportCard
+                report={latestReport.report}
+                onOpen={() => {
+                  if (reportOpen || reportNativePresented || checkInModalOpen || checkInNativePresented || scoreSheetOpen || scoreNativePresented) return;
+                  setReportWeek(undefined);
+                  setReportOpen(true);
+                  if (!latestReport.loading) void latestReport.refresh();
+                }}
+              />
 
               <FadeInView delay={220}>
                 <ChallengeCard
@@ -671,25 +743,6 @@ export function DashboardScreenContent({
               <FadeInView delay={240}>
                 {focusContent ? <TodayFocusCard {...focusContent} onPress={openFocus} /> : null}
               </FadeInView>
-
-              {showWeeklyReport ? (
-                <FadeInView delay={260}>
-                  <WeeklyReportCard
-                    report={weeklyReport}
-                    reportAccess={weeklyReportAccess}
-                    currentScore={data.totalScore}
-                    loading={weeklyReportLoading}
-                    error={weeklyReportError}
-                    userId={user.id}
-                    onUpgrade={() => requestMoment({
-                      id: 'weeklyReport', trigger: 'explicit', screen: route.key, feature: 'weekly_report',
-                      isPro: entitlement.isPro, trialActive: entitlement.trialActive,
-                      loading: entitlement.loading, featureAccess: weeklyReportAccess,
-                      hasCompletedAction: Boolean(data.checkedInToday || data.moodLogs.length > 0), userId: user.id,
-                    })}
-                  />
-                </FadeInView>
-              ) : null}
 
               <FadeInView delay={280}>
                 <SupportingTools tools={supportingTools} />
@@ -718,13 +771,33 @@ export function DashboardScreenContent({
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
+      <WeeklyReportSheet
+        key={`weekly-report:${user.id}`}
+        visible={reportOpen}
+        report={shownReport.report}
+        loading={shownReport.loading || (weeklyReportAccess === null && loading)}
+        error={shownReport.error}
+        empty={shownReport.empty}
+        userId={user.id}
+        onClose={() => setReportOpen(false)} onRetry={() => {
+          if (weeklyReportAccess === null) void refresh(); else void shownReport.refresh();
+        }}
+        onUpgrade={() => { if (reportUpgradePending.current) return; reportUpgradePending.current = user.id; setReportOpen(false); }}
+        onDismiss={() => {
+          if (!reportMounted.current) return;
+          setReportNativePresented(false);
+          const owner = reportUpgradePending.current; reportUpgradePending.current = null;
+          if (reportMounted.current && owner === user.id) openPro('weeklyReport', 'Your weekly report', 'lock', 'weekly_report');
+        }} />
       <DailyCheckInModal
-        key={user.id}
+        key={`daily-check-in:${user.id}`}
         visible={checkInModalOpen}
         reminderMessage={reminderMessage}
         initialAnswers={initialCheckInAnswers}
         saving={checkingIn}
-        onClose={() => setCheckInModalOpen(false)}
+        onShow={confirmCheckInShown}
+        onClose={() => { pendingPrompt.current = null; setCheckInModalOpen(false); }}
+        onDismiss={() => { if (reportMounted.current && !checkInModalOpen) setCheckInNativePresented(false); }}
         onSave={handleCheckIn}
       />
     </SafeAreaView>

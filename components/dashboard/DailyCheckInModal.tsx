@@ -28,6 +28,8 @@ type DailyCheckInModalProps = {
   initialAnswers: CheckInAnswers;
   saving: boolean;
   onClose: () => void;
+  onDismiss?: () => void;
+  onShow?: () => void;
   onSave: (answers: CompletedCheckInAnswers) => Promise<SaveResult>;
 };
 
@@ -37,7 +39,7 @@ const BODY_OPTIONS = ['Exhausted', 'Tired', 'Okay', 'Good', 'Energised'];
 const BOND_OPTIONS = ['Disconnected', 'Distant', 'Neutral', 'Connected', 'Very connected'];
 const SLEEP_INPUT_ACCESSORY_ID = 'daily-check-in-sleep-input';
 
-export default function DailyCheckInModal({ visible, reminderMessage, initialAnswers, saving, onClose, onSave }: DailyCheckInModalProps) {
+export default function DailyCheckInModal({ visible, reminderMessage, initialAnswers, saving, onClose, onDismiss, onShow, onSave }: DailyCheckInModalProps) {
   const { height } = useWindowDimensions();
   const compact = height < 720;
   const modalHeight = height * 0.85;
@@ -102,6 +104,8 @@ export default function DailyCheckInModal({ visible, reminderMessage, initialAns
       animationType="fade"
       statusBarTranslucent
       onRequestClose={close}
+      onDismiss={onDismiss}
+      onShow={onShow}
     >
       <SafeAreaProvider>
         <SafeAreaView
