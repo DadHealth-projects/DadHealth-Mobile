@@ -15,10 +15,10 @@ function ChallengeCard({ challenge, onOpenChallenge }: ChallengeCardProps) {
       <Text className="font-heading-bold text-lime text-[13px] tracking-label uppercase">
         This week's challenge
       </Text>
-      <Text numberOfLines={2} className="font-heading-bold text-white text-[22px] leading-[24px] uppercase mt-sm">
+      <Text numberOfLines={2} className="font-heading-bold text-white text-[22px] leading-[26px] uppercase mt-sm">
         {challenge?.title ?? 'No active challenge'}
       </Text>
-      <Text className="font-body text-muted-text text-[14px] mt-sm">
+      <Text className="font-body text-white text-[14px] leading-[20px] mt-sm">
         {participantCount} {participantCount === 1 ? 'dad' : 'dads'} taking part
       </Text>
       <Pressable

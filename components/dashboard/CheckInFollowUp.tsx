@@ -50,10 +50,10 @@ function CheckInFollowUp({
 
         <View className="gap-sm">
           <View>
-            <Text className="font-heading-bold text-white text-[22px] leading-[24px] uppercase mt-xs">
+            <Text className="font-heading-bold text-white text-[22px] leading-[26px] uppercase mt-xs">
               {advice.primary.state}
             </Text>
-            <Text className="font-body text-muted-text text-[14px] leading-[20px] mt-sm">
+            <Text className="font-body text-white text-[14px] leading-[20px] mt-sm">
               {advice.primary.recommendation}
             </Text>
           </View>
@@ -78,10 +78,10 @@ function CheckInFollowUp({
           >
             <View className="flex-1">
               <Text>
-                <Text className="font-heading-bold text-white text-[22px] uppercase leading-[24px]">
+                <Text className="font-heading-bold text-white text-[22px] uppercase leading-[26px]">
                   Build my plan
                 </Text>
-                <Text className="font-body text-muted-text text-[14px] leading-[20px]">
+                <Text className="font-body text-white text-[14px] leading-[20px]">
                   {' · A plan around your mood and score'}
                 </Text>
               </Text>
