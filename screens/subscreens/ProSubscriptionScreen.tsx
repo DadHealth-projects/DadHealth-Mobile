@@ -37,21 +37,6 @@ export default function ProSubscriptionScreen() {
     if (user?.id) void refreshDashboardForUser(user.id);
   }, [user?.id]);
   const subscriptions = useNativeSubscriptions(user?.id, refreshEntitlement);
-  useEffect(() => {
-    iapScreenLog('screen mounted');
-    return () => iapScreenLog('screen unmounted');
-  }, []);
-  useEffect(() => {
-    iapScreenLog('screen state', {
-      selectedPlan, loading: subscriptions.loading, purchasing: subscriptions.purchasing,
-      restoring: subscriptions.restoring, catalogLoading: subscriptions.catalogLoading,
-      statusLoading: subscriptions.statusLoading, isPro: subscriptions.status?.isPro ?? null,
-      status: subscriptions.status?.status ?? null, hasActionError: Boolean(subscriptions.actionError),
-      hasStatusError: Boolean(subscriptions.statusError), hasCatalogError: Boolean(subscriptions.catalogError),
-    });
-  }, [selectedPlan, subscriptions.loading, subscriptions.purchasing, subscriptions.restoring,
-    subscriptions.catalogLoading, subscriptions.statusLoading, subscriptions.status,
-    subscriptions.actionError, subscriptions.statusError, subscriptions.catalogError]);
   const selectedProduct = subscriptions.products.find((product) => product.plan === selectedPlan);
   const trialAvailable = selectedProduct?.trialEligibility === 'eligible';
   const optionReady = subscriptions.storeAvailable
