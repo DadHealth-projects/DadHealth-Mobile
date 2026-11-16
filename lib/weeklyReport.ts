@@ -47,11 +47,6 @@ const ACTION_FOCUS = {
 /** Four logged workouts in the month reads as a consistent training habit. */
 const CONSISTENT_WORKOUTS = 4;
 
-/** The brief specifies the report arrives every Sunday. */
-export function isWeeklyReportDay(date: Date = new Date()): boolean {
-  return date.getDay() === 0 && date.getHours() >= 8;
-}
-
 function roundedChange(value: number | null): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : null;
 }
@@ -97,4 +92,81 @@ export function buildWeeklyReport(source: WeeklyReportSource): WeeklyReport | nu
 export function formatPillarChange(change: number | null): string {
   const trend = formatScoreTrend(change);
   return trend.change === null ? trend.arrow : `${trend.arrow} ${trend.change} pts`;
+}
+
+// Saved Phase A/V2 data; the legacy builder above is never used for these reads.
+export type SavedMeasurement = { state: 'available'; value: number } | { state: 'missing' | 'unavailable' };
+export type SavedWeeklyReport = {
+  access: 'free' | 'pro'; weekStart: string; weekEndExclusive: string; comparisonAvailable: boolean;
+  totalScore?: SavedMeasurement;
+  pillars: { name: 'Mind' | 'Body' | 'Bond'; score: SavedMeasurement; change: SavedMeasurement; trendMessage: string | null }[];
+  details?: { workouts: SavedMeasurement; bondSessions: SavedMeasurement; checkins: SavedMeasurement;
+    streak: { days: SavedMeasurement; protectedDates: string[] };
+    focus: { pillar: string; action: string; text: string } | null };
+};
+export function isReportWeek(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value && date.getUTCDay() === 1;
+}
+export function reportDates(start: string, endExclusive: string): string {
+  const format = (date: Date) => date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return `${format(new Date(`${start}T00:00:00Z`))} – ${format(new Date(Date.parse(`${endExclusive}T00:00:00Z`) - 86400000))}`;
+}
+export function savedChange(pillar: SavedWeeklyReport['pillars'][number], comparable: boolean): string {
+  if (!comparable || pillar.change.state !== 'available') return pillar.trendMessage ?? 'Comparison unavailable';
+  const value = pillar.change.value;
+  return `${value > 0 ? '↑ ' : value < 0 ? '↓ ' : ''}${Math.abs(value)} pts`;
+}
+function record(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid report');
+  return value as Record<string, unknown>;
+}
+function savedMeasurement(value: unknown): SavedMeasurement {
+  const row = record(value);
+  if (row.state === 'missing' || row.state === 'unavailable') return { state: row.state };
+  if (row.state !== 'available' || typeof row.value !== 'number' || !Number.isFinite(row.value)) throw new Error('Invalid measurement');
+  return { state: 'available', value: row.value };
+}
+export function parseSavedReport(value: unknown): SavedWeeklyReport {
+  const envelope = record(value), report = record(envelope.report), period = record(report.period);
+  if (envelope.state !== 'available' || !['free', 'pro'].includes(String(envelope.access)) || report.version !== 2
+    || !isReportWeek(period.weekStart) || !isReportWeek(period.weekEndExclusive)
+    || Date.parse(period.weekEndExclusive) - Date.parse(period.weekStart) !== 7 * 86400000) throw new Error('Invalid saved report');
+  const pillars = record(report.pillars);
+  const result: SavedWeeklyReport = { access: envelope.access as 'free' | 'pro', weekStart: period.weekStart,
+    weekEndExclusive: period.weekEndExclusive,
+    comparisonAvailable: record(report.comparison).state === 'available',
+    totalScore: report.totalScore === undefined
+      ? { state: 'unavailable' }
+      : savedMeasurement(report.totalScore),
+    pillars: (['Mind', 'Body', 'Bond'] as const).map(name => {
+      const p = record(pillars[name.toLowerCase()]);
+      return { name, score: savedMeasurement(p.score), change: savedMeasurement(p.changePoints),
+        trendMessage: p.trendMessage === 'Building first 7 day trend' ? p.trendMessage : null };
+    }) };
+  if (
+    result.totalScore?.state === 'available' &&
+    (
+      !Number.isInteger(result.totalScore.value) ||
+      result.totalScore.value < 0 ||
+      result.totalScore.value > 100
+    )
+  ) {
+    throw new Error('Invalid overall score');
+  }
+
+  if (result.access === 'pro') {
+    const d = record(report.details), streak = record(d.streak);
+    if (!Array.isArray(streak.protectedDates) || !streak.protectedDates.every(date => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date))) throw new Error('Invalid protected dates');
+    const focus = d.focus == null ? null : record(d.focus);
+    if (focus && (!['mind','body','bond'].includes(String(focus.pillar)) || typeof focus.action !== 'string' || typeof focus.text !== 'string')) throw new Error('Invalid focus');
+    result.details = { workouts: savedMeasurement(d.workouts), bondSessions: savedMeasurement(d.bondSessions),
+      checkins: savedMeasurement(d.checkins), streak: { days: savedMeasurement(streak.days), protectedDates: [...streak.protectedDates] as string[] },
+      focus: focus ? { pillar: focus.pillar as string, action: focus.action as string, text: focus.text as string } : null };
+  }
+  return result;
+}
+export class Item02ReadError extends Error {
+  constructor(public reason: string) { super('Information unavailable'); }
 }
