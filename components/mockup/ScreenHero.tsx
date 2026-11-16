@@ -27,22 +27,22 @@ function ScreenHero({
   return (
     <View className={containerAlign}>
       {eyebrow ? (
-        <Text className={`font-heading-bold text-lime uppercase tracking-label text-[11px] ${textAlign}`}>{eyebrow}</Text>
+        <Text className={`font-heading-bold text-white uppercase tracking-label text-[12px] leading-[16px] ${textAlign}`}>{eyebrow}</Text>
       ) : null}
 
       <Text
-        className={`font-heading uppercase text-white text-[54px] leading-[54px] ${eyebrow ? 'mt-[10px]' : ''} ${textAlign}`}
+        className={`font-heading-bold uppercase text-white text-[32px] leading-[36px] ${eyebrow ? 'mt-[10px]' : ''} ${textAlign}`}
       >
         {headline}
         {accent ? (
-          <Text className="text-lime">{`\n${accent}`}</Text>
+          <Text className="text-white">{`\n${accent}`}</Text>
         ) : null}
       </Text>
 
       {sub ? (
         <View className="max-w-[300px] mt-8">
           <Text
-            className={`font-body text-muted-text text-[15px] leading-[22px] ${textAlign}`}
+            className={`font-body text-white text-[14px] leading-[20px] ${textAlign}`}
           >
             {sub}
           </Text>

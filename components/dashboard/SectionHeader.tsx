@@ -14,15 +14,15 @@ function SectionHeader({ title, label, caption, className = '' }: SectionHeaderP
   return (
     <View className={className}>
       {label ? (
-        <Text className="font-heading-semibold text-lime text-[12px] tracking-label uppercase mb-sm">
+        <Text className="font-heading-bold text-white text-[12px] leading-[16px] tracking-label uppercase mb-sm">
           {label}
         </Text>
       ) : null}
-      <Text className="font-heading-bold text-white text-[22px] leading-[24px] tracking-[0.5px] uppercase">
+      <Text className="font-heading-bold text-white text-[22px] leading-[26px] tracking-[0.5px] uppercase">
         {title}
       </Text>
       {caption ? (
-        <Text className="font-body text-muted-text text-[14px] leading-[19px] mt-xs">{caption}</Text>
+        <Text className="font-body text-white text-[14px] leading-[20px] mt-xs">{caption}</Text>
       ) : null}
     </View>
   );
