@@ -1,3 +1,4 @@
+import { checkInDate, parseCheckInCalendar, type CheckInCalendar } from '../lib/checkInCalendar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -105,6 +106,7 @@ export type DashboardData = {
     connection_level?: number | null;
   }>;
   checkedInToday: boolean | null;
+  checkInCalendar?: CheckInCalendar | null;
   reminders: Reminder[];
   challenge: {
     id: string;
@@ -246,6 +248,9 @@ async function withTimeout<T>(promise: Promise<T>, ms = 12000): Promise<T> {
 }
 
 async function fetchDashboard(userId: string): Promise<DashboardFetchResult> {
+  const calendarResult = await supabase.rpc('get_scoring_calendar');
+  const checkInCalendar = calendarResult.error ? null : parseCheckInCalendar(calendarResult.data);
+  const accountDate = checkInDate(checkInCalendar);
   const today = todayKey();
   const currentWeekDayKeys = getCurrentWeekDayKeys();
   const weekStart = currentWeekDayKeys[0];
@@ -295,7 +300,7 @@ async function fetchDashboard(userId: string): Promise<DashboardFetchResult> {
   ] = await Promise.all([
     supabase.from('user_profile').select('display_name,goals,is_pro,subscription_status').eq('user_id', userId).maybeSingle(),
     supabase.from('dad_score_view').select('mind_score,body_score,bond_score,mind_week_change,body_week_change,bond_week_change,total_score,weakest_pillar,recommended_action,baseline_available').eq('user_id', userId).maybeSingle(),
-    supabase.from('mood_logs').select('date,mood_value,mood_scale_version,stress_level,energy_level,connection_level').eq('user_id', userId).gte('date', weekStart).order('date'),
+    supabase.from('mood_logs').select('date,mood_value,mood_scale_version,stress_level,energy_level,connection_level').eq('user_id', userId).gte('date', accountDate && accountDate < weekStart ? accountDate : weekStart).order('date'),
     supabase
       .from('weekly_challenges')
       .select('id,title,description,participants_count')
@@ -505,7 +510,8 @@ async function fetchDashboard(userId: string): Promise<DashboardFetchResult> {
       ? scoresResult.data.recommended_action
       : null,
     moodLogs: moodsResult.error ? [] : moodLogs,
-    checkedInToday: moodsResult.error ? null : moodLogs.some((log) => log.date === today),
+    checkInCalendar,
+    checkedInToday: moodsResult.error || !accountDate ? null : moodLogs.some((log) => log.date === accountDate),
     reminders,
     challenge: challengeResult.error ? null : challengeResult.data ?? null,
     dadsCount: countResult.count ?? 0,
@@ -600,13 +606,16 @@ async function runFetch(userId: string, identityVersion: number): Promise<void> 
       const fallback = current ?? (cached && typeof cached === 'object' ? cached : null);
       if (fallback && typeof fallback === 'object') {
         const moodLogs = Array.isArray(fallback.moodLogs) ? fallback.moodLogs : [];
+        const checkInCalendar = parseCheckInCalendar(fallback.checkInCalendar);
+        const accountDate = checkInDate(checkInCalendar);
         setStore({
           data: {
             ...fallback,
             moodLogs,
             isPro: current?.isPro ?? null,
             trialActive: current?.trialActive ?? null,
-            checkedInToday: current?.checkedInToday ?? moodLogs.some((log) => log.date === todayKey()),
+            checkInCalendar,
+            checkedInToday: accountDate ? moodLogs.some((log) => log.date === accountDate) : null,
             freezeUsedThisWeek: current?.freezeUsedThisWeek ?? null,
             freezesRemaining: current?.freezesRemaining ?? null,
           },
@@ -643,13 +652,16 @@ async function hydrateDashboardCache(userId: string, clearWhenMissing: boolean, 
     if (store.userId !== userId || (identityVersion != null && dashboardIdentityVersion !== identityVersion)) return false;
     if (cached && typeof cached === 'object') {
       const moodLogs = Array.isArray(cached.moodLogs) ? cached.moodLogs : [];
+      const checkInCalendar = parseCheckInCalendar(cached.checkInCalendar);
+      const accountDate = checkInDate(checkInCalendar);
       setStore({
         data: {
           ...cached,
           moodLogs,
           isPro: null,
           trialActive: null,
-          checkedInToday: moodLogs.some((log) => log.date === todayKey()),
+          checkInCalendar,
+          checkedInToday: accountDate ? moodLogs.some((log) => log.date === accountDate) : null,
           freezeUsedThisWeek: null,
           freezesRemaining: null,
         },
@@ -830,9 +842,10 @@ export function useDashboard(userId: string | undefined) {
     if (sleepHours != null && (!Number.isFinite(sleepHours) || sleepHours < 0 || sleepHours > 12)) return { error: 'Enter sleep between 0 and 12 hours.' };
     if (checkInLock.current) return { error: null, inFlight: true };
 
+    const date = checkInDate(store.userId === userId ? store.data?.checkInCalendar : null);
+    if (!date) return { error: 'Your account calendar is unavailable. Refresh before saving your check-in.' };
     checkInLock.current = true;
     setCheckingIn(true);
-    const date = todayKey();
     const item: OfflineDailyCheckInItem = {
       id: Crypto.randomUUID(),
       userId,
@@ -857,7 +870,7 @@ export function useDashboard(userId: string | undefined) {
       const nextData = {
         ...store.data,
         moodLogs: nextMoodLogs,
-        checkedInToday: date === todayKey(),
+        checkedInToday: date === checkInDate(store.data.checkInCalendar),
         // Weakest pillar and next action remain server-owned. Hide the stale
         // cached action until the queued check-in syncs and the view refreshes.
         recommendedAction: null,
