@@ -16,7 +16,7 @@ import type { AppStackParamList } from './AppNavigator';
 import type { NavigationProp } from '@react-navigation/native';
 
 export type BottomTabsParamList = {
-  Home: { openScoreDetail?: boolean } | undefined;
+  Home: { openScoreDetail?: boolean; openWeeklyReport?: string } | undefined;
   Mind: { openPersonalisedPlan?: boolean } | undefined;
   Fit: { openWorkoutLibrary?: boolean } | undefined;
   Bond: undefined;

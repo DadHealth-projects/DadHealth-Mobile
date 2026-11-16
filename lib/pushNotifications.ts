@@ -3,10 +3,12 @@ import { NativeModules, Platform, TurboModuleRegistry } from 'react-native';
 import type { NotificationClickEvent, OneSignal as OneSignalSdk } from 'react-native-onesignal';
 
 import type { AppStackParamList } from '../navigation/AppNavigator';
+import { isReportWeek } from './weeklyReport';
 import { isValidCommunityPostId } from './deepLinks';
 
 type NotificationData = {
   type?: unknown;
+  reporting_week?: unknown;
   link?: unknown;
   post_id?: unknown;
   event_id?: unknown;
@@ -20,6 +22,9 @@ let pendingData: NotificationData | null = null;
 let navigationLifecycleReady = false;
 let authenticatedDestinationReady = false;
 let pendingShownWhileSignedOut = false;
+let currentOwner: string | null = null;
+let pendingOwner: string | null = null;
+const consumedWeeklyNotifications = new Set<string>();
 
 function getOneSignal(): typeof OneSignalSdk | null {
   if (oneSignal !== undefined) return oneSignal;
@@ -82,7 +87,13 @@ function navigateFromData(data: NotificationData): boolean {
     return true;
   }
 
-  if (data.type === 'weekly_score' || data.type === 'score' || data.link === '/progress' || data.link === '/score') {
+  if (data.type === 'weekly_score') {
+    if (!isReportWeek(data.reporting_week)) return false;
+    navigationRef.navigate('Tabs', { screen: 'Home', params: { openWeeklyReport: data.reporting_week } });
+    return true;
+  }
+
+  if (data.type === 'score' || data.link === '/progress' || data.link === '/score') {
     navigationRef.navigate('Tabs', { screen: 'Home', params: { openScoreDetail: true } });
     return true;
   }
@@ -146,6 +157,10 @@ function flushPendingNavigation(): boolean {
     return false;
   }
 
+  if (pendingData.type === 'weekly_score') {
+    if (pendingOwner && pendingOwner !== currentOwner) { pendingData = null; return false; }
+    if (!authenticatedDestinationReady || !currentOwner) return false;
+  }
   const navigated = navigateFromData(pendingData);
 
   if (!navigated) {
@@ -172,6 +187,13 @@ function onNotificationClick(event: NotificationClickEvent) {
 
   if (!isRecord(additionalData)) return;
 
+  if (additionalData.type === 'weekly_score') {
+    if (!isReportWeek(additionalData.reporting_week)) return;
+    const identity = event.notification.notificationId;
+    if (identity && consumedWeeklyNotifications.has(identity)) return;
+    if (identity) consumedWeeklyNotifications.add(identity);
+  }
+  pendingOwner = currentOwner;
   pendingData = additionalData;
   pendingShownWhileSignedOut = false;
 
@@ -221,6 +243,12 @@ export function setPushNavigationLifecycleReady(
 }
 
 export function loginPushUser(userId: string) {
+  if (currentOwner && currentOwner !== userId) {
+    if (pendingData?.type === 'weekly_score') pendingData = null;
+    consumedWeeklyNotifications.clear();
+  }
+  currentOwner = userId;
+  flushPendingNavigation();
   const sdk = getOneSignal();
 
   if (sdk && initializePushNotifications()) {
@@ -229,6 +257,8 @@ export function loginPushUser(userId: string) {
 }
 
 export function logoutPushUser() {
+  if (pendingData?.type === 'weekly_score') pendingData = null;
+  currentOwner = null; pendingOwner = null; consumedWeeklyNotifications.clear();
   const sdk = getOneSignal();
 
   if (sdk && initialized) {
