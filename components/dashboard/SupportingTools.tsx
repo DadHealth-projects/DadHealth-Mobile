@@ -30,8 +30,8 @@ function SupportingTools({ tools }: { tools: SupportingTool[] }) {
               <Feather name={tool.icon} size={20} color={colors.dark} />
             </View>
             <View className="flex-1">
-              <Text className="font-heading-bold text-white text-[16px] uppercase">{tool.title}</Text>
-              <Text className="font-body text-muted-text text-[14px] leading-[17px] mt-xs">{tool.detail}</Text>
+              <Text className="font-heading-bold text-white text-[22px] uppercase leading-[24px]">{tool.title}</Text>
+              <Text className="font-body text-muted-text text-[14px] leading-[20px] mt-xs">{tool.detail}</Text>
             </View>
             <Feather name="arrow-right" size={18} color={colors.lime} />
           </Pressable>

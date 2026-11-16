@@ -1,113 +1,29 @@
-import React, { memo, useEffect, useRef } from 'react';
+import React, { memo } from 'react';
+import { Feather } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
+import { colors } from '../../theme';
+import { reportDates, type SavedWeeklyReport } from '../../lib/weeklyReport';
 
-import SectionHeader from './SectionHeader';
-import { PRO_MOMENTS } from '../../lib/proMoments';
-import { formatPillarChange, type WeeklyReport } from '../../lib/weeklyReport';
-import { trackEvent } from '../../lib/analytics';
-
-/**
- * Moment 5 — the weekly Dad Health report. Pro members see their own week;
- * Free members see their current score and a compact locked preview.
- */
-function WeeklyReportCard({
-  report,
-  reportAccess,
-  currentScore,
-  onUpgrade,
-  loading = false,
-  error = false,
-  userId,
-}: {
-  report: WeeklyReport | null;
-  reportAccess: boolean | null;
-  currentScore: number | null;
-  onUpgrade: () => void;
-  loading?: boolean;
-  error?: boolean;
-  userId?: string;
+function WeeklyReportCard({ report, onOpen }: {
+  report: SavedWeeklyReport | null;
+  onOpen: () => void;
 }) {
-  const lockViewed = useRef(false);
-  useEffect(() => {
-    if (reportAccess !== false || lockViewed.current) return;
-    lockViewed.current = true;
-    trackEvent('lock_viewed', { feature: 'weekly_report', source: 'weeklyReport' }, userId);
-  }, [reportAccess, userId]);
-  if (reportAccess === false) {
-    return (
-      <View>
-        <SectionHeader title="Your week in Dad Health" className="mb-md" />
-        <View className="border-b border-border pb-lg">
-          <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
-            Current Dad Health Score
-          </Text>
-          <Text accessibilityLabel={`Current Dad Health Score ${currentScore ?? 'unavailable'} out of 100`} className="font-heading-bold text-white text-[22px] mt-xs mb-sm">
-            {currentScore === null ? '—' : `${Math.round(currentScore)} / 100`}
-          </Text>
-          <Text className="font-body text-muted-text text-[14px] leading-[19px]">
-            {PRO_MOMENTS.weeklyReport.body}
-          </Text>
-          <Pressable
-            onPress={onUpgrade}
-            accessibilityRole="button"
-            accessibilityLabel="Learn about weekly Dad Health reports"
-            className="min-h-[44px] self-start justify-center border-b border-lime mt-md active:opacity-70"
-          >
-            <Text className="font-heading-bold text-lime text-[11px] uppercase">
-              {PRO_MOMENTS.weeklyReport.cta}
-            </Text>
-          </Pressable>
-        </View>
+  return <View>
+    <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel="Open your weekly report"
+      className="min-h-[76px] flex-row items-center gap-md border-y border-border py-md">
+      <View className="h-[44px] w-[44px] rounded-full bg-lime items-center justify-center">
+        <Feather name="file-text" size={21} color={colors.dark} />
       </View>
-    );
-  }
-
-  return (
-    <View>
-      <SectionHeader title="Your week in Dad Health" className="mb-md" />
-      <View className="border-b border-border pb-lg">
-        {reportAccess === null ? (
-          <Text className="font-body text-muted-text text-[14px]">Checking Dad Health Pro access.</Text>
-        ) : loading ? (
-          <Text className="font-body text-muted-text text-[14px]">Preparing your weekly report…</Text>
-        ) : error ? (
-          <Text className="font-body text-muted-text text-[14px]">Your weekly report is unavailable right now. Please try again.</Text>
-        ) : report ? (
-          <WeeklyReportBody report={report} />
-        ) : (
-          <Text className="font-body text-muted-text text-[14px] leading-[19px]">
-            Your first weekly report arrives after a full week of check-ins.
-          </Text>
-        )}
-      </View>
-    </View>
-  );
-}
-
-function WeeklyReportBody({ report }: { report: WeeklyReport }) {
-  return (
-    <View className="gap-md">
-      <View className="flex-row">
-        {report.pillars.map((pillar) => (
-          <View key={pillar.label} className="flex-1">
-            <Text className="font-heading-bold text-muted-text text-[10px] tracking-[0.5px] uppercase">
-              {pillar.label}
-            </Text>
-            <Text className="font-heading text-lime text-[20px] leading-[22px] mt-xs">
-              {pillar.score}% {formatPillarChange(pillar.change)}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      <View className="gap-xs">
-        <Text className="font-body text-white text-[14px] leading-[21px]">{report.summary}</Text>
-        <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">
-          {report.nextWeek}
+      <View className="flex-1">
+        <Text className="font-heading-bold text-white text-[22px] uppercase leading-[24px]">Your weekly report</Text>
+        <Text className="font-body text-muted-text text-[14px] mt-xs">
+          {report
+            ? `${reportDates(report.weekStart, report.weekEndExclusive)} · View your week`
+            : 'View your weekly summary'}
         </Text>
       </View>
-    </View>
-  );
+      <Feather name="arrow-right" size={24} color={colors.lime} />
+    </Pressable>
+  </View>;
 }
-
 export default memo(WeeklyReportCard);
