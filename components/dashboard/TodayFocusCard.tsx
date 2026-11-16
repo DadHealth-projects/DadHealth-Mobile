@@ -24,10 +24,10 @@ function TodayFocusCard({ title, description, actionLabel, icon, onPress }: Toda
             <Feather name={icon} size={21} color={colors.dark} />
           </View>
           <View className="flex-1 gap-xs">
-            <Text className="font-heading-bold text-white text-[22px] leading-[24px] uppercase">
+            <Text className="font-heading-bold text-white text-[22px] leading-[26px] uppercase">
               {title}
             </Text>
-            <Text className="font-body text-muted-text text-[14px] leading-[20px]">
+            <Text className="font-body text-white text-[14px] leading-[20px]">
               {description}
             </Text>
           </View>
