@@ -56,3 +56,14 @@ Before each task/phase gate, identify relevant incidents and rules, inspect the 
 After each meaningful implementation change, check all five memory patterns against the diff and observed results. If a regression, rejected approach or failed assumption appears, pause dependent edits, investigate and distinguish the hypothesis from verified cause. Do not stack speculative fixes.
 Before review, inspect the full diff including new files, match every changed file to approved scope, verify preserved behaviour and compare actual tests with the baseline. Report remaining risks and automated/device/production evidence separately.
 Add only genuinely new evidence-backed lessons using the memory incident format. Do not log routine edits or every passing test. Memory changes require explicit inclusion of each memory file in the approved plan; REVIEW-ONLY/PLAN-ONLY lessons remain proposals in chat or an authorised task record unless a separate memory update is authorised. Never silently rewrite incidents or mirror edits into an unapproved repository.
+
+Item 02 timing correction: the historical 08:00 and 18:00 references above are superseded by Sunday 06:00 Europe/London. Report storage is independent of push quiet hours (21:00-08:00 account-local).
+
+## Item 02 acceptance - 2026-11-16
+
+Milestone 3, Item 02 - Weekly Sunday Report + Automatic Streak Freeze: **COMPLETED AND HUMAN-ACCEPTED**.
+
+- Khushbu reports that database verification and the 14-item device checklist passed. Jamie confirmed weekly push receipt. These are human-reported results, not additional checks performed by Codex during cleanup.
+- Phases A/B remain accepted. The release is Sunday 06:00 Europe/London, including GMT/BST; push delivery separately observes account-local quiet hours.
+- Khushbu authorized cleanup, acceptance recording and one push to origin/main, using exactly two explicit files per commit with a final single file if necessary. Local development/signing files and tracked development-only eas.json changes are excluded from the published changes.
+- Prior focused automated evidence: 42 mobile tests passed; mobile TypeScript and diff checks passed. Native/device acceptance is attributed to the human report above; no production SQL, build or deployment is authorized by this cleanup.
