@@ -5,19 +5,15 @@ import { Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../theme';
 import { trackEvent } from '../../lib/analytics';
-import DadScoreCard from './DadScoreCard';
-import SectionHeader from './SectionHeader';
-import { reportDates, type SavedMeasurement, type SavedWeeklyReport } from '../../lib/weeklyReport';
+import { displayReportValue, reportHeadline, reportChange, overallReportChange, reportFocus, reportProtection, hasReportChanges, reportStreakLabel, type ReportFocusPillar } from '../../lib/weeklyReportPresentation';
+import { reportDates, type SavedWeeklyReport } from '../../lib/weeklyReport';
 
-const value = (measurement: SavedMeasurement) => measurement.state === 'available' ? String(Math.round(measurement.value)) : '—';
 type Props = { visible: boolean; report: SavedWeeklyReport | null; loading: boolean; error: string | null;
-  empty: boolean; userId: string; onClose: () => void; onDismiss: () => void; onShow?: () => void;
-  onRetry: () => void; onUpgrade: () => void };
+  empty: boolean; userId: string; accountName?: string; onClose: () => void; onDismiss: () => void; onShow?: () => void;
+  onRetry: () => void; onUpgrade: () => void; onFocus: (pillar: ReportFocusPillar) => void };
 
-export default function WeeklyReportSheet({ visible, report, error, empty,
-  userId, onClose, onDismiss, onShow, onUpgrade }: Props) {
-  const text = colors.text;
-  const divider = colors.border;
+export default function WeeklyReportSheet({ visible, report, loading, empty,
+  userId, accountName, onClose, onDismiss, onShow, onUpgrade, onFocus }: Props) {
   const lockKey = useRef('');
   const [preparingExport, setPreparingExport] = useState(false);
 
@@ -73,151 +69,134 @@ export default function WeeklyReportSheet({ visible, report, error, empty,
     wasVisible.current = visible;
   }, [visible, onDismiss]);
   const detail = report?.access === 'pro' ? report.details : undefined;
+  const headline = report ? reportHeadline(report) : null;
+  const headlineTitle = headline?.title.replace(/, Dad\./g, () =>
+    accountName?.trim() ? `, ${accountName.trim()}.` : '.');
+  const focus = report ? reportFocus(report) : null;
+  const total = report?.totalScore?.state === 'available' ? report.totalScore.value : null;
+  const overall = report ? overallReportChange(report) : null;
   return <Modal visible={visible} transparent animationType={Platform.OS === 'ios' ? 'slide' : 'none'}
     onRequestClose={onClose} onDismiss={onDismiss} onShow={onShow}>
     <View className="flex-1 justify-end bg-black/55">
-      <Pressable
-        onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel="Close weekly report"
-        className="h-[10%]"
-      />
-      <SafeAreaView
-        edges={['bottom']}
-        className="h-[70%] rounded-t-[28px] bg-[#111214]"
-      >
+      <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close weekly report" className="h-[10%]" />
+      <SafeAreaView edges={['bottom']} className="h-[80%] rounded-t-[28px] bg-[#111214]">
         <View className="flex-row items-center justify-between px-lg pt-lg pb-sm gap-md">
           <View className="flex-1">
-            <Text className="font-heading-bold text-lime text-[19px] tracking-[1px] uppercase">
-              Weekly report
+            <Text className="font-heading-bold text-lime text-[19px] tracking-[1px] uppercase">Your week in Dad Health</Text>
+            <Text className="font-body text-white text-[14px] leading-[20px] mt-xs">
+              {report ? reportDates(report.weekStart, report.weekEndExclusive) : 'Your weekly summary.'}
             </Text>
-            {report ? (
-              <Text className="font-body text-muted-text text-[14px] mt-xs">
-                {reportDates(report.weekStart, report.weekEndExclusive)}
-                {report.comparisonAvailable ? ' · vs last week' : ''}
-              </Text>
-            ) : (
-              <Text className="font-body text-muted-text text-[14px] mt-xs">
-                Your weekly summary.
-              </Text>
-            )}
           </View>
-          <Pressable
-            onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-            hitSlop={4}
-            className="h-[42px] w-[42px] items-center justify-center rounded-full bg-white/5"
-          >
+          <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={4}
+            className="h-[42px] w-[42px] items-center justify-center rounded-full bg-white/5">
             <Feather name="x" size={20} color={colors.text} />
           </Pressable>
         </View>
         <ScrollView contentContainerClassName="px-lg pb-xl gap-lg" showsVerticalScrollIndicator={false}>
-          {!report ? (
-            <View className="min-h-[160px] justify-center gap-sm">
-              <Feather name="file-text" size={24} color={colors.lime} />
-              <Text className="font-heading-bold text-white text-[22px] uppercase">
-                {empty ? 'Your weekly report' : 'Report unavailable'}
-              </Text>
-              <Text className="font-body text-muted-text text-[14px] mt-sm">
-                {empty
-                  ? 'Reports are published Sundays at 6am UK time.'
-                  : 'We couldn’t load your report. Please check back later.'}
-              </Text>
+          {!report ? <View className="min-h-[160px] justify-center gap-sm">
+            {loading ? <View accessibilityLabel="Preparing weekly report" className="h-[4px] w-[64px] rounded-full bg-card" />
+              : <Text className="font-body text-white text-[14px] leading-[20px]">
+                {empty ? 'Reports are published Sundays at 6am UK time.'
+                  : 'Your report will appear here soon. Pull down on Today to refresh.'}
+              </Text>}
+          </View> : <>
+            <View className="gap-sm">
+              <Text className="font-heading-bold text-white text-[22px] leading-[26px] tracking-[0.5px] uppercase">{headlineTitle}</Text>
+              {headline?.body ? <Text className="font-body text-white text-[14px] leading-[20px]">{headline.body}</Text> : null}
             </View>
-          ) : <>
-            <View className="rounded-t-[18px] bg-lime">
-              <DadScoreCard
-                title="Weekly Dad Health Score"
-                score={
-  report.totalScore?.state === 'available'
-    ? report.totalScore.value
-    : null
-}
-                missingScore="—"
-                scoreLabel="of 100"
-                missingItemValue="—"
-                compactBottom
-                items={report.pillars.map(pillar => ({
-                  label: pillar.name,
-                  value: pillar.score.state === 'available' ? Math.round(pillar.score.value) : null,
-                  trend: report.comparisonAvailable && pillar.change.state === 'available'
-                    ? Math.round(pillar.change.value) : null,
-                }))}
-              />
-              {report.pillars.some(pillar => pillar.trendMessage === 'Building first 7 day trend') ? (
-                <Text className="font-body text-dark text-[14px] text-center px-xl pb-lg">
-                  Building first 7 day trend
-                </Text>
-              ) : null}
+            <View className="rounded-[24px] bg-card p-md flex-row items-center gap-md">
+              <View className="w-[120px] h-[120px] items-center justify-center" accessibilityLabel={`Dad Health score ${displayReportValue(report.totalScore)} out of 100`}>
+                <ReportRing score={total} />
+                <Text numberOfLines={1} adjustsFontSizeToFit className="font-heading text-white text-[52px] leading-[52px]">{displayReportValue(report.totalScore)}</Text>
+                <Text className="font-heading-bold text-white text-[11px] tracking-[1.5px] uppercase">/100</Text>
+              </View>
+              <View className="flex-1 gap-sm">
+                <Text className="font-heading-bold text-white text-[14px] uppercase tracking-[1px]">Dad Health score</Text>
+                {overall ? <Text className="font-heading-bold text-[16px] leading-[20px]" style={{ color: report.overallChange?.state === 'available' && report.overallChange.value > 0 ? colors.lime : colors.text }}>{overall}</Text> : null}
+              </View>
             </View>
+                              {report.access === 'pro' || hasReportChanges(report) ? <View className={report.access === 'free' ? 'flex-row gap-sm' : 'rounded-[24px] bg-card px-md'}>
+              {report.pillars.map(pillar => { const change = reportChange(report, pillar.change); return <View key={pillar.name}
+                className={report.access === 'free' ? 'flex-1 rounded-[20px] bg-card p-sm items-center gap-sm' : 'flex-row items-center gap-md py-md border-b border-border'}>
+                <Text className="font-heading-bold text-white text-[13px] uppercase flex-1">{pillar.name}</Text>
+                {report.access === 'pro' ? <Text className="font-heading-bold text-white text-[18px]">{displayReportValue(pillar.score)}<Text className="font-body text-[11px]"> /100</Text></Text> : null}
+                {change ? <Text className="font-body-semibold text-[14px]" style={{ color: pillar.change.state === 'available' && pillar.change.value > 0 ? colors.lime : colors.text }}>{change}</Text> : null}
+              </View>; })}
+            </View> : null}
             {detail ? <>
-              <View>
-                <SectionHeader title="Your week" className="mb-sm" />
-                {([['Workouts', detail.workouts, 'workouts'], ['Bond', detail.bondSessions, 'sessions'], ['Check-ins', detail.checkins, 'days']] as const).map(([label, measurement, unit]) =>
-                  <View key={label} className="flex-row items-baseline gap-md border-b border-border py-sm">
-                    <Text className="w-[72px] font-heading-bold text-lime text-[10px] uppercase">{label}</Text>
-                    <Text className="flex-1 font-body text-[14px]" style={{ color: text }}>
-                      {value(measurement)}{measurement.state === 'available' ? ` ${unit}` : ''}
-                    </Text>
+              <View className="flex-row gap-sm">
+                {([[detail.workouts, 'workout', 'workouts'], [detail.bondSessions, 'Bond session', 'Bond sessions'], [detail.checkins, 'check-in', 'check-ins']] as const).map(([measurement, singular, plural]) =>
+                  <View key={plural} className="flex-1 rounded-[20px] bg-card px-sm py-md items-center gap-xs">
+                    <Text className="font-heading-bold text-white text-[18px]">{displayReportValue(measurement)}</Text>
+                    <Text className="font-body text-white text-[14px] leading-[20px] text-center">{measurement.state === 'available' && measurement.value === 1 ? singular : plural}</Text>
                   </View>)}
               </View>
-              <View className="flex-row flex-wrap items-start gap-md pb-lg border-b" style={{ borderColor: divider }}>
-                <View className="flex-row items-center gap-sm flex-1">
-                  <MaterialCommunityIcons name="snowflake" size={27} color="#9DDFFF" />
-                  <View className="flex-1">
-                    <Text className="font-heading-bold text-[22px] uppercase leading-[24px]" style={{ color: text }}>
-                      {detail.streak.days.state === 'available' ? `${Math.round(detail.streak.days.value)}-day streak` : 'Streak unavailable'}
-                    </Text>
-                    <Text className="font-body text-[14px]" style={{ color: text }}>At report time</Text>
+              <View className="rounded-[24px] bg-card p-md gap-sm">
+                <Text className="font-heading-bold text-white text-[22px] leading-[26px]">{reportStreakLabel(detail.streak.days)}</Text>
+                <Text className="font-body text-white text-[14px] leading-[20px]">At report time</Text>
+                {detail.streak.protectedDates.length ? <>
+                  <View className="flex-row items-center gap-xs">
+                    <MaterialCommunityIcons name="snowflake" size={22} color="#9DDFFF" />
+                    <Text className="font-heading-bold text-[19px]" style={{ color: '#9DDFFF' }}>Streak protected</Text>
                   </View>
-                </View>
-                {detail.streak.protectedDates.length ? <View className="gap-xs">
-                  <View className="flex-row items-center gap-xs"><MaterialCommunityIcons name="snowflake" size={20} color={text} />
-                    <Text className="font-heading-bold text-[22px] leading-[24px]" style={{ color: text }}>Streak protected</Text></View>
-                  {detail.streak.protectedDates.map(date => <Text key={date} className="font-body text-[14px]" style={{ color: text }}>
-                    {new Date(`${date}T00:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' })}
-                  </Text>)}
-                </View> : null}
+                  {detail.streak.protectedDates.map(date => <View key={date}>
+                    <Text className="font-body text-white text-[14px] leading-[20px]">{reportProtection(date)}</Text>
+                    <Text className="font-body text-white text-[12px] mt-xs">{new Date(`${date}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })}</Text>
+                  </View>)}
+                </> : null}
               </View>
-              {detail.focus ? <View>
-                <SectionHeader title="Next week" className="mb-sm" />
-                <Text className="font-body text-[14px]" style={{ color: text }}>{detail.focus.text}</Text>
-                <Text className="font-body text-muted-text text-[14px] mt-xs">A small step for {detail.focus.pillar}.</Text>
-              </View> : null}
-            </> : <View className="border-t pt-md" style={{ borderColor: divider }}>
-              <Text className="font-body text-[14px]" style={{ color: text }}>Activity totals, streak details and next-week focus are included with Dad Health Pro.</Text>
-              <Pressable onPress={onUpgrade} accessibilityRole="button" className="min-h-[44px] self-start justify-center">
-                <Text className="font-heading-bold text-[11px] underline leading-[24px]" style={{ color: colors.lime }}>Explore Dad Health Pro</Text>
+            </> : report.access === 'free' ? <>
+              <View className="min-h-[240px] rounded-[24px] bg-card p-lg gap-md overflow-hidden items-center justify-center">
+                <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" className="absolute inset-0 justify-center px-lg gap-lg opacity-20">
+                  <View className="h-[24px] w-3/4 rounded-full bg-white/10" style={{ shadowColor: colors.text, shadowOpacity: 1, shadowRadius: 20, shadowOffset: { width: 0, height: 0 } }} />
+                  <View className="h-[24px] w-1/2 rounded-full bg-white/10" style={{ shadowColor: colors.text, shadowOpacity: 1, shadowRadius: 20, shadowOffset: { width: 0, height: 0 } }} />
+                  <View className="h-[48px] rounded-full bg-lime/20" style={{ shadowColor: colors.lime, shadowOpacity: 1, shadowRadius: 24, shadowOffset: { width: 0, height: 0 } }} />
+                </View>
+                <Text className="font-heading-bold text-white text-[22px] leading-[26px] uppercase text-center">See what drove your week</Text>
+                <Text className="font-body text-white text-[14px] leading-[20px] text-center">Workouts, Bond sessions, your streak and your one focus for next week.</Text>
+                <View className="flex-row items-center gap-sm"><Feather name="lock" size={18} color={colors.lime} /><Text className="font-heading-bold text-lime text-[14px]">PRO</Text></View>
+              </View>
+              <Pressable onPress={onUpgrade} accessibilityRole="button" className="min-h-[48px] rounded-[20px] bg-lime px-lg py-md items-center">
+                <Text className="font-heading-bold text-dark text-[18px] leading-[26px] uppercase">See my full week →</Text>
               </Pressable>
-            </View>}
-            <View className="border-t border-border pt-md">
-              <Pressable
-                onPress={() => void saveReport()}
-                disabled={preparingExport}
-                accessibilityRole="button"
-                accessibilityLabel="Save report"
-                accessibilityState={{
-                  disabled: preparingExport,
-                  busy: preparingExport,
-                }}
-                className="min-h-[44px] flex-row items-center gap-sm self-start border-b border-lime"
-              >
-                <Feather name="download" size={15} color={colors.lime} />
-                <Text className="font-heading-bold text-lime text-[11px] uppercase">
-                  Save report
-                </Text>
+            </> : null}
+            <Pressable onPress={() => void saveReport()} disabled={preparingExport} accessibilityRole="button"
+              accessibilityLabel="Save report" accessibilityState={{ disabled: preparingExport, busy: preparingExport }}
+              className="min-h-[44px] flex-row items-center gap-sm self-start border-b border-lime">
+              <Feather name="download" size={15} color={colors.lime} />
+              <Text className="font-heading-bold text-lime text-[11px] uppercase">Save report</Text>
+            </Pressable>
+            {focus ? <View className="rounded-[24px] bg-lime p-lg gap-md">
+              <Text className="font-heading-bold text-dark text-[14px] tracking-[1px] uppercase">Your one focus for next week</Text>
+              <Text className="font-heading-bold text-dark text-[22px] leading-[26px] tracking-[0.5px] uppercase">{focus.title}</Text>
+              <Text className="font-body text-dark text-[14px] leading-[20px]">{focus.explanation}</Text>
+              <Pressable onPress={() => onFocus(focus.pillar)} accessibilityRole="button" className="min-h-[48px] rounded-[20px] bg-dark px-md py-md items-center">
+                <Text className="font-heading-bold text-lime text-[11px] uppercase">{focus.button} →</Text>
               </Pressable>
-
-            </View>
-            {error ? (
-              <Text className="font-body text-muted-text text-[14px]">
-                Showing your saved report.
-              </Text>
-            ) : null}
+            </View> : null}
           </>}
         </ScrollView>
       </SafeAreaView>
     </View>
   </Modal>;
+}
+
+/** Two clipped native semicircles; no new native dependency or score calculation. */
+function ReportRing({ score }: { score: number | null }) {
+  const degrees = score === null ? 0 : score * 3.6;
+  return <View pointerEvents="none" accessible={false} style={{ position: 'absolute', width: 120, height: 120 }}>
+    <View style={{ position: 'absolute', width: 120, height: 120, borderRadius: 60, borderWidth: 9, borderColor: colors.border }} />
+    {degrees > 0 ? <>
+      {[true, false].map(right => <View key={String(right)} style={{ position: 'absolute', left: right ? 60 : 0, width: 60, height: 120, overflow: 'hidden' }}>
+        <View style={{ position: 'absolute', left: right ? -60 : 0, width: 120, height: 120,
+          transform: [{ rotate: `${right ? Math.min(degrees, 180) - 180 : Math.max(degrees - 180, 0) + 180}deg` }] }}>
+          <View style={{ position: 'absolute', left: right ? 60 : 0, width: 60, height: 120, overflow: 'hidden' }}>
+            <View style={{ position: 'absolute', left: right ? -60 : 0, width: 120, height: 120, borderRadius: 60, borderWidth: 9, borderColor: colors.lime }} />
+          </View>
+        </View>
+      </View>)}
+      {[0, degrees].map((angle, index) => <View key={index} style={{ position: 'absolute', width: 9, height: 9, borderRadius: 4.5, backgroundColor: colors.lime,
+        left: 55.5 + 55.5 * Math.sin(angle * Math.PI / 180), top: 55.5 - 55.5 * Math.cos(angle * Math.PI / 180) }} />)}
+    </> : null}
+  </View>;
 }

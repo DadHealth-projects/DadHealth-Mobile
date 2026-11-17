@@ -77,7 +77,8 @@ test('check-in waits for native report dismissal and only onShow commits one app
   const writes=[];
   const context={todayDate:'2026-11-15',isFocused:true,activeSection:'HOME',data:{},checkedInToday:false,loading:false,
     checkInModalOpen:false,checkInNativePresented:false,reportOpen:false,reportNativePresented:true,
-    openWeeklyReport:undefined,scoreSheetOpen:false,pendingBiometricEnrollment:false,openScoreDetail:false,
+    openWeeklyReport:undefined,scoreSheetOpen:false,pendingBiometricEnrollment:false,openScoreDetail:false,permissionPresented:false,requestedCheckIn:false,
+    notificationOperation:undefined,notificationOperationFamily:()=>null,confirmNotificationPresentation:()=>assert.fail('No notification is being presented'),
     promptDecisionKey:'a:day:session',user:{id:'a'},dailyCheckInStorageKey:'a',
     attemptedCheckInPromptSessions:new Set(),promptSessionRequestKey:{current:null},pendingPrompt:{current:null},
     promptStateRef:{current:{userId:'a',date:'2026-11-15',appearances:0}},
@@ -91,8 +92,9 @@ test('check-in waits for native report dismissal and only onShow commits one app
   const dismissStart=dashboard.indexOf('onDismiss={() => {',dashboard.indexOf('<WeeklyReportSheet'));
   const dismissEnd=dashboard.indexOf('\n        }}',dismissStart);
   const dismiss=dashboard.slice(dismissStart+'onDismiss={() => {'.length,dismissEnd);
-  context.reportMounted={current:true};context.reportUpgradePending={current:null};
+  context.reportMounted={current:true};context.reportUpgradePending={current:null};context.reportFocusGate={current:presentation.createReportFocusGate('a')};
   context.setReportNativePresented=v=>{context.reportNativePresented=v};
+  context.setReportDidShow=()=>{};
   context.openPro=()=>assert.fail('Normal dismissal must not navigate to Pro');
   vm.runInNewContext(`(()=>{${dismiss}})()`,context);
   assert.equal(context.reportNativePresented,false);
@@ -120,11 +122,46 @@ vm.runInNewContext(source('lib/dailyCheckInPrompt.js'),{module:promptModule});
 const prompt=promptModule.exports;
 
 const api=load('lib/weeklyReport.ts',{'./scoreTrends':{formatScoreTrend:()=>({})}});
+const presentation=load('lib/weeklyReportPresentation.ts');
+const fontMocks={
+  'expo-asset':{Asset:{fromModule:()=>({downloadAsync:async()=>({localUri:'file://font.ttf'})})}},
+  'expo-file-system/legacy':{readAsStringAsync:async()=>'FONT_BASE64',EncodingType:{Base64:'base64'}},
+  '@expo-google-fonts/barlow':{Barlow_400Regular:1},'@expo-google-fonts/barlow-condensed':{BarlowCondensed_700Bold:2},
+};
+
+test('actual focus handlers navigate once only after native dismissal to all three approved destinations', () => {
+  const begin=dashboard.indexOf('onFocus={pillar => {',dashboard.indexOf('<WeeklyReportSheet'));
+  const end=dashboard.indexOf('\n        }}',begin);
+  const queue=dashboard.slice(begin+'onFocus={pillar => {'.length,end);
+  const a=dashboard.indexOf('onDismiss={() => {',begin),b=dashboard.indexOf('\n        }}',a);
+  const dismiss=dashboard.slice(a+'onDismiss={() => {'.length,b);
+  for(const pillar of ['mind','body','bond']) {
+    const calls=[];
+    const context={pillar,user:{id:'a'},reportOpen:true,reportMounted:{current:true},reportUpgradePending:{current:null},
+      reportFocusGate:{current:presentation.createReportFocusGate('a')},shownReport:{report:{}},reportFocus:()=>({pillar}),
+      setReportOpen:v=>calls.push(['open',v]),setReportNativePresented(){},setReportDidShow(){},
+      navigation:{navigate:(...args)=>calls.push(['navigate',...args])},openPro:()=>assert.fail('must not open upgrade')};
+    const run=body=>vm.runInNewContext(`(()=>{${body}})()`,context);
+    run(queue);run(queue);assert.deepEqual(calls,[['open',false]]);
+    run(dismiss);run(dismiss);
+    const navigation=JSON.parse(JSON.stringify(calls.filter(c=>c[0]==='navigate')));
+    if (pillar==='bond') {
+      assert.equal(navigation.length,1);
+      assert.equal(navigation[0][1],'Tabs');
+      assert.equal(navigation[0][2].screen,'Bond');
+      assert.match(navigation[0][2].params.openPresentDad,/^\d+$/);
+    } else assert.deepEqual(navigation,pillar==='mind'?[['navigate','BreathingSession']]:
+      [['navigate','Tabs',{screen:'Fit',params:{openWorkoutLibrary:true}}]]);
+    calls.length=0;run(queue);context.user.id='b';run(dismiss);assert.equal(calls.some(c=>c[0]==='navigate'),false);
+    context.user.id='a';context.reportFocusGate.current=presentation.createReportFocusGate('a');
+    run(queue);context.reportMounted.current=false;run(dismiss);assert.equal(calls.some(c=>c[0]==='navigate'),false);
+  }
+});
 const react={createElement:(type,props,...children)=>({type,props:{...props,children}}),useRef:v=>({current:v}),useEffect(){},useState:v=>[v,()=>{}]};
 test('actual Free teaser renders no Pro badge and invokes only the report-opening callback', () => {
   const Card=load('components/dashboard/WeeklyReportCard.tsx',{
     react:{...react,default:react,memo:value=>value},'@expo/vector-icons':{Feather:'Feather'},
-    'react-native':{Pressable:'Pressable',Text:'Text',View:'View'},'../../theme':{colors:{}},'../../lib/weeklyReport':api,
+    'react-native':{Pressable:'Pressable',Text:'Text',View:'View'},'../../theme':{colors:{}},'../../lib/weeklyReport':api, '../../lib/weeklyReportPresentation':presentation,
   }).default;
   let opened=0;
   for (const saved of [null,report]) {
@@ -138,26 +175,26 @@ test('actual Free teaser renders no Pro badge and invokes only the report-openin
   assert.equal(opened,2);
 });
 const report={access:'free',weekStart:'2026-11-09',weekEndExclusive:'2026-11-16',comparisonAvailable:true,
-  totalScore:{state:'available',value:42},pillars:[{name:'Mind',score:{state:'available',value:42},change:{state:'available',value:2}}],
+  totalScore:{state:'available',value:42},pillars:[{name:'Mind',score:{state:'available',value:83.12345},change:{state:'available',value:2}}],
   details:{workouts:{state:'available',value:987654},focus:{text:'PRIVATE FOCUS'}}};
-test('Free sheet and PDF exclude injected restricted details while retaining headline scores',()=>{
+test('Free sheet and PDF exclude injected restricted details and pillar scores while retaining total and changes',()=>{
   const native=Object.fromEntries(['Modal','Pressable','ScrollView','Text','View'].map(x=>[x,x]));
   const Sheet=load('components/dashboard/WeeklyReportSheet.tsx',{
     react:{...react,default:react},'@expo/vector-icons':{Feather:'Feather',MaterialCommunityIcons:'MaterialCommunityIcons'},
     'react-native':{...native,Platform:{OS:'ios'}},'react-native-safe-area-context':{SafeAreaView:'SafeAreaView'},
-    '../../theme':{colors:{}},'../../lib/analytics':{trackEvent(){}},'../../lib/weeklyReport':api,
+    '../../theme':{colors:{}},'../../lib/analytics':{trackEvent(){}},'../../lib/weeklyReport':api, '../../lib/weeklyReportPresentation':presentation,
     '../../lib/weeklyReportSharing':{shareWeeklyDadHealthReport:async()=>null},
     './DadScoreCard':{__esModule:true,default:'DadScoreCard'},'./SectionHeader':{__esModule:true,default:'SectionHeader'},
   }).default;
   const view=JSON.stringify(Sheet({visible:true,report,userId:'a'}));
-  assert.doesNotMatch(view,/987654|PRIVATE FOCUS/);assert.match(view,/Explore Dad Health Pro/);assert.match(view,/"score":42/);
-  const sharing=load('lib/weeklyReportSharing.ts',{'./weeklyReport':api,'expo-print':{},'expo-sharing':{}});
+  assert.doesNotMatch(view,/987654|PRIVATE FOCUS/);assert.match(view,/See my full week/);assert.match(view,/"42"/);assert.doesNotMatch(view,/83\.12345/);
+  const sharing=load('lib/weeklyReportSharing.ts',{...fontMocks,'./weeklyReport':api,'./weeklyReportPresentation':presentation,'expo-print':{},'expo-sharing':{}});
   const html=sharing.buildWeeklyReportHtml(report);
-  assert.doesNotMatch(html,/987654|PRIVATE FOCUS/);assert.match(html,/>42<\/div>/);assert.match(html,/\+2 pts/);
+  assert.doesNotMatch(html,/987654|PRIVATE FOCUS/);assert.match(html,/>42<\/text>/);assert.match(html,/\u2191 2 pts/);assert.doesNotMatch(html,/83\.12345|83 \/100/);
 });
 test('export stops before native sharing after account/visibility invalidation and reports no false completion',async()=>{
   let current=true,shares=0,resolve;
-  const sharing=load('lib/weeklyReportSharing.ts',{'./weeklyReport':api,
+  const sharing=load('lib/weeklyReportSharing.ts',{...fontMocks,'./weeklyReport':api,'./weeklyReportPresentation':presentation,
     'expo-sharing':{isAvailableAsync:async()=>true,shareAsync:async()=>{shares++;}},
     'expo-print':{printToFileAsync:()=>new Promise(r=>resolve=r)}});
   const pending=sharing.shareWeeklyDadHealthReport(report,()=>current);
@@ -165,14 +202,31 @@ test('export stops before native sharing after account/visibility invalidation a
   assert.equal(await pending,null);assert.equal(shares,0);
 });
 
+test('export embeds existing Barlow fonts and cancels safely during font preparation', async () => {
+  let html='',shared=0;
+  const sharing=load('lib/weeklyReportSharing.ts',{...fontMocks,'./weeklyReport':api,'./weeklyReportPresentation':presentation,
+    'expo-sharing':{isAvailableAsync:async()=>true,shareAsync:async()=>shared++},
+    'expo-print':{printToFileAsync:async options=>{html=options.html;return {uri:'file://test.pdf'}}}});
+  await sharing.shareWeeklyDadHealthReport(report);
+  assert.match(html,/@font-face.*Barlow/);assert.match(html,/Barlow Condensed/);assert.match(html,/data:font\/ttf;base64,FONT_BASE64/);
+  assert.equal(shared,1);
+  let current=true,release;
+  const waiting=new Promise(resolve=>release=resolve);
+  const cancelled=load('lib/weeklyReportSharing.ts',{...fontMocks,'./weeklyReport':api,'./weeklyReportPresentation':presentation,
+    'expo-file-system/legacy':{readAsStringAsync:()=>waiting,EncodingType:{Base64:'base64'}},
+    'expo-sharing':{isAvailableAsync:async()=>true,shareAsync:async()=>assert.fail('stale sharing')},
+    'expo-print':{printToFileAsync:async()=>assert.fail('stale PDF generation')}});
+  const pending=cancelled.shareWeeklyDadHealthReport(report,()=>current);
+  await new Promise(setImmediate);current=false;release('FONT_BASE64');assert.equal(await pending,null);
+});
+
 test('Pro PDF contains saved total, activities, captured streak, protection and focus',()=>{
-  const sharing=load('lib/weeklyReportSharing.ts',{'./weeklyReport':api,'expo-print':{},'expo-sharing':{}});
+  const sharing=load('lib/weeklyReportSharing.ts',{...fontMocks,'./weeklyReport':api,'./weeklyReportPresentation':presentation,'expo-print':{},'expo-sharing':{}});
   const available=value=>({state:'available',value});
-  const saved={...report,access:'pro',details:{workouts:available(12),bondSessions:available(4),checkins:available(6),
+  const saved={...report,access:'pro',pillars:['Mind','Body','Bond'].map((name,i)=>({name,score:available(60-i*10),change:available(0)})),details:{workouts:available(12),bondSessions:available(4),checkins:available(6),
     streak:{days:available(6),protectedDates:['2026-11-10']},focus:{pillar:'bond',text:'Make time to connect.'}}};
   const before=JSON.stringify(saved), html=sharing.buildWeeklyReportHtml(saved);
-  for(const text of ['>42</div>','Workouts','>12</td>','Bond sessions','>4</td>','Check-in days','>6</td>',
-    'Streak at report time','6 days','Streak protected','10 Nov','Make time to connect.','9 Nov']) assert.ok(html.includes(text),text);
+  for(const text of ['>42</text>','12 workouts','4 Bond sessions','6 check-ins','6-day streak','At report time','Streak protected','10 Nov','Make time to connect','9 Nov']) assert.ok(html.includes(text),text);
   assert.equal(JSON.stringify(saved),before);
 });
 
@@ -191,4 +245,45 @@ test('rapid Save taps share once; cancelled sharing releases the guard for retry
   const second=save();assert.equal(shares,2);settle(null);await second;
   assert.deepEqual(busy,[true,false,true,false]);
   assert.doesNotMatch(sheet,/Report ready to save|Report ready to share|PDF saved/);
+});
+
+test('sheet keeps loading, empty and failed reads neutral; protection requires a saved date', () => {
+  const Sheet=load('components/dashboard/WeeklyReportSheet.tsx',{
+    react:{...react,default:react},'@expo/vector-icons':{Feather:'Feather',MaterialCommunityIcons:'MaterialCommunityIcons'},
+    'react-native':{...Object.fromEntries(['Modal','Pressable','ScrollView','Text','View'].map(x=>[x,x])),Platform:{OS:'ios'}},
+    'react-native-safe-area-context':{SafeAreaView:'SafeAreaView'},'../../theme':{colors:{}},
+    '../../lib/analytics':{trackEvent(){}},'../../lib/weeklyReport':api,'../../lib/weeklyReportPresentation':presentation,
+    '../../lib/weeklyReportSharing':{shareWeeklyDadHealthReport:async()=>null},
+  }).default;
+  const render=props=>JSON.stringify(Sheet({visible:true,userId:'a',report:null,loading:false,empty:false,error:null,...props}));
+  assert.match(render({loading:true}),/Preparing weekly report/);
+  assert.doesNotMatch(render({loading:true}),/Reports are published|Pull down|Report unavailable/);
+  assert.match(render({empty:true}),/Reports are published Sundays at 6am UK time/);
+  assert.match(render({error:'PRIVATE_ERROR'}),/Your report will appear here soon/);
+  assert.doesNotMatch(render({error:'PRIVATE_ERROR'}),/PRIVATE_ERROR|failed|couldn|Report unavailable/);
+  const available=value=>({state:'available',value});
+  const saved={...report,access:'pro',details:{workouts:available(1),bondSessions:available(1),checkins:available(1),
+    streak:{days:available(3),protectedDates:[]},focus:null}};
+  assert.doesNotMatch(render({report:saved}),/snowflake|Streak protected/);
+  saved.details.streak.protectedDates=['2026-11-12'];
+  const protectedView=render({report:saved,error:'PRIVATE_ERROR'});
+  assert.match(protectedView,/snowflake/);assert.match(protectedView,/#9DDFFF/);
+  assert.match(protectedView,/Thursday was covered by your weekly streak freeze/);
+  assert.doesNotMatch(protectedView,/Showing your saved report|PRIVATE_ERROR/);
+});
+
+test('PDF retains every long-content protection entry and focus last without leaking Free details', () => {
+  const sharing=load('lib/weeklyReportSharing.ts',{...fontMocks,'./weeklyReport':api,'./weeklyReportPresentation':presentation,'expo-print':{},'expo-sharing':{}});
+  const available=value=>({state:'available',value});
+  const saved={...report,access:'pro',pillars:['Mind','Body','Bond'].map((name,i)=>({name,score:available(60-i*10),change:available(0)})),
+    details:{workouts:available(1),bondSessions:available(1),checkins:available(1),
+      streak:{days:available(90),protectedDates:Array.from({length:35},(_,i)=>new Date(Date.UTC(2026,9,i+1)).toISOString().slice(0,10))},
+      focus:{pillar:'bond',text:'ignored'}}};
+  const html=sharing.buildWeeklyReportHtml(saved);
+  assert.equal((html.match(/class="protection-date"/g)||[]).length,35);
+  assert.match(html,/1 workout</);assert.match(html,/1 Bond session</);assert.match(html,/1 check-in</);
+  assert.ok(html.lastIndexOf('Your one focus for next week')>html.lastIndexOf('class="footer"'));
+  assert.match(html,/h1,h2,h3 \{ break-after: avoid/);assert.doesNotMatch(html,/overflow:\s*hidden|max-height/);
+  const free=sharing.buildWeeklyReportHtml({...saved,access:'free'});
+  assert.doesNotMatch(free,/protection-date">|90-day streak|Make time to connect|1 workout<|60 \/100|50 \/100|40 \/100/);
 });

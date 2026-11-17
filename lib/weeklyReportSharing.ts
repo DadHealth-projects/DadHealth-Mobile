@@ -1,248 +1,92 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-
-import {
-  reportDates,
-  type SavedMeasurement,
-  type SavedWeeklyReport,
-} from './weeklyReport';
-
-const display = (measurement?: SavedMeasurement): string =>
-  measurement?.state === 'available'
-    ? String(Math.round(measurement.value))
-    : '—';
+import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Barlow_400Regular } from '@expo-google-fonts/barlow';
+import { BarlowCondensed_700Bold } from '@expo-google-fonts/barlow-condensed';
+import { reportDates, type SavedWeeklyReport } from './weeklyReport';
+import { displayReportValue, reportHeadline, reportChange, overallReportChange, reportFocus, reportActivity, reportProtection, hasReportChanges, reportStreakLabel } from './weeklyReportPresentation';
 
 function escapeHtml(value: unknown): string {
-  const replacements: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  };
-
-  return String(value).replace(
-    /[&<>"']/g,
-    character => replacements[character],
-  );
+  const replacements: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return String(value).replace(/[&<>"']/g, character => replacements[character]);
 }
 
-export function buildWeeklyReportHtml(report: SavedWeeklyReport): string {
+export function buildWeeklyReportHtml(report: SavedWeeklyReport, fontCss = ''): string {
   const details = report.access === 'pro' ? report.details : undefined;
+  const headline = reportHeadline(report), focus = reportFocus(report);
   const dates = reportDates(report.weekStart, report.weekEndExclusive);
+  const total = report.totalScore?.state === 'available' ? report.totalScore.value : null;
+  const overall = overallReportChange(report);
+  const circumference = 2 * Math.PI * 52;
+  const pillars = report.pillars.map(p => `<tr><th>${escapeHtml(p.name)}</th>
+    ${report.access === 'pro' ? `<td>${displayReportValue(p.score)} /100</td>` : ''}
+    <td>${escapeHtml(reportChange(report, p.change))}</td></tr>`).join('');
+  const activities = details ? [
+    reportActivity(details.workouts, 'workout', 'workouts'),
+    reportActivity(details.bondSessions, 'Bond session', 'Bond sessions'),
+    reportActivity(details.checkins, 'check-in', 'check-ins'),
+  ].map(text => `<div class="tile">${escapeHtml(text)}</div>`).join('') : '';
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Dad Health weekly report</title>
+  <style>
+    ${fontCss}
+    @page { size: A4 portrait; margin: 16mm; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { margin: 0; background: #0A0A0A; color: #FFFFFF; font: 14px/1.5 'Barlow', Arial, sans-serif; overflow-wrap: anywhere; }
+    h1,h2,h3 { font-family: 'Barlow Condensed','Arial Narrow',Arial,sans-serif; line-height: 1.15; text-transform: uppercase; margin: 0 0 12px; }
+    h1 { font-size: 28px; } h2 { font-size: 22px; } h3 { font-size: 18px; }
+    p { margin: 8px 0 16px; } .eyebrow { color: #C8F55A; letter-spacing: 2px; font-weight: bold; }
+    .card { border-radius: 24px; background: #151515; padding: 20px; margin: 20px 0; }
+    .hero { display: table; width: 100%; break-inside: avoid; }
+    .circle { display: table-cell; width: 160px; vertical-align: middle; position: relative; }
+    .hero-copy { display: table-cell; vertical-align: middle; padding-left: 20px; }
+    .change { font-size: 24px; font-weight: bold; } .rise { color: #C8F55A; }
+    table { width: 100%; border-collapse: collapse; } th { text-align: left; } td { text-align: right; }
+    th,td { padding: 14px 6px; border-bottom: 1px solid #303030; } tr { break-inside: avoid; }
+    .tiles { display: table; width: 100%; border-spacing: 8px; break-inside: avoid; }
+    .tile { display: table-cell; width: 33.33%; background: #151515; border-radius: 20px; padding: 18px 8px; text-align: center; }
+    .protected { color: #9DDFFF; } .protection-date { break-inside: avoid; }
+    .focus { background: #C8F55A; color: #0A0A0A; } .focus h2 { margin-top: 14px; }
+    .locked { text-align: center; } .decoration { height: 14px; border-radius: 12px; background: #303030; width: 60%; margin: 12px auto; filter: blur(4px); }
+    .footer { font-size: 11px; border-top: 1px solid #303030; padding-top: 12px; }
+    h1,h2,h3 { break-after: avoid; } p { orphans: 3; widows: 3; }
+  </style></head><body>
+    <p class="eyebrow">YOUR WEEK IN DAD HEALTH</p><p>${escapeHtml(dates)}</p>
+    <h1>${escapeHtml(headline.title)}</h1>${headline.body ? `<p>${escapeHtml(headline.body)}</p>` : ''}
+    <div class="card hero"><div class="circle">
+      <svg width="150" height="150" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="60" cy="60" r="52" stroke="#303030" stroke-width="9" fill="none"/>
+        ${total === null ? '' : `<circle cx="60" cy="60" r="52" stroke="#C8F55A" stroke-width="9" fill="none" stroke-linecap="round" stroke-dasharray="${circumference} ${circumference}" stroke-dashoffset="${circumference * (1 - total / 100)}" transform="rotate(-90 60 60)"/>`}
+        <text x="60" y="65" text-anchor="middle" fill="#FFFFFF" font-size="36" font-weight="bold">${displayReportValue(report.totalScore)}</text>
+        <text x="60" y="84" text-anchor="middle" fill="#FFFFFF" font-size="12">/100</text>
+      </svg></div><div class="hero-copy"><h3>Dad Health score</h3>
+      ${overall ? `<p class="change ${report.overallChange?.state === 'available' && report.overallChange.value > 0 ? 'rise' : ''}">${escapeHtml(overall)}</p>` : ''}</div></div>
+            ${report.access === 'pro' || hasReportChanges(report) ? `<div class="card"><table><tbody>${pillars}</tbody></table></div>` : ''}
+    ${details ? `<div class="tiles">${activities}</div><div class="card">
+          <h2>${escapeHtml(reportStreakLabel(details.streak.days))}</h2><p>At report time</p>
+      ${details.streak.protectedDates.length ? `<h3 class="protected">&#10052; Streak protected</h3>` : ''}
+      ${details.streak.protectedDates.map(date => `<div class="protection-date"><p>${escapeHtml(reportProtection(date))}<br>${escapeHtml(new Date(`${date}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }))}</p></div>`).join('')}
+    </div>` : report.access === 'free' ? `<div class="card locked"><div class="decoration"></div><h2>See what drove your week</h2><p class="eyebrow">PRO</p><p>See my full week</p></div>` : ''}
+    <p class="footer">Saved weekly report ${escapeHtml(dates)}. Values reflect the saved report, not live activity.</p>
+    ${focus ? `<div class="card focus"><h3>Your one focus for next week</h3><h2>${escapeHtml(focus.title)}</h2><p>${escapeHtml(focus.explanation)}</p></div>` : ''}
+  </body></html>`;
+}
 
-  const buildingTrend = report.pillars.some(
-    pillar => pillar.trendMessage === 'Building first 7 day trend',
-  );
-
-  const comparison = buildingTrend
-    ? 'Building first 7 day trend'
-    : report.comparisonAvailable
-      ? 'Changes compared with the previous saved week.'
-      : 'Comparison unavailable';
-
-  const pillars = report.pillars.map(pillar => {
-    let change = '—';
-
-    if (
-      report.comparisonAvailable &&
-      pillar.change.state === 'available'
-    ) {
-      const points = Math.round(pillar.change.value);
-
-      change = `${
-        points > 0 ? '+' : points < 0 ? '−' : ''
-      }${Math.abs(points)} pts`;
-    }
-
-    return `
-      <tr>
-        <th scope="row">${escapeHtml(pillar.name)}</th>
-        <td>${display(pillar.score)}${
-          pillar.score.state === 'available' ? '%' : ''
-        }</td>
-        <td>${escapeHtml(change)}</td>
-      </tr>
-    `;
-  }).join('');
-
-  const activity = details ? [
-    ['Workouts', display(details.workouts)],
-    ['Bond sessions', display(details.bondSessions)],
-    ['Check-in days', display(details.checkins)],
-    [
-      'Streak at report time',
-      `${display(details.streak.days)}${
-        details.streak.days.state === 'available' ? ' days' : ''
-      }`,
-    ],
-  ].map(([label, value]) => `
-    <tr>
-      <th scope="row">${escapeHtml(label)}</th>
-      <td>${escapeHtml(value)}</td>
-    </tr>
-  `).join('') : '';
-
-  const protection = details?.streak.protectedDates.length
-    ? `
-      <section>
-        <h2>Streak protected</h2>
-        <ul>
-          ${details.streak.protectedDates.map(date => `
-            <li>${escapeHtml(
-              new Date(`${date}T00:00:00Z`).toLocaleDateString('en-GB', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'short',
-                timeZone: 'UTC',
-              }),
-            )}</li>
-          `).join('')}
-        </ul>
-      </section>
-    `
-    : '';
-
-  const focus = details?.focus
-    ? `
-      <section>
-        <h2>Next week</h2>
-        <p>${escapeHtml(details.focus.text)}</p>
-        <p class="muted">
-          A small step for ${escapeHtml(details.focus.pillar)}.
-        </p>
-      </section>
-    `
-    : '';
-
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Dad Health weekly report</title>
-<style>
-  @page { size: A4 portrait; margin: 16mm; }
-  * {
-    box-sizing: border-box;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+async function reportFontCss(): Promise<string> {
+  try {
+    const faces = await Promise.all([
+      ['Barlow', Barlow_400Regular, 400], ['Barlow Condensed', BarlowCondensed_700Bold, 700],
+    ].map(async ([family, module, weight]) => {
+      const asset = await Asset.fromModule(module as number).downloadAsync();
+      if (!asset.localUri) throw new Error('Font unavailable');
+      const base64 = await FileSystem.readAsStringAsync(asset.localUri, { encoding: FileSystem.EncodingType.Base64 });
+      return `@font-face { font-family: '${family}'; font-weight: ${weight}; src: url(data:font/ttf;base64,${base64}) format('truetype'); }`;
+    }));
+    return faces.join('\n');
+  } catch {
+    // Preserve export availability if a bundled font cannot be read.
+    return '';
   }
-  body {
-    margin: 0;
-    background: #111214;
-    color: #f7f7f2;
-    font: 14px/1.5 Arial, sans-serif;
-    overflow-wrap: anywhere;
-  }
-  h1, h2 {
-    margin: 0 0 10px;
-    text-transform: uppercase;
-    line-height: 1.2;
-  }
-  h1 { font-size: 28px; }
-  h2 { margin-top: 24px; font-size: 18px; color: #c8f55a; }
-  .eyebrow {
-    color: #c8f55a;
-    letter-spacing: 2px;
-    font-size: 11px;
-    font-weight: bold;
-  }
-  .dates { margin: 0 0 22px; color: #bfc1bd; }
-  .hero {
-    background: #c8f55a;
-    color: #080808;
-    padding: 20px;
-    display: table;
-    width: 100%;
-    break-inside: avoid;
-  }
-  .circle-cell {
-    display: table-cell;
-    width: 38%;
-    vertical-align: middle;
-  }
-  .circle {
-    border: 5px solid #080808;
-    border-radius: 50%;
-    width: 140px;
-    height: 140px;
-    text-align: center;
-    padding-top: 17px;
-  }
-  .score { font-size: 54px; font-weight: bold; line-height: 1.2; }
-  .scale { font-size: 12px; text-transform: uppercase; }
-  .pillars {
-    display: table-cell;
-    vertical-align: middle;
-    padding-left: 16px;
-  }
-  .hero-title {
-    font-size: 15px;
-    font-weight: bold;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-  table { width: 100%; border-collapse: collapse; }
-  th { text-align: left; font-weight: 600; }
-  td { text-align: right; }
-  th, td { padding: 10px 0; border-bottom: 1px solid #383a38; }
-  .hero th, .hero td { padding: 7px 0; border-color: #a3c74a; }
-  .hero td { padding-left: 10px; white-space: nowrap; }
-  .hero th { text-transform: uppercase; font-size: 12px; }
-  .muted { color: #bfc1bd; font-size: 12px; }
-  section, tr { break-inside: avoid; }
-  .footer {
-    border-top: 1px solid #383a38;
-    margin-top: 24px;
-    padding-top: 12px;
-    font-size: 10px;
-    color: #bfc1bd;
-  }
-</style>
-</head>
-<body>
-  <p class="eyebrow">DAD HEALTH</p>
-  <h1>Weekly report</h1>
-  <p class="dates">${escapeHtml(dates)}</p>
-
-  <div class="hero">
-    <div class="circle-cell">
-      <div class="circle">
-        <div class="score">${display(report.totalScore)}</div>
-        <div class="scale">of 100</div>
-      </div>
-    </div>
-    <div class="pillars">
-      <div class="hero-title">Weekly Dad Health Score</div>
-      <table><tbody>${pillars}</tbody></table>
-    </div>
-  </div>
-
-  <p class="muted">${escapeHtml(comparison)}</p>
-
-  ${details ? `
-    <section>
-      <h2>Your week</h2>
-      <table><tbody>${activity}</tbody></table>
-    </section>
-  ` : ''}
-
-  ${protection}
-  ${focus}
-
-  ${report.access === 'free' ? `
-    <p class="muted">
-      Activity totals, streak details and next-week focus
-      are included with Dad Health Pro.
-    </p>
-  ` : ''}
-
-  <p class="footer">
-    Saved weekly report · ${escapeHtml(dates)}.
-    Values reflect the saved report, not live activity.
-  </p>
-</body>
-</html>`;
 }
 
 export async function shareWeeklyDadHealthReport(
@@ -257,8 +101,10 @@ export async function shareWeeklyDadHealthReport(
     if (!isCurrent()) return null;
     if (!available) return 'Saving reports is unavailable on this device.';
 
+    const fontCss = await reportFontCss();
+    if (!isCurrent()) return null;
     const { uri } = await Print.printToFileAsync({
-      html: buildWeeklyReportHtml(report),
+      html: buildWeeklyReportHtml(report, fontCss),
     });
 
     if (!isCurrent()) return null;

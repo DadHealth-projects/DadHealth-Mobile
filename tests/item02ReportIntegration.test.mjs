@@ -15,6 +15,7 @@ function load(path, mocks = {}, globals = {}) {
 const trend = { formatScoreTrend: value => ({ arrow: '', change: value }) };
 const reportApi = (dev = false) => load('lib/weeklyReport.ts', { './scoreTrends': trend }, { __DEV__: dev });
 const api = reportApi();
+const presentation=load('lib/weeklyReportPresentation.ts');
 test('verified freeze allowance remains visible when dashboard access is unknown', () => {
   const react = { memo: fn => fn, createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
     useRef: value => ({ current: value }), useEffect() {} };
@@ -49,6 +50,18 @@ test('saved Free projection cannot retain injected Pro details', () => {
   const result = api.parseSavedReport(payload('free'));
   assert.equal(result.details, undefined); assert.equal(result.pillars.length,3);
   assert.doesNotMatch(JSON.stringify(result), /private|workouts|protectedDates|focus/);
+});
+
+test('overall change is optional, server supplied, bounded and never derived from pillars', () => {
+  const data=payload();
+  assert.equal(api.parseSavedReport(data).overallChange.state,'unavailable');
+  data.report.overallChange=number(5);
+  assert.equal(api.parseSavedReport(data).overallChange.value,5);
+  data.report.comparison={state:'unavailable',reason:'model_mismatch'};
+  assert.equal(api.parseSavedReport(data).comparisonReason,'model_mismatch');
+  for(const invalid of [101,-101,1.5,Infinity]) {
+    data.report.overallChange=number(invalid);assert.throws(()=>api.parseSavedReport(data));
+  }
 });
 test('Pro reads only saved values, dates and score-point comparisons', () => {
   const result = api.parseSavedReport(payload());
@@ -152,8 +165,8 @@ function pushHarness() {
   const sdk={initialize(){},login(){},logout(){},Notifications:{addEventListener(_,fn){h.click=fn;}}};
   h.api=load('lib/pushNotifications.ts',{
     'react-native':{Platform:{OS:'ios'},NativeModules:{OneSignal:{}},TurboModuleRegistry:{get:()=>({})}},
-    './notificationDestinations':load('lib/notificationDestinations.ts',{'./weeklyReport':api,'./deepLinks':{isValidCommunityPostId:()=>false}}),
-    'react-native-onesignal':{OneSignal:sdk},'./deepLinks':{isValidCommunityPostId:()=>false},'./weeklyReport':api,
+    './notificationDestinations':load('lib/notificationDestinations.ts',{'./weeklyReport':api,'./weeklyReportPresentation':presentation,'./deepLinks':{isValidCommunityPostId:()=>false}}),
+    'react-native-onesignal':{OneSignal:sdk},'./deepLinks':{isValidCommunityPostId:()=>false},'./weeklyReport':api,'./weeklyReportPresentation':presentation,
   },{process:{env:{EXPO_PUBLIC_ONESIGNAL_APP_ID:'mock'}}});
   h.api.initializePushNotifications();h.api.attachPushNavigation({isReady:()=>true,navigate:(...args)=>h.routes.push(args)});
   h.tap=(week='2026-11-09',id='notification')=>h.click({notification:{notificationId:id,additionalData:{type:'weekly_score',reporting_week:week}}});
@@ -179,27 +192,27 @@ test('approved report sheet uses saved overall and rounded pillars without mutat
     react:{...react,default:react},'@expo/vector-icons':{Feather:'Feather',MaterialCommunityIcons:'MaterialCommunityIcons'},
     'react-native':{...native,Platform:{OS:'ios'},useColorScheme:()=> 'dark'},
     'react-native-safe-area-context':{SafeAreaView:'SafeAreaView'},'../../theme':{colors:{dark:'#000',text:'#fff',lime:'#cf5',border:'#333'}},
-    '../../lib/analytics':{trackEvent(){}},'../../lib/weeklyReport':api,
+    '../../lib/analytics':{trackEvent(){}},'../../lib/weeklyReport':api, '../../lib/weeklyReportPresentation':presentation,
     '../../lib/weeklyReportSharing':{shareWeeklyDadHealthReport:async()=>null},
     './DadScoreCard':{__esModule:true,default:'DadScoreCard'},'./SectionHeader':{__esModule:true,default:'SectionHeader'},
   });
   let dismissed=0;
   const report=api.parseSavedReport(payload());
   report.pillars[0].score.value=64.9876;report.pillars[0].change.value=3.2345;
-  report.totalScore={state:'available',value:72};
+  report.totalScore={state:'available',value:72};report.details.focus.pillar='body';
   const original=JSON.stringify(report);
   const view=Sheet({visible:true,report,loading:false,error:null,empty:false,userId:'a',
     onClose(){},onDismiss(){dismissed++;},onRetry(){},onUpgrade(){}});
   const serialized=JSON.stringify(view);
-  for(const text of ['Weekly report','Mind','Body','Bond','Workouts','Check-ins','Your week','Next week','Saved focus']) {
+  for(const text of ['Your week in Dad Health','Mind','Body','Bond','workouts','check-ins','Your one focus for next week','Ten minutes for your body']) {
     assert.ok(serialized.includes(text),text);
   }
   const nodes=[];
   const visit=n=>{if(!n||typeof n!=='object')return;if(Array.isArray(n)){n.forEach(visit);return;}nodes.push(n);visit(n.props?.children);};
   visit(view);
-  const card=nodes.find(n=>n.type==='DadScoreCard');
-  assert.equal(card.props.score,72);assert.equal(card.props.missingScore,'\u2014');
-  assert.equal(card.props.items[0].value,65);assert.equal(card.props.items[0].trend,3);
+  const texts=nodes.filter(n=>n.type==='Text').flatMap(n=>n.props.children).filter(x=>typeof x==='string');
+  assert.ok(texts.includes('72'));assert.ok(texts.includes('65'));assert.ok(texts.includes('\u2191 3 pts'));
+  assert.doesNotMatch(serialized,/64\.9876|3\.2345|Saved focus/);
   assert.equal(JSON.stringify(report),original,'display formatting cannot mutate saved data');
   assert.equal(serialized.includes('Preview'),false);
   assert.equal(dismissed,0);view.props.onDismiss();assert.equal(dismissed,1);

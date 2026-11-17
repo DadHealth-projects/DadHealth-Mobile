@@ -99,6 +99,8 @@ export type SavedMeasurement = { state: 'available'; value: number } | { state: 
 export type SavedWeeklyReport = {
   access: 'free' | 'pro'; weekStart: string; weekEndExclusive: string; comparisonAvailable: boolean;
   totalScore?: SavedMeasurement;
+  overallChange?: SavedMeasurement;
+  comparisonReason?: string;
   pillars: { name: 'Mind' | 'Body' | 'Bond'; score: SavedMeasurement; change: SavedMeasurement; trendMessage: string | null }[];
   details?: { workouts: SavedMeasurement; bondSessions: SavedMeasurement; checkins: SavedMeasurement;
     streak: { days: SavedMeasurement; protectedDates: string[] };
@@ -137,6 +139,8 @@ export function parseSavedReport(value: unknown): SavedWeeklyReport {
   const result: SavedWeeklyReport = { access: envelope.access as 'free' | 'pro', weekStart: period.weekStart,
     weekEndExclusive: period.weekEndExclusive,
     comparisonAvailable: record(report.comparison).state === 'available',
+    comparisonReason: typeof record(report.comparison).reason === 'string' ? record(report.comparison).reason as string : undefined,
+    overallChange: report.overallChange === undefined ? { state: 'unavailable' } : savedMeasurement(report.overallChange),
     totalScore: report.totalScore === undefined
       ? { state: 'unavailable' }
       : savedMeasurement(report.totalScore),
@@ -145,6 +149,10 @@ export function parseSavedReport(value: unknown): SavedWeeklyReport {
       return { name, score: savedMeasurement(p.score), change: savedMeasurement(p.changePoints),
         trendMessage: p.trendMessage === 'Building first 7 day trend' ? p.trendMessage : null };
     }) };
+  if (
+    result.overallChange?.state === 'available' &&
+    (!Number.isInteger(result.overallChange.value) || Math.abs(result.overallChange.value) > 100)
+  ) throw new Error('Invalid overall change');
   if (
     result.totalScore?.state === 'available' &&
     (
