@@ -313,7 +313,11 @@ export async function resolveNativePlanEligibility(
   const groups = new Map<string, Promise<boolean | null>>();
   return Promise.all(mapped.map(async (product) => {
     const group = product.subscriptionGroupId;
-    if (!group || !product.hasSevenDayTrial || !product.displayPrice.trim()) return product;
+        if (!product.hasSevenDayTrial) {
+      return { ...product, trialEligibility: 'ineligible' as const };
+    }
+
+    if (!group || !product.displayPrice.trim()) return product;
     if (!groups.has(group)) groups.set(group, checkGroup(group).catch(() => null));
     const eligible = await groups.get(group);
     return { ...product, trialEligibility: eligible === true ? 'eligible' as const

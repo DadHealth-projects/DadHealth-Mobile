@@ -27,12 +27,14 @@ function formatDuration(seconds: number) {
   return remainder === 0 ? `${minutes} minutes.` : `${minutes} minutes ${remainder} seconds.`;
 }
 
-export default function PresentDadMode({ userId, onScoreRefresh, onViewBondScore, completionSessionId, notificationOperation }: {
+export default function PresentDadMode({ userId, onScoreRefresh, onViewBondScore, completionSessionId, notificationOperation, openRequest, onOpenRequestHandled }: {
   userId?: string;
   onScoreRefresh: () => void;
   onViewBondScore: () => void;
   completionSessionId?: string;
   notificationOperation?: string;
+  openRequest?: string;
+  onOpenRequestHandled?: () => void;
 }) {
   const mode = usePresentDadMode(userId);
   const insets = useSafeAreaInsets();
@@ -93,7 +95,7 @@ export default function PresentDadMode({ userId, onScoreRefresh, onViewBondScore
     if (result.status === 'completed') onScoreRefresh();
   }, [mode.finish, onScoreRefresh]);
 
-  const open = useCallback(async () => {
+  const open = useCallback(async (review = false) => {
     setPhase('loading');
     setFinishedSession(null);
     setIntroError(null);
@@ -117,8 +119,8 @@ export default function PresentDadMode({ userId, onScoreRefresh, onViewBondScore
       const preference = await supabase.from('present_dad_preferences')
         .select('intro_seen_at').eq('user_id', userId).maybeSingle();
       if (preference.error) throw preference.error;
-      if (preference.data?.intro_seen_at) {
-        const started = await mode.start();
+            if (preference.data?.intro_seen_at && !review) {
+            const started = await mode.start();
         if (!started) {
           setPhase('error');
           return;
@@ -133,6 +135,15 @@ export default function PresentDadMode({ userId, onScoreRefresh, onViewBondScore
       setPhase('error');
     }
   }, [mode.refresh, mode.start, persistIntroSeen, userId]);
+
+  const handledOpenRequest = useRef<string | null>(null);
+  useEffect(() => {
+    if (!openRequest || !focused || !userId || handledOpenRequest.current === openRequest) return;
+    handledOpenRequest.current = openRequest;
+    // Review only: the weekly report must never start a session by itself.
+    void open(true);
+    onOpenRequestHandled?.();
+  }, [openRequest, focused, userId, open, onOpenRequestHandled]);
 
   useEffect(() => {
     if (phase !== 'timer' || mode.session?.status !== 'active') return;

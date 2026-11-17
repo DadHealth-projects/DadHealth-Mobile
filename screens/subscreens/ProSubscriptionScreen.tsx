@@ -189,10 +189,22 @@ export default function ProSubscriptionScreen() {
               ))}
             </View>
             <View className="gap-sm">
-              <PlanRow title="Annual" price={planCopy.annual.price} suffix={planCopy.annual.suffix}
-                selected={selectedPlan === 'annual'} onPress={() => setSelectedPlan('annual')} />
-              <PlanRow title="Monthly" price={planCopy.monthly.price} suffix={planCopy.monthly.suffix}
-                selected={selectedPlan === 'monthly'} onPress={() => setSelectedPlan('monthly')} />
+              <PlanRow
+                title="Annual"
+                price={planCopy.annual.price}
+                suffix={planCopy.annual.suffix}
+                selected={selectedPlan === 'annual'}
+                disabled={subscriptions.purchasing || subscriptions.restoring || subscriptions.managing}
+                onPress={() => setSelectedPlan('annual')}
+              />
+              <PlanRow
+                title="Monthly"
+                price={planCopy.monthly.price}
+                suffix={planCopy.monthly.suffix}
+                selected={selectedPlan === 'monthly'}
+                disabled={subscriptions.purchasing || subscriptions.restoring || subscriptions.managing}
+                onPress={() => setSelectedPlan('monthly')}
+              />
             </View>
             {!user ? (
               <ProAction label="Log in to continue" onPress={() => navigation.navigate('Login')} />
@@ -229,9 +241,7 @@ export default function ProSubscriptionScreen() {
         ) : null}
 
         <View className="flex-row flex-wrap items-center justify-center gap-sm">
-        {user && (subscriptions.status?.isPro === false
-          || subscriptions.status?.primaryProvider === 'apple'
-          || subscriptions.status?.primaryProvider === 'google') ? (
+                  {user && subscriptions.storeSupported ? (
           <Pressable
             onPress={() => isOffline ? showOfflineAction('subscriptions') : void subscriptions.restore()}
             disabled={subscriptions.restoring || subscriptions.purchasing || subscriptions.managing}
@@ -288,11 +298,20 @@ function ProAction({ label, onPress, loading = false, disabled = false, outlined
   );
 }
 
-function PlanRow({ title, price, suffix, selected, onPress }: {
-  title: string; price: string | null; suffix: string; selected: boolean; onPress(): void;
+function PlanRow({ title, price, suffix, selected, onPress, disabled = false }: {
+  title: string;
+  price: string | null;
+  suffix: string;
+  selected: boolean;
+  onPress(): void;
+  disabled?: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ checked: selected }}
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: selected, disabled }}
       className={`min-h-[80px] rounded-[16px] flex-row items-center gap-md border px-lg py-md active:opacity-80 ${selected ? 'border-lime bg-lime/5' : 'border-transparent bg-card'}`}>
       <View className="flex-1 gap-xs">
         <Text className="font-body-semibold text-white text-[17px]">{title}</Text>

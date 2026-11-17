@@ -464,8 +464,23 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
     setRestoring(true);
     setError(null);
     setNotice(null);
-    try {
-      const available = await iap.getAvailablePurchases({ onlyIncludeActiveItemsIOS: true, includeSuspendedAndroid: false });
+        try {
+      if (offline.current) {
+        throw new Error('offline');
+      }
+
+      scope.connection ??= iap.initConnection().catch(failure => {
+        scope.connection = null;
+        throw failure;
+      });
+
+      await scope.connection;
+      if (!valid()) return;
+
+      const available = await iap.getAvailablePurchases({
+        onlyIncludeActiveItemsIOS: true,
+        includeSuspendedAndroid: false,
+      });
       if (!valid()) return;
       const configured = new Set(nativeProductIds());
       const purchases = available.filter((item) => configured.has(item.productId));

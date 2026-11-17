@@ -37,6 +37,7 @@ import StreakCard from '../components/dashboard/StreakCard';
 import SupportingTools, { type SupportingTool } from '../components/dashboard/SupportingTools';
 import TodayFocusCard from '../components/dashboard/TodayFocusCard';
 import WeeklyReportSheet from '../components/dashboard/WeeklyReportSheet';
+import { createReportFocusGate, reportFocus } from '../lib/weeklyReportPresentation';
 import { useStreakStatus } from '../hooks/useStreakStatus';
 import WeeklyReportCard from '../components/dashboard/WeeklyReportCard';
 import { useAuth } from '../contexts/AuthContext';
@@ -208,8 +209,13 @@ export function DashboardScreenContent({
   useEffect(() => { if (reportOpen && Platform.OS === 'ios') setReportNativePresented(true); }, [reportOpen]);
   const [reportWeek, setReportWeek] = useState<string | undefined>();
   const reportUpgradePending = useRef<string | null>(null);
+  const reportFocusGate = useRef(createReportFocusGate(user.id));
   const reportMounted = useRef(true);
-  useEffect(() => { reportMounted.current = true; return () => { reportMounted.current = false; reportUpgradePending.current = null; }; }, []);
+  useEffect(() => {
+    reportMounted.current = true;
+    reportFocusGate.current = createReportFocusGate(user.id);
+    return () => { reportMounted.current = false; reportUpgradePending.current = null; reportFocusGate.current.cancel(); };
+  }, [user.id]);
   const scoreUpgradePending = useRef<string | null>(null);
   const [reminderMessage, setReminderMessage] = useState<string | null>(null);
   const [promptDecisionReadyKey, setPromptDecisionReadyKey] = useState<string | null>(null);
@@ -848,6 +854,7 @@ useEffect(() => {
       </KeyboardAvoidingView>
       <WeeklyReportSheet
         key={`weekly-report:${user.id}`}
+        accountName={displayName === 'Dad' ? undefined : displayName}
         visible={reportOpen}
         report={shownReport.report}
         loading={shownReport.loading || (weeklyReportAccess === null && loading)}
@@ -859,12 +866,22 @@ useEffect(() => {
           if (weeklyReportAccess === null) void refresh(); else void shownReport.refresh();
         }}
         onUpgrade={() => { if (reportUpgradePending.current) return; reportUpgradePending.current = user.id; setReportOpen(false); }}
+        onFocus={pillar => {
+          if (!reportOpen || reportUpgradePending.current || !shownReport.report
+            || reportFocus(shownReport.report)?.pillar !== pillar) return;
+          if (reportFocusGate.current.queue(user.id, pillar)) setReportOpen(false);
+        }}
         onDismiss={() => {
           if (!reportMounted.current) return;
           setReportNativePresented(false);
           setReportDidShow(false);
           const owner = reportUpgradePending.current; reportUpgradePending.current = null;
           if (reportMounted.current && owner === user.id) openPro('weeklyReport', 'Your weekly report', 'lock', 'weekly_report');
+          const focus = reportFocusGate.current.take(user.id);
+          if (owner || !focus) return;
+          if (focus === 'mind') navigation.navigate('BreathingSession');
+          else if (focus === 'body') navigation.navigate('Tabs', { screen: 'Fit', params: { openWorkoutLibrary: true } });
+          else navigation.navigate('Tabs', { screen: 'Bond', params: { openPresentDad: String(Date.now()) } });
         }} />
       <PushPrePermissionPrompt
         eligible={permissionEligible && isFocused && !checkInModalOpen && !checkInNativePresented

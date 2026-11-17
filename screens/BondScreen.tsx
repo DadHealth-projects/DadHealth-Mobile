@@ -74,6 +74,11 @@ export default function BondScreen({
     });
   }, [navigation]);
 
+  const clearOpenPresentDad = useCallback(
+    () => bondNavigation.setParams({ openPresentDad: undefined }),
+    [bondNavigation],
+  );
+
   return (
     <PillarScreen
       scrollRef={scrollRef}
@@ -131,6 +136,8 @@ export default function BondScreen({
             onViewBondScore={onViewBondScore}
             completionSessionId={route.name === 'Bond' ? route.params?.completedPresentDadSessionId : undefined}
             notificationOperation={route.name === 'Bond' ? route.params?.notificationOperation : undefined}
+            openRequest={route.name === 'Bond' ? route.params?.openPresentDad : undefined}
+            onOpenRequestHandled={clearOpenPresentDad}
           />
         </View>
       </FadeInView>

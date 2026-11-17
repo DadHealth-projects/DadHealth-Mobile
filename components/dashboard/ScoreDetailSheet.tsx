@@ -70,7 +70,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} onDismiss={onDismiss}>
       <View className="flex-1 justify-end bg-black/55">
         <Pressable accessibilityRole="button" accessibilityLabel="Close score details" onPress={onClose} className="h-[10%]" />
-        <SafeAreaView edges={['bottom']} className="h-[70%] rounded-t-[28px] bg-[#111214]">
+        <SafeAreaView edges={['bottom']} className="h-[80%] rounded-t-[28px] bg-[#111214]">
           <View className="flex-row items-center justify-between px-lg pt-lg pb-sm">
             <View>
               <Text className="font-heading-bold text-lime text-[19px] tracking-[1px] uppercase">Score details</Text>

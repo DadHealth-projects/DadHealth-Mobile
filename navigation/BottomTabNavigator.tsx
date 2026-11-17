@@ -19,7 +19,7 @@ export type BottomTabsParamList = {
   Home: { notificationOperation?: string; openScoreDetail?: boolean; openWeeklyReport?: string; openDailyCheckIn?: boolean } | undefined;
   Mind: { notificationOperation?: string; openPersonalisedPlan?: boolean } | undefined;
   Fit: { notificationOperation?: string; openWorkoutLibrary?: boolean } | undefined;
-  Bond: { notificationOperation?: string; revealPresentDad?: boolean; completedPresentDadSessionId?: string } | undefined;
+    Bond: { notificationOperation?: string; revealPresentDad?: boolean; openPresentDad?: string; completedPresentDadSessionId?: string } | undefined;
   Squad: {notificationOperation?: string} | undefined;
 };
 
