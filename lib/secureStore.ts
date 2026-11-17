@@ -94,15 +94,11 @@ export const SecureStoreAdapter = {
     try {
       const count = await getChunkCount(key);
       if (count === 0) return null;
-      const parts: string[] = [];
-      for (let i = 0; i < count; i++) {
-        const part = await SecureStore.getItemAsync(chunkKey(key, i), secureStoreOptions);
-        // A missing chunk means corrupted/partial state — treat as no value.
-        if (part == null) {
-          return null;
-        }
-        parts.push(part);
-      }
+      const parts = await Promise.all(
+        Array.from({ length: count }, (_, i) => SecureStore.getItemAsync(chunkKey(key, i), secureStoreOptions)),
+      );
+      // A missing chunk means corrupted/partial state — treat as no value.
+      if (parts.some((part) => part == null)) return null;
       return parts.join('');
     } catch {
       return null;

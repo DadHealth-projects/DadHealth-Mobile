@@ -14,11 +14,11 @@ export default function AppleHealthManager() {
   }, [onboardingComplete, userId]);
 
   useEffect(() => {
-    sync();
+    const task = requestIdleCallback(sync);
     const subscription = AppState.addEventListener('change', (state: AppStateStatus) => {
       if (state === 'active') sync();
     });
-    return () => subscription.remove();
+    return () => { cancelIdleCallback(task); subscription.remove(); };
   }, [sync]);
 
   return null;

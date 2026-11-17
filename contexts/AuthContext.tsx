@@ -36,6 +36,7 @@ interface AuthContextType {
    * `null` while unknown (no user, or the profile is still being fetched).
    */
   onboardingComplete: boolean | null;
+  onboardingLoading: boolean;
   /** Re-fetch onboarding status and report whether the new flow is complete. */
   refreshOnboarding: () => Promise<boolean>;
   signUp: (email: string, password: string) => Promise<AuthResult>;
@@ -61,6 +62,7 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: true,
   onboardingComplete: null,
+  onboardingLoading: true,
   refreshOnboarding: async () => false,
   signUp: async () => ({ error: null }),
   signIn: async () => ({ error: null }),
@@ -77,7 +79,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const lastAuthenticatedUserId = useRef<string | null>(null);
-  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+  const [onboarding, setOnboarding] = useState<{ owner: string; complete: boolean | null; loading: boolean } | null>(null);
+  const onboardingRequest = useRef(0);
+  const onboardingComplete = onboarding?.owner === user?.id ? onboarding?.complete ?? null : null;
+  const onboardingLoading = Boolean(user?.id) && (!onboarding || onboarding.owner !== user?.id || onboarding.loading);
   // The enrollment prompt keeps only the email needed by the existing UI.
   // Device credentials are generated locally only after the user opts in.
   const [pendingEnrollment, setPendingEnrollment] = useState<{
@@ -89,6 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     data: { subscription },
   } = supabase.auth.onAuthStateChange((_event, nextSession) => {
     const previousUserId = lastAuthenticatedUserId.current;
+    if (previousUserId !== (nextSession?.user.id ?? null)) {
+      onboardingRequest.current++;
+      setOnboarding(null);
+    }
     setSession(nextSession);
     setUser(nextSession?.user ?? null);
 
@@ -98,18 +107,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastAuthenticatedUserId.current = null;
       if (previousUserId) void pauseAndClearOfflineUser(previousUserId).catch(() => undefined);
       setPendingEnrollment(null);
-      setOnboardingComplete(null);
     }
 
     setLoading(false);
   });
 
-  return () => subscription.unsubscribe();
+  return () => { onboardingRequest.current++; subscription.unsubscribe(); };
 }, []);
 
   // Fetch onboarding status whenever the signed-in user changes. Kept separate
   // from the auth listener so it's a profile read, not an auth round-trip.
   const loadOnboarding = useCallback(async (userId: string): Promise<boolean> => {
+    const request = ++onboardingRequest.current;
+    const isCurrent = () => request === onboardingRequest.current && lastAuthenticatedUserId.current === userId;
+    setOnboarding(previous => ({ owner: userId, complete: previous?.owner === userId ? previous.complete : null, loading: true }));
     try {
       const { data, error } = await supabase
         .from('user_profile')
@@ -117,13 +128,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('user_id', userId)
         .maybeSingle();
       if (error) throw error;
+      if (!isCurrent()) return false;
       const complete = isOnboardingComplete(data);
-      setOnboardingComplete(complete);
+      setOnboarding({ owner: userId, complete, loading: false });
       return complete;
     } catch {
-      // Don't trap the user in a splash on a transient profile-read failure —
-      // let them into the app and surface onboarding later if needed.
-      setOnboardingComplete(false);
+      // A failed read is not evidence of incomplete onboarding. Retain only
+      // this account's verified result; otherwise leave completion unknown.
+      if (isCurrent()) setOnboarding(previous => ({
+        owner: userId, complete: previous?.owner === userId ? previous.complete : null, loading: false,
+      }));
       return false;
     }
   }, []);
@@ -131,10 +145,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const userId = user?.id;
     if (!userId) {
-      setOnboardingComplete(null);
       return;
     }
-    setOnboardingComplete(null);
     void loadOnboarding(userId);
   }, [user?.id, loadOnboarding]);
 
@@ -233,6 +245,7 @@ const value: AuthContextType = {
   session,
   loading,
   onboardingComplete,
+  onboardingLoading,
   refreshOnboarding,
   signUp,
   signIn,

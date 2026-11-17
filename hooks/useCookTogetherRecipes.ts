@@ -64,6 +64,7 @@ export function useCookTogetherRecipes(userId?: string) {
     setLoading(true);
     setError(null);
     setWeeklyRecipeError(null);
+    try {
     const [recipeResult, savedResult, scoreResult, completedResult, assignmentResult] = await Promise.all([
       supabase.from('recipes').select('*').eq('cook_together', true).order('prep_mins', { ascending: true }),
       userId ? supabase.from('user_saved_recipes').select('recipe_id').eq('user_id', userId) : Promise.resolve({ data: [], error: null }),
@@ -103,7 +104,12 @@ export function useCookTogetherRecipes(userId?: string) {
     if (!scoreResult.error) {
       setBondScore(typeof scoreResult.data?.bond_score === 'number' ? scoreResult.data.bond_score : null);
     }
-    setLoading(false);
+    } catch {
+      setError('Cook Together recipes are unavailable. Please try again.');
+      setWeeklyRecipeError("We couldn't load this week's featured recipe. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }, [isOffline, userId]);
 
   useEffect(() => { void refresh(); }, [refresh]);
