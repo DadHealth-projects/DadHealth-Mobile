@@ -1,3 +1,4 @@
+import { useNotificationPresentation } from '../contexts/NotificationInboxContext';
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +12,8 @@ import { colors } from '../theme';
 const REFRESH_SKELETON_MAX_MS = 900;
 
 type PillarScreenProps = {
+  scrollRef?: React.Ref<React.ElementRef<typeof ScrollView>>;
+  onScroll?: React.ComponentProps<typeof ScrollView>['onScroll'];
   /** Rendered instead of `children` on the first load (skeleton standard). */
   loading?: boolean;
   skeleton?: React.ReactNode;
@@ -31,6 +34,8 @@ type PillarScreenProps = {
  * 24px gutters / 32px section rhythm. Screens supply only their content.
  */
 export default function PillarScreen({
+  scrollRef,
+  onScroll,
   loading = false,
   skeleton,
   refreshing = false,
@@ -63,10 +68,14 @@ export default function PillarScreen({
   }, [refreshing, preserveContentOnRefresh]);
 
   const showSkeleton = loading || (!preserveContentOnRefresh && refreshing && !refreshSkeletonExpired);
+  useNotificationPresentation(!showSkeleton && !error, !showSkeleton && Boolean(error));
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
       <ScrollView
+        ref={scrollRef}
+        onScroll={onScroll}
+        scrollEventThrottle={onScroll ? 16 : undefined}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerClassName="px-lg pt-lg pb-[120px] gap-xl"
@@ -76,9 +85,9 @@ export default function PillarScreen({
           ) : undefined
         }
       >
-        <AppTopBar
+        <AppTopBar showNotifications
           showNavigation={Boolean(dashboardSection)}
-          showBrand={!dashboardSection}
+          showBrand
           activeSection={dashboardSection}
           onSelectSection={onSelectDashboardSection}
         />

@@ -1,3 +1,4 @@
+import { resolveNotificationDestination } from './notificationDestinations';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import { NativeModules, Platform, TurboModuleRegistry } from 'react-native';
 import type { NotificationClickEvent, OneSignal as OneSignalSdk } from 'react-native-onesignal';
@@ -7,12 +8,17 @@ import { isReportWeek } from './weeklyReport';
 import { isValidCommunityPostId } from './deepLinks';
 
 type NotificationData = {
+  inbox_event_id?: unknown;
   type?: unknown;
   reporting_week?: unknown;
   link?: unknown;
   post_id?: unknown;
   event_id?: unknown;
   schedule_id?: unknown;
+  destination_version?: unknown;
+  pillar?: unknown;
+  workout_id?: unknown;
+  trial_episode?: unknown;
 };
 
 let initialized = false;
@@ -25,6 +31,15 @@ let pendingShownWhileSignedOut = false;
 let currentOwner: string | null = null;
 let pendingOwner: string | null = null;
 const consumedWeeklyNotifications = new Set<string>();
+let modalBlocked = false;
+let unavailableOwner:string|null=null;
+function presentUnavailable(){
+ if(unavailableOwner && unavailableOwner===currentOwner && !modalBlocked && navigationRef?.isReady()){unavailableOwner=null;navigationRef.navigate('Notifications');}
+}
+export function setPushModalBlocked(blocked: boolean) {
+  modalBlocked = blocked;
+  if (!blocked) { presentUnavailable(); flushPendingNavigation(); presentInboxOperation(); }
+}
 
 function getOneSignal(): typeof OneSignalSdk | null {
   if (oneSignal !== undefined) return oneSignal;
@@ -56,97 +71,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function navigateFromData(data: NotificationData): boolean {
   if (!navigationRef?.isReady() || !navigationLifecycleReady) return false;
-
-  if (
-    data.type === 'community_reply' &&
-    isValidCommunityPostId(data.post_id)
-  ) {
-    navigationRef.navigate('CommunityPostThread', {
-      postId: data.post_id,
-    });
-    return true;
-  }
-
-  if (
-    data.type === 'community_like' &&
-    isValidCommunityPostId(data.post_id)
-  ) {
-    navigationRef.navigate('CommunityPostThread', {
-      postId: data.post_id,
-    });
-    return true;
-  }
-
-  if (data.type === 'co_parent_event_added') {
-    navigationRef.navigate('SharedCalendar');
-    return true;
-  }
-
-  if (data.type === 'present_dad_mode_complete') {
-    navigationRef.navigate('Tabs', { screen: 'Bond' });
-    return true;
-  }
-
-  if (data.type === 'weekly_score') {
-    if (!isReportWeek(data.reporting_week)) return false;
-    navigationRef.navigate('Tabs', { screen: 'Home', params: { openWeeklyReport: data.reporting_week } });
-    return true;
-  }
-
-  if (data.type === 'score' || data.link === '/progress' || data.link === '/score') {
-    navigationRef.navigate('Tabs', { screen: 'Home', params: { openScoreDetail: true } });
-    return true;
-  }
-
-  if (
-    data.type === 'morning_checkin' ||
-    data.type === 'streak_at_risk' ||
-    data.link === '/'
-  ) {
-    navigationRef.navigate('Tabs', { screen: 'Home' });
-    return true;
-  }
-
-  if (
-    data.type === 'bedtime_story' ||
-    data.type === 'milestone_anniversary' ||
-    data.link === '/bond'
-  ) {
-    navigationRef.navigate('Tabs', { screen: 'Bond' });
-    return true;
-  }
-
-  if (
-    data.type === 'workout_window' ||
-    data.link === '/fitness'
-  ) {
-    navigationRef.navigate('Tabs', { screen: 'Fit' });
-    return true;
-  }
-
-  if (
-    data.type === 'journal_prompt' ||
-    data.link === '/mind'
-  ) {
-    navigationRef.navigate('Tabs', { screen: 'Mind' });
-    return true;
-  }
-
-  if (
-    data.type === 'community_reply' ||
-    data.type === 'community_like' ||
-    data.link === '/community'
-  ) {
-    navigationRef.navigate('Tabs', { screen: 'Squad' });
-    return true;
-  }
-
-  return false;
+  const target=resolveNotificationDestination(data as Record<string,unknown>);
+  if(!target) return false;
+  const navigate=navigationRef.navigate as (...args:any[])=>void;
+  if(target.params) navigate(target.route,target.params); else navigate(target.route);
+  return true;
 }
 
 function flushPendingNavigation(): boolean {
   if (
-    !pendingData ||
+    !pendingData || modalBlocked ||
     !navigationLifecycleReady ||
     !navigationRef?.isReady()
   ) {
@@ -157,9 +91,15 @@ function flushPendingNavigation(): boolean {
     return false;
   }
 
-  if (pendingData.type === 'weekly_score') {
+  if (pendingData) {
     if (pendingOwner && pendingOwner !== currentOwner) { pendingData = null; return false; }
     if (!authenticatedDestinationReady || !currentOwner) return false;
+  }
+  if (typeof pendingData.inbox_event_id === 'string') {
+    const id=pendingData.inbox_event_id;
+    pendingData=null;
+    void openInboxNotification(id);
+    return true;
   }
   const navigated = navigateFromData(pendingData);
 
@@ -187,8 +127,8 @@ function onNotificationClick(event: NotificationClickEvent) {
 
   if (!isRecord(additionalData)) return;
 
-  if (additionalData.type === 'weekly_score') {
-    if (!isReportWeek(additionalData.reporting_week)) return;
+  if (!additionalData.inbox_event_id && additionalData.type === 'weekly_score' && !isReportWeek(additionalData.reporting_week)) return;
+  {
     const identity = event.notification.notificationId;
     if (identity && consumedWeeklyNotifications.has(identity)) return;
     if (identity) consumedWeeklyNotifications.add(identity);
@@ -239,12 +179,15 @@ export function setPushNavigationLifecycleReady(
 
   if (ready) {
     flushPendingNavigation();
+    presentInboxOperation();
   }
 }
 
 export function loginPushUser(userId: string) {
   if (currentOwner && currentOwner !== userId) {
-    if (pendingData?.type === 'weekly_score') pendingData = null;
+    pendingData = null;
+    unavailableOwner=null;
+    cancelInboxNavigation();
     consumedWeeklyNotifications.clear();
   }
   currentOwner = userId;
@@ -257,7 +200,10 @@ export function loginPushUser(userId: string) {
 }
 
 export function logoutPushUser() {
-  if (pendingData?.type === 'weekly_score') pendingData = null;
+  cancelInboxNavigation();
+  pendingData = null;
+  modalBlocked = false;
+  unavailableOwner=null;
   currentOwner = null; pendingOwner = null; consumedWeeklyNotifications.clear();
   const sdk = getOneSignal();
 
@@ -290,4 +236,55 @@ export async function requestPushPermission() {
     configured: true,
     granted,
   };
+}
+
+// Account-owned, bounded operation. No timers and no acknowledgement on navigate().
+type InboxBridge={owner:string;read:(id:string,signal:AbortSignal)=>Promise<{destination:Record<string,unknown>}>;
+ acknowledge:(id:string,signal:AbortSignal)=>Promise<void>;unavailable:()=>void};
+let inboxBridge:InboxBridge|null=null;
+let operation:{token:string;owner:string;id:string;controller:AbortController;family:string;origin?:string;destination?:Record<string,unknown>;presented:boolean;acknowledging:boolean}|null=null;
+let operationSequence=0;
+export function configureInboxNavigation(bridge:InboxBridge|null){
+ if(inboxBridge?.owner!==bridge?.owner) cancelInboxNavigation();
+ inboxBridge=bridge;
+ if(bridge) flushPendingNavigation();
+}
+export function cancelInboxNavigation(){operation?.controller.abort();operation=null;}
+export function notificationOperationFamily(token:unknown){return typeof token==='string'&&operation?.token===token?operation.family:null;}
+function presentInboxOperation(){
+ const op=operation;
+ if(!op?.destination||op.presented||modalBlocked||!navigationLifecycleReady||!authenticatedDestinationReady||currentOwner!==op.owner||!navigationRef?.isReady()) return;
+ const target=resolveNotificationDestination(op.destination);
+ if(!target){inboxBridge?.unavailable();cancelInboxNavigation();return;}
+ const params=target.route==='Tabs'?{...target.params,params:{...(target.params?.params as object ?? {}),notificationOperation:op.token}}
+   :{...target.params,notificationOperation:op.token};
+ op.family=target.family;op.presented=true;
+ (navigationRef.navigate as (...args:any[])=>void)(target.route,params);
+}
+export async function openInboxNotification(id:string){
+ if(!/^[0-9a-f-]{36}$/i.test(id))return;
+ if(!currentOwner||!authenticatedDestinationReady||!inboxBridge||inboxBridge.owner!==currentOwner){pendingData={inbox_event_id:id};pendingOwner=currentOwner;return;}
+ if(operation?.id===id&&operation.owner===currentOwner)return;
+ cancelInboxNavigation();
+ const bridge=inboxBridge,op={token:String(++operationSequence),owner:currentOwner,id,controller:new AbortController(),family:'',origin:navigationRef?.getCurrentRoute?.()?.key,presented:false,acknowledging:false};
+ operation=op;
+ try{
+  const event=await bridge.read(id,op.controller.signal);
+  if(operation!==op||currentOwner!==op.owner)return;
+  operation.destination=event.destination;
+  presentInboxOperation();
+ }catch{
+  if(operation===op&&currentOwner===op.owner){bridge.unavailable();cancelInboxNavigation();navigationRef?.navigate('Notifications');}
+ }
+}
+export function notificationRouteChanged(token:unknown,routeKey?:string){
+ if(operation && (operation.presented ? token!==operation.token : operation.origin && routeKey!==operation.origin)) cancelInboxNavigation();
+}
+export async function confirmNotificationPresentation(token:unknown,owner:string|undefined,available=true){
+ const op=operation,bridge=inboxBridge;
+ if(!op||op.token!==token||op.owner!==owner||currentOwner!==owner||bridge?.owner!==owner||op.acknowledging)return;
+ if(!available){bridge.unavailable();unavailableOwner=owner;cancelInboxNavigation();presentUnavailable();return;}
+ op.acknowledging=true;
+ try{await bridge.acknowledge(op.id,op.controller.signal);}
+ finally{if(operation===op)operation=null;}
 }

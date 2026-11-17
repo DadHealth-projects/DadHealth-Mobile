@@ -16,11 +16,11 @@ import type { AppStackParamList } from './AppNavigator';
 import type { NavigationProp } from '@react-navigation/native';
 
 export type BottomTabsParamList = {
-  Home: { openScoreDetail?: boolean; openWeeklyReport?: string } | undefined;
-  Mind: { openPersonalisedPlan?: boolean } | undefined;
-  Fit: { openWorkoutLibrary?: boolean } | undefined;
-  Bond: undefined;
-  Squad: undefined;
+  Home: { notificationOperation?: string; openScoreDetail?: boolean; openWeeklyReport?: string; openDailyCheckIn?: boolean } | undefined;
+  Mind: { notificationOperation?: string; openPersonalisedPlan?: boolean } | undefined;
+  Fit: { notificationOperation?: string; openWorkoutLibrary?: boolean } | undefined;
+  Bond: { notificationOperation?: string; revealPresentDad?: boolean; completedPresentDadSessionId?: string } | undefined;
+  Squad: {notificationOperation?: string} | undefined;
 };
 
 const Tab = createBottomTabNavigator<BottomTabsParamList>();
@@ -276,7 +276,7 @@ export default function BottomTabNavigator() {
       initialRouteName="Home"
       screenOptions={{
         headerShown: false,
-        lazy: false,
+        lazy: true,
         animation: 'fade',
         sceneStyle: { backgroundColor: colors.dark },
         tabBarStyle: {

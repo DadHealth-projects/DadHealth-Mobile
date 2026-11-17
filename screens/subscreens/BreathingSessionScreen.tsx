@@ -1,3 +1,4 @@
+import { useNotificationPresentation } from '../../contexts/NotificationInboxContext';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, AppState, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,6 +26,7 @@ export default function BreathingSessionScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const isFocused = useIsFocused();
   const { user } = useAuth();
+  useNotificationPresentation(Boolean(user), false, 'mind-reset');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [active, setActive] = useState(false);
   const [appIsActive, setAppIsActive] = useState(

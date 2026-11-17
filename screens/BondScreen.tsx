@@ -1,7 +1,9 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { confirmNotificationPresentation } from '../lib/pushNotifications';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useNavigation, useRoute, useIsFocused, type NavigationProp, type RouteProp } from '@react-navigation/native';
+import type { BottomTabsParamList } from '../navigation/BottomTabNavigator';
 
 import BondScoreCard from '../components/bond/BondScoreCard';
 import ManualActivitySection from '../components/manualActivities/ManualActivitySection';
@@ -26,6 +28,30 @@ export default function BondScreen({
 } = {}) {
   const { user } = useAuth();
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
+  const route = useRoute<RouteProp<BottomTabsParamList, 'Bond'>>();
+  const focused = useIsFocused();
+  const suggestion = useRef<React.ElementRef<typeof View>>(null);
+  const scrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
+  const revealTarget = useRef<{y:number;token:string|undefined;owner:string}|null>(null);
+  const [suggestionLaidOut, setSuggestionLaidOut] = useState(false);
+  const reveal = route.name === 'Bond' && route.params?.revealPresentDad === true;
+  const bondNavigation = useNavigation<NavigationProp<BottomTabsParamList, 'Bond'>>();
+  useEffect(() => {
+    if (!focused || !reveal || !user?.id || !suggestionLaidOut) return;
+    // Reveal the existing control only. Never call PresentDadMode.open/start.
+    const content = scrollRef.current?.getInnerViewRef();
+    if (!content) return;
+    let active = true;
+    suggestion.current?.measureLayout(content, (_x, y) => {
+      if (!active) return;
+      const targetY = Math.max(0, y - 16);
+      revealTarget.current={y:targetY,token:route.params?.notificationOperation,owner:user.id};
+      scrollRef.current?.scrollTo({ y: targetY, animated: true });
+      if(targetY===0) void confirmNotificationPresentation(route.params?.notificationOperation,user.id);
+      bondNavigation.setParams({ revealPresentDad: undefined });
+    });
+    return () => { active = false; };
+  }, [focused, reveal, user?.id, bondNavigation, suggestionLaidOut, route.params?.notificationOperation]);
   const { data, loading, error, refresh } = useDashboard(user?.id);
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -50,6 +76,15 @@ export default function BondScreen({
 
   return (
     <PillarScreen
+      scrollRef={scrollRef}
+      onScroll={({nativeEvent})=>{
+        const target=revealTarget.current;
+        const maximum = Math.max(0, nativeEvent.contentSize.height-nativeEvent.layoutMeasurement.height);
+        if(target && Math.abs(nativeEvent.contentOffset.y-Math.min(target.y,maximum))<2){
+          revealTarget.current=null;
+          void confirmNotificationPresentation(target.token,target.owner);
+        }
+      }}
       loading={loading && !data}
       skeleton={<PillarSkeleton score cards={3} />}
       refreshing={refreshing}
@@ -88,7 +123,16 @@ export default function BondScreen({
       </FadeInView>
 
       <FadeInView delay={130}>
-        <PresentDadMode userId={user?.id} onScoreRefresh={() => void refresh()} onViewBondScore={onViewBondScore} />
+        <View ref={suggestion} collapsable={false} onLayout={() => setSuggestionLaidOut(true)}>
+          <PresentDadMode
+            key={user?.id}
+            userId={user?.id}
+            onScoreRefresh={() => void refresh()}
+            onViewBondScore={onViewBondScore}
+            completionSessionId={route.name === 'Bond' ? route.params?.completedPresentDadSessionId : undefined}
+            notificationOperation={route.name === 'Bond' ? route.params?.notificationOperation : undefined}
+          />
+        </View>
       </FadeInView>
 
       <FadeInView delay={180}>

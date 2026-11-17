@@ -1,3 +1,4 @@
+import { useNotificationPresentation } from '../../contexts/NotificationInboxContext';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -77,6 +78,8 @@ export default function SharedCalendarScreen() {
   // Screen load problems go to the bottom snackbar; the custody, co-parent and
   // event forms each own an inline slot beside their own action.
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [notificationContentOwner, setNotificationContentOwner] = useState<string | null>(null);
+  useNotificationPresentation(notificationContentOwner === user?.id && !loading && Boolean(schedule || sharedSchedule) && !loadError && !isOffline, notificationContentOwner === user?.id && !loading && (Boolean(loadError) || (!schedule && !sharedSchedule)), 'calendar');
   const [custodyError, setCustodyError] = useState<string | null>(null);
   const [coParentError, setCoParentError] = useState<string | null>(null);
   const [eventError, setEventError] = useState<string | null>(null);
@@ -117,6 +120,7 @@ export default function SharedCalendarScreen() {
       setLoadError(
         "We could not load the co-parenting calendar. Please try again.",
       );
+      setNotificationContentOwner(user.id);
       setLoading(false);
       return;
     }
@@ -128,6 +132,7 @@ export default function SharedCalendarScreen() {
     if (!activeSchedule) {
       setEvents([]);
       setMilestones([]);
+      setNotificationContentOwner(user.id);
       setLoading(false);
       return;
     }
@@ -156,7 +161,8 @@ export default function SharedCalendarScreen() {
       setEvents((eventResult.data ?? []) as SharedEvent[]);
       setMilestones((milestoneResult?.data ?? []) as SharedMilestone[]);
     }
-    setLoading(false);
+    setNotificationContentOwner(user.id);
+      setLoading(false);
   }, [isOffline, user?.id]);
 
   useEffect(() => {

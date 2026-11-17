@@ -1,3 +1,5 @@
+import { useNotificationPresentation } from '../contexts/NotificationInboxContext';
+import { confirmNotificationPresentation, notificationOperationFamily } from '../lib/pushNotifications';
 import { checkInDate } from '../lib/checkInCalendar';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -19,6 +21,9 @@ import AppTopBar from '../components/AppTopBar';
 import type { DashboardSection } from '../components/AccountSheet';
 import ChallengeCard from '../components/dashboard/ChallengeCard';
 import CheckInFollowUp from '../components/dashboard/CheckInFollowUp';
+import PushPrePermissionPrompt from '../components/PushPrePermissionPrompt';
+import { setPushModalBlocked } from '../lib/pushNotifications';
+import { subscribeOfflineSync } from '../lib/offlineStorage';
 import DailyCheckInModal from '../components/dashboard/DailyCheckInModal';
 import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
 import DadScoreCard from '../components/dashboard/DadScoreCard';
@@ -42,6 +47,7 @@ import { useEntitlement } from '../hooks/useEntitlement';
 import { useNetworkStatus } from '../contexts/NetworkContext';
 import { useUpgradeMomentManager } from '../contexts/UpgradeMomentContext';
 import { CAPS } from '../lib/dashboardCaps';
+import { supabase } from '../lib/supabase';
 import {
   getDashboardScore,
   getScoreBreakdown,
@@ -62,7 +68,7 @@ import type { AppStackParamList } from '../navigation/AppNavigator';
 import TodayWorkoutCard from '../components/dashboard/TodayWorkoutCard';
 
 // TODAY top-centre brand logo (dark-background colour logo).
-const TODAY_LOGO = require('../assets/02. DAD HEALTH LOGO_COLOR_Dark BG.png');
+const TODAY_LOGO = require('../assets/DH LOGO_LimeWhite_DarkBG.png');
 const attemptedCheckInPromptSessions = new Set<string>();
 
 /** Signed-in dashboard screen, kept separate from the public Home experience. */
@@ -71,11 +77,15 @@ export default function DashboardScreen({
   onScoreDetailRequestConsumed,
   openWeeklyReport,
   onWeeklyReportRequestConsumed,
+  openDailyCheckIn: requestedCheckIn = false,
+  onDailyCheckInRequestConsumed,
 }: {
   openScoreDetail?: boolean;
   onScoreDetailRequestConsumed?: () => void;
   openWeeklyReport?: string;
   onWeeklyReportRequestConsumed?: () => void;
+  openDailyCheckIn?: boolean;
+  onDailyCheckInRequestConsumed?: () => void;
 }) {
   const { user } = useAuth();
   const [activeSection, setActiveSection] = useState<DashboardSection>('HOME');
@@ -92,7 +102,7 @@ export default function DashboardScreen({
     return () => subscription.remove();
   }, []);
 
-  useEffect(() => { if (openWeeklyReport) setActiveSection('HOME'); }, [openWeeklyReport]);
+  useEffect(() => { if (openWeeklyReport || requestedCheckIn) setActiveSection('HOME'); }, [openWeeklyReport, requestedCheckIn]);
 
   if (!user?.id) return null;
 
@@ -114,6 +124,8 @@ export default function DashboardScreen({
       activeSection={activeSection}
       onSelectSection={setActiveSection}
       openScoreDetail={openScoreDetail || activeSection === 'PROGRESS'}
+      openDailyCheckIn={requestedCheckIn}
+      onDailyCheckInRequestConsumed={onDailyCheckInRequestConsumed}
       openWeeklyReport={openWeeklyReport}
       onWeeklyReportRequestConsumed={onWeeklyReportRequestConsumed}
       onScoreDetailRequestConsumed={onScoreDetailRequestConsumed}
@@ -138,6 +150,8 @@ export function DashboardScreenContent({
   onScoreDetailRequestConsumed,
   openWeeklyReport,
   onWeeklyReportRequestConsumed,
+  openDailyCheckIn: requestedCheckIn = false,
+  onDailyCheckInRequestConsumed,
 }: {
   user: User;
   foregroundSessionId: number;
@@ -147,11 +161,14 @@ export function DashboardScreenContent({
   onScoreDetailRequestConsumed?: () => void;
   openWeeklyReport?: string;
   onWeeklyReportRequestConsumed?: () => void;
+  openDailyCheckIn?: boolean;
+  onDailyCheckInRequestConsumed?: () => void;
 }) {
   const { pendingBiometricEnrollment } = useAuth();
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const isFocused = useIsFocused();
   const route = useRoute();
+  const notificationOperation = (route.params as {notificationOperation?:string}|undefined)?.notificationOperation;
   const { requestMoment } = useUpgradeMomentManager();
   const { data, loading, error: dashboardError, syncError, checkingIn, refresh, saveCheckIn } = useDashboard(user.id);
   const weeklyWorkoutState = useFitnessLibrary(user.id, activeSection === 'HOME', activeSection === 'HOME' && isFocused);
@@ -210,7 +227,7 @@ export function DashboardScreenContent({
     ? data?.moodLogs.some(log => log.date === todayDate) ?? null : null;
   const waitForPromptDecision = Boolean(
     isFocused && activeSection === 'HOME' && checkedInToday === false &&
-    !checkInModalOpen && !scoreSheetOpen && !reportOpen && !reportNativePresented && !openWeeklyReport && !openScoreDetail && !pendingBiometricEnrollment &&
+    !checkInModalOpen && !requestedCheckIn && !scoreSheetOpen && !reportOpen && !reportNativePresented && !openWeeklyReport && !openScoreDetail && !pendingBiometricEnrollment &&
     !attemptedCheckInPromptSessions.has(promptDecisionKey) &&
     promptDecisionReadyKey !== promptDecisionKey,
   );
@@ -270,12 +287,62 @@ export function DashboardScreenContent({
     [data?.reminders],
   );
 
+  const [permissionEligible, setPermissionEligible] = useState(false);
+const [permissionPresented, setPermissionPresented] = useState(false);
+
+useEffect(() => {
+  if (!isFocused || isOffline || permissionEligible) return;
+
+  let active = true;
+
+  void (async () => {
+    try {
+      const result = await supabase
+        .from('mood_logs')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1);
+
+      if (active && !result.error && result.data?.length) {
+        setPermissionEligible(true);
+      }
+    } catch {
+      // Keep eligibility unconfirmed; a later focus/reconnect can recheck.
+    }
+  })();
+
+  return () => {
+    active = false;
+  };
+}, [isFocused, isOffline, permissionEligible, user.id]);
+  useEffect(() => subscribeOfflineSync(event => {
+    if (event.userId === user.id && event.kind === 'daily_checkin' && event.status === 'synced') setPermissionEligible(true);
+  }), [user.id]);
   const handleCheckIn = useCallback(async ({ moodValue, energyLevel, connectionLevel, sleepHours }: {
     moodValue: number;
     energyLevel: number;
     connectionLevel: number;
     sleepHours: number | null;
-  }) => saveCheckIn(moodValue, energyLevel, connectionLevel, sleepHours), [saveCheckIn]);
+  }) => {
+    const result = await saveCheckIn(moodValue, energyLevel, connectionLevel, sleepHours);
+    if (!result.error && !result.queued && !result.inFlight && reportMounted.current) setPermissionEligible(true);
+    return result;
+  }, [saveCheckIn]);
+
+  const pushModalBusy = checkInModalOpen || checkInNativePresented || reportOpen || reportNativePresented
+    || scoreSheetOpen || scoreNativePresented || Boolean(pendingBiometricEnrollment) || permissionPresented;
+  useEffect(() => {
+    setPushModalBlocked(pushModalBusy);
+  }, [pushModalBusy]);
+  useEffect(() => () => setPushModalBlocked(false), []);
+  useEffect(() => {
+    if (!requestedCheckIn || !isFocused || pushModalBusy || loading || checkedInToday === null) return;
+    onDailyCheckInRequestConsumed?.();
+    if (checkedInToday === false) {
+      pendingPrompt.current = null;
+      setCheckInModalOpen(true);
+    }
+  }, [requestedCheckIn, isFocused, pushModalBusy, loading, checkedInToday, onDailyCheckInRequestConsumed]);
 
   const todayFocus = useMemo(() => {
     if (data?.checkedInToday === null && data?.recommendedAction === 'checkin') return null;
@@ -294,6 +361,11 @@ export function DashboardScreenContent({
     reportOpen && Boolean(reportWeek),
   );
   const shownReport = reportWeek ? requestedReport : latestReport;
+  const [reportDidShow, setReportDidShow] = useState(false);
+  useNotificationPresentation(Boolean(data) && !loading, Boolean(dashboardError) && !data && !loading);
+  useNotificationPresentation(checkedInToday === true && !loading && !pushModalBusy, false, 'check-in');
+  useNotificationPresentation(reportOpen && reportDidShow && shownReport.report?.weekStart === reportWeek,
+    reportOpen && reportDidShow && !shownReport.loading && (shownReport.empty || Boolean(shownReport.error)) && !shownReport.report, 'report');
   const liveStreak = useStreakStatus(user.id);
   useEffect(() => { if (checkedInToday) void liveStreak.refresh(); }, [checkedInToday, liveStreak.refresh]);
   useEffect(() => {
@@ -349,13 +421,14 @@ export function DashboardScreenContent({
   const confirmCheckInShown = useCallback(() => {
     if (!reportMounted.current || !promptPresentation.current.visible
       || promptPresentation.current.key !== promptDecisionKey) return;
+    if (notificationOperationFamily(notificationOperation) === 'check-in') void confirmNotificationPresentation(notificationOperation, user.id);
     attemptedCheckInPromptSessions.add(promptDecisionKey);
     const pending = pendingPrompt.current;
     if (!pending || pending.key !== promptDecisionKey) return;
     pendingPrompt.current = null; // Repeated native onShow must count only once.
     promptStateRef.current = pending.state;
     void AsyncStorage.setItem(dailyCheckInStorageKey, JSON.stringify(pending.state)).catch(() => undefined);
-  }, [promptDecisionKey, dailyCheckInStorageKey]);
+  }, [promptDecisionKey, dailyCheckInStorageKey, notificationOperation, user.id]);
 
   const initialCheckInAnswers = useMemo(() => {
     const today = todayDate;
@@ -380,7 +453,7 @@ export function DashboardScreenContent({
       return undefined;
     }
 
-    if (reportOpen || reportNativePresented || checkInNativePresented || openWeeklyReport || scoreSheetOpen || pendingBiometricEnrollment || openScoreDetail) {
+    if (reportOpen || reportNativePresented || checkInNativePresented || openWeeklyReport || scoreSheetOpen || pendingBiometricEnrollment || openScoreDetail || permissionPresented || requestedCheckIn) {
       setPromptDecisionReadyKey(promptDecisionKey);
       return undefined;
     }
@@ -439,7 +512,7 @@ export function DashboardScreenContent({
       active = false;
       if (promptSessionRequestKey.current === promptDecisionKey) promptSessionRequestKey.current = null;
     };
-  }, [activeSection, checkInModalOpen, dailyCheckInStorageKey, data, checkedInToday, isFocused, loading, openScoreDetail, pendingBiometricEnrollment, promptDecisionKey, reportOpen, reportNativePresented, checkInNativePresented, openWeeklyReport, scoreSheetOpen, todayDate, user.id]);
+  }, [activeSection, checkInModalOpen, dailyCheckInStorageKey, data, checkedInToday, isFocused, loading, openScoreDetail, pendingBiometricEnrollment, promptDecisionKey, reportOpen, reportNativePresented, checkInNativePresented, openWeeklyReport, scoreSheetOpen, todayDate, user.id, permissionPresented, requestedCheckIn]);
 
   useEffect(() => {
     if (openScoreDetail && !scoreDetailRequestHandled.current) {
@@ -577,24 +650,26 @@ export function DashboardScreenContent({
     dismissToast();
     setRefreshing(true);
     try {
-      await Promise.all([
-        isOffline ? refresh() : refreshDashboardForUser(user.id),
+      // Section reads update their own state; a slow section must not keep
+      // Today's refresh gesture locked after the dashboard has settled.
+      void Promise.allSettled([
         refreshWeeklyWorkout(),
         refreshCookTogether(),
         latestReport.refresh(),
         liveStreak.refresh(),
       ]);
+      await refresh();
     } finally {
       refreshInFlight.current = false;
       setRefreshing(false);
     }
-  }, [dismissToast, isOffline, refresh, refreshCookTogether, refreshWeeklyWorkout, latestReport.refresh, liveStreak.refresh, user.id]);
+  }, [dismissToast, refresh, refreshCookTogether, refreshWeeklyWorkout, latestReport.refresh, liveStreak.refresh]);
 
   if (showHomeSkeleton) {
     return (
       <SafeAreaView key="home-skeleton" edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
         <View className="px-lg pt-lg">
-          <AppTopBar
+          <AppTopBar showNotifications
             showNavigation
             showBrand
             brandAlign="center"
@@ -623,7 +698,7 @@ export function DashboardScreenContent({
             <RefreshControl refreshing={refreshing} onRefresh={() => void handleRefresh()} tintColor={colors.lime} />
           }
         >
-          <AppTopBar
+          <AppTopBar showNotifications
             showNavigation
             showBrand
             brandAlign="center"
@@ -779,6 +854,7 @@ export function DashboardScreenContent({
         error={shownReport.error}
         empty={shownReport.empty}
         userId={user.id}
+        onShow={() => setReportDidShow(true)}
         onClose={() => setReportOpen(false)} onRetry={() => {
           if (weeklyReportAccess === null) void refresh(); else void shownReport.refresh();
         }}
@@ -786,9 +862,16 @@ export function DashboardScreenContent({
         onDismiss={() => {
           if (!reportMounted.current) return;
           setReportNativePresented(false);
+          setReportDidShow(false);
           const owner = reportUpgradePending.current; reportUpgradePending.current = null;
           if (reportMounted.current && owner === user.id) openPro('weeklyReport', 'Your weekly report', 'lock', 'weekly_report');
         }} />
+      <PushPrePermissionPrompt
+        eligible={permissionEligible && isFocused && !checkInModalOpen && !checkInNativePresented
+          && !reportOpen && !reportNativePresented && !scoreSheetOpen && !scoreNativePresented
+          && !pendingBiometricEnrollment && !requestedCheckIn && !openWeeklyReport}
+        onPresentationChange={setPermissionPresented}
+      />
       <DailyCheckInModal
         key={`daily-check-in:${user.id}`}
         visible={checkInModalOpen}

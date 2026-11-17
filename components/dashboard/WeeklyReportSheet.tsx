@@ -11,11 +11,11 @@ import { reportDates, type SavedMeasurement, type SavedWeeklyReport } from '../.
 
 const value = (measurement: SavedMeasurement) => measurement.state === 'available' ? String(Math.round(measurement.value)) : '—';
 type Props = { visible: boolean; report: SavedWeeklyReport | null; loading: boolean; error: string | null;
-  empty: boolean; userId: string; onClose: () => void; onDismiss: () => void;
+  empty: boolean; userId: string; onClose: () => void; onDismiss: () => void; onShow?: () => void;
   onRetry: () => void; onUpgrade: () => void };
 
 export default function WeeklyReportSheet({ visible, report, error, empty,
-  userId, onClose, onDismiss, onUpgrade }: Props) {
+  userId, onClose, onDismiss, onShow, onUpgrade }: Props) {
   const text = colors.text;
   const divider = colors.border;
   const lockKey = useRef('');
@@ -74,7 +74,7 @@ export default function WeeklyReportSheet({ visible, report, error, empty,
   }, [visible, onDismiss]);
   const detail = report?.access === 'pro' ? report.details : undefined;
   return <Modal visible={visible} transparent animationType={Platform.OS === 'ios' ? 'slide' : 'none'}
-    onRequestClose={onClose} onDismiss={onDismiss}>
+    onRequestClose={onClose} onDismiss={onDismiss} onShow={onShow}>
     <View className="flex-1 justify-end bg-black/55">
       <Pressable
         onPress={onClose}

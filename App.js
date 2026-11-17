@@ -1,3 +1,4 @@
+import { NotificationInboxProvider } from './contexts/NotificationInboxContext';
 import './global.css';
 
 import React, { useState } from 'react';
@@ -24,12 +25,11 @@ import { colors } from './theme';
 import OneSignalManager from './components/OneSignalManager';
 import AppleHealthManager from './components/AppleHealthManager';
 import HealthConnectManager from './components/HealthConnectManager';
-import PushPrePermissionPrompt from './components/PushPrePermissionPrompt';
 import Splash from './components/Splash';
 import OfflineSyncManager from './components/OfflineSyncManager';
 import GlobalConnectivityToast from './components/GlobalConnectivityToast';
 import OfflineStatusBanner from './components/OfflineStatusBanner';
-import { attachPushNavigation } from './lib/pushNotifications';
+import { attachPushNavigation, notificationRouteChanged } from './lib/pushNotifications';
 import { deepLinkingOptions } from './lib/deepLinks';
 
 const navigationRef = createNavigationContainerRef();
@@ -118,9 +118,11 @@ function AppContent() {
     <SafeAreaProvider>
       <NetworkProvider>
         <AuthProvider>
+          <NotificationInboxProvider>
           <OfflineSyncManager />
           <OfflineStatusBanner>
             <NavigationContainer
+              onStateChange={() => notificationRouteChanged(navigationRef.getCurrentRoute()?.params?.notificationOperation, navigationRef.getCurrentRoute()?.key)}
               ref={navigationRef}
               onReady={() => attachPushNavigation(navigationRef)}
               theme={navTheme}
@@ -131,10 +133,10 @@ function AppContent() {
               <AppleHealthManager />
               <HealthConnectManager />
               <RootNavigator navigationRef={navigationRef} />
-              <PushPrePermissionPrompt />
             </NavigationContainer>
           </OfflineStatusBanner>
           <GlobalConnectivityToast />
+        </NotificationInboxProvider>
         </AuthProvider>
       </NetworkProvider>
     </SafeAreaProvider>

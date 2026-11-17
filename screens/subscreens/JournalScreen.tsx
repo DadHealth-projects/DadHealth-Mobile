@@ -1,8 +1,8 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
 import GlobalErrorToastReporter from '../../components/GlobalErrorToastReporter';
@@ -10,6 +10,7 @@ import InlineFormError from '../../components/InlineFormError';
 import LimeButton from '../../components/LimeButton';
 import MultilineTextInput from '../../components/MultilineTextInput';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotificationPresentation } from '../../contexts/NotificationInboxContext';
 import { useDashboard } from '../../hooks/useDashboard';
 import { type JournalEntry, useJournalEntries } from '../../hooks/useJournalEntries';
 import { localDateKey, selectMindJournalPrompts } from '../../lib/mindExperienceContent';
@@ -25,6 +26,7 @@ const JOURNAL_PROMPTS = [
 
 export default function JournalScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
+  const route = useRoute<RouteProp<AppStackParamList, 'Journal'>>();
   const { user } = useAuth();
   const journal = useJournalEntries(user?.id);
   const dashboard = useDashboard(user?.id);
@@ -41,6 +43,7 @@ export default function JournalScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const editorOpen = editing !== undefined;
+  useNotificationPresentation(Boolean(user) && editorOpen, false, 'journal');
 
   const openNew = useCallback(() => {
     setEditing(null);
@@ -52,6 +55,11 @@ export default function JournalScreen() {
     setMessage(null);
     setError(null);
   }, []);
+  useEffect(() => {
+    if (!user || !route.params?.openEditor) return;
+    openNew();
+    navigation.setParams({ openEditor: undefined });
+  }, [user, route.params?.openEditor, navigation, openNew]);
   const openEntry = useCallback((entry: JournalEntry) => {
     setEditing(entry);
     setEditorMode('write');

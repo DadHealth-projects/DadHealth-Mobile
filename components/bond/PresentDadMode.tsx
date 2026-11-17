@@ -7,6 +7,9 @@ import LimeButton from '../LimeButton';
 import { usePresentDadMode, type PresentDadSession } from '../../hooks/usePresentDadMode';
 import { supabase } from '../../lib/supabase';
 import { colors } from '../../theme';
+import { useIsFocused } from '@react-navigation/native';
+import { useNotificationPresentation } from '../../contexts/NotificationInboxContext';
+import { confirmNotificationPresentation } from '../../lib/pushNotifications';
 
 type Phase = 'closed' | 'loading' | 'intro' | 'error' | 'timer' | 'complete';
 
@@ -24,7 +27,13 @@ function formatDuration(seconds: number) {
   return remainder === 0 ? `${minutes} minutes.` : `${minutes} minutes ${remainder} seconds.`;
 }
 
-export default function PresentDadMode({ userId, onScoreRefresh, onViewBondScore }: { userId?: string; onScoreRefresh: () => void; onViewBondScore: () => void }) {
+export default function PresentDadMode({ userId, onScoreRefresh, onViewBondScore, completionSessionId, notificationOperation }: {
+  userId?: string;
+  onScoreRefresh: () => void;
+  onViewBondScore: () => void;
+  completionSessionId?: string;
+  notificationOperation?: string;
+}) {
   const mode = usePresentDadMode(userId);
   const insets = useSafeAreaInsets();
   const [phase, setPhase] = useState<Phase>('closed');
@@ -33,6 +42,36 @@ export default function PresentDadMode({ userId, onScoreRefresh, onViewBondScore
   const [introError, setIntroError] = useState<string | null>(null);
   const finishingId = useRef<string | null>(null);
   const autoFinishAttempted = useRef<string | null>(null);
+  const focused = useIsFocused();
+  const [modalShown, setModalShown] = useState(false);
+
+  useNotificationPresentation(
+    focused && modalShown && phase === 'complete' && Boolean(completionSessionId) && finishedSession?.id === completionSessionId,
+    false,
+    'present-dad-complete',
+  );
+
+  useEffect(() => {
+    if (!focused || !userId || !completionSessionId) return;
+    const controller = new AbortController();
+    let active = true;
+    void mode.loadCompletion(completionSessionId, controller.signal)
+      .then(completed => {
+        if (!active || controller.signal.aborted) return;
+        setFinishedSession(completed);
+        setIntroError(null);
+        setPhase('complete');
+      })
+      .catch(() => {
+        if (!active || controller.signal.aborted) return;
+        if (notificationOperation) {
+          void confirmNotificationPresentation(notificationOperation, userId, false);
+        } else {
+          Alert.alert('Present Dad Mode', 'This update is no longer available.');
+        }
+      });
+    return () => { active = false; controller.abort(); };
+  }, [focused, userId, completionSessionId, notificationOperation, mode.loadCompletion]);
 
   const persistIntroSeen = useCallback(async () => {
     if (!userId) throw new Error('Sign in to save your Present Dad preference.');
@@ -180,7 +219,10 @@ export default function PresentDadMode({ userId, onScoreRefresh, onViewBondScore
         </View>
       </Pressable>
 
-      <Modal visible={phase !== 'closed'} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => void dismiss()}>
+      <Modal visible={phase !== 'closed'} animationType="slide" presentationStyle="fullScreen"
+        onShow={() => setModalShown(true)}
+        onDismiss={() => setModalShown(false)}
+        onRequestClose={() => void dismiss()}>
         <SafeAreaView edges={['left', 'right', 'bottom']} className="flex-1 bg-dark">
           <ScrollView
             contentContainerClassName="flex-grow px-lg pb-xl"

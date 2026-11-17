@@ -12,6 +12,6 @@ export default function HomeTabScreen({ route, navigation }: BottomTabScreenProp
   const openScoreDetail = route.params?.openScoreDetail === true;
   const consumeRequest = () => navigation.setParams({ openScoreDetail: undefined });
   return user?.id
-    ? <DashboardScreen openScoreDetail={openScoreDetail} onScoreDetailRequestConsumed={consumeRequest} openWeeklyReport={route.params?.openWeeklyReport} onWeeklyReportRequestConsumed={() => navigation.setParams({ openWeeklyReport: undefined })} />
+    ? <DashboardScreen openDailyCheckIn={route.params?.openDailyCheckIn === true} onDailyCheckInRequestConsumed={() => navigation.setParams({ openDailyCheckIn: undefined })} openScoreDetail={openScoreDetail} onScoreDetailRequestConsumed={consumeRequest} openWeeklyReport={route.params?.openWeeklyReport} onWeeklyReportRequestConsumed={() => navigation.setParams({ openWeeklyReport: undefined })} />
     : <HomeScreen />;
 }

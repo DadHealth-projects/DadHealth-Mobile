@@ -152,6 +152,7 @@ function pushHarness() {
   const sdk={initialize(){},login(){},logout(){},Notifications:{addEventListener(_,fn){h.click=fn;}}};
   h.api=load('lib/pushNotifications.ts',{
     'react-native':{Platform:{OS:'ios'},NativeModules:{OneSignal:{}},TurboModuleRegistry:{get:()=>({})}},
+    './notificationDestinations':load('lib/notificationDestinations.ts',{'./weeklyReport':api,'./deepLinks':{isValidCommunityPostId:()=>false}}),
     'react-native-onesignal':{OneSignal:sdk},'./deepLinks':{isValidCommunityPostId:()=>false},'./weeklyReport':api,
   },{process:{env:{EXPO_PUBLIC_ONESIGNAL_APP_ID:'mock'}}});
   h.api.initializePushNotifications();h.api.attachPushNavigation({isReady:()=>true,navigate:(...args)=>h.routes.push(args)});

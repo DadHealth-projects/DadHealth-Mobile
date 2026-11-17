@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Modal, Platform, Pressable, Text, View } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { Feather } from '@expo/vector-icons';
 
@@ -15,43 +15,86 @@ function prePermissionKey(userId: string) {
   return `${PRE_PERMISSION_KEY}.${userId}`;
 }
 
-export default function PushPrePermissionPrompt() {
+export default function PushPrePermissionPrompt({ eligible, onPresentationChange }: { eligible: boolean; onPresentationChange: (shown: boolean) => void }) {
   const { user, onboardingComplete } = useAuth();
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const owner = useRef(user?.id); owner.current = user?.id;
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   useEffect(() => {
     let active = true;
-    if (!user?.id || !onboardingComplete) {
+    if (!user?.id || !onboardingComplete || !eligible) {
       setVisible(false);
       return () => { active = false; };
     }
     void SecureStore.getItemAsync(prePermissionKey(user.id)).then((state) => {
       if (active) setVisible(state == null);
-    });
+    }).catch(() => { if (active) setVisible(false); });
     return () => { active = false; };
-  }, [onboardingComplete, user?.id]);
+  }, [eligible, onboardingComplete, user?.id]);
 
+  useEffect(() => {
+    if (visible) onPresentationChange(true);
+    else if (Platform.OS !== 'ios') onPresentationChange(false);
+  }, [visible, onPresentationChange]);
+  const close = () => setVisible(false);
   const decline = async () => {
-    if (user?.id) await SecureStore.setItemAsync(prePermissionKey(user.id), 'declined');
-    setVisible(false);
-  };
-
-  const allow = async () => {
-    if (!user?.id || busy) return;
+    const id = user?.id;
+    if (!id || busy) return;
     setBusy(true);
-    const result = await requestPushPermission();
-    await SecureStore.setItemAsync(prePermissionKey(user.id), result.granted ? 'accepted' : 'declined');
-    if (result.granted) {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-      await supabase.from('user_profile').update({ push_notifications_enabled: true, timezone }).eq('user_id', user.id);
-    }
-    setBusy(false);
-    setVisible(false);
+    try {
+      await SecureStore.setItemAsync(prePermissionKey(id), 'declined');
+      if (alive.current && owner.current === id) close();
+    } catch { if (alive.current && owner.current === id) setError('Please try again.'); }
+    finally { if (alive.current && owner.current === id) setBusy(false); }
+  };
+  const allow = async () => {
+    const id = user?.id;
+    if (!id || busy) return;
+    setBusy(true); setError(null);
+    try {
+      const result = await requestPushPermission();
+      if (!alive.current || owner.current !== id) return;
+      if (!result.configured) { setError('Notifications are unavailable in this version of the app.'); return; }
+      if (result.granted) {
+  const session = await supabase.auth.getSession();
+
+  if (
+    !alive.current ||
+    owner.current !== id ||
+    session.error ||
+    session.data.session?.user.id !== id
+  ) {
+    return;
+  }
+
+  const saved = await supabase
+    .from('user_profile')
+    .update({ push_notifications_enabled: true })
+    .eq('user_id', id)
+    .select('user_id')
+    .single();
+
+  if (saved.error) throw saved.error;
+}
+
+if (!alive.current || owner.current !== id) return;
+
+await SecureStore.setItemAsync(
+  prePermissionKey(id),
+  result.granted ? 'accepted' : 'declined',
+);
+
+if (alive.current && owner.current === id) close();
+    } catch { if (alive.current && owner.current === id) setError('Unable to save notification settings. Please try again.'); }
+    finally { if (alive.current && owner.current === id) setBusy(false); }
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => void decline()}>
+    <Modal onDismiss={() => onPresentationChange(false)} visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => void decline()}>
       <View className="flex-1 bg-dark px-lg pt-[88px] pb-xl justify-between">
         <View>
           <View className="h-[56px] w-[56px] items-center justify-center rounded-full bg-lime/10 border border-lime/30 mb-xl">
@@ -59,9 +102,8 @@ export default function PushPrePermissionPrompt() {
           </View>
           <Text className="font-heading-semibold text-lime text-[13px] tracking-label uppercase mb-sm">Settings</Text>
           <Text className="font-heading text-white text-[42px] leading-[44px] uppercase">Push notifications</Text>
-          <Text className="font-body text-muted-text text-[15px] leading-[23px] mt-md">All notifications are opt-in. Times are based on your dad timezone.</Text>
-          <Text className="font-body text-muted-text text-[14px] leading-[20px] mt-lg">Daily check-in: Good morning. How are you feeling today?</Text>
-          <Text className="font-body text-muted-text text-[14px] leading-[20px] mt-sm">Streak at risk: Your streak ends at midnight.</Text>
+          <Text className="font-body text-white text-[15px] leading-[23px] mt-md">Get a daily check-in reminder and a few timely updates.</Text>
+          {error ? <Text accessibilityRole="alert" className="font-body text-white mt-sm">{error}</Text> : null}
         </View>
         <View className="gap-md">
           <LimeButton label="Allow notifications" onPress={() => void allow()} loading={busy} />

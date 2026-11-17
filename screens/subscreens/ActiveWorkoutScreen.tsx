@@ -1,3 +1,4 @@
+import { useNotificationPresentation } from '../../contexts/NotificationInboxContext';
 import React, { useCallback, useMemo } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -44,6 +45,7 @@ export default function ActiveWorkoutScreen() {
   const requireAuth = useCallback(() => navigation.navigate('Login'), [navigation]);
   const aiWorkoutAccess = entitlement.can('ai_workout');
   const lockedAiWorkout = workout?.source === 'ai_generated' && aiWorkoutAccess !== true;
+  useNotificationPresentation(!library.loading && Boolean(workout) && !lockedAiWorkout && !library.error, !library.loading && (!workout || Boolean(library.error) || (lockedAiWorkout && aiWorkoutAccess === false)), 'workout');
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>

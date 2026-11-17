@@ -1,3 +1,4 @@
+import { useNotificationPresentation } from '../../contexts/NotificationInboxContext';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -52,6 +53,7 @@ export default function ProSubscriptionScreen() {
     : subscriptions.status?.plan === 'annual' ? 'Annual' : null;
   const multipleProviders = new Set(subscriptions.status?.activeProviders ?? []).size > 1;
   const checking = subscriptions.statusLoading || subscriptions.catalogLoading;
+  useNotificationPresentation(!checking && Boolean(subscriptions.status) && !subscriptions.statusError, !checking && Boolean(subscriptions.statusError), 'plan');
   const loadError = subscriptions.statusError ?? (
     subscriptions.storeSupported && subscriptions.status?.isPro === false ? subscriptions.catalogError : null
   );

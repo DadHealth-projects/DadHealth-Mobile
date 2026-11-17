@@ -1,3 +1,4 @@
+import { useNotificationPresentation } from '../../contexts/NotificationInboxContext';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, type AppStateStatus, Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -56,6 +57,7 @@ export default function CommunityPostThreadScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useNotificationPresentation(!loading && post?.id === route.params.postId && !error, !loading && (!post || Boolean(error)), 'community');
   const [composerError, setComposerError] = useState<string | null>(null);
   const [respectBusyId, setRespectBusyId] = useState<string | null>(null);
   const respectLocks = useRef(new Set<string>());

@@ -1,3 +1,4 @@
+import NotificationsScreen from '../screens/subscreens/NotificationsScreen';
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { NavigatorScreenParams } from '@react-navigation/native';
@@ -44,25 +45,26 @@ export type AppStackParamList = {
   OnboardingGoals: undefined;
   OnboardingCustody: { goals: string[] } | undefined;
   Progress: undefined;
-  ActiveWorkout: { workoutId?: string } | undefined;
+  ActiveWorkout: { workoutId?: string; notificationOperation?: string } | undefined;
   AIWorkout: { workoutId?: string } | undefined;
   MealPlanner: undefined;
   TDEECalculator: undefined;
-  BreathingSession: undefined;
-  Journal: undefined;
+  BreathingSession: {notificationOperation?: string} | undefined;
+  Journal: { openEditor?: boolean; notificationOperation?: string } | undefined;
   TherapistDirectory: undefined;
   DadDaysSearch: undefined;
   MilestoneTracker: undefined;
   CookTogether: undefined;
-  SharedCalendar: { token?: string } | undefined;
+  SharedCalendar: { token?: string; notificationOperation?: string } | undefined;
   CreateCommunityPost: { circleId?: string } | undefined;
-  CommunityPostThread: { postId: string };
+  CommunityPostThread: { postId: string; notificationOperation?: string };
   CommunityFeed: { circleId?: string } | undefined;
+  Notifications: undefined;
   NotificationSettings: undefined;
   PrivacySecurity: undefined;
   TermsPrivacy: undefined;
   HealthPermissions: undefined;
-  ProSubscription: { source: string; context?: string; feature?: string } | undefined;
+  ProSubscription: { source: string; context?: string; feature?: string; notificationOperation?: string } | undefined;
   WeeklyChallenge: { challengeId: string };
   ManualActivityLog: { pillar: ManualActivityPillar };
   ManualActivityHistory: { pillar: ManualActivityPillar };
@@ -177,7 +179,12 @@ export default function AppNavigator({
           options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
         />
         <Stack.Screen
-          name="NotificationSettings"
+          name="Notifications"
+        component={NotificationsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="NotificationSettings"
           component={NotificationSettingsScreen}
           options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
         />

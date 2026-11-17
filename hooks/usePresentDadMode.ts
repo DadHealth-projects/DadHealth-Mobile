@@ -131,5 +131,25 @@ export function usePresentDadMode(userId?: string) {
     return true;
   }, [isOffline, userId]);
 
-  return { session, busy, error, setError, refresh, start, finish, acknowledge };
+  const loadCompletion = useCallback(async (
+    sessionId: string,
+    signal: AbortSignal,
+  ): Promise<PresentDadSession> => {
+    if (!userId || signal.aborted) throw Error('Account unavailable');
+    const result = await supabase
+      .from('present_dad_sessions')
+      .select(SESSION_FIELDS)
+      .eq('user_id', userId)
+      .eq('id', sessionId)
+      .eq('status', 'completed')
+      .abortSignal(signal)
+      .maybeSingle();
+    if (signal.aborted) throw Error('Request cancelled');
+    if (result.error) throw result.error;
+    const completed = sessionFrom(result.data);
+    if (!completed || completed.status !== 'completed') throw Error('Completion unavailable');
+    return completed;
+  }, [userId]);
+
+  return { session, busy, error, setError, refresh, start, finish, acknowledge, loadCompletion };
 }
