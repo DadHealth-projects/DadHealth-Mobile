@@ -1,14 +1,15 @@
 import { useNotificationPresentation } from '../../contexts/NotificationInboxContext';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, AppState, Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { useIsFocused, useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
 import LimeButton from '../../components/LimeButton';
-import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
+import { useMindResetSound } from '../../hooks/useMindResetSound';
+import { useMindResetSession } from '../../hooks/useMindResetSession';
 import { trackEvent } from '../../lib/analytics';
 import {
   BREATHING_DURATION_SECONDS,
@@ -24,17 +25,12 @@ type BreathPhase = 'inhale' | 'hold' | 'exhale';
 
 export default function BreathingSessionScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
-  const isFocused = useIsFocused();
   const { user } = useAuth();
   useNotificationPresentation(Boolean(user), false, 'mind-reset');
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [active, setActive] = useState(false);
-  const [appIsActive, setAppIsActive] = useState(
-    AppState.currentState !== 'background' && AppState.currentState !== 'inactive',
-  );
-  const elapsedRef = useRef(0);
-  const runStartedAtRef = useRef<number | null>(null);
-  const runBaseRef = useRef(0);
+  const preference = useMindResetSound(user?.id);
+  const session = useMindResetSession();
+  const elapsedSeconds = session.seconds;
+  const active = session.running;
   const scale = useRef(new Animated.Value(1)).current;
 
   const phase = getMindResetPhase(elapsedSeconds);
@@ -42,55 +38,6 @@ export default function BreathingSessionScreen() {
   const breathPhase: BreathPhase = breathSecond < 4 ? 'inhale' : breathSecond < 8 ? 'hold' : 'exhale';
   const breathCount = 4 - (breathSecond % 4);
   const resetStepIndex = getMindResetStepIndex(elapsedSeconds);
-
-  const pauseSession = useCallback(() => {
-    const startedAt = runStartedAtRef.current;
-    if (startedAt !== null) {
-      const nextElapsed = Math.min(
-        MIND_RESET_DURATION_SECONDS,
-        runBaseRef.current + Math.floor((Date.now() - startedAt) / 1000),
-      );
-      elapsedRef.current = nextElapsed;
-      setElapsedSeconds(nextElapsed);
-      runStartedAtRef.current = null;
-    }
-    setActive(false);
-  }, []);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => {
-      const foreground = state === 'active';
-      setAppIsActive(foreground);
-      if (!foreground) pauseSession();
-    });
-    return () => subscription.remove();
-  }, [pauseSession]);
-
-  useEffect(() => {
-    if (!isFocused) pauseSession();
-  }, [isFocused, pauseSession]);
-
-  useEffect(() => {
-    if (!active || !isFocused || !appIsActive || phase === 'complete') return;
-    const startedAt = Date.now();
-    const base = elapsedRef.current;
-    runStartedAtRef.current = startedAt;
-    runBaseRef.current = base;
-    const timer = setInterval(() => {
-      const nextElapsed = Math.min(
-        MIND_RESET_DURATION_SECONDS,
-        base + Math.floor((Date.now() - startedAt) / 1000),
-      );
-      if (nextElapsed !== elapsedRef.current) {
-        elapsedRef.current = nextElapsed;
-        setElapsedSeconds(nextElapsed);
-      }
-    }, 200);
-    return () => {
-      clearInterval(timer);
-      if (runStartedAtRef.current === startedAt) runStartedAtRef.current = null;
-    };
-  }, [active, appIsActive, isFocused, phase]);
 
   useEffect(() => {
     const breathing = phase === 'breathing';
@@ -104,15 +51,13 @@ export default function BreathingSessionScreen() {
     return () => animation.stop();
   }, [active, breathPhase, phase, scale]);
 
-  const startSession = useCallback(() => {
-    if (elapsedRef.current === 0) trackEvent('breath_session_started', { pattern: '4-4-4' }, user?.id);
-    setActive(true);
-  }, [user?.id]);
-
-  const finishHere = useCallback(() => {
-    pauseSession();
-    navigation.goBack();
-  }, [navigation, pauseSession]);
+  const startSession = () => {
+    if (!session.started) {
+      trackEvent('breath_session_started', { pattern: '4-4-4' }, user?.id);
+    }
+    session.start();
+  };
+  const finishHere = () => { session.stop(); navigation.goBack(); };
 
   const elapsedLabel = `${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, '0')} / 5:00`;
 
@@ -120,7 +65,49 @@ export default function BreathingSessionScreen() {
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.dark }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-lg pt-lg pb-xl gap-xl flex-grow">
         <AppTopBar leftAccessory={<Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />
-        <ScreenHero eyebrow="5-minute Mind Reset" headline={'Slow down.\nBreathe.'} sub="One minute of 4-4-4 breathing, then four minutes of guided reset." />
+        <View className="gap-sm">
+  <Text className="font-heading-bold text-lime text-[12px] tracking-label uppercase">
+    5-minute Mind Reset
+  </Text>
+
+   <View className="flex-row items-start gap-md">
+    <Text className="flex-1 font-heading-bold text-white text-[36px] leading-[40px] uppercase">
+      {'Slow down.\nBreathe.'}
+    </Text>
+
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityLabel="Mind Reset sound"
+      accessibilityState={{
+        checked: preference.sound,
+        disabled: !preference.ready,
+      }}
+      disabled={!preference.ready}
+      onPress={() => preference.setSound(!preference.sound)}
+      className="h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border border-border active:opacity-70"
+      style={{
+  opacity: preference.ready ? 1 : 0.5,
+  transform: [{ translateY: -4 }],
+}}
+    >
+      <Feather
+        name={preference.sound ? 'volume-2' : 'volume-x'}
+        size={22}
+        color={colors.lime}
+      />
+    </Pressable>
+  </View>
+
+  <Text className="font-body text-muted-text text-[16px] leading-[24px]">
+    One minute of 4-4-4 breathing, then four minutes of guided reset.
+  </Text>
+
+  {preference.error ? (
+    <Text accessibilityRole="alert" className="font-body text-white text-[14px]">
+      Sound preference could not be saved or loaded on this device.
+    </Text>
+  ) : null}
+</View>
 
         <View className="items-center justify-center flex-1 py-xl">
           {phase === 'breathing' ? (
@@ -149,17 +136,20 @@ export default function BreathingSessionScreen() {
         </View>
 
         <View className="gap-md">
+          {session.error ? <Text accessibilityRole="alert" className="font-body text-white text-[14px]">{session.error}</Text> : null}
           {phase === 'complete' ? (
             <>
-              <LimeButton label="Done" onPress={() => navigation.goBack()} />
-              <SecondaryAction label="Write it down" onPress={() => navigation.navigate('Journal')} />
+              <LimeButton label="Done" onPress={finishHere} />
+              <SecondaryAction label="Write it down" onPress={() => { session.stop(); navigation.navigate('Journal'); }} />
             </>
           ) : (
             <>
               <LimeButton
-                label={active ? 'Pause' : elapsedSeconds > 0 ? 'Resume' : 'Begin Mind Reset'}
-                onPress={active ? pauseSession : startSession}
+                label={active ? 'Pause' : session.started ? 'Resume' : 'Begin Mind Reset'}
+                onPress={active ? session.pause : startSession}
+                disabled={!preference.ready || session.preparing}
               />
+              {session.started ? <SecondaryAction label="End session" onPress={finishHere} /> : null}
               {elapsedSeconds >= BREATHING_DURATION_SECONDS ? (
                 <SecondaryAction label="Finish here" onPress={finishHere} />
               ) : null}

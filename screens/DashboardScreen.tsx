@@ -559,7 +559,7 @@ useEffect(() => {
         hasCompletedAction: Boolean(data?.checkedInToday), userId: user.id,
       });
     }
-    else if (buildMyPlanAccess === true) {
+    else {
   navigation.navigate('Tabs', {
     screen: 'Mind',
     params: { openPersonalisedPlan: true },

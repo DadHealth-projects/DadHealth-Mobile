@@ -1,8 +1,10 @@
+import { useMindResetSession } from '../../hooks/useMindResetSession';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
+import { RecordingPresets, requestRecordingPermissionsAsync, useAudioRecorder } from 'expo-audio';
+import { acquireAudio, getAudioOwner } from '../../lib/audioOwnership';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import AppTopBar from '../AppTopBar';
@@ -70,6 +72,7 @@ export default function MindQuickFixes() {
 }
 
 function QuickFixSession({ kind, onClose }: { kind: TimedQuickFix; onClose: () => void }) {
+  const resetSession = useMindResetSession();
   const { user } = useAuth();
   const journal = useJournalEntries(user?.id);
   const [state, setState] = useState<SessionState>('ready');
@@ -88,21 +91,31 @@ function QuickFixSession({ kind, onClose }: { kind: TimedQuickFix; onClose: () =
   const recorderUri = useRef<string | null>(null);
   const voiceCleanupStarted = useRef(false);
   const journalSaveInFlight = useRef(false);
+  const releaseAudio = useRef<(() => Promise<void>) | null>(null);
+  const voiceEpoch = useRef(0);
+  const voiceStarting = useRef(false);
+  const voicePrepare = useRef<Promise<void> | null>(null);
 
   const deleteRecording = useCallback(async (stopFirst: boolean) => {
     if (voiceCleanupStarted.current) return;
     voiceCleanupStarted.current = true;
     try {
+      await voicePrepare.current?.catch(() => undefined);
       if (stopFirst) await recorder.stop();
     } catch {
       // Recorder may already have stopped after a system interruption.
     }
-    const uri = recorder.uri ?? recorderUri.current;
+    // useAudioRecorder releases its native object on unmount. stop/prepare may
+    // settle after that release, so even reading uri can throw during cleanup.
+    let uri = recorderUri.current;
+    try { uri = recorder.uri ?? uri; } catch { /* Use the URI cached while recording. */ }
     recorderUri.current = null;
     if (uri) {
       try { await FileSystem.deleteAsync(uri, { idempotent: true }); } catch { /* App cache remains private; OS clears cache. */ }
     }
-    try { await setAudioModeAsync({ allowsRecording: false }); } catch { /* Keep user flow safe if audio session reset. */ }
+    const release = releaseAudio.current;
+    releaseAudio.current = null;
+    try { await release?.(); } catch { /* Audio session may have reset. */ }
   }, [recorder]);
 
   const finishVoice = useCallback(async (message: string) => {
@@ -143,29 +156,46 @@ function QuickFixSession({ kind, onClose }: { kind: TimedQuickFix; onClose: () =
   }, [deleteRecording, kind, state]);
 
   useEffect(() => () => {
+    voiceEpoch.current++;
     if (kind === 'voice') void deleteRecording(true);
-  }, [deleteRecording, kind]);
+  }, [deleteRecording, kind, user?.id]);
 
   const start = useCallback(async () => {
     setError(null);
     setNotice(null);
     setSecondsLeft(kind === 'body-reset' ? 30 : 60);
     if (kind === 'voice') {
+      if (getAudioOwner() === 'reset') {
+        setError('Pause Mind Reset before recording. You can resume it afterwards.');
+        return;
+      }
+      if (voiceStarting.current) return;
+      voiceStarting.current = true;
+      const epoch = voiceEpoch.current;
+      const current = () => epoch === voiceEpoch.current;
       try {
         const permission = await requestRecordingPermissionsAsync();
+        if (!current()) return;
         if (!permission.granted) {
           setError('Microphone access is needed to record a voice note. You can change this in device settings.');
           return;
         }
         voiceCleanupStarted.current = false;
-        await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, allowsBackgroundRecording: false });
-        await recorder.prepareToRecordAsync();
+        const release = await acquireAudio('recording');
+        if (!current()) { await release(); return; }
+        releaseAudio.current = release;
+        voicePrepare.current = recorder.prepareToRecordAsync();
+        await voicePrepare.current;
+        voicePrepare.current = null;
+        if (!current()) { await deleteRecording(true); return; }
         recorder.record({ forDuration: 60 });
         recorderUri.current = recorder.uri;
       } catch {
         await deleteRecording(true);
-        setError('Recording could not start. Please try again.');
+        if (current()) setError('Recording could not start. Please try again.');
         return;
+      } finally {
+        voiceStarting.current = false;
       }
     }
     setState('running');
@@ -220,6 +250,10 @@ function QuickFixSession({ kind, onClose }: { kind: TimedQuickFix; onClose: () =
                 <View className="gap-sm">
                   <Text className="font-heading text-white text-[32px] uppercase">{title}</Text>
                   {kind === 'voice' ? <Text className="font-body text-muted-text text-[14px]">Private, temporary recording. Maximum 60 seconds. Deleted when session ends.</Text> : null}
+                  {kind === 'voice' && resetSession.started && !resetSession.finished ? <View className="gap-sm">
+                    <Text className="font-body text-white text-[14px]">Pause Mind Reset before recording. Resume it when your recording has ended.</Text>
+                    <Pressable accessibilityRole="button" onPress={resetSession.pause} className="min-h-[44px] justify-center"><Text className="font-heading-bold text-lime text-[16px]">Pause Mind Reset</Text></Pressable>
+                  </View> : null}
                   {kind === 'brain-dump' ? <Text className="font-body text-muted-text text-[14px]">Write without editing. Keep it in Journal or discard it.</Text> : null}
                 </View>
 

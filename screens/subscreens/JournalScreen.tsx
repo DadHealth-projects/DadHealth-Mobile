@@ -25,6 +25,11 @@ const JOURNAL_PROMPTS = [
 ] as const;
 
 export default function JournalScreen() {
+  const { user } = useAuth();
+  return <JournalContent key={user?.id ?? 'signed-out'} />;
+}
+
+function JournalContent() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const route = useRoute<RouteProp<AppStackParamList, 'Journal'>>();
   const { user } = useAuth();
@@ -42,6 +47,9 @@ export default function JournalScreen() {
   const saveInFlight = useRef(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  const handledPlanPrompt = useRef<object | null>(null);
   const editorOpen = editing !== undefined;
   useNotificationPresentation(Boolean(user) && editorOpen, false, 'journal');
 
@@ -60,6 +68,24 @@ export default function JournalScreen() {
     openNew();
     navigation.setParams({ openEditor: undefined });
   }, [user, route.params?.openEditor, navigation, openNew]);
+  useEffect(() => {
+    const request = route.params?.planPrompt;
+    if (!request || saving || handledPlanPrompt.current === request) return;
+    handledPlanPrompt.current = request;
+    navigation.setParams({ planPrompt: undefined });
+    if (request.owner !== user?.id || !request.planId || !request.actionId || typeof request.prompt !== 'string' || !request.prompt.trim()) return;
+    const apply = () => {
+      if (!alive.current || handledPlanPrompt.current !== request) return;
+      // Only select the saved prompt: preserve text, guided answers and existing entries.
+      if (editing === undefined) setEditing(null);
+      setSelectedPrompt(request.prompt);
+    };
+    if (content.trim() || selectedPrompt || guideAnswers.some(answer => answer.trim()) || editing) {
+      Alert.alert('Journal prompt', 'Keep your current prompt or use the Mind Plan prompt? Your writing will stay unchanged.', [
+        { text: 'Keep mine', style: 'cancel' }, { text: 'Switch prompt', onPress: apply },
+      ]);
+    } else apply();
+  }, [route.params?.planPrompt, user?.id, saving, editing, content, selectedPrompt, guideAnswers, navigation]);
   const openEntry = useCallback((entry: JournalEntry) => {
     setEditing(entry);
     setEditorMode('write');
@@ -92,8 +118,10 @@ export default function JournalScreen() {
       if (editing) await journal.updateEntry(editing.id, trimmed, selectedPrompt);
       else {
         const entry = await journal.createEntry(trimmed, editorMode === 'guide' ? 'Guided Journal' : selectedPrompt);
+        if (!alive.current) return;
         setMessage(entry.sync_status === 'pending' ? null : 'Journal entry saved.');
       }
+      if (!alive.current) return;
       setEditing(undefined);
       setEditorMode('write');
       setContent('');
@@ -101,10 +129,11 @@ export default function JournalScreen() {
       setGuideIndex(0);
       if (editing) setMessage('Entry updated.');
     } catch {
+      if (!alive.current) return;
       setError('We could not save your journal entry. Please try again.');
     } finally {
       saveInFlight.current = false;
-      setSaving(false);
+      if (alive.current) setSaving(false);
     }
   }, [content, editing, editorMode, guideAnswers, guidedPrompts, journal, selectedPrompt, user]);
 
@@ -132,11 +161,12 @@ export default function JournalScreen() {
           setError(null);
           void journal.deleteEntry(editing.id)
             .then(() => {
+              if (!alive.current) return;
               closeEditor();
               setMessage('Entry deleted.');
             })
-            .catch(() => setError('We could not delete this entry. Please try again.'))
-            .finally(() => setSaving(false));
+            .catch(() => { if (alive.current) setError('We could not delete this entry. Please try again.'); })
+            .finally(() => { if (alive.current) setSaving(false); });
         },
       },
     ]);
@@ -163,6 +193,7 @@ export default function JournalScreen() {
             <LimeButton label="Log in to journal" onPress={() => navigation.navigate('Login')} />
           ) : editorOpen ? (
             <View className="gap-lg">
+              {editorMode === 'guide' && selectedPrompt ? <Text className="font-body text-white text-[14px] leading-[20px]">{selectedPrompt}</Text> : null}
               {editorMode === 'guide' ? (
                 <View className="gap-lg">
                   <View className="gap-xs">

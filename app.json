@@ -99,7 +99,7 @@
         {
           "microphonePermission": "Allow Dad Health to record a private, temporary voice note.",
           "enableBackgroundRecording": false,
-          "enableBackgroundPlayback": false
+          "enableBackgroundPlayback": true
         }
       ],
 

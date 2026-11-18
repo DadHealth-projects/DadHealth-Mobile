@@ -50,7 +50,7 @@ export type AppStackParamList = {
   MealPlanner: undefined;
   TDEECalculator: undefined;
   BreathingSession: {notificationOperation?: string} | undefined;
-  Journal: { openEditor?: boolean; notificationOperation?: string } | undefined;
+  Journal: { planPrompt?: { owner: string; planId: string; actionId: string; prompt: string }; openEditor?: boolean; notificationOperation?: string } | undefined;
   TherapistDirectory: undefined;
   DadDaysSearch: undefined;
   MilestoneTracker: undefined;

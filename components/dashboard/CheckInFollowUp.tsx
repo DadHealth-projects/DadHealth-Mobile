@@ -69,11 +69,10 @@ function CheckInFollowUp({
           </Pressable>
         </View>
 
-        {planAccess !== null ? (
-          <Pressable
+        <Pressable
             onPress={onPlan}
             accessibilityRole="button"
-            accessibilityLabel={planAccess ? 'Build my plan' : 'Build my plan with Dad Health Pro'}
+            accessibilityLabel={planAccess === false ? 'Build my plan with Dad Health Pro' : 'Build my plan'}
             className="min-h-[60px] flex-row items-center justify-between gap-md py-md active:opacity-70"
           >
             <View className="flex-1">
@@ -82,14 +81,13 @@ function CheckInFollowUp({
                   Build my plan
                 </Text>
                 <Text className="font-body text-white text-[14px] leading-[20px]">
-                  {' · A plan around your mood and score'}
+                  {' · A seven-day plan shaped around your goals.'}
                 </Text>
               </Text>
             </View>
             {planAccess === false ? <ProBadge /> : null}
             <Feather name="arrow-right" size={18} color="#FFFFFF" />
           </Pressable>
-        ) : null}
       </View>
     </View>
   );

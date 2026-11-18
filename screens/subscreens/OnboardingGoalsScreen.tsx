@@ -8,7 +8,10 @@ import Card from '../../components/Card';
 import FadeInView from '../../components/FadeInView';
 import LimeButton from '../../components/LimeButton';
 import { useAuth } from '../../contexts/AuthContext';
-import { GOALS, onboardingSaveErrorMessage } from '../../lib/onboarding';
+import {
+  GOALS,
+  onboardingSaveErrorMessage,
+} from '../../lib/onboarding';
 import { supabase } from '../../lib/supabase';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -32,6 +35,7 @@ export default function OnboardingGoalsScreen() {
   };
 
   const handleContinue = async () => {
+
     if (selectedGoals.length === 0 || saving) return;
     if (!user?.id) {
       setError("You're not signed in. Please sign in again to save your choices.");
@@ -41,13 +45,16 @@ export default function OnboardingGoalsScreen() {
     setSaving(true);
     setError(null);
     try {
+
       const { error: saveError } = await supabase
         .from('user_profile')
         .upsert({ user_id: user.id, goals: selectedGoals }, { onConflict: 'user_id' });
+
       if (saveError) throw saveError;
       // Phase 5 — replace (not push/navigate) so the user can't go back to the
       // goals screen and submit twice. Goals are also passed along for the
       // single combined save on the custody step (Phase 6).
+
       navigation.replace('OnboardingCustody', { goals: selectedGoals });
     } catch (saveError) {
       setError(onboardingSaveErrorMessage(saveError));

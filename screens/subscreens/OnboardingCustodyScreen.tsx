@@ -25,6 +25,7 @@ export default function OnboardingCustodyScreen({ navigation, route }: Props) {
   const goals = route.params?.goals;
 
   const handleContinue = async () => {
+
     if (saving) return;
     if (!selection) {
       setError('Select how often you see your kids to continue.');
@@ -38,6 +39,7 @@ export default function OnboardingCustodyScreen({ navigation, route }: Props) {
     setSaving(true);
     setError(null);
     try {
+
       const { data: savedProfile, error: saveError } = await supabase
         .from('user_profile')
         .upsert({
@@ -51,6 +53,7 @@ export default function OnboardingCustodyScreen({ navigation, route }: Props) {
         }, { onConflict: 'user_id' })
         .select('goals,custody_pattern,onboarding_complete')
         .single();
+
       if (saveError) throw saveError;
 
       if (
@@ -68,6 +71,7 @@ export default function OnboardingCustodyScreen({ navigation, route }: Props) {
       // reset the stack to Tabs so there's no back path into onboarding. The
       // RootNavigator `key` swap to 'tabs' is a belt-and-braces backstop.
       if (complete) {
+
         navigation.reset({ index: 0, routes: [{ name: 'Tabs' }] });
       } else {
         setError('Your choices were saved, but we could not verify completion. Please close and reopen the app, then try again.');

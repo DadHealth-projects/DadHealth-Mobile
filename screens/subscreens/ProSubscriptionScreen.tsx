@@ -21,12 +21,6 @@ const THIS_WEEK_FEATURES = [
   'Get workouts, Dad Days and plans built around your life',
 ] as const;
 
-function iapScreenLog(stage: string, fields: Record<string, unknown> = {}) {
-  if ((typeof __DEV__ !== 'undefined' && __DEV__) || (typeof process !== 'undefined' && process.env.EXPO_PUBLIC_IAP_DEBUG === 'true')) {
-    console.info(`[DadHealthIAP][mobile] ${stage}`, fields);
-  }
-}
-
 export default function ProSubscriptionScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { user } = useAuth();
@@ -211,7 +205,7 @@ export default function ProSubscriptionScreen() {
             ) : optionReady ? (
               <ProAction label={trialAvailable ? 'Start 7-day free trial' : 'Subscribe'}
                 onPress={() => {
-                  iapScreenLog('Subscribe pressed', { selectedPlan, offline: isOffline });
+
                   if (isOffline) showOfflineAction('subscriptions');
                   else void subscriptions.purchase(selectedPlan, 'button');
                 }}

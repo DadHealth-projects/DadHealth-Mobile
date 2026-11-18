@@ -25,6 +25,8 @@ import ScreenHero from '../components/mockup/ScreenHero';
 import { useAuth } from '../contexts/AuthContext';
 import { useNetworkStatus } from '../contexts/NetworkContext';
 import { useDashboard } from '../hooks/useDashboard';
+import { useMindPlan } from '../hooks/useMindPlan';
+import { planDestination, validPlanDestination, type PlanDestination } from '../lib/mindPlan';
 import { useEntitlement } from '../hooks/useEntitlement';
 import { navigateToProSubscription } from '../lib/proNavigation';
 import { trackEvent } from '../lib/analytics';
@@ -64,13 +66,28 @@ export default function MindScreen({
     loading,
   });
   const mindPlanAccess = entitlement.can('mind_plan');
+  const focused = Navigation.useIsFocused();
+  const mindPlan = useMindPlan(user?.id, mindPlanAccess, focused);
+  const pendingPlanDestination = useRef<PlanDestination | null>(null);
+  const closingPlan = useRef(false);
+  const pendingPlanUpgrade = useRef<string | null>(null);
+  const [planNativePresented, setPlanNativePresented] = useState(false);
+  const planResult = mindPlan.view?.result ?? null;
+  const planAccess = planResult?.state === 'locked' ? false : mindPlan.view?.verified ? true : null;
   const trendsAccess = entitlement.can('trends');
   const sleepInsights = useProgressSleep(user?.id, trendsAccess === true);
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [mindPlanOpen, setMindPlanOpen] = useState(false);
   useEffect(() => {
-    if (!route.params?.openPersonalisedPlan || mindPlanAccess !== true) {
+    pendingPlanDestination.current = null;
+    pendingPlanUpgrade.current = null;
+    closingPlan.current = false;
+    setMindPlanOpen(false);
+    setPlanNativePresented(false);
+  }, [user?.id]);
+  useEffect(() => {
+    if (!route.params?.openPersonalisedPlan || !user || closingPlan.current) {
       return;
     }
 
@@ -79,7 +96,34 @@ export default function MindScreen({
     navigation.setParams({
       openPersonalisedPlan: false,
     } as never);
-  }, [route.params?.openPersonalisedPlan, mindPlanAccess, navigation]);
+  }, [route.params?.openPersonalisedPlan, user?.id, navigation]);
+
+  useEffect(() => {
+    if (!mindPlan.view?.verified || mindPlan.isOffline) pendingPlanDestination.current = null;
+  }, [mindPlan.view?.verified, mindPlan.isOffline]);
+  const closeMindPlan = () => { closingPlan.current = true; setMindPlanOpen(false); };
+  const openPlanActivity = (actionNumber: number) => {
+    if (!user || !mindPlanOpen || closingPlan.current || mindPlan.view?.busy || !mindPlan.view?.verified) return;
+    const target = planDestination(user.id, planResult, actionNumber);
+    if (!target) return;
+    pendingPlanDestination.current = target;
+    closeMindPlan();
+  };
+  const finishPlanDismissal = () => {
+    if (mindPlanOpen) return;
+    closingPlan.current = false;
+    setPlanNativePresented(false);
+    const upgradeOwner = pendingPlanUpgrade.current; pendingPlanUpgrade.current = null;
+    if (upgradeOwner && upgradeOwner === user?.id && planResult?.state === 'locked' && focused) {
+      navigateToProSubscription(navigation, 'mind_plan', 'Personalised Mind Plan', user.id, 'lock');
+    }
+    const target = pendingPlanDestination.current; pendingPlanDestination.current = null;
+    if (!target || !focused || !mindPlan.view?.verified || !validPlanDestination(target, user?.id, planResult)) return;
+    if (target.action.route === 'BreathingSession') navigation.navigate('BreathingSession');
+    else navigation.navigate('Journal', { planPrompt: {
+      owner: target.owner, planId: target.planId, actionId: target.action.id, prompt: target.action.instruction,
+    } });
+  };
 
   const trendLockViewed = useRef(false);
   useEffect(() => {
@@ -136,53 +180,7 @@ export default function MindScreen({
         <Text className="font-body-semibold text-lime text-[14px] underline">Need urgent help?</Text>
       </Pressable>
 
-      <FadeInView delay={140}>
-        <View className="gap-sm">
-          <MindFeatureRow
-            icon="wind"
-            eyebrow="5 minutes"
-            title="Mind Reset"
-            description="One minute of 4-4-4 breathing, then four minutes of guided reset."
-            onPress={() => navigation.navigate('BreathingSession')}
-            accessibilityLabel="Start the five-minute Mind Reset"
-            featured
-          />
-        </View>
-      </FadeInView>
-
-      <FadeInView delay={155}>
-        <MindQuickFixes />
-      </FadeInView>
-
-      {user ? (
-        <FadeInView delay={170}>
-          {mindPlanAccess === true ? (
-            <Pressable
-              onPress={() => setMindPlanOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Open your personalised Mind plan"
-              className="gap-sm border-b border-border pb-lg active:opacity-75"
-            >
-              <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Pro</Text>
-              <Text className="font-heading text-white text-[20px] leading-[22px] uppercase">Personalised Mind Plan</Text>
-              <Text className="font-body text-muted-text text-[14px] leading-[18px]">
-                Designed around your mood, Dad Health Score and history.
-              </Text>
-              <Text className="font-heading-bold text-lime text-[11px] uppercase">Open plan</Text>
-            </Pressable>
-          ) : mindPlanAccess === false ? (
-            <MindPlanLockedCard
-              userId={user.id}
-              onUnlock={() => navigateToProSubscription(navigation, 'mind_plan', 'Personalised Mind Plan', user.id, 'lock')}
-            />
-          ) : null}
-        </FadeInView>
-      ) : null}
-
-      {mindPlanOpen ? <PersonalisedMindPlanSheet onClose={() => setMindPlanOpen(false)} /> : null}
-
-      <FadeInView delay={190}>
-        <View className="gap-sm">
+      <FadeInView delay={130}>
           <MindFeatureRow
             icon="edit-3"
             eyebrow="Private journal"
@@ -191,6 +189,60 @@ export default function MindScreen({
             onPress={() => navigation.navigate('Journal')}
             accessibilityLabel="Open private Journal"
           />
+      </FadeInView>
+
+      <FadeInView delay={140}>
+  <MindFeatureRow
+    icon="wind"
+    eyebrow="5 minutes"
+    title="Mind Reset"
+    description="One minute of 4-4-4 breathing, then four minutes of guided reset."
+    onPress={() => navigation.navigate('BreathingSession')}
+    accessibilityLabel="Start the five-minute Mind Reset"
+    featured
+  />
+</FadeInView>
+
+      {user ? (
+        <FadeInView delay={170}>
+          {planAccess === true ? (
+            <Pressable
+              onPress={() => { if (!closingPlan.current && !planNativePresented) { setMindPlanOpen(true); void mindPlan.refresh(); } }}
+              accessibilityRole="button"
+              accessibilityLabel="Open your personalised Mind plan"
+              className="gap-sm border-b border-border pb-lg active:opacity-75"
+            >
+              <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Pro</Text>
+              <Text className="font-heading-bold text-white text-[22px] leading-[26px] uppercase">Personalised Mind Plan</Text>
+              <Text className="font-body text-[16px] leading-[22px] text-muted-text">
+                A seven-day plan shaped around your goals.
+              </Text>
+              <Text className="font-heading-bold text-lime text-[14px] uppercase">Open plan</Text>
+            </Pressable>
+          ) : planAccess === false ? (
+            <MindPlanLockedCard
+              userId={user.id}
+              onUnlock={() => navigateToProSubscription(navigation, 'mind_plan', 'Personalised Mind Plan', user.id, 'lock')}
+            />
+          ) : (
+            <Pressable onPress={() => { if (!closingPlan.current && !planNativePresented) { setMindPlanOpen(true); void mindPlan.refresh(); } }} accessibilityRole="button" accessibilityLabel="View your personalised Mind plan" className="gap-sm border-b border-border pb-lg">
+              <Text className="font-heading-bold text-white text-[22px] leading-[26px] uppercase">Personalised Mind Plan</Text>
+              <Text className="font-body text-[16px] leading-[22px] text-white">A seven-day plan shaped around your goals.</Text>
+              <Text className="font-heading-bold text-lime text-[14px] uppercase">View plan</Text>
+            </Pressable>
+          )}
+        </FadeInView>
+      ) : null}
+
+      <FadeInView delay={180}><MindQuickFixes /></FadeInView>
+
+      {user ? <PersonalisedMindPlanSheet key={user.id} visible={mindPlanOpen} view={mindPlan.view}
+        offline={mindPlan.isOffline} userId={user.id} onClose={closeMindPlan} onDismiss={finishPlanDismissal}
+        onShow={() => setPlanNativePresented(true)} onStart={mindPlan.start} onComplete={mindPlan.complete}
+        onActivity={openPlanActivity} onUnlock={() => { if (!closingPlan.current) { pendingPlanUpgrade.current = user.id; closeMindPlan(); } }} /> : null}
+
+      <FadeInView delay={190}>
+        <View className="gap-sm">
           <MindFeatureRow
             icon="heart"
             eyebrow="Talk to someone"
@@ -330,6 +382,7 @@ function MindFeatureRow({
   title,
   description,
   featured = false,
+  embedded = false,
   onPress,
   accessibilityLabel,
 }: {
@@ -338,11 +391,12 @@ function MindFeatureRow({
   title: string;
   description: string;
   featured?: boolean;
+  embedded?: boolean;
   onPress?: () => void;
   accessibilityLabel?: string;
 }) {
   const content = (
-    <View className={`min-h-[86px] flex-row items-center gap-md rounded-button border px-md py-md ${featured ? 'border-lime/25 bg-lime/5' : 'border-border bg-card'}`}>
+    <View className={`min-h-[86px] flex-row items-center gap-md rounded-button px-md py-md ${embedded ? '' : featured ? 'border border-lime/25 bg-lime/5' : 'border border-border bg-card'}`}>
       <View className="h-[42px] w-[42px] rounded-full bg-lime items-center justify-center">
         <Feather name={icon} size={19} color={colors.dark} />
       </View>

@@ -26,11 +26,11 @@ export default function MindPlanLockedCard({
     <View className="rounded-[16px] border border-lime/40 bg-card p-md">
       <View className="flex-row items-start justify-between gap-sm">
         <View className="flex-1">
-          <Text className="font-heading-bold text-lime text-[10px] uppercase tracking-label">
+          <Text className="font-heading-bold text-[10px] text-lime uppercase tracking-label">
             Personalised
           </Text>
-          <Text className="mt-xs font-heading text-[22px] leading-[26px] text-white uppercase">
-            Your Mind Plan
+          <Text className="font-heading text-[22px] leading-[26px] mt-xs text-white uppercase">
+            Personalised Mind Plan
           </Text>
         </View>
 
@@ -46,8 +46,8 @@ export default function MindPlanLockedCard({
         </View>
       </View>
 
-      <Text className="mt-md mb-md font-body text-[14px] leading-[18px] text-muted-text">
-        A plan built around your mood, habits and goals.
+      <Text className="font-body text-[16px] leading-[22px] mt-md mb-md text-muted-text">
+        A seven-day plan shaped around your goals.
       </Text>
 
       <View

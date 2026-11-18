@@ -121,15 +121,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const request = ++onboardingRequest.current;
     const isCurrent = () => request === onboardingRequest.current && lastAuthenticatedUserId.current === userId;
     setOnboarding(previous => ({ owner: userId, complete: previous?.owner === userId ? previous.complete : null, loading: true }));
+
     try {
       const { data, error } = await supabase
         .from('user_profile')
         .select('goals,custody_pattern,onboarding_complete')
         .eq('user_id', userId)
         .maybeSingle();
+
       if (error) throw error;
       if (!isCurrent()) return false;
       const complete = isOnboardingComplete(data);
+
       setOnboarding({ owner: userId, complete, loading: false });
       return complete;
     } catch {
