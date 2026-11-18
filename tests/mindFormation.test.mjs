@@ -22,11 +22,11 @@ test('Mind puts approved actions before scores, logging and education', async ()
 
   assert.ok(feeling >= 0);
   assert.ok(feeling < description);
-  assert.ok(description < mindReset);
-  assert.ok(mindReset < quickFixes);
-  assert.ok(quickFixes < mindPlan);
-  assert.ok(mindPlan < journal);
-  assert.ok(journal < therapist);
+  assert.ok(description < journal);
+  assert.ok(journal < mindReset);
+  assert.ok(mindReset < mindPlan);
+  assert.ok(mindPlan < quickFixes);
+  assert.ok(quickFixes < therapist);
   assert.ok(therapist < community);
   assert.ok(community < mood);
   assert.ok(mood < correlation);
@@ -85,7 +85,7 @@ test('Mind offers the Pro personalised plan without gating the free actions', as
     readFile(new URL('screens/subscreens/TherapistDirectoryScreen.tsx', root), 'utf8'),
   ]);
 
-  assert.match(source, /mindPlanAccess === false \? \([\s\S]*?<MindPlanLockedCard[\s\S]*?navigateToProSubscription\(navigation, 'mind_plan'/);
+  assert.match(source, /planAccess === false \? \([\s\S]*?<MindPlanLockedCard[\s\S]*?navigateToProSubscription\(navigation, 'mind_plan'/);
   assert.match(locks, /Get a personalised plan/);
   // Brief free column: breathing, journal, therapist directory and crisis.
   assert.doesNotMatch(therapist, /isPro/);

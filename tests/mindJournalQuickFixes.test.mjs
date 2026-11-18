@@ -58,10 +58,10 @@ test('Quick Fixes use timed local sessions, normal Journal save, native message 
   assert.match(quickFixes, /KeyboardAvoidingView/);
   assert.match(quickFixes, /behavior=\{Platform\.OS === 'ios' \? 'padding' : 'height'\}/);
   assert.match(quickFixes, /keyboardDismissMode="interactive"/);
-  assert.match(quickFixes, /kind === 'brain-dump' \? '' : 'flex-grow'/);
-  assert.match(quickFixes, /flex-1 justify-center gap-lg/);
-  assert.match(quickFixes, /kind === 'voice' && state === 'complete' \? 'Back to Mind' : 'Close quick fix'/);
-  assert.match(quickFixes, /name=\{kind === 'voice' && state === 'complete' \? 'arrow-left' : 'x'\}/);
+  assert.match(quickFixes, /contentContainerClassName="flex-grow gap-lg px-lg py-lg"/);
+  assert.match(quickFixes, /flex-grow justify-center gap-lg/);
+  assert.match(quickFixes, /state === 'complete' \? 'Back to Mind' : 'Close quick fix'/);
+  assert.match(quickFixes, /name=\{state === 'complete' \? 'arrow-left' : 'x'\}/);
   assert.match(quickFixes, /label="Done" onPress=\{onClose\}/);
   assert.match(quickFixes, /setInterval\(\(\) =>/);
   assert.match(quickFixes, /AppState\.addEventListener/);
@@ -73,14 +73,14 @@ test('Quick Fixes use timed local sessions, normal Journal save, native message 
   assert.match(config, /"enableBackgroundRecording": false/);
 });
 
-test('Mind order keeps crisis and Mind Reset, then quick fixes, plan, Journal and support', async () => {
+test('Mind order keeps crisis, Journal, Reset, Plan, free Quick Fixes and support', async () => {
   const source = await read('screens/MindScreen.tsx');
   const positions = [
     source.indexOf('Need urgent help?'),
-    source.indexOf('title="Mind Reset"'),
-    source.indexOf('<MindQuickFixes'),
-    source.indexOf('<MindPlanLockedCard'),
     source.indexOf('title="Journal"'),
+    source.indexOf('title="Mind Reset"'),
+    source.indexOf('<MindPlanLockedCard'),
+    source.indexOf('<MindQuickFixes'),
     source.indexOf('title="Find a therapist"'),
     source.indexOf('title="Community"'),
     source.indexOf('<MoodWeekCard'),

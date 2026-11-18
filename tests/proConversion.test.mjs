@@ -280,7 +280,8 @@ test('the free and Pro split matches the brief table', async () => {
   assert.ok(scoreDetails.includes('!isPro && entitlementKnown ?'));
   assert.ok(scoreDetails.includes('badgeData.earnedCount === 0'));
   assert.ok(mind.includes('<MindPlanLockedCard'));
-  assert.ok(mind.includes('mindPlanAccess === false'));
+  assert.ok(mind.includes('planAccess === false'));
+  assert.match(mind, /planAccess = .*state === 'locked' \? false/);
   assert.ok(mind.includes("actionLabel={trendsAccess === false ? 'View mood trends' : undefined}"));
   assert.equal(dashboard.includes('PRO_LOCKS.moodTrends'), false);
 });

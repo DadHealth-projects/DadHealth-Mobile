@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const root = new URL('../', import.meta.url);
 
-test('Free gets the locked Mind Plan card and Pro keeps the placeholder sheet', async () => {
+test('Free keeps decorative locked preview; eligible accounts use saved Mind Plan sheet', async () => {
   const [mind, card, sheet, preview] = await Promise.all([
     readFile(new URL('screens/MindScreen.tsx', root), 'utf8'),
     readFile(new URL('components/mind/MindPlanLockedCard.tsx', root), 'utf8'),
@@ -12,13 +12,13 @@ test('Free gets the locked Mind Plan card and Pro keeps the placeholder sheet', 
     readFile(new URL('assets/mind-plan-blurred-preview.png', root)),
   ]);
 
-  assert.match(mind, /mindPlanAccess === true \? \([\s\S]*?setMindPlanOpen\(true\)/);
-  assert.match(mind, /mindPlanAccess === false \? \([\s\S]*?<MindPlanLockedCard/);
+  assert.match(mind, /planAccess === true \? \([\s\S]*?setMindPlanOpen\(true\)/);
+  assert.match(mind, /planAccess === false \? \([\s\S]*?<MindPlanLockedCard/);
   assert.match(mind, /navigateToProSubscription\(navigation, 'mind_plan'/);
-  assert.match(mind, /<PersonalisedMindPlanSheet onClose=/);
+  assert.match(mind, /<PersonalisedMindPlanSheet[\s\S]*?onClose=/);
   assert.match(card, /Personalised/);
-  assert.match(card, /Your Mind Plan/);
-  assert.match(card, /A plan built around your mood, habits and goals\./);
+  assert.match(card, /Personalised Mind Plan/);
+  assert.match(card, /A seven-day plan shaped around your goals\./);
   assert.match(card, /<Image[\s\S]*?source=\{require\('\.\.\/\.\.\/assets\/mind-plan-blurred-preview\.png'\)\}/);
   assert.match(card, /resizeMode="stretch"/);
   assert.match(card, /height: 150/);
@@ -31,7 +31,7 @@ test('Free gets the locked Mind Plan card and Pro keeps the placeholder sheet', 
   assert.match(card, /border border-lime\/40 bg-card/);
   assert.doesNotMatch(card, /PREVIEW_ROW_WIDTHS|shadowRadius/);
   assert.doesNotMatch(card, /recommendation|generated plan|try this next/i);
-  assert.match(sheet, /Personalised Mind Plan/);
-  assert.match(sheet, /mood, Dad Health Score and history/);
-  assert.doesNotMatch(sheet, /recommendation|generate|steps/);
+  assert.match(sheet, /Start my plan/);
+  assert.match(sheet, /Mark as done/);
+  assert.doesNotMatch(sheet, /mood, Dad Health Score and history|Your plan content will appear/);
 });

@@ -251,7 +251,8 @@ test('post-check-in supports pillar-specific actions and preserves the Pro CTA',
   ]);
 
   assert.ok(screen.includes('planAccess={buildMyPlanAccess}'));
-  assert.ok(followUp.includes("planAccess ? 'Build my plan' : 'Build my plan with Dad Health Pro'"));
+  assert.ok(followUp.includes("planAccess === false ? 'Build my plan with Dad Health Pro' : 'Build my plan'"));
+  assert.match(followUp, /planAccess === false \? <ProBadge \/> : null/);
   assert.ok(followUp.includes('advice.primary.state'));
   assert.ok(!followUp.includes('secondaryActions'));
   assert.ok(followUp.includes('font-heading-bold text-dark text-[14px] tracking-[1px] uppercase'));
