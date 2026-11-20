@@ -9,6 +9,13 @@ const LEGACY_SESSION_KEY = 'dadhealth.biometric.session.v2';
 const DEVICE_ID_KEY = 'dadhealth.biometric.device.v3.id';
 const CREDENTIAL_KEY = 'dadhealth.biometric.device.v4.credential';
 const ENABLED_KEY = 'dadhealth.biometric.device.v3.enabled';
+const OWNER_KEY = 'dadhealth.biometric.device.owner';
+let credentialWork: Promise<unknown> = Promise.resolve();
+function withCredentialLock<T>(work: () => Promise<T>): Promise<T> {
+  const next = credentialWork.then(work, work);
+  credentialWork = next.catch(() => undefined);
+  return next;
+}
 
 const CONFIGURED_WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? 'https://www.dadhealth.co.uk';
 const WEB_URL = CONFIGURED_WEB_URL
@@ -37,6 +44,7 @@ async function clearCurrentDeviceCredential(): Promise<void> {
     SecureStore.deleteItemAsync(ENABLED_KEY, secureStoreOptions),
     SecureStore.deleteItemAsync(DEVICE_ID_KEY, secureStoreOptions),
     SecureStore.deleteItemAsync(CREDENTIAL_KEY, secureStoreOptions),
+    SecureStore.deleteItemAsync(OWNER_KEY, secureStoreOptions),
   ]);
 }
 
@@ -119,6 +127,12 @@ export async function hasBiometricCredentials(): Promise<boolean> {
 }
 
 export async function enrollBiometricCredential(accessToken: string): Promise<BiometricResult> {
+  return withCredentialLock(() => enrollCredential(accessToken));
+}
+async function enrollCredential(accessToken: string): Promise<BiometricResult> {
+  const identity = await supabase.auth.getUser(accessToken);
+  if (identity.error || !identity.data.user) return { success: false, code: 'auth_required', error: 'Please sign in again.' };
+  const owner = identity.data.user.id;
   if (!(await isBiometricAvailable())) {
     return { success: false, error: 'Biometric login is not set up on this device.' };
   }
@@ -164,6 +178,12 @@ export async function enrollBiometricCredential(accessToken: string): Promise<Bi
 
   deviceId = body.deviceId;
   try {
+    const current = await supabase.auth.getSession();
+    if (current.data.session?.user.id !== owner) {
+      await revokeServerDevice(accessToken, deviceId);
+      return { success: false, code: 'account_changed', error: 'Your account changed.' };
+    }
+    await SecureStore.setItemAsync(OWNER_KEY, owner, secureStoreOptions);
     await SecureStore.setItemAsync(CREDENTIAL_KEY, credential, secureStoreOptions);
     await SecureStore.setItemAsync(DEVICE_ID_KEY, deviceId, secureStoreOptions);
     await SecureStore.setItemAsync(ENABLED_KEY, 'true', secureStoreOptions);
@@ -186,8 +206,24 @@ export async function enrollBiometricCredential(accessToken: string): Promise<Bi
 }
 
 export async function clearBiometricCredentials(): Promise<void> {
-  await clearCurrentDeviceCredential();
-  await removeLegacyCredentials();
+  await withCredentialLock(async () => {
+    await clearCurrentDeviceCredential();
+    await removeLegacyCredentials();
+  });
+}
+
+export async function clearOwnerBiometricCredentials(owner: string): Promise<void> {
+  await withCredentialLock(async () => {
+    const storedOwner = await SecureStore.getItemAsync(OWNER_KEY, secureStoreOptions);
+    if (storedOwner !== owner) {
+      // Pre-owner credentials can only be attributed while this owner still
+      // has the active session; never erase a different account's enrollment.
+      const current = await supabase.auth.getSession();
+      if (storedOwner || current.data.session?.user.id !== owner) return;
+    }
+    await clearCurrentDeviceCredential();
+    await removeLegacyCredentials();
+  });
 }
 
 export async function disableBiometricLogin(accessToken: string): Promise<BiometricResult> {
