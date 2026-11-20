@@ -87,7 +87,7 @@ test('Mind offers the Pro personalised plan without gating the free actions', as
 
   assert.match(source, /planAccess === false \? \([\s\S]*?<MindPlanLockedCard[\s\S]*?navigateToProSubscription\(navigation, 'mind_plan'/);
   assert.match(locks, /Get a personalised plan/);
-  // Brief free column: breathing, journal, therapist directory and crisis.
+  // Free access contract: breathing, journal, therapist directory and crisis.
   assert.doesNotMatch(therapist, /isPro/);
   assert.doesNotMatch(therapist, /ProSubscription/);
 });

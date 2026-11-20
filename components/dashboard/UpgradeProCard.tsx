@@ -5,7 +5,7 @@ import { PRO_MOMENTS } from '../../lib/proMoments';
 
 type UpgradeProCardProps = {
   onPress?: () => void;
-  /** Brief Change 02: the tease leads with the dad's own improvement, e.g.
+  /** The tease leads with the dad's own improvement, e.g.
    *  "You've improved your Body score by 6 pts this week." */
   insight?: string | null;
 };

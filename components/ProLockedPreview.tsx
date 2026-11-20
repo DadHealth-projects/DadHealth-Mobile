@@ -18,7 +18,7 @@ type ProLockedPreviewProps = {
 };
 
 /**
- * A Pro feature shown as a visible preview behind a lock — the brief's rule is
+ * A Pro feature shown as a visible preview behind a lock — the presentation rule is
  * "never block a feature without showing a preview of what is behind the lock".
  *
  * The real content renders underneath at reduced opacity and is not

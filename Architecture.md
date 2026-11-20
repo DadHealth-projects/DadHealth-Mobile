@@ -109,25 +109,9 @@ Anything requiring secrets, service-role access, store verification, privileged 
 
 ---
 
-# Current Milestone State
+# Native integration baseline
 
-## Completed Baseline
-
-**M4 — Phase 3 Native Integration & Refinement Pass**
-
-M4 is completed, approved and paid.
-
-The existing native integrations and architecture established during M4 should be preserved unless the current milestone explicitly changes them.
-
-## Active Product Formation
-
-**Next Milestone Brief — Dad Health Journey & Personalisation Formation**
-
-Latest amendment:
-
-**Brief Addendum A — Merge Score into Today**
-
-The active milestone changes the product journey in several places. Architecture should support those changes without unnecessarily rewriting the existing native infrastructure.
+Preserve existing native integrations unless the requested change explicitly requires a reviewed modification.
 
 ---
 
@@ -135,7 +119,7 @@ The active milestone changes the product journey in several places. Architecture
 
 ## Product Behavior
 
-Use the current approved milestone documents and web/backend implementation for:
+Use the current verified backend contracts and implementation for:
 
 * business rules
 * feature behavior
@@ -162,7 +146,7 @@ Do not copy the web page hierarchy onto mobile.
 
 ## Historical Documents
 
-Older milestone briefs and TestFlight feedback are not architecture authority when they conflict with the current milestone or Addendum A.
+Historical feedback does not override current verified contracts and explicitly approved changes.
 
 ---
 
@@ -477,7 +461,7 @@ Current product direction includes:
 * Pro streak protection
 * Pro monthly report card
 
-The current milestone brief is authoritative for exact entitlement behavior.
+Canonical backend entitlement checks are authoritative for exact access behaviour.
 
 ---
 

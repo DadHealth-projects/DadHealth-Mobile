@@ -32,3 +32,11 @@ verify_signing_pair.py
 dist/
 
 product
+# Local-only records and development material
+/product/
+/public/product/
+/docs/ai-workflow/
+/.agents/skills/dadhealth-workflow/
+/credentials*.json
+/ipa-check/
+/dadhealth-install.log

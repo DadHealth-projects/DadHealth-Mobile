@@ -208,7 +208,7 @@ test('notification destinations remain pending through auth remounts and validat
   }
 });
 
-test('M3 custom links do not add Universal Links or Android App Links', () => {
+test('Custom links do not add Universal Links or Android App Links', () => {
   const appConfig = readFileSync(new URL('app.json', root), 'utf8');
   assert.match(appConfig, /"scheme": "dadhealth"/);
   assert.doesNotMatch(appConfig, /associatedDomains|intentFilters|assetlinks|apple-app-site-association/);

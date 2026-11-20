@@ -1,10 +1,10 @@
 /**
- * Pro conversion copy, from the Developer Brief (August 2026) — Change 04.
+ * Shared Pro conversion copy.
  *
- * The brief's principle is "do not sell Pro, demonstrate it": every lock shows a
+ * The presentation principle is "do not sell Pro, demonstrate it": every lock shows a
  * preview of what is behind it, and no screen leads with a lock icon. Keeping
  * the copy in one place means the seven upgrade moments and the free/Pro
- * feature-split locks stay worded exactly as Jamie specified, and can be
+ * feature-split locks keep consistent approved wording, and can be
  * asserted in tests.
  */
 
@@ -22,11 +22,11 @@ export type ProMoment = {
   eyebrow: string;
   heading: string;
   body: string;
-  /** Action label. Brief wording, sentence-cased for the native button style. */
+  /** Action label. Approved wording, sentence-cased for the native button style. */
   cta: string;
 };
 
-/** The seven upgrade moments, in brief order. */
+/** The seven upgrade moments, in display order. */
 export const PRO_MOMENTS: Record<ProMomentId, ProMoment> = {
   score: {
     eyebrow: 'Your Dad Health Score',
@@ -83,7 +83,7 @@ export type ProLockId =
   | 'familyActivityPlans';
 
 /**
- * Free vs Pro feature-split locks (brief Change 04 table). Each one is rendered
+ * Free vs Pro feature-split locks (shared access contract). Each one is rendered
  * over a visible preview of the real feature, never as a bare paywall.
  */
 export const PRO_LOCKS: Record<ProLockId, ProMoment> = {
@@ -138,7 +138,7 @@ export const PRO_LOCKS: Record<ProLockId, ProMoment> = {
 };
 
 /**
- * Change 04, Moment 6: lead with the dad's own score-point improvement, not
+ * Progress-trend presentation: lead with the dad's own score-point improvement, not
  * with the lock. Returns `null` when nothing improved, so the tease falls back
  * to the generic Score detail copy instead of inventing progress.
  */

@@ -1,7 +1,7 @@
 import { formatScoreTrend } from './scoreTrends';
 
 /**
- * Weekly Dad Health report — brief Change 04, Moment 5 (checklist item 17).
+ * Weekly Dad Health report presentation contract.
  *
  * The report is a Pro feature that lands every Sunday: the week-on-week
  * movement of each pillar, one sentence on what happened, and one line on where

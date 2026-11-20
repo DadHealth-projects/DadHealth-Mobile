@@ -44,7 +44,7 @@ test('Pro, Trial, loading, unknown and pre-action states never show prompts', ()
   }
 });
 
-test('all seven brief moments are supported by the shared session manager', () => {
+test('all seven upgrade moments are supported by the shared session manager', () => {
   const ids = ['score', 'checkIn', 'aiWorkout', 'dadDays', 'weeklyReport', 'progressTrends', 'dadDaysCounter'];
   for (const id of ids) {
     const manager = createUpgradeMomentSession();

@@ -25,8 +25,7 @@ type ProUpgradeSectionProps = {
  * A Pro upgrade moment as a flat native section: label → heading → supporting
  * copy → action → divider, the same composition the Body screen uses.
  *
- * The label leads and the lock is a small trailing glyph, because the brief
- * rules out making a lock icon the first thing on a screen.
+ * The label leads and the lock is a small trailing glyph, to avoid making a lock icon the first thing on a screen.
  */
 function ProUpgradeSection({
   moment,

@@ -30,7 +30,7 @@ export const LEGACY_CUSTODY_MAP: Record<CustodyPattern, string> = {
 };
 
 /**
- * M2.1 is complete only when BOTH new-style fields are present: at least one
+ * Onboarding is complete only when BOTH new-style fields are present: at least one
  * goal AND a custody pattern. The legacy `onboarding_complete` flag (set by the
  * old web goals flow) is deliberately NOT trusted — it predates custody
  * selection, so existing accounts are routed through the new onboarding once.

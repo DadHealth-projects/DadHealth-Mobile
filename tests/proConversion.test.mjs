@@ -8,7 +8,7 @@ async function source(path) {
   return readFile(new URL(path, root), 'utf8');
 }
 
-test('the brief specifies seven upgrade moments and there are exactly seven', async () => {
+test('the shared contract defines exactly seven upgrade moments', async () => {
   const moments = await source('lib/proMoments.ts');
 
   const block = /export const PRO_MOMENTS[^=]*= \{([\s\S]*?)\n\};/.exec(moments)?.[1] ?? '';
@@ -20,7 +20,7 @@ test('the brief specifies seven upgrade moments and there are exactly seven', as
   }
 });
 
-test('each upgrade moment keeps the wording from the brief', async () => {
+test('each upgrade moment preserves its approved wording', async () => {
   const moments = await source('lib/proMoments.ts');
 
   const copy = [
@@ -32,7 +32,7 @@ test('each upgrade moment keeps the wording from the brief', async () => {
     'Get unlimited personalised Dad Days searches.',
   ];
   for (const line of copy) {
-    assert.ok(moments.includes(line), `Missing brief copy: ${line}`);
+    assert.ok(moments.includes(line), `Missing approved copy: ${line}`);
   }
   assert.ok(moments.includes("cta: 'Unlock my insights'"));
   assert.ok(moments.includes("cta: 'Unlock AI workouts'"));
@@ -85,7 +85,7 @@ test('Moment 2 keeps free recommendation and Build My Plan Pro row', async () =>
   assert.ok(dashboard.includes('data.checkedInToday ? ('));
 });
 
-test('Moment 7 counts searches used, as the brief words it', async () => {
+test('Moment 7 counts searches used', async () => {
   const dadDays = await source('screens/subscreens/DadDaysSearchScreen.tsx');
 
   assert.ok(dadDays.includes('free Dad Days searches used this month.'));
@@ -253,7 +253,7 @@ test('Share Report remains available to Free without including Pro monthly repor
   assert.match(sharing, /\.\.\.\(report \?/);
 });
 
-test('the free and Pro split matches the brief table', async () => {
+test('the free and Pro split matches the access contract', async () => {
   const [therapist, milestones, tdee, planner, scoreDetails, mind, dashboard] = await Promise.all([
     source('screens/subscreens/TherapistDirectoryScreen.tsx'),
     source('screens/subscreens/MilestoneTrackerScreen.tsx'),

@@ -7,7 +7,7 @@ import ProBadge from './ProBadge';
 import { trackEvent } from '../../lib/analytics';
 
 /**
- * The streak is the primary habit mechanic (brief Change 02, position 6).
+ * The streak is the primary habit mechanic.
  *
  * Streak protection is a Pro benefit (checklist item 18): a Pro member's streak
  * survives one missed day. Free members see what that would give them rather

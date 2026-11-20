@@ -18,7 +18,7 @@ test('approved low and positive prompts stay exact; neutral set contains three d
     "What's one thing you want to carry into tomorrow?",
   ]) assert.ok(source.includes(copy), `Missing approved draft: ${copy}`);
   assert.match(source, /neutral: \[[\s\S]*?What's on your mind right now\?[\s\S]*?What feels most important today\?[\s\S]*?What's one small next step that feels manageable\?/);
-  assert.match(source, /Draft Mind experience copy\. Jamie approval required/);
+  assert.match(source, /Draft Mind experience copy\. Content approval required/);
 });
 
 test('prompt choice uses any low answer, all-positive answers, and neutral fallback', async () => {
