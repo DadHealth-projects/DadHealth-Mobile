@@ -4,7 +4,7 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation, useRoute, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import * as SecureStore from 'expo-secure-store';
+import { readOwnerSecret, writeOwnerSecret } from '../../lib/accountPrivacyCleanup';
 
 import AppTopBar from '../../components/AppTopBar';
 import InlineFormError from '../../components/InlineFormError';
@@ -117,11 +117,17 @@ const isActivitySaved = (result: SearchResult) =>
   const revealResults = useRef(false);
   const [resultsVersion, setResultsVersion] = useState(0);
 
+  const radiusOwner = useRef(user?.id); radiusOwner.current = user?.id;
   useEffect(() => {
-    void SecureStore.getItemAsync(RADIUS_KEY).then((saved) => {
-      if (saved && RADII.some((option) => option.value === saved)) setRadius(saved);
+    let alive = true;
+    setRadius('20');
+    if (!user?.id) return;
+    const owner = user.id;
+    void readOwnerSecret(owner, `${RADIUS_KEY}.${owner}`, () => alive && radiusOwner.current === owner).then((saved) => {
+      if (alive && radiusOwner.current === owner && saved && RADII.some((option) => option.value === saved)) setRadius(saved);
     }).catch(() => {});
-  }, []);
+    return () => { alive = false; };
+  }, [user?.id]);
 
   const loadAccess = useCallback(async () => {
     const requestId = ++accessRequestId.current;
@@ -369,7 +375,7 @@ const isActivitySaved = (result: SearchResult) =>
                 <DropdownTrigger icon="users" label="Child age" value={AGES.find((item) => item.value === childAge)?.label ?? 'Primary'} open={openFilter === 'age'} onPress={() => setOpenFilter((current) => current === 'age' ? null : 'age')} divided />
               </View>
               {openFilter === 'budget' ? <DropdownOptions options={BUDGETS} value={budget} onChange={(value) => { setBudget(value); setOpenFilter(null); setSearchError(null); }} /> : null}
-              {openFilter === 'radius' ? <DropdownOptions options={RADII} value={radius} onChange={(value) => { setRadius(value); setOpenFilter(null); setSearchError(null); void SecureStore.setItemAsync(RADIUS_KEY, value); }} /> : null}
+              {openFilter === 'radius' ? <DropdownOptions options={RADII} value={radius} onChange={(value) => { setRadius(value); setOpenFilter(null); setSearchError(null); if (user?.id) { const owner = user.id; void writeOwnerSecret(owner, `${RADIUS_KEY}.${owner}`, value, () => radiusOwner.current === owner).catch(() => undefined); } }} /> : null}
               {openFilter === 'age' ? <DropdownOptions options={AGES} value={childAge} onChange={(value) => { setChildAge(value); setOpenFilter(null); setSearchError(null); }} /> : null}
             </View>
 

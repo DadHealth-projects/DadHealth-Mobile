@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
+import { readOwnerSecret, writeOwnerSecret } from '../../lib/accountPrivacyCleanup';
 import {
   useNavigation,
   useRoute,
@@ -67,14 +68,23 @@ export default function WeeklyChallengeScreen() {
   const loadRequestIdRef = useRef(0);
   const currentContextRef = useRef({ challengeId: route.params.challengeId, userId: user?.id });
   currentContextRef.current = { challengeId: route.params.challengeId, userId: user?.id };
+  const readChallengeSecret = (key: string) => {
+    const owner = key.split('.')[3];
+    return readOwnerSecret(owner, key, () => currentContextRef.current.userId === owner);
+  };
+  const writeChallengeSecret = (key: string, value: string) => {
+    const owner = key.split('.')[3];
+    return writeOwnerSecret(owner, key, value, () => currentContextRef.current.userId === owner);
+  };
+
 
   const loadCachedState = useCallback(async (isCurrent: () => boolean) => {
     if (!user?.id) return false;
     const challengeId = route.params.challengeId;
     const [dashboard, locallyStarted, cachedParticipation] = await Promise.all([
       readDashboardCache<DashboardData>(user.id).catch(() => null),
-      SecureStore.getItemAsync(startedKey(user.id, challengeId)).catch(() => null),
-      SecureStore.getItemAsync(participationKey(user.id, challengeId)).catch(() => null),
+      readChallengeSecret(startedKey(user.id, challengeId)).catch(() => null),
+      readChallengeSecret(participationKey(user.id, challengeId)).catch(() => null),
     ]);
     if (!isCurrent()) return false;
     const cachedChallenge = dashboard?.challenge?.id === challengeId ? dashboard.challenge : null;
@@ -139,7 +149,7 @@ export default function WeeklyChallengeScreen() {
           .eq('challenge_id', route.params.challengeId)
           .eq('user_id', user.id)
           .maybeSingle(),
-        SecureStore.getItemAsync(localStartedKey).catch(() => null),
+        readChallengeSecret(localStartedKey).catch(() => null),
       ]);
       if (!isCurrent()) return;
 
@@ -170,12 +180,12 @@ export default function WeeklyChallengeScreen() {
         });
         setParticipationState(nextState);
         if (nextState === 'completed') {
-          await SecureStore.setItemAsync(participationKey(user.id, route.params.challengeId), 'completed');
+          await writeChallengeSecret(participationKey(user.id, route.params.challengeId), 'completed');
           void SecureStore.deleteItemAsync(localStartedKey).catch(() => undefined);
         } else if (nextState !== 'not_joined') {
-          await SecureStore.setItemAsync(participationKey(user.id, route.params.challengeId), 'joined');
+          await writeChallengeSecret(participationKey(user.id, route.params.challengeId), 'joined');
         } else {
-          await SecureStore.setItemAsync(participationKey(user.id, route.params.challengeId), 'not_joined');
+          await writeChallengeSecret(participationKey(user.id, route.params.challengeId), 'not_joined');
           void SecureStore.deleteItemAsync(localStartedKey).catch(() => undefined);
         }
       }
@@ -243,7 +253,7 @@ export default function WeeklyChallengeScreen() {
       if (!join) {
         await SecureStore.deleteItemAsync(startedKey(user.id, challenge.id)).catch(() => undefined);
       }
-      await SecureStore.setItemAsync(
+      await writeChallengeSecret(
         participationKey(user.id, challenge.id),
         join ? 'joined' : 'not_joined',
       );
@@ -260,7 +270,7 @@ export default function WeeklyChallengeScreen() {
     setBusy(true);
     setActionError(null);
     try {
-      await SecureStore.setItemAsync(startedKey(user.id, challenge.id), 'true');
+      await writeChallengeSecret(startedKey(user.id, challenge.id), 'true');
       if (isCurrentWeeklyChallengeContext(context, currentContextRef.current)) {
         setParticipationState('started');
       }
@@ -293,7 +303,7 @@ export default function WeeklyChallengeScreen() {
       }
     } else {
       await SecureStore.deleteItemAsync(startedKey(user.id, challenge.id)).catch(() => undefined);
-      await SecureStore.setItemAsync(participationKey(user.id, challenge.id), 'completed');
+      await writeChallengeSecret(participationKey(user.id, challenge.id), 'completed');
       if (isCurrentWeeklyChallengeContext(context, currentContextRef.current)) {
         setParticipationState('completed');
       }
