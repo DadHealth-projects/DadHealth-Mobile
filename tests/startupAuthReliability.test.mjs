@@ -40,7 +40,7 @@ function load(file,mocks,globals={}) {
  {exports,process:{env:{}},...globals,require:n=>{assert.ok(n in mocks,n);return mocks[n];}});return exports;
 }
 function harness() {
- const h={slots:[],effects:[],index:0,dirty:false,requests:[]};
+ const h={slots:[],effects:[],index:0,dirty:false,requests:[],availability:{data:true,error:null},availabilityCalls:0};
  const same=(a,b)=>a&&b&&a.length===b.length&&a.every((v,i)=>Object.is(v,b[i]));
  const react={createContext:()=>({Provider:'Provider'}),useContext:()=>null,createElement:(_t,p)=>p,
  useRef:v=>{const i=h.index++;return h.slots[i]??(h.slots[i]={current:v});},
@@ -48,16 +48,32 @@ function harness() {
  useMemo:(f,deps)=>{const i=h.index++,old=h.slots[i];if(!old||!same(old.deps,deps))h.slots[i]={deps,value:f()};return h.slots[i].value;},
  useEffect:(f,deps)=>{const i=h.index++,old=h.slots[i];if(!old||!same(old.deps,deps)){h.slots[i]={deps,cleanup:old?.cleanup};h.effects.push(()=>{h.slots[i].cleanup?.();h.slots[i].cleanup=f();});}}};
  react.useCallback=(f,d)=>react.useMemo(()=>f,d);react.default=react;
- const supabase={auth:{onAuthStateChange:f=>{h.auth=f;return {data:{subscription:{unsubscribe(){}}}};}},from:()=>{
+ const supabase={rpc:async name=>{assert.equal(name,'privacy_current_account_available');h.availabilityCalls++;return h.availability;},auth:{onAuthStateChange:f=>{h.auth=f;return {data:{subscription:{unsubscribe(){}}}};}},from:()=>{
   const q={select:()=>q,eq:()=>q,maybeSingle:()=>new Promise(resolve=>h.requests.push(resolve))};return q;
  }};
  const mod=load('contexts/AuthContext.tsx',{react,'../lib/supabase':{supabase},'../lib/biometric':{},
+ '../components/settings/AccountPrivacySheet':{AccountPrivacyRecovery:()=>null},
  '../lib/onboarding':load('lib/onboarding.ts',{}),'../lib/offlineSync':{pauseAndClearOfflineUser:async()=>{}}});
  h.render=()=>{h.index=0;h.dirty=false;h.value=mod.AuthProvider({children:null}).value;h.effects.splice(0).forEach(f=>f());};
  h.flush=async()=>{for(let i=0;i<4;i++){await new Promise(r=>setImmediate(r));if(h.dirty)h.render();}};
  h.signIn=id=>{h.auth('SIGNED_IN',id?{user:{id}}:null);h.render();};h.render();return h;
 }
 const complete={data:{goals:['health'],custody_pattern:'daily'},error:null};
+
+test('deletion-hidden profile never becomes fresh onboarding; unknown barrier fails closed',async()=>{
+ for(const availability of [{data:false,error:null},{data:null,error:{code:'network'}}]) {
+  const h=harness();h.availability=availability;h.signIn('deleting');
+  h.requests.shift()({data:null,error:null});await h.flush();
+  assert.equal(h.availabilityCalls,1);assert.equal(h.value.onboardingComplete,null);
+  assert.equal(h.value.onboardingLoading,false);
+ }
+});
+test('genuinely new available account can still onboard; existing profile needs no extra RPC',async()=>{
+ const h=harness();h.signIn('new');h.requests.shift()({data:null,error:null});await h.flush();
+ assert.equal(h.value.onboardingComplete,false);
+ h.signIn('existing');h.requests.shift()(complete);await h.flush();
+ assert.equal(h.value.onboardingComplete,true);assert.equal(h.availabilityCalls,1);
+});
 test('profile failure stays unknown instead of forcing Welcome; successful retry resolves',async()=>{
  const h=harness();h.signIn('a');assert.equal(h.value.onboardingLoading,true);
  h.requests.shift()({data:null,error:{code:'network'}});await h.flush();

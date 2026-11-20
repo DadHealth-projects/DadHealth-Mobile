@@ -17,6 +17,7 @@ import {
 } from '../lib/biometric';
 import { isOnboardingComplete } from '../lib/onboarding';
 import { pauseAndClearOfflineUser } from '../lib/offlineSync';
+import { AccountPrivacyRecovery } from '../components/settings/AccountPrivacySheet';
 
 type AuthResult = { error: string | null };
 
@@ -131,6 +132,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
       if (!isCurrent()) return false;
+      if (!data) {
+        // Deletion RLS deliberately hides the profile. Absence alone is not
+        // evidence that this is a new account needing onboarding. The existing
+        // AccountPrivacyRecovery resumes the persisted operation independently.
+        const availability = await supabase.rpc('privacy_current_account_available');
+        if (!isCurrent()) return false;
+        if (availability.error || availability.data !== true) {
+          setOnboarding({ owner: userId, complete: null, loading: false });
+          return false;
+        }
+      }
       const complete = isOnboardingComplete(data);
 
       setOnboarding({ owner: userId, complete, loading: false });
@@ -263,6 +275,7 @@ const value: AuthContextType = {
 return (
   <AuthContext.Provider value={value}>
     {children}
+    <AccountPrivacyRecovery />
   </AuthContext.Provider>
 )
 };
