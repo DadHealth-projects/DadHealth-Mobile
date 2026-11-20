@@ -27,6 +27,7 @@ export default function DeepLinkManager({ navigationRef }: Props) {
   const lastResumedInvite = useRef<string | null>(null);
   const previousOffline = useRef(isOffline);
   const mounted = useRef(true);
+  const owner = useRef(user?.id); owner.current = user?.id;
 
   const updatePushReadiness = useCallback(() => {
     attachPushNavigation(navigationRef);
@@ -51,8 +52,8 @@ export default function DeepLinkManager({ navigationRef }: Props) {
     }
 
     try {
-      const pending = await readPendingCoParentInvite();
-      if (!mounted.current || !pending) return;
+      const pending = await readPendingCoParentInvite(user.id);
+      if (!mounted.current || owner.current !== user.id || !pending) return;
       if (pending.blockedUserId === user.id) return;
       if (wasCoParentInviteHandled(pending.token)) return;
 
@@ -61,7 +62,7 @@ export default function DeepLinkManager({ navigationRef }: Props) {
       lastResumedInvite.current = resumeKey;
       navigationRef.navigate('SharedCalendar', { token: pending.token });
     } catch {
-      if (mounted.current) showErrorNotice(RESUME_ERROR);
+      if (mounted.current && owner.current === user.id) showErrorNotice(RESUME_ERROR);
     }
   }, [isOffline, navigationRef, onboardingComplete, showErrorNotice, user?.id]);
 

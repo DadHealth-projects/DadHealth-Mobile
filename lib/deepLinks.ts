@@ -1,4 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
+import { readOwnerSecret, writeOwnerSecret } from './accountPrivacyCleanup';
+import { supabase } from './supabase';
 import { Linking } from 'react-native';
 import {
   getStateFromPath,
@@ -7,7 +9,9 @@ import {
 
 import type { AppStackParamList } from '../navigation/AppNavigator';
 
-const PENDING_CO_PARENT_INVITE_KEY = 'dadhealth.deep-link.co-parent-invite.v1';
+const PENDING_CO_PARENT_INVITE_KEY = 'dadhealth.deep-link.co-parent-invite.v2';
+// Fresh logged-out links are held only for this launch, never recovered from legacy ownerless storage.
+let freshInvite: PendingCoParentInvite | null = null;
 const MAX_INVITE_TOKEN_LENGTH = 4096;
 const JWT_PATTERN = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -76,7 +80,8 @@ async function capturePendingInviteFromUrl(rawUrl: string): Promise<void> {
   if (pathname !== 'shared-calendar') return;
   const token = queryValue(path, 'token');
   if (isValidCoParentInviteToken(token)) {
-    await persistPendingCoParentInvite(token);
+    const session = await supabase.auth.getSession();
+    await persistPendingCoParentInvite(token, session.data.session?.user.id);
   }
 }
 
@@ -158,59 +163,33 @@ export const deepLinkingOptions: LinkingOptions<AppStackParamList> = {
   },
 };
 
-export async function readPendingCoParentInvite(): Promise<PendingCoParentInvite | null> {
-  const raw = await SecureStore.getItemAsync(PENDING_CO_PARENT_INVITE_KEY, secureStoreOptions);
+export async function readPendingCoParentInvite(owner?: string): Promise<PendingCoParentInvite | null> {
+  if (!owner) return freshInvite;
+  if (freshInvite) {
+    const pending = freshInvite; freshInvite = null;
+    await persistPendingCoParentInvite(pending.token, owner);
+  }
+  const raw = await readOwnerSecret(owner, `${PENDING_CO_PARENT_INVITE_KEY}.${owner}`);
   if (!raw) return null;
-
   try {
-    const parsed = JSON.parse(raw) as Partial<PendingCoParentInvite>;
-    if (!isValidCoParentInviteToken(parsed.token)) {
-      await SecureStore.deleteItemAsync(PENDING_CO_PARENT_INVITE_KEY, secureStoreOptions);
-      return null;
-    }
-    return {
-      token: parsed.token,
-      blockedUserId: typeof parsed.blockedUserId === 'string'
-        ? parsed.blockedUserId
-        : undefined,
-    };
-  } catch {
-    await SecureStore.deleteItemAsync(PENDING_CO_PARENT_INVITE_KEY, secureStoreOptions);
-    return null;
-  }
+    const parsed = JSON.parse(raw);
+    return parsed?.owner === owner && isValidCoParentInviteToken(parsed.token) ? parsed : null;
+  } catch { return null; }
 }
-
-export async function persistPendingCoParentInvite(token: string): Promise<void> {
+export async function persistPendingCoParentInvite(token: string, owner?: string): Promise<void> {
   if (!isValidCoParentInviteToken(token)) throw new Error('invalid_invite');
-  const current = await readPendingCoParentInvite();
-  const next: PendingCoParentInvite = current?.token === token
-    ? current
-    : { token };
-  await SecureStore.setItemAsync(
-    PENDING_CO_PARENT_INVITE_KEY,
-    JSON.stringify(next),
-    secureStoreOptions,
-  );
+  if (!owner) { freshInvite = { token }; return; }
+  await writeOwnerSecret(owner, `${PENDING_CO_PARENT_INVITE_KEY}.${owner}`, JSON.stringify({token, owner}));
 }
-
-export async function blockPendingCoParentInviteForUser(
-  token: string,
-  userId: string,
-): Promise<void> {
+export async function blockPendingCoParentInviteForUser(token: string, userId: string): Promise<void> {
   if (!isValidCoParentInviteToken(token)) return;
-  await SecureStore.setItemAsync(
-    PENDING_CO_PARENT_INVITE_KEY,
-    JSON.stringify({ token, blockedUserId: userId } satisfies PendingCoParentInvite),
-    secureStoreOptions,
-  );
+  await writeOwnerSecret(userId, `${PENDING_CO_PARENT_INVITE_KEY}.${userId}`, JSON.stringify({token, owner:userId, blockedUserId:userId}));
 }
-
-export async function clearPendingCoParentInvite(expectedToken?: string): Promise<void> {
-  if (expectedToken) {
-    const current = await readPendingCoParentInvite();
-    if (current && current.token !== expectedToken) return;
-  }
-  await SecureStore.deleteItemAsync(PENDING_CO_PARENT_INVITE_KEY, secureStoreOptions);
+export async function clearPendingCoParentInvite(expectedToken?: string, owner?: string): Promise<void> {
+  if (!owner) { if (!expectedToken || freshInvite?.token === expectedToken) freshInvite = null; return; }
+  const current = await readPendingCoParentInvite(owner);
+  if (expectedToken && current?.token !== expectedToken) return;
+  await writeOwnerSecret(owner, `${PENDING_CO_PARENT_INVITE_KEY}.${owner}`, 'null');
 }
 
 const inviteAttempts = new Set<string>();
