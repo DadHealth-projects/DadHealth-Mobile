@@ -156,3 +156,7 @@ Never replace known workout content or a confirmed empty assignment with "Checki
 ## No loading flicker on refresh - 2026-11-13
 
 Never replace already-loaded content with "Loading...", "Checking...", empty placeholders or skeletons during background refresh or tab navigation. Use stale-while-revalidate: preserve valid content, fetch in the background, and update when the request completes. Show empty states only after confirmed empty responses. Initial loading, refresh, empty and error must remain separate states. Never hide genuine failures. Clear account-owned content on account changes. Apply changes only within the approved batch.
+
+### Item 05 - Ordinary content and truthful operation recovery - 2026-11-18
+
+Preserve ordinary feature-card titles, descriptions and layouts. Do not replace them with "Your workout is loading", "Plan temporarily unavailable", Retry cards, or default Retry/Try again buttons. Use subtle action-level progress and automatic recovery. Preserve owner/access boundaries; never expose restricted data when authorisation is unknown. Never claim success without server confirmation. Destructive operations still need truthful progress and failure messages. Internal retries and durable reconciliation remain required. Never hide genuine failures or leave an operation endlessly pending.

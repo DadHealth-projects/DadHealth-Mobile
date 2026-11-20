@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -10,10 +10,13 @@ import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
+import AccountPrivacySheet from '../../components/settings/AccountPrivacySheet';
+import type { PrivacyKind } from '../../lib/accountPrivacy';
 
 export default function SettingsScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { session, signOut } = useAuth();
+  const [privacyKind, setPrivacyKind] = useState<PrivacyKind | null>(null);
 
   const confirmSignOut = useCallback(() => {
     Alert.alert('Sign out?', 'You will need to log in again to access your account.', [
@@ -48,6 +51,11 @@ export default function SettingsScreen() {
           </View>
         </FadeInView>
 
+        {session ? <View className="gap-sm">
+          <Text className="font-heading-bold text-lime text-[14px] uppercase">Your data</Text>
+          <SettingsRow icon="download" label="Export my data" description="Email a copy of your saved Dad Health information." onPress={() => setPrivacyKind('export')} />
+          <SettingsRow icon="trash-2" label="Delete my account" description="Permanently remove your account and personal information." destructive onPress={() => setPrivacyKind('delete')} />
+        </View> : null}
         {session ? (
           <FadeInView delay={130}>
             <Pressable onPress={confirmSignOut} accessibilityRole="button" className="min-h-[54px] flex-row items-center gap-md border-y border-red-400/25 active:opacity-70">
@@ -57,18 +65,20 @@ export default function SettingsScreen() {
           </FadeInView>
         ) : null}
       </ScrollView>
+      <AccountPrivacySheet key={`${session?.user.id ?? 'signed-out'}:${privacyKind}`} owner={session?.user.id} kind={session ? privacyKind : null} onClose={() => setPrivacyKind(null)} />
     </SafeAreaView>
   );
 }
 
-function SettingsRow({ icon, label, onPress, pending = false, future = false }: { icon: React.ComponentProps<typeof Feather>['name']; label: string; onPress?: () => void; pending?: boolean; future?: boolean }) {
+function SettingsRow({ icon, label, description, destructive = false, onPress, pending = false, future = false }: { icon: React.ComponentProps<typeof Feather>['name']; label: string; description?: string; destructive?: boolean; onPress?: () => void; pending?: boolean; future?: boolean }) {
   const disabled = !onPress;
   return (
     <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityState={{ disabled }} className="min-h-[62px] flex-row items-center gap-md border-b border-border active:opacity-70">
       <View className="h-[34px] w-[34px] items-center justify-center">
         <Feather name={icon} size={18} color={disabled ? colors.tertiaryText : colors.lime} />
       </View>
-      <Text className={`flex-1 font-heading-bold text-[14px] uppercase ${disabled ? 'text-muted-text' : 'text-white'}`}>{label}</Text>
+      <View className="flex-1 py-sm"><Text className={`font-heading-bold text-[14px] uppercase ${destructive ? 'text-red-300' : disabled ? 'text-muted-text' : 'text-white'}`}>{label}</Text>
+        {description ? <Text className="font-body text-white text-[14px] leading-[20px] mt-xs">{description}</Text> : null}</View>
       {future ? <Text className="font-heading-bold text-white/60 text-[9px] uppercase">Future</Text> : pending ? <Text className="font-heading-bold text-white/60 text-[9px] uppercase">Pending</Text> : <Feather name="chevron-right" size={18} color={colors.lime} />}
     </Pressable>
   );
