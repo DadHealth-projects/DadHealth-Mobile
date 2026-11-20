@@ -125,7 +125,7 @@ const api=load('lib/weeklyReport.ts',{'./scoreTrends':{formatScoreTrend:()=>({})
 const presentation=load('lib/weeklyReportPresentation.ts');
 const fontMocks={
   'expo-asset':{Asset:{fromModule:()=>({downloadAsync:async()=>({localUri:'file://font.ttf'})})}},
-  'expo-file-system/legacy':{readAsStringAsync:async()=>'FONT_BASE64',EncodingType:{Base64:'base64'}},
+  'expo-file-system/legacy':{readAsStringAsync:async()=>'FONT_BASE64',deleteAsync:async()=>{},EncodingType:{Base64:'base64'}},
   '@expo-google-fonts/barlow':{Barlow_400Regular:1},'@expo-google-fonts/barlow-condensed':{BarlowCondensed_700Bold:2},
 };
 
@@ -193,13 +193,15 @@ test('Free sheet and PDF exclude injected restricted details and pillar scores w
   assert.doesNotMatch(html,/987654|PRIVATE FOCUS/);assert.match(html,/>42<\/text>/);assert.match(html,/\u2191 2 pts/);assert.doesNotMatch(html,/83\.12345|83 \/100/);
 });
 test('export stops before native sharing after account/visibility invalidation and reports no false completion',async()=>{
-  let current=true,shares=0,resolve;
+  let current=true,shares=0,resolve; const removed=[];
   const sharing=load('lib/weeklyReportSharing.ts',{...fontMocks,'./weeklyReport':api,'./weeklyReportPresentation':presentation,
+    'expo-file-system/legacy':{...fontMocks['expo-file-system/legacy'],deleteAsync:async uri=>removed.push(uri)},
     'expo-sharing':{isAvailableAsync:async()=>true,shareAsync:async()=>{shares++;}},
     'expo-print':{printToFileAsync:()=>new Promise(r=>resolve=r)}});
   const pending=sharing.shareWeeklyDadHealthReport(report,()=>current);
   await new Promise(setImmediate);current=false;resolve({uri:'file://test.pdf'});
   assert.equal(await pending,null);assert.equal(shares,0);
+  assert.deepEqual(removed,['file://test.pdf']);
 });
 
 test('export embeds existing Barlow fonts and cancels safely during font preparation', async () => {

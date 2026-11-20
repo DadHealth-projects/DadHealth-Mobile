@@ -1,5 +1,5 @@
 import { useNotificationPresentation } from '../../contexts/NotificationInboxContext';
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Keyboard,
@@ -68,6 +68,7 @@ export default function SharedCalendarScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const route = useRoute<RouteProp<AppStackParamList, "SharedCalendar">>();
   const { user, session, onboardingComplete } = useAuth();
+  const inviteOwner = useRef(user?.id); inviteOwner.current = user?.id;
   const { isOffline, showOfflineAction } = useNetworkStatus();
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [sharedSchedule, setSharedSchedule] = useState<Schedule | null>(null);
@@ -178,6 +179,7 @@ export default function SharedCalendarScreen() {
       setMessage(null);
       setCoParentError(null);
       let handled = false;
+      const expectedOwner = user.id;
       try {
         if (isOffline) {
           return;
@@ -192,9 +194,11 @@ export default function SharedCalendarScreen() {
           body: JSON.stringify({ token }),
         });
 
+        if (inviteOwner.current !== expectedOwner) return;
         if (response.ok) {
           handled = true;
-          await clearPendingCoParentInvite(token);
+          await clearPendingCoParentInvite(token, user.id);
+          if (inviteOwner.current !== expectedOwner) return;
           setMessage("You're connected to the co-parenting calendar.");
           await load();
           return;
@@ -202,13 +206,15 @@ export default function SharedCalendarScreen() {
 
         if (response.status === 400) {
           handled = true;
-          await clearPendingCoParentInvite(token);
+          await clearPendingCoParentInvite(token, user.id);
+          if (inviteOwner.current !== expectedOwner) return;
           setCoParentError(INVALID_CO_PARENT_INVITE_MESSAGE);
           return;
         }
 
         if (response.status === 403) {
           await blockPendingCoParentInviteForUser(token, user.id);
+          if (inviteOwner.current !== expectedOwner) return;
           setCoParentError(
             "This calendar invite was sent to a different account. Sign out, then sign in with the invited email.",
           );
@@ -226,12 +232,13 @@ export default function SharedCalendarScreen() {
           "We could not accept this calendar invite right now. Check your connection and try again.",
         );
       } catch {
+        if (inviteOwner.current !== expectedOwner) return;
         setCoParentError(
           "We could not accept this calendar invite right now. Check your connection and try again.",
         );
       } finally {
         finishCoParentInviteAttempt(token, handled);
-        setSaving(false);
+        if (inviteOwner.current === expectedOwner) setSaving(false);
       }
     },
     [isOffline, load, onboardingComplete, session?.access_token, user?.id],
@@ -251,9 +258,11 @@ export default function SharedCalendarScreen() {
       return;
     }
 
+    let active = true;
+    const expectedOwner = user?.id;
     void (async () => {
       try {
-        await persistPendingCoParentInvite(token);
+        await persistPendingCoParentInvite(token, user?.id);
       } catch {
         setCoParentError(
           "Dad Health could not keep this calendar invite. Open the invite again after signing in.",
@@ -261,6 +270,7 @@ export default function SharedCalendarScreen() {
         if (!session?.access_token) return;
       }
 
+      if (!active || inviteOwner.current !== expectedOwner) return;
       if (!session?.access_token) {
         setMessage("Log in with the invited email to accept this calendar.");
         return;
@@ -269,6 +279,7 @@ export default function SharedCalendarScreen() {
       if (onboardingComplete !== true) return;
       await acceptInvite(token);
     })();
+    return () => { active = false; };
   }, [acceptInvite, navigation, onboardingComplete, route.params?.token, session?.access_token]);
 
   const ensureSchedule = useCallback(async () => {
