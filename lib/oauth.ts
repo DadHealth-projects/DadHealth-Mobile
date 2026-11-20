@@ -166,7 +166,7 @@ export async function isAppleAuthAvailable(): Promise<boolean> {
   }
 }
 
-export async function signInWithApple(): Promise<OAuthResult> {
+export async function signInWithApple(onAuthorizationCode?: (code: string) => void): Promise<OAuthResult> {
   try {
     const credential = await AppleAuthentication.signInAsync({
       requestedScopes: [
@@ -187,10 +187,14 @@ export async function signInWithApple(): Promise<OAuthResult> {
         return { error: isConnectionIssue(error) ? APPLE_CONNECTION_ERROR : APPLE_UNKNOWN_ERROR };
       }
 
+      if (data.session && credential.authorizationCode) onAuthorizationCode?.(credential.authorizationCode);
       return { error: data.session ? null : APPLE_SESSION_ERROR };
     } catch (error) {
       const recovery = await recoverNewAppleSession(previousSession);
-      if (recovery === 'valid') return { error: null };
+      if (recovery === 'valid') {
+        if (credential.authorizationCode) onAuthorizationCode?.(credential.authorizationCode);
+        return { error: null };
+      }
       if (recovery === 'connection' || isConnectionIssue(error)) {
         return { error: APPLE_CONNECTION_ERROR };
       }
