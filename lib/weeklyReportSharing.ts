@@ -94,7 +94,7 @@ export async function shareWeeklyDadHealthReport(
   isCurrent: () => boolean = () => true,
 ): Promise<string | null> {
   if (!isCurrent()) return null;
-
+  let temporaryUri: string | null = null;
   try {
     const available = await Sharing.isAvailableAsync();
 
@@ -106,6 +106,7 @@ export async function shareWeeklyDadHealthReport(
     const { uri } = await Print.printToFileAsync({
       html: buildWeeklyReportHtml(report, fontCss),
     });
+    temporaryUri = uri;
 
     if (!isCurrent()) return null;
 
@@ -120,5 +121,9 @@ export async function shareWeeklyDadHealthReport(
     return isCurrent()
       ? 'We couldn’t save your report. Please try again.'
       : null;
+  } finally {
+    // Remove only this invocation's app-owned temporary PDF, including stale
+    // account responses. Copies explicitly saved through Files remain untouched.
+    if (temporaryUri) await FileSystem.deleteAsync(temporaryUri, { idempotent: true }).catch(() => undefined);
   }
 }

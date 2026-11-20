@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import { readOwnerSecret, writeOwnerSecret } from '../../lib/accountPrivacyCleanup';
 
 import type { FitnessWorkout, FitnessWorkoutExercise } from '../../hooks/useFitnessLibrary';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
@@ -50,6 +50,10 @@ export default function ActiveWorkout({
   onRequireAuth,
   onElapsedChange,
 }: ActiveWorkoutProps) {
+  const currentOwner = useRef(userId); currentOwner.current = userId;
+  const hydrated = useRef(false);
+  const mounted = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const { isOffline, showOfflineAction } = useNetworkStatus();
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [running, setRunning] = useState(false);
@@ -79,31 +83,32 @@ export default function ActiveWorkout({
 
   useEffect(() => {
     let active = true;
-    void SecureStore.getItemAsync(TIMER_KEY).then((stored) => {
-      if (!active || !stored) return;
-      try {
-        const parsed = JSON.parse(stored) as { seconds?: number; date?: string };
-        const today = new Date().toISOString().slice(0, 10);
-        if (parsed.date === today && typeof parsed.seconds === 'number') {
-          setElapsedSeconds(parsed.seconds);
-        }
-      } catch {
-        void SecureStore.deleteItemAsync(TIMER_KEY);
+    hydrated.current = false;
+    setElapsedSeconds(0); setRunning(false); setSaving(false); setMessage(null);
+    if (!userId) return;
+    const valid = () => active && currentOwner.current === userId;
+    // Never attribute the old ownerless TIMER_KEY to the next signed-in account.
+    void readOwnerSecret(userId, `${TIMER_KEY}.${userId}`, valid).then((stored) => {
+      if (!valid()) return;
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed.owner === userId && parsed.date === new Date().toISOString().slice(0, 10)
+            && typeof parsed.seconds === 'number' && Number.isFinite(parsed.seconds)) setElapsedSeconds(parsed.seconds);
+        } catch { /* Ignore an invalid owner-scoped timer. */ }
       }
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
+      hydrated.current = true;
+    }).catch(() => { if (valid()) hydrated.current = true; });
+    return () => { active = false; };
+  }, [userId]);
 
   useEffect(() => {
     onElapsedChange(elapsedSeconds);
-    if (!running) return;
-    void SecureStore.setItemAsync(TIMER_KEY, JSON.stringify({
-      seconds: elapsedSeconds,
-      date: new Date().toISOString().slice(0, 10),
-    }));
-  }, [elapsedSeconds, onElapsedChange, running]);
+    if (!running || !userId || !hydrated.current) return;
+    void writeOwnerSecret(userId, `${TIMER_KEY}.${userId}`, JSON.stringify({
+      owner: userId, seconds: elapsedSeconds, date: new Date().toISOString().slice(0, 10),
+    }), () => mounted.current && currentOwner.current === userId).catch(() => undefined);
+  }, [elapsedSeconds, onElapsedChange, running, userId]);
 
   useEffect(() => {
     if (!running) return undefined;
@@ -152,6 +157,7 @@ export default function ActiveWorkout({
         performed_at: new Date().toISOString(),
       });
 
+    if (currentOwner.current !== userId) return;
     if (sessionResult.error) {
       setMessageTone('error');
       setMessage('We could not log this session. Please try again.');
@@ -165,6 +171,7 @@ export default function ActiveWorkout({
         workout_id: workout.id,
         duration_actual_seconds: elapsedSeconds,
       });
+      if (currentOwner.current !== userId) return;
       if (completionResult.error) {
         setMessageTone('error');
         setMessage('Your session was logged, but the workout could not be marked complete. Please try again.');
