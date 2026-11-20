@@ -77,8 +77,8 @@ export default function CommunityPostThreadScreen() {
     if (!silent) setLoading(true);
     try {
     const [postResult, commentResult] = await Promise.all([
-      supabase.from('posts').select('id,user_id,content,author_name,author_initials,anonymous,tag,circle_id,created_at').eq('id', route.params.postId).maybeSingle(),
-      supabase.from('comments').select('id,user_id,content,parent_id,created_at,anonymous,author_name').eq('post_id', route.params.postId).order('created_at', { ascending: true }),
+      supabase.from('posts').select('id,user_id,content,removed_at,author_name,author_initials,anonymous,tag,circle_id,created_at').eq('id', route.params.postId).maybeSingle(),
+      supabase.from('comments').select('id,user_id,content,removed_at,parent_id,created_at,anonymous,author_name').eq('post_id', route.params.postId).order('created_at', { ascending: true }),
     ]);
     if (requestId !== loadSequence.current) return;
     if (postResult.error || commentResult.error || !postResult.data) {
@@ -135,7 +135,7 @@ export default function CommunityPostThreadScreen() {
     }
     setPost({
       id: String(row.id), user_id: row.user_id ? String(row.user_id) : null,
-      content: String(row.content), author_name: row.anonymous ? 'Anonymous' : String(row.author_name ?? 'Member'),
+      content: row.removed_at ? 'This post was removed.' : String(row.content), author_name: row.removed_at ? 'Deleted account' : row.anonymous ? 'Anonymous' : String(row.author_name ?? 'Member'),
       author_initials: row.anonymous ? 'A' : safeInitials(row.author_initials), anonymous: row.anonymous === true,
       avatar_url: row.anonymous === true ? null : avatarUrls.get(String(row.id)) ?? null,
       tag: String(row.tag ?? ''), circle_name: typeof circleResult.data?.name === 'string' ? circleResult.data.name : null,
@@ -151,7 +151,7 @@ export default function CommunityPostThreadScreen() {
       const storedAuthor = String(item.author_name ?? '').trim();
       const resolvedAuthor = storedAuthor || names.get(String(item.user_id)) || (String(item.user_id) === user?.id ? 'You' : 'Dad');
       const anonymous = item.anonymous === true;
-      return { id, user_id: String(item.user_id), content: String(item.content), parent_id: item.parent_id ? String(item.parent_id) : null, created_at: String(item.created_at), anonymous, author: anonymous ? 'Anonymous' : resolvedAuthor, author_initials: anonymous ? 'A' : safeInitials(resolvedAuthor), avatar_url: anonymous ? null : avatarUrls.get(id) ?? null, likes_count: likeCounts.get(id) ?? 0, user_liked: likedCommentIds.has(id) };
+      return { id, user_id: String(item.user_id), content: item.removed_at ? 'This reply was removed.' : String(item.content), parent_id: item.parent_id ? String(item.parent_id) : null, created_at: String(item.created_at), anonymous, author: item.removed_at ? 'Deleted account' : anonymous ? 'Anonymous' : resolvedAuthor, author_initials: item.removed_at ? '' : anonymous ? 'A' : safeInitials(resolvedAuthor), avatar_url: item.removed_at || anonymous ? null : avatarUrls.get(id) ?? null, likes_count: likeCounts.get(id) ?? 0, user_liked: likedCommentIds.has(id) };
     });
     commentIdsRef.current = new Set(nextComments.map((comment) => comment.id));
     setComments(nextComments);

@@ -15,6 +15,7 @@ type CommunityPostRow = {
   id: string;
   user_id: string | null;
   content: string;
+  removed_at?: string | null;
   tag: string;
   circle_id: string | null;
   anonymous: boolean | null;
@@ -133,8 +134,8 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
     }
 
     const postResult = circleId
-      ? await supabase.from('posts').select('id,user_id,content,tag,circle_id,anonymous,author_initials,author_name,author_meta,created_at').eq('circle_id', circleId).order('created_at', { ascending: false }).order('id', { ascending: false }).range(0, PAGE_SIZE - 1).overrideTypes<CommunityPostRow[], { merge: false }>()
-      : await supabase.from('posts').select('id,user_id,content,tag,circle_id,anonymous,author_initials,author_name,author_meta,created_at').is('circle_id', null).order('created_at', { ascending: false }).order('id', { ascending: false }).range(0, PAGE_SIZE - 1).overrideTypes<CommunityPostRow[], { merge: false }>();
+      ? await supabase.from('posts').select('id,user_id,content,removed_at,tag,circle_id,anonymous,author_initials,author_name,author_meta,created_at').eq('circle_id', circleId).order('created_at', { ascending: false }).order('id', { ascending: false }).range(0, PAGE_SIZE - 1).overrideTypes<CommunityPostRow[], { merge: false }>()
+      : await supabase.from('posts').select('id,user_id,content,removed_at,tag,circle_id,anonymous,author_initials,author_name,author_meta,created_at').is('circle_id', null).order('created_at', { ascending: false }).order('id', { ascending: false }).range(0, PAGE_SIZE - 1).overrideTypes<CommunityPostRow[], { merge: false }>();
     if (requestId !== requestSequence.current) return;
     if (postResult.error) {
       if (!hasCachedPosts) setError('We could not load the Community feed. Please try again.');
@@ -184,7 +185,7 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
     setLoadingMore(true);
     setPaginationError(null);
     try {
-      const pageQuery = supabase.from('posts').select('id,user_id,content,tag,circle_id,anonymous,author_initials,author_name,author_meta,created_at');
+      const pageQuery = supabase.from('posts').select('id,user_id,content,removed_at,tag,circle_id,anonymous,author_initials,author_name,author_meta,created_at');
       const { data, error: pageError } = circleId
         ? await pageQuery.eq('circle_id', circleId).order('created_at', { ascending: false }).order('id', { ascending: false }).range(nextOffset.current, nextOffset.current + PAGE_SIZE - 1).overrideTypes<CommunityPostRow[], { merge: false }>()
         : await pageQuery.is('circle_id', null).order('created_at', { ascending: false }).order('id', { ascending: false }).range(nextOffset.current, nextOffset.current + PAGE_SIZE - 1).overrideTypes<CommunityPostRow[], { merge: false }>();
@@ -358,14 +359,14 @@ async function hydratePosts(rows: CommunityPostRow[], userId?: string) {
   return {
     posts: rows.map((row) => ({
       id: String(row.id), user_id: row.user_id ? String(row.user_id) : null,
-      content: String(row.content ?? ''), tag: String(row.tag ?? ''),
+      content: row.removed_at ? 'This post was removed.' : String(row.content ?? ''), tag: String(row.tag ?? ''),
       circle_id: row.circle_id ? String(row.circle_id) : null,
       circle_name: row.circle_id ? circleNames.get(String(row.circle_id)) ?? null : null,
       anonymous: row.anonymous === true,
-      author_initials: normalizeInitials(row.author_initials, row.anonymous === true),
-      author_name: normalizeName(row.author_name, row.anonymous === true),
+      author_initials: row.removed_at ? '' : normalizeInitials(row.author_initials, row.anonymous === true),
+      author_name: row.removed_at ? 'Deleted account' : normalizeName(row.author_name, row.anonymous === true),
       author_meta: typeof row.author_meta === 'string' ? row.author_meta : row.anonymous ? 'Anonymous · ' : 'Member · ',
-      avatar_url: row.anonymous === true ? null : avatarUrls.get(String(row.id)) ?? null,
+      avatar_url: row.removed_at || row.anonymous === true ? null : avatarUrls.get(String(row.id)) ?? null,
       created_at: String(row.created_at), likes_count: likeCounts.get(String(row.id)) ?? 0,
       replies_count: replyCounts.get(String(row.id)) ?? 0,
     })),
