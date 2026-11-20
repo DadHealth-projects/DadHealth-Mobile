@@ -157,7 +157,9 @@ test('Mind urgent-help flow preserves details-first, explicit call confirmation'
     source('screens/MindScreen.tsx'),
     source('screens/DashboardScreen.tsx'),
   ]);
-  assert.match(crisis, /Alert\.alert\([\s\S]*'Not now'[\s\S]*'Call Samaritans'[\s\S]*openCrisisSupport/);
+  assert.match(crisis, /await Linking.openURL\(crisisActionUrl\(action\)\)/);
+  assert.ok(mind.includes('crisisOpen ? <CrisisSupportSheet'));
+  assert.ok(dashboard.includes('crisisOpen ? <CrisisSupportSheet'));
   assert.ok(mind.includes('onPress={showCrisisSupportDetails}'));
   assert.ok(dashboard.includes("else if (action === 'support') showCrisisSupportDetails()"));
   assert.ok(dashboard.includes("navigation.navigate('Tabs', { screen: 'Fit' })"));

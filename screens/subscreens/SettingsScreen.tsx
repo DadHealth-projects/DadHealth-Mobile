@@ -44,6 +44,7 @@ export default function SettingsScreen() {
           <View className="border-t border-border">
             <SettingsRow icon="user" label="Account" onPress={() => navigation.navigate('Profile')} />
             <SettingsRow icon="bell" label="Push notifications" onPress={() => navigation.navigate('NotificationSettings')} />
+            <SettingsRow icon="slash" label="Blocked accounts" onPress={() => navigation.navigate('BlockedAccounts')} />
             <SettingsRow icon="lock" label="Privacy & security" onPress={() => navigation.navigate('PrivacySecurity')} />
             <SettingsRow icon="heart" label="Health permissions" onPress={() => navigation.navigate('HealthPermissions')} />
             <SettingsRow icon="moon" label="Appearance" future />

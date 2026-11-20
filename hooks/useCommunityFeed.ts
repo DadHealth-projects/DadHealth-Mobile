@@ -1,15 +1,17 @@
+import { communityRevision, reconcileCommunityVisibility, subscribeCommunityModeration } from '../lib/communityModeration';
+import { communityCacheVersion } from '../lib/offlineStorage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 
 import { useNetworkStatus } from '../contexts/NetworkContext';
 import { readCommunityCache, writeCommunityCache } from '../lib/offlineStorage';
-import { loadCommunityAuthorAvatars } from '../lib/communityAuthorAvatars';
+import { loadCommunityAuthorAvatars, loadCommunityOfficialAuthors } from '../lib/communityAuthorAvatars';
 import { deleteCommunityPost, toggleCommunityPostLike, toggleCommunityPostSave } from '../lib/communityPostActions';
 import { supabase } from '../lib/supabase';
 import { buildCommunityInFilters, createRefreshDeduper, createRealtimeRefreshScheduler, isCommunityFeedChangeRelevant } from '../lib/communityRealtime.mjs';
 
-export type CommunityFeedPost = { id: string; user_id: string | null; content: string; tag: string; circle_id: string | null; circle_name: string | null; anonymous: boolean; author_initials: string; author_name: string; author_meta: string; avatar_url: string | null; created_at: string; likes_count: number; replies_count: number };
+export type CommunityFeedPost = { official?: boolean; removed?: boolean; id: string; user_id: string | null; content: string; tag: string; circle_id: string | null; circle_name: string | null; anonymous: boolean; author_initials: string; author_name: string; author_meta: string; avatar_url: string | null; created_at: string; likes_count: number; replies_count: number };
 
 type CommunityPostRow = {
   id: string;
@@ -44,6 +46,7 @@ function getInitialAppState(): AppStateStatus {
 
 export function useCommunityFeed(userId?: string, circleId?: string) {
   const { isOffline } = useNetworkStatus();
+  const currentOwner = useRef(userId); currentOwner.current = userId;
   const focused = useIsFocused();
   const [appState, setAppState] = useState<AppStateStatus>(getInitialAppState);
   const screenActiveRef = useRef(false);
@@ -81,11 +84,26 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
   }, []);
 
   const refresh = useCallback((silent = false): Promise<void> => {
+    if (currentOwner.current !== userId) return Promise.resolve();
     const nextOwner = userId ?? null;
-    const requestKey = `${nextOwner ?? 'guest'}:${circleId ?? 'global'}`;
+    const requestKey = `${nextOwner ?? 'guest'}:${circleId ?? 'global'}:${communityRevision(userId)}`;
     return refreshDeduper.current(requestKey, async () => {
-    if (!screenActiveRef.current) return;
+    if (!screenActiveRef.current || currentOwner.current !== userId) return;
+
+    try {
+      await reconcileCommunityVisibility(userId);
+    } catch {
+      if (currentOwner.current === userId) {
+        setLoading(false);
+        setError('We couldn’t confirm your community changes yet.');
+      }
+      return;
+    }
+
+    if (!screenActiveRef.current || currentOwner.current !== userId) return;
     const requestId = ++requestSequence.current;
+    const visibilityRevision = communityRevision(userId);
+    const cacheVersion = communityCacheVersion(userId);
     if (!silent) setLoading(true);
     setError(null);
     setPaginationError(null);
@@ -106,7 +124,7 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
     if (!circleId) {
       try {
         const cached = await readCommunityCache<CommunityFeedPost>(userId);
-        if (requestId !== requestSequence.current) return;
+        if ((currentOwner.current !== userId || requestId !== requestSequence.current || visibilityRevision !== communityRevision(userId))) return;
         if (cached) {
           setPosts(cached.posts);
           setLikedIds(new Set(cached.likedIds));
@@ -136,7 +154,7 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
     const postResult = circleId
       ? await supabase.from('posts').select('id,user_id,content,removed_at,tag,circle_id,anonymous,author_initials,author_name,author_meta,created_at').eq('circle_id', circleId).order('created_at', { ascending: false }).order('id', { ascending: false }).range(0, PAGE_SIZE - 1).overrideTypes<CommunityPostRow[], { merge: false }>()
       : await supabase.from('posts').select('id,user_id,content,removed_at,tag,circle_id,anonymous,author_initials,author_name,author_meta,created_at').is('circle_id', null).order('created_at', { ascending: false }).order('id', { ascending: false }).range(0, PAGE_SIZE - 1).overrideTypes<CommunityPostRow[], { merge: false }>();
-    if (requestId !== requestSequence.current) return;
+    if ((currentOwner.current !== userId || requestId !== requestSequence.current || visibilityRevision !== communityRevision(userId))) return;
     if (postResult.error) {
       if (!hasCachedPosts) setError('We could not load the Community feed. Please try again.');
       else setShowingCached(true);
@@ -148,7 +166,7 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
     nextOffset.current = rows.length;
     setHasMore(rows.length === PAGE_SIZE);
     const hydrated = await hydratePosts(rows, userId);
-    if (requestId !== requestSequence.current) return;
+    if ((currentOwner.current !== userId || requestId !== requestSequence.current || visibilityRevision !== communityRevision(userId))) return;
     if (hydrated.activityError) setError('We could not load all Community activity. Please try again.');
 
     setPosts(hydrated.posts);
@@ -163,25 +181,34 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
         likedIds: [...hydrated.likedIds].filter((id) => hydrated.posts.some((post) => post.id === id && post.circle_id === null)),
         savedIds: [...hydrated.savedIds].filter((id) => hydrated.posts.some((post) => post.id === id && post.circle_id === null)),
         anonymousOwnedIds: [...hydrated.anonymousOwnedIds].filter((id) => hydrated.posts.some((post) => post.id === id && post.circle_id === null)),
-      });
+      }, cacheVersion);
     } catch {
       // Keep the successfully loaded online feed available in memory.
     }
-    setLoading(false);
     } catch {
-      if (requestId === requestSequence.current) {
+      if (currentOwner.current === userId && requestId === requestSequence.current) {
         setError('We could not load the Community feed. Please try again.');
       }
     } finally {
-      if (requestId === requestSequence.current) setLoading(false);
+      if (currentOwner.current === userId && requestId === requestSequence.current) setLoading(false);
     }
     });
   }, [circleId, isOffline, userId]);
+
+  useEffect(() => subscribeCommunityModeration((owner, ready) => {
+    if (owner !== userId) return;
+    if (ready) { void refresh(true); return; }
+    requestSequence.current += 1;
+    setPosts([]); setShowingCached(false); setHasMore(false);
+    setLikedIds(new Set()); setSavedIds(new Set()); setAnonymousOwnedIds(new Set());
+    // A fresh focus/read repopulates from server-enforced visibility.
+  }), [userId, refresh]);
 
   const loadMore = useCallback(async () => {
     if (isOffline || loading || loadingMore || !hasMore || loadMoreInFlight.current) return;
     loadMoreInFlight.current = true;
     const requestId = requestSequence.current;
+    const visibilityRevision = communityRevision(userId);
     setLoadingMore(true);
     setPaginationError(null);
     try {
@@ -189,14 +216,14 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
       const { data, error: pageError } = circleId
         ? await pageQuery.eq('circle_id', circleId).order('created_at', { ascending: false }).order('id', { ascending: false }).range(nextOffset.current, nextOffset.current + PAGE_SIZE - 1).overrideTypes<CommunityPostRow[], { merge: false }>()
         : await pageQuery.is('circle_id', null).order('created_at', { ascending: false }).order('id', { ascending: false }).range(nextOffset.current, nextOffset.current + PAGE_SIZE - 1).overrideTypes<CommunityPostRow[], { merge: false }>();
-      if (requestId !== requestSequence.current) return;
+      if ((currentOwner.current !== userId || requestId !== requestSequence.current || visibilityRevision !== communityRevision(userId))) return;
       if (pageError) {
         setPaginationError(`We could not load older ${circleId ? 'Circle' : 'community'} posts. Please try again.`);
         return;
       }
       const rows: CommunityPostRow[] = Array.isArray(data) ? data : [];
       const page = await hydratePosts(rows, userId);
-      if (requestId !== requestSequence.current) return;
+      if ((currentOwner.current !== userId || requestId !== requestSequence.current || visibilityRevision !== communityRevision(userId))) return;
       if (page.activityError) {
         setPaginationError('We could not load engagement for older posts. Please try again.');
         return;
@@ -338,13 +365,13 @@ export function useCommunityFeed(userId?: string, circleId?: string) {
     } finally { otherActionLocks.current.delete(postId); setBusyId(null); }
   }, [isOffline, refresh, userId]);
 
-  return { posts, likedIds, savedIds, anonymousOwnedIds, loading, loadingMore, hasMore, paginationError, busyId, likeBusyIds, error, showingCached, isOffline, refresh, loadMore, clearCirclePosts, membershipEventVersion, toggleLike, toggleSave, deletePost };
+  return { posts: cacheOwner.current === (userId ?? null) ? posts : [], likedIds: cacheOwner.current === (userId ?? null) ? likedIds : new Set<string>(), savedIds: cacheOwner.current === (userId ?? null) ? savedIds : new Set<string>(), anonymousOwnedIds: cacheOwner.current === (userId ?? null) ? anonymousOwnedIds : new Set<string>(), loading, loadingMore, hasMore, paginationError, busyId, likeBusyIds, error, showingCached, isOffline, refresh, loadMore, clearCirclePosts, membershipEventVersion, toggleLike, toggleSave, deletePost };
 }
 
 async function hydratePosts(rows: CommunityPostRow[], userId?: string) {
   const ids = rows.map((row) => String(row.id));
   const circleIds = [...new Set(rows.map((row) => row.circle_id ? String(row.circle_id) : '').filter(Boolean))];
-  const [likesResult, commentsResult, userLikesResult, savesResult, anonymousOwnersResult, circlesResult, avatarUrls] = await Promise.all([
+  const [likesResult, commentsResult, userLikesResult, savesResult, anonymousOwnersResult, circlesResult, avatarUrls, officialIds] = await Promise.all([
     ids.length ? supabase.from('likes').select('post_id').in('post_id', ids) : Promise.resolve({ data: [], error: null }),
     ids.length ? supabase.from('comments').select('post_id').in('post_id', ids) : Promise.resolve({ data: [], error: null }),
     userId && ids.length ? supabase.from('likes').select('post_id').eq('user_id', userId).in('post_id', ids) : Promise.resolve({ data: [], error: null }),
@@ -352,6 +379,7 @@ async function hydratePosts(rows: CommunityPostRow[], userId?: string) {
     userId && ids.length ? supabase.from('anonymous_post_owners').select('post_id').eq('user_id', userId).in('post_id', ids) : Promise.resolve({ data: [], error: null }),
     circleIds.length ? supabase.from('circles').select('id,name').in('id', circleIds) : Promise.resolve({ data: [], error: null }),
     loadCommunityAuthorAvatars(rows.map((row) => ({ contribution_id: String(row.id), kind: 'post' as const, anonymous: row.anonymous === true }))),
+    loadCommunityOfficialAuthors(ids),
   ]);
   const likeCounts = countByPost(likesResult.data ?? []);
   const replyCounts = countByPost(commentsResult.data ?? []);
@@ -366,6 +394,8 @@ async function hydratePosts(rows: CommunityPostRow[], userId?: string) {
       author_initials: row.removed_at ? '' : normalizeInitials(row.author_initials, row.anonymous === true),
       author_name: row.removed_at ? 'Deleted account' : normalizeName(row.author_name, row.anonymous === true),
       author_meta: typeof row.author_meta === 'string' ? row.author_meta : row.anonymous ? 'Anonymous · ' : 'Member · ',
+      official: officialIds.has(String(row.id)) && !row.anonymous && !row.removed_at,
+      removed: Boolean(row.removed_at),
       avatar_url: row.removed_at || row.anonymous === true ? null : avatarUrls.get(String(row.id)) ?? null,
       created_at: String(row.created_at), likes_count: likeCounts.get(String(row.id)) ?? 0,
       replies_count: replyCounts.get(String(row.id)) ?? 0,

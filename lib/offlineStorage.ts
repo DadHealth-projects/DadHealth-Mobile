@@ -154,25 +154,143 @@ export function writeJournalCache(userId: string, entries: OfflineJournalEntry[]
   return withPrivateWriteLock(userId, () => writeEnvelope(privateKey(userId, 'journal'), entries));
 }
 
-export function readCommunityCache<TPost>(userId?: string) {
-  return readEnvelope<OfflineCommunityCache<TPost>>(communityKey(userId));
+const communityCacheVersions = new Map<string, number>();
+const communityCacheInvalidations = new Map<string, Promise<boolean>>();
+const communityCacheDirty = new Set<string>();
+const communityInvalidKey = (owner: string) => `${communityKey(owner)}.invalid`;
+const communityPendingKey = (owner: string) => `${communityKey(owner)}.pending`;
+
+export type CommunityVisibilityChange =
+  | { kind: 'block'; target: { kind: 'post' | 'comment'; id: string } }
+  | { kind: 'unblock'; id: string };
+
+export async function readCommunityVisibilityChange(
+  owner: string,
+): Promise<CommunityVisibilityChange | null> {
+  const raw = await AsyncStorage.getItem(communityPendingKey(owner));
+  if (!raw) return null;
+
+  const change = JSON.parse(raw) as CommunityVisibilityChange;
+
+  if (change?.kind === 'unblock' && typeof change.id === 'string') {
+    return change;
+  }
+
+  if (
+    change?.kind === 'block' &&
+    ['post', 'comment'].includes(change.target?.kind) &&
+    typeof change.target?.id === 'string'
+  ) {
+    return change;
+  }
+
+  throw new Error('invalid_community_visibility_change');
 }
 
-export function writeCommunityCache<TPost>(userId: string | undefined, data: OfflineCommunityCache<TPost>) {
-  const safeData = userId
-    ? data
-    : {
-        ...data,
-        posts: data.posts.map((post) => typeof post === 'object' && post !== null
-          ? { ...post, user_id: null }
-          : post),
-        likedIds: [],
-        savedIds: [],
-        anonymousOwnedIds: [],
-      };
-  return userId
-    ? withPrivateWriteLock(userId, () => writeEnvelope(communityKey(userId), safeData))
-    : writeEnvelope(communityKey(userId), safeData);
+export async function rememberCommunityVisibilityChange(
+  owner: string,
+  change: CommunityVisibilityChange,
+) {
+  await withPrivateWriteLock(owner, async () => {
+    const existing = await readCommunityVisibilityChange(owner);
+
+    if (existing && JSON.stringify(existing) !== JSON.stringify(change)) {
+      throw new Error('community_change_pending');
+    }
+
+    await AsyncStorage.setItem(
+      communityPendingKey(owner),
+      JSON.stringify(change),
+    );
+  });
+
+  await prepareCommunityCacheChange(owner);
+}
+
+export async function finishCommunityVisibilityChange(
+  owner: string,
+  change: CommunityVisibilityChange,
+) {
+  communityCacheVersions.set(owner, communityCacheVersion(owner) + 1);
+
+  await withPrivateWriteLock(owner, async () => {
+    const existing = await readCommunityVisibilityChange(owner);
+
+    if (!existing || JSON.stringify(existing) !== JSON.stringify(change)) {
+      throw new Error('community_change_changed');
+    }
+
+    // Keep the pending intent until the old cache has been removed.
+    await AsyncStorage.removeItem(communityKey(owner));
+    await AsyncStorage.removeItem(communityInvalidKey(owner));
+    await AsyncStorage.removeItem(communityPendingKey(owner));
+    communityCacheDirty.delete(owner);
+  });
+}
+export function communityCacheVersion(owner?: string) { return communityCacheVersions.get(owner ?? 'guest') ?? 0; }
+
+/** Persist the safety marker before a visibility-changing RPC can be accepted. */
+export async function prepareCommunityCacheChange(owner: string) {
+  communityCacheVersions.set(owner, communityCacheVersion(owner) + 1);
+  communityCacheDirty.add(owner);
+  await withPrivateWriteLock(owner, () => AsyncStorage.setItem(communityInvalidKey(owner), '1'));
+}
+async function recoverCommunityCache(owner: string): Promise<boolean> {
+  const existing = communityCacheInvalidations.get(owner);
+  if (existing) return existing;
+  const version = communityCacheVersion(owner);
+  const pending = withPrivateWriteLock(owner, async () => {
+  if (await readCommunityVisibilityChange(owner)) return false;
+    // Refresh the durable marker after confirmation as well: a concurrent
+    // successful pre-block read may have replaced the earlier cache.
+    await AsyncStorage.setItem(communityInvalidKey(owner), '1');
+    await AsyncStorage.removeItem(communityKey(owner));
+    if (version === communityCacheVersion(owner)) {
+      await AsyncStorage.removeItem(communityInvalidKey(owner));
+      communityCacheDirty.delete(owner);
+    }
+    return true;
+  }).catch(() => false);
+  communityCacheInvalidations.set(owner, pending);
+  try { return await pending; }
+  finally { if (communityCacheInvalidations.get(owner) === pending) communityCacheInvalidations.delete(owner); }
+}
+export async function invalidateCommunityCache(owner: string) {
+  communityCacheVersions.set(owner, communityCacheVersion(owner) + 1);
+  communityCacheDirty.add(owner);
+  return recoverCommunityCache(owner);
+}
+
+export async function readCommunityCache<TPost>(userId?: string) {
+  const version = communityCacheVersion(userId);
+  if (userId) {
+  if (await readCommunityVisibilityChange(userId)) return null;
+
+  let unsafe = communityCacheDirty.has(userId);
+    try { unsafe = Boolean(await AsyncStorage.getItem(communityInvalidKey(userId))) || unsafe; }
+    catch { return null; }
+    if (unsafe) { communityCacheDirty.add(userId); await recoverCommunityCache(userId); return null; }
+  }
+  const data = await readEnvelope<OfflineCommunityCache<TPost>>(communityKey(userId));
+  return version === communityCacheVersion(userId) && !(userId && communityCacheDirty.has(userId)) ? data : null;
+}
+
+export function writeCommunityCache<TPost>(userId: string | undefined, data: OfflineCommunityCache<TPost>, version = communityCacheVersion(userId)) {
+  const safeData = userId ? data : {
+    ...data,
+    posts: data.posts.map((post) => typeof post === 'object' && post !== null ? { ...post, user_id: null } : post),
+    likedIds: [], savedIds: [], anonymousOwnedIds: [],
+  };
+  return userId ? withPrivateWriteLock(userId, async () => {
+  if (await readCommunityVisibilityChange(userId)) return;
+  if (version !== communityCacheVersion(userId)) return;
+    await writeEnvelope(communityKey(userId), safeData);
+    // Only an authoritative, current-generation read may replace invalidated data.
+    if (version === communityCacheVersion(userId)) {
+      await AsyncStorage.removeItem(communityInvalidKey(userId));
+      communityCacheDirty.delete(userId);
+    }
+  }) : writeEnvelope(communityKey(userId), safeData);
 }
 
 export function readOfflineQueue(userId: string): Promise<OfflineQueueItem[]> {
@@ -236,6 +354,7 @@ export async function markJournalEntryFailed(userId: string, entryId: string): P
 }
 
 export async function clearPrivateOfflineData(userId: string): Promise<void> {
+  communityCacheVersions.set(userId, communityCacheVersion(userId) + 1);
   const pendingQueueOperation = queueLocks.get(userId);
   if (pendingQueueOperation) await pendingQueueOperation.catch(() => undefined);
   const pendingPrivateWrite = privateWriteLocks.get(userId);
@@ -248,7 +367,10 @@ export async function clearPrivateOfflineData(userId: string): Promise<void> {
     privateKey(userId, 'community'),
     privateKey(userId, 'community_v2'),
     privateKey(userId, 'community_v3'),
+    communityInvalidKey(userId),
     privateKey(userId, 'queue'),
   ]);
+  await AsyncStorage.removeItem(communityPendingKey(userId));
+communityCacheDirty.delete(userId);
   emitOfflineSync({ userId, kind: 'all', status: 'cleared' });
 }

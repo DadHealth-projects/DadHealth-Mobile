@@ -34,7 +34,7 @@ import { useProgressSleep } from '../hooks/useProgressSleep';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 import { colors } from '../theme';
 import { STATS_EXTENDED } from '../lib/homeContent';
-import { crisisSupportPhoneDisplay, showCrisisSupportDetails } from '../lib/crisisSupport';
+import CrisisSupportSheet from '../components/CrisisSupportSheet';
 import {
   MOOD_WEEK_LABELS,
   getCurrentWeekDayKeys,
@@ -55,6 +55,8 @@ export default function MindScreen({
   dashboardSection?: DashboardSection;
   onSelectDashboardSection?: (section: DashboardSection) => void;
 } = {}) {
+  const [crisisOpen, setCrisisOpen] = useState(false);
+  const showCrisisSupportDetails = () => setCrisisOpen(true);
   const { user } = useAuth();
   const { isOffline } = useNetworkStatus();
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
@@ -161,6 +163,7 @@ export default function MindScreen({
       dashboardSection={dashboardSection}
       onSelectDashboardSection={onSelectDashboardSection}
     >
+      {crisisOpen ? <CrisisSupportSheet onClose={() => setCrisisOpen(false)} /> : null}
       <GlobalErrorToastReporter message={data?.scoreError} />
       <FadeInView>
         <ScreenHero
@@ -174,8 +177,8 @@ export default function MindScreen({
         onPress={showCrisisSupportDetails}
         accessibilityRole="button"
         accessibilityLabel="Need urgent help?"
-        accessibilityHint={`Opens Samaritans support details. Call ${crisisSupportPhoneDisplay()} only after choosing Call Samaritans.`}
-        className="min-h-[44px] self-start justify-center px-xs active:opacity-70"
+        accessibilityHint="Opens UK support details and local support options. Choose a separate Call or Text action."
+        className="min-h-[48px] self-start justify-center px-xs active:opacity-70"
       >
         <Text className="font-body-semibold text-lime text-[14px] underline">Need urgent help?</Text>
       </Pressable>

@@ -1,3 +1,5 @@
+import CommunityActionsMenu from '../../components/community/CommunityActionsMenu';
+import { communityRevision, reconcileCommunityVisibility, subscribeCommunityModeration } from '../../lib/communityModeration';
 import { useNotificationPresentation } from '../../contexts/NotificationInboxContext';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, type AppStateStatus, Pressable, ScrollView, Text, View } from 'react-native';
@@ -14,7 +16,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { trackEvent } from '../../lib/analytics';
 import { communityTagLabel } from '../../lib/communityLabels';
-import { loadCommunityAuthorAvatars } from '../../lib/communityAuthorAvatars';
+import { loadCommunityAuthorAvatars, loadCommunityOfficialAuthors } from '../../lib/communityAuthorAvatars';
 import { createRefreshDeduper, createRealtimeRefreshScheduler, isCommunityCommentChangeRelevant, isCommunityCommentLikeRelevant, isCommunityPostActivityChangeRelevant } from '../../lib/communityRealtime.mjs';
 import { deleteCommunityPost, toggleCommunityPostLike, toggleCommunityPostSave } from '../../lib/communityPostActions';
 import { supabase } from '../../lib/supabase';
@@ -22,8 +24,8 @@ import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
 import { dashboardIcon } from '../../lib/dashboardIcons';
 
-type Comment = { id: string; user_id: string; content: string; parent_id: string | null; created_at: string; anonymous: boolean; author: string; author_initials: string; avatar_url: string | null; likes_count: number; user_liked: boolean };
-type PostDetails = { id: string; user_id: string | null; content: string; author_name: string; author_initials: string; avatar_url: string | null; anonymous: boolean; tag: string; circle_name: string | null; created_at: string; likes_count: number; replies_count: number };
+type Comment = { official?: boolean; removed?: boolean; id: string; user_id: string; content: string; parent_id: string | null; created_at: string; anonymous: boolean; author: string; author_initials: string; avatar_url: string | null; likes_count: number; user_liked: boolean };
+type PostDetails = { official?: boolean; removed?: boolean; id: string; user_id: string | null; content: string; author_name: string; author_initials: string; avatar_url: string | null; anonymous: boolean; tag: string; circle_name: string | null; created_at: string; likes_count: number; replies_count: number };
 
 function getInitialAppState(): AppStateStatus {
   const state = AppState.currentState;
@@ -36,13 +38,17 @@ export default function CommunityPostThreadScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const route = useRoute<RouteProp<AppStackParamList, 'CommunityPostThread'>>();
   const { user } = useAuth();
+  const currentOwner = useRef(user?.id); currentOwner.current = user?.id;
+  const loadedOwner = useRef<string | undefined>(undefined);
   const { isOffline, showOfflineAction } = useNetworkStatus();
   const focused = useIsFocused();
   const [appState, setAppState] = useState<AppStateStatus>(getInitialAppState);
   const screenActiveRef = useRef(false);
   screenActiveRef.current = focused && appState === 'active';
-  const [post, setPost] = useState<PostDetails | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [storedPost, setPost] = useState<PostDetails | null>(null);
+  const [storedComments, setComments] = useState<Comment[]>([]);
+  const post = loadedOwner.current === user?.id ? storedPost : null;
+  const comments = loadedOwner.current === user?.id ? storedComments : [];
   const commentIdsRef = useRef<Set<string>>(new Set());
   const likeIdsRef = useRef<Set<string>>(new Set());
   const savedPostRowIdRef = useRef<string | null>(null);
@@ -57,6 +63,18 @@ export default function CommunityPostThreadScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+const threadKey = `${user?.id ?? 'guest'}:${route.params.postId}`;
+const blockedDuringLoad = useRef('');
+
+const [moderation, setModeration] = useState<{
+  key: string;
+  message: string;
+  hidden: boolean;
+} | null>(null);
+
+const moderationResult =
+  moderation?.key === threadKey ? moderation : null;
   useNotificationPresentation(!loading && post?.id === route.params.postId && !error, !loading && (!post || Boolean(error)), 'community');
   const [composerError, setComposerError] = useState<string | null>(null);
   const [respectBusyId, setRespectBusyId] = useState<string | null>(null);
@@ -69,10 +87,24 @@ export default function CommunityPostThreadScreen() {
   const commentSubmitInFlight = useRef(false);
 
   const load = useCallback((silent = false): Promise<void> => {
-    const requestKey = `${user?.id ?? 'guest'}:${route.params.postId}`;
+    if (currentOwner.current !== user?.id) return Promise.resolve();
+    const requestKey = `${user?.id ?? 'guest'}:${route.params.postId}:${communityRevision(user?.id)}`;
     return loadDeduper.current(requestKey, async () => {
-    if (!screenActiveRef.current) return;
+    if (!screenActiveRef.current || currentOwner.current !== user?.id) return;
+
+    try {
+      await reconcileCommunityVisibility(user?.id);
+    } catch {
+      if (currentOwner.current === user?.id) {
+        setLoading(false);
+        setError('We couldn’t confirm your community changes yet.');
+      }
+      return;
+    }
+
+    if (!screenActiveRef.current || currentOwner.current !== user?.id) return;
     const requestId = ++loadSequence.current;
+    const visibilityRevision = communityRevision(user?.id);
     if (isOffline) { setLoading(false); setError(null); return; }
     if (!silent) setLoading(true);
     try {
@@ -80,13 +112,29 @@ export default function CommunityPostThreadScreen() {
       supabase.from('posts').select('id,user_id,content,removed_at,author_name,author_initials,anonymous,tag,circle_id,created_at').eq('id', route.params.postId).maybeSingle(),
       supabase.from('comments').select('id,user_id,content,removed_at,parent_id,created_at,anonymous,author_name').eq('post_id', route.params.postId).order('created_at', { ascending: true }),
     ]);
-    if (requestId !== loadSequence.current) return;
-    if (postResult.error || commentResult.error || !postResult.data) {
-      if (!postResult.error && !postResult.data) setPost(null);
-      setError('We could not load this conversation. Please try again.');
-      setLoading(false);
-      return;
-    }
+    if ((currentOwner.current !== user?.id || requestId !== loadSequence.current || visibilityRevision !== communityRevision(user?.id))) return;
+    if (postResult.error || commentResult.error) {
+  setError('We could not load this conversation. Please try again.');
+  setLoading(false);
+  return;
+}
+
+if (!postResult.data) {
+  setPost(null);
+  setComments([]);
+  setError(null);
+  setLoading(false);
+
+  setModeration({
+    key: threadKey,
+    message: blockedDuringLoad.current === threadKey
+      ? 'Account blocked. This conversation is no longer available to you.'
+      : 'This conversation is no longer available.',
+    hidden: true,
+  });
+
+  return;
+}
     const row = postResult.data;
     const [circleResult, likesResult, savedResult, anonymousOwnerResult] = await Promise.all([
       row.circle_id ? supabase.from('circles').select('name,icon').eq('id', String(row.circle_id)).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -94,7 +142,7 @@ export default function CommunityPostThreadScreen() {
       user?.id ? supabase.from('saved_posts').select('id,post_id').eq('post_id', route.params.postId).eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
       user?.id ? supabase.from('anonymous_post_owners').select('post_id').eq('post_id', route.params.postId).eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ]);
-    if (requestId !== loadSequence.current) return;
+    if ((currentOwner.current !== user?.id || requestId !== loadSequence.current || visibilityRevision !== communityRevision(user?.id))) return;
     if (circleResult.error || likesResult.error || savedResult.error || anonymousOwnerResult.error) {
       setError('We could not load all Community activity. Please try again.');
       setLoading(false);
@@ -105,7 +153,7 @@ export default function CommunityPostThreadScreen() {
     const commentLikesResult = commentIds.length
       ? await supabase.from('comment_likes').select('comment_id,user_id').in('comment_id', commentIds)
       : { data: [], error: null };
-    if (requestId !== loadSequence.current) return;
+    if ((currentOwner.current !== user?.id || requestId !== loadSequence.current || visibilityRevision !== communityRevision(user?.id))) return;
     if (commentLikesResult.error) { setError('We could not load all Community activity. Please try again.'); setLoading(false); return; }
     const likeCounts = new Map<string, number>();
     const likedCommentIds = new Set<string>();
@@ -115,26 +163,28 @@ export default function CommunityPostThreadScreen() {
       if (item.user_id === user?.id) likedCommentIds.add(id);
     });
     const userIds = [...new Set(rows.map((item) => String(item.user_id)))];
-    const [profileResult, avatarUrls] = await Promise.all([
+    const [profileResult, avatarUrls, officialIds] = await Promise.all([
       userIds.length ? supabase.from('user_profile').select('user_id,display_name').in('user_id', userIds) : Promise.resolve({ data: [], error: null }),
       loadCommunityAuthorAvatars([
         { contribution_id: String(row.id), kind: 'post', anonymous: row.anonymous === true },
         ...rows.map((item) => ({ contribution_id: String(item.id), kind: 'comment' as const, anonymous: item.anonymous === true })),
       ]),
+      loadCommunityOfficialAuthors([String(row.id)], commentIds),
     ]);
-    if (requestId !== loadSequence.current) return;
+    if ((currentOwner.current !== user?.id || requestId !== loadSequence.current || visibilityRevision !== communityRevision(user?.id))) return;
     let activityWarning: string | null = profileResult.error ? 'We could not load all Community activity. Please try again.' : null;
     const names = new Map((profileResult.data ?? []).map((profile: { user_id: string; display_name: string | null }) => [String(profile.user_id), profile.display_name?.trim() || null]));
     if (names.size < userIds.length || [...names.values()].some((name) => !name)) {
       const authorResult = await supabase.rpc('get_comment_author_names', { p_user_ids: userIds });
-      if (requestId !== loadSequence.current) return;
+      if ((currentOwner.current !== user?.id || requestId !== loadSequence.current || visibilityRevision !== communityRevision(user?.id))) return;
       if (authorResult.error) activityWarning = 'We could not load all Community activity. Please try again.';
       (authorResult.data ?? []).forEach((profile: { user_id: string; display_name: string | null }) => {
         if (profile.display_name?.trim()) names.set(String(profile.user_id), profile.display_name.trim());
       });
     }
+    loadedOwner.current = user?.id;
     setPost({
-      id: String(row.id), user_id: row.user_id ? String(row.user_id) : null,
+      official: officialIds.has(String(row.id)) && !row.anonymous && !row.removed_at, removed: Boolean(row.removed_at), id: String(row.id), user_id: row.user_id ? String(row.user_id) : null,
       content: row.removed_at ? 'This post was removed.' : String(row.content), author_name: row.removed_at ? 'Deleted account' : row.anonymous ? 'Anonymous' : String(row.author_name ?? 'Member'),
       author_initials: row.anonymous ? 'A' : safeInitials(row.author_initials), anonymous: row.anonymous === true,
       avatar_url: row.anonymous === true ? null : avatarUrls.get(String(row.id)) ?? null,
@@ -151,18 +201,26 @@ export default function CommunityPostThreadScreen() {
       const storedAuthor = String(item.author_name ?? '').trim();
       const resolvedAuthor = storedAuthor || names.get(String(item.user_id)) || (String(item.user_id) === user?.id ? 'You' : 'Dad');
       const anonymous = item.anonymous === true;
-      return { id, user_id: String(item.user_id), content: item.removed_at ? 'This reply was removed.' : String(item.content), parent_id: item.parent_id ? String(item.parent_id) : null, created_at: String(item.created_at), anonymous, author: item.removed_at ? 'Deleted account' : anonymous ? 'Anonymous' : resolvedAuthor, author_initials: item.removed_at ? '' : anonymous ? 'A' : safeInitials(resolvedAuthor), avatar_url: item.removed_at || anonymous ? null : avatarUrls.get(id) ?? null, likes_count: likeCounts.get(id) ?? 0, user_liked: likedCommentIds.has(id) };
+      return { official: officialIds.has(id) && !anonymous && !item.removed_at, removed: Boolean(item.removed_at), id, user_id: String(item.user_id), content: item.removed_at ? 'This reply was removed.' : String(item.content), parent_id: item.parent_id ? String(item.parent_id) : null, created_at: String(item.created_at), anonymous, author: item.removed_at ? 'Deleted account' : anonymous ? 'Anonymous' : resolvedAuthor, author_initials: item.removed_at ? '' : anonymous ? 'A' : safeInitials(resolvedAuthor), avatar_url: item.removed_at || anonymous ? null : avatarUrls.get(id) ?? null, likes_count: likeCounts.get(id) ?? 0, user_liked: likedCommentIds.has(id) };
     });
     commentIdsRef.current = new Set(nextComments.map((comment) => comment.id));
     setComments(nextComments);
     setError(activityWarning);
     } catch {
-      if (requestId === loadSequence.current) setError('We could not load this conversation. Please try again.');
+      if (currentOwner.current === user?.id && requestId === loadSequence.current) setError('We could not load this conversation. Please try again.');
     } finally {
-      if (requestId === loadSequence.current) setLoading(false);
+      if (currentOwner.current === user?.id && requestId === loadSequence.current) setLoading(false);
     }
     });
-  }, [isOffline, route.params.postId, user?.id]);
+  }, [isOffline, route.params.postId, user?.id, threadKey]);
+
+  useEffect(() => {
+  loadSequence.current++;
+  blockedDuringLoad.current = '';
+  setPost(null);
+  setComments([]);
+  setModeration(null);
+}, [user?.id, route.params.postId]);
 
   useEffect(() => {
     const appStateSubscription = AppState.addEventListener('change', setAppState);
@@ -198,7 +256,52 @@ export default function CommunityPostThreadScreen() {
     };
   }, [appState, focused, isOffline, load, route.params.postId, user?.id]);
 
-  const roots = useMemo(() => comments.filter((comment) => !comment.parent_id), [comments]);
+  useEffect(() => subscribeCommunityModeration(
+  (changedOwner, ready, result) => {
+    if (
+      changedOwner !== user?.id ||
+      currentOwner.current !== changedOwner
+    ) return;
+
+    if (!ready) {
+      loadSequence.current++;
+      setPost(null);
+      setComments([]);
+      setError(null);
+      setLoading(false);
+      setModeration(null);
+      return;
+    }
+
+    if (result?.accepted && result.change.kind === 'block') {
+      blockedDuringLoad.current = threadKey;
+
+      const hidden =
+        result.change.target.kind === 'post' &&
+        result.change.target.id === route.params.postId;
+
+      setModeration({
+        key: threadKey,
+        message: hidden
+          ? 'Account blocked. Their posts and comments are now hidden from you.'
+          : 'Account blocked.',
+        hidden,
+      });
+
+      setError(null);
+      setLoading(false);
+
+      if (hidden) return;
+    } else if (result) {
+      blockedDuringLoad.current = '';
+      setModeration(null);
+    }
+
+    void load(true);
+  },
+), [user?.id, route.params.postId, threadKey, load]);
+
+  const roots = useMemo(() => comments.filter((comment) => !comment.parent_id || !comments.some(parent => parent.id === comment.parent_id)), [comments]);
   const replies = useMemo(() => { const map = new Map<string, Comment[]>(); comments.filter((comment) => comment.parent_id).forEach((comment) => { const list = map.get(comment.parent_id!) ?? []; list.push(comment); map.set(comment.parent_id!, list); }); return map; }, [comments]);
 
   const togglePostLike = async () => {
@@ -342,11 +445,34 @@ export default function CommunityPostThreadScreen() {
         <View className="min-h-[44px] flex-row items-center justify-between">
           <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>
           <Text accessibilityRole="header" className="font-heading-bold text-white text-[13px] uppercase">Post</Text>
-          {owner ? <Pressable onPress={deletePost} disabled={postActionBusy} accessibilityRole="button" accessibilityLabel="Post options" className="h-[44px] w-[44px] items-center justify-center"><Feather name="more-vertical" size={20} color={colors.text} /></Pressable> : <View className="h-[44px] w-[44px]" />}
+          {owner ? <Pressable onPress={deletePost} disabled={postActionBusy} accessibilityRole="button" accessibilityLabel="Post options" className="h-[44px] w-[44px] items-center justify-center"><Feather name="more-vertical" size={20} color={colors.text} /></Pressable> : post && !post.removed ? <CommunityActionsMenu target={{ kind: 'post', id: post.id }} /> : <View className="h-[44px] w-[44px]" />}
         </View>
-        <InlineFormError message={isOffline ? null : error} />
+        {moderationResult ? (
+          <View className="gap-md">
+            <Text
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+              className="font-body text-white text-[16px] leading-[24px]"
+            >
+              {moderationResult.message}
+            </Text>
+            {moderationResult.hidden ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => navigation.goBack()}
+                className="min-h-[48px] justify-center"
+              >
+                <Text className="font-heading-bold text-lime text-[18px] uppercase">
+                  Back to community
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+        <InlineFormError message={moderationResult?.hidden || isOffline ? null : error} />
         {error && post ? <Pressable onPress={() => void load(true)} accessibilityRole="button" className="min-h-[40px] justify-center"><Text className="font-heading-bold text-lime text-[11px] uppercase">Try again</Text></Pressable> : null}
-        {loading ? <View className="h-[240px] bg-white/5" /> : isOffline && !post ? <Text className="font-body text-muted-text text-[14px]">You’re offline. This post isn’t available on this device.</Text> : error && !post ? <View className="gap-md"><Pressable onPress={() => void load()} accessibilityRole="button" className="min-h-[44px] justify-center"><Text className="font-heading-bold text-lime uppercase">Try again</Text></Pressable></View> : post ? <>
+        {moderationResult?.hidden ? null :
+        loading ? <View className="h-[240px] bg-white/5" /> : isOffline && !post ? <Text className="font-body text-muted-text text-[14px]">You’re offline. This post isn’t available on this device.</Text> : error && !post ? <View className="gap-md"><Pressable onPress={() => void load()} accessibilityRole="button" className="min-h-[44px] justify-center"><Text className="font-heading-bold text-lime uppercase">Try again</Text></Pressable></View> : post ? <>
           <View className="border-b border-border pb-md">
   {post.circle_name ? (
     <Text className="font-heading-bold text-lime text-[11px] tracking-[1.5px] uppercase mb-md">
@@ -359,8 +485,9 @@ export default function CommunityPostThreadScreen() {
 
     <View className="flex-1">
       <Text className="font-heading-bold text-white text-[14px]">
-        {post.author_name}
+        {post.official ? 'Dad Health' : post.author_name}
       </Text>
+      {post.official ? <Text className="font-heading-bold text-lime text-[12px] uppercase">Official</Text> : null}
       <Text className="font-body text-tertiary-text text-[12px] leading-[16px] mt-[2px]">
         {formatRelativeTime(post.created_at)}
       </Text>
@@ -392,7 +519,7 @@ export default function CommunityPostThreadScreen() {
 }
 
 function CommentRow({ comment, owner, busy, onRespect, onDelete, onReply }: { comment: Comment; owner: boolean; busy: boolean; onRespect: () => void; onDelete: () => void; onReply?: () => void }) {
-  return <View className="gap-sm"><View className="flex-row items-center gap-sm"><CommunityAuthorAvatar avatarUrl={comment.avatar_url} initials={comment.author_initials} anonymous={comment.anonymous} size="comment" /><View className="flex-1"><Text className="font-heading-bold text-white text-[12px]">{comment.author}</Text><Text className="font-body text-tertiary-text text-[12px] leading-[16px]">{formatRelativeTime(comment.created_at)}</Text></View>{owner ? <Pressable onPress={onDelete} accessibilityRole="button" accessibilityLabel="Delete your reply" className="h-[40px] w-[40px] items-center justify-center"><Feather name="trash-2" size={14} color="#FCA5A5" /></Pressable> : null}</View><Text className="font-body text-tertiary-text text-[14px] leading-[20px]">{comment.content}</Text><View className="flex-row flex-wrap items-center gap-lg"><Pressable onPress={onRespect} disabled={busy} accessibilityRole="button" accessibilityState={{ selected: comment.user_liked, disabled: busy }} className="min-h-[44px] flex-row items-center gap-xs"><Feather name="heart" size={16} color={comment.user_liked ? colors.lime : colors.tertiaryText} /><Text className={`font-heading-bold text-[12px] uppercase ${comment.user_liked ? 'text-lime' : busy ? 'text-white/65' : 'text-tertiary-text'}`}>{comment.likes_count} RESPECT</Text></Pressable>{onReply ? <Pressable onPress={onReply} accessibilityRole="button" className="min-h-[44px] flex-row items-center gap-xs"><Feather name="message-circle" size={16} color={colors.lime} /><Text className="font-heading-bold text-[12px] uppercase text-lime">REPLY</Text></Pressable> : null}</View></View>;
+  return <View className="gap-sm"><View className="flex-row items-center gap-sm"><CommunityAuthorAvatar avatarUrl={comment.avatar_url} initials={comment.author_initials} anonymous={comment.anonymous} size="comment" /><View className="flex-1"><Text className="font-heading-bold text-white text-[12px]">{comment.official ? 'Dad Health' : comment.author}</Text>{comment.official ? <Text className="font-heading-bold text-lime text-[12px] uppercase">Official</Text> : null}<Text className="font-body text-tertiary-text text-[12px] leading-[16px]">{formatRelativeTime(comment.created_at)}</Text></View><CommunityActionsMenu target={{ kind: 'comment', id: comment.id }} own={owner || Boolean(comment.removed)} />{owner ? <Pressable onPress={onDelete} accessibilityRole="button" accessibilityLabel="Delete your reply" className="h-[40px] w-[40px] items-center justify-center"><Feather name="trash-2" size={14} color="#FCA5A5" /></Pressable> : null}</View><Text className="font-body text-tertiary-text text-[14px] leading-[20px]">{comment.content}</Text><View className="flex-row flex-wrap items-center gap-lg"><Pressable onPress={onRespect} disabled={busy} accessibilityRole="button" accessibilityState={{ selected: comment.user_liked, disabled: busy }} className="min-h-[44px] flex-row items-center gap-xs"><Feather name="heart" size={16} color={comment.user_liked ? colors.lime : colors.tertiaryText} /><Text className={`font-heading-bold text-[12px] uppercase ${comment.user_liked ? 'text-lime' : busy ? 'text-white/65' : 'text-tertiary-text'}`}>{comment.likes_count} RESPECT</Text></Pressable>{onReply ? <Pressable onPress={onReply} accessibilityRole="button" className="min-h-[44px] flex-row items-center gap-xs"><Feather name="message-circle" size={16} color={colors.lime} /><Text className="font-heading-bold text-[12px] uppercase text-lime">REPLY</Text></Pressable> : null}</View></View>;
 }
 
 function safeInitials(value: unknown) { const text = typeof value === 'string' ? value.trim() : ''; return text && !/^\?+$/.test(text) ? text.slice(0, 2).toUpperCase() : '?'; }

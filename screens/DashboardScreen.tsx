@@ -55,7 +55,7 @@ import {
 } from '../lib/dashboard.utils';
 import dailyCheckInPrompt, { type DailyCheckInPromptState } from '../lib/dailyCheckInPrompt.js';
 import type { CheckInAction } from '../lib/checkInRecommendation';
-import { showCrisisSupportDetails } from '../lib/crisisSupport';
+import CrisisSupportSheet from '../components/CrisisSupportSheet';
 import { navigateToProSubscription } from '../lib/proNavigation';
 import { greetingFirstName } from '../lib/userDisplay';
 import { isReportWeek } from '../lib/weeklyReport';
@@ -199,6 +199,8 @@ export function DashboardScreenContent({
   const streakFreezeAccess = entitlement.can('streak_freeze');
   const { dismissToast, isOffline } = useNetworkStatus();
   const [checkInModalOpen, setCheckInModalOpen] = useState(false);
+  const [crisisOpen, setCrisisOpen] = useState(false);
+  const showCrisisSupportDetails = () => setCrisisOpen(true);
   const [scoreSheetOpen, setScoreSheetOpen] = useState(false);
   const [checkInNativePresented, setCheckInNativePresented] = useState(false);
   const [scoreNativePresented, setScoreNativePresented] = useState(false);
@@ -695,6 +697,7 @@ useEffect(() => {
       edges={['top']}
       style={{ flex: 1, backgroundColor: colors.dark }}
     >
+      {crisisOpen ? <CrisisSupportSheet onClose={() => setCrisisOpen(false)} /> : null}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           showsVerticalScrollIndicator={false}

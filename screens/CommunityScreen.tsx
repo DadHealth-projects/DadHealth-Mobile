@@ -1,3 +1,4 @@
+import { communityRevision, reconcileCommunityVisibility, subscribeCommunityModeration } from '../lib/communityModeration';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -19,7 +20,7 @@ import { useCommunityFeed } from '../hooks/useCommunityFeed';
 import { useCommunityPresence } from '../hooks/useCommunityPresence';
 import { communityTagLabel } from '../lib/communityLabels';
 import CommunityAuthorAvatar from '../components/community/CommunityAuthorAvatar';
-import { loadCommunityAuthorAvatars } from '../lib/communityAuthorAvatars';
+import { loadCommunityAuthorAvatars, loadCommunityOfficialAuthors } from '../lib/communityAuthorAvatars';
 import { colors } from '../theme';
 import type { AppStackParamList } from '../navigation/AppNavigator';
 
@@ -48,7 +49,7 @@ export default function CommunityScreen({
   const [liveSessionsLoading, setLiveSessionsLoading] = useState(true);
   const [liveSessionsError, setLiveSessionsError] = useState<string | null>(null);
   const [trendingTags, setTrendingTags] = useState<Array<{ tag: string; count: number }>>([]);
-  const [trendingCirclePosts, setTrendingCirclePosts] = useState<Array<{ circle_id: string; circle_name: string; post_id: string; content: string; tag: string; anonymous: boolean; author_name: string; author_initials: string; avatar_url: string | null }>>([]);
+  const [trendingCirclePosts, setTrendingCirclePosts] = useState<Array<{ own?: boolean; ownershipKnown?: boolean; official?: boolean; circle_id: string; circle_name: string; post_id: string; content: string; tag: string; anonymous: boolean; author_name: string; author_initials: string; avatar_url: string | null }>>([]);
   const [trendingCircleLoading, setTrendingCircleLoading] = useState(true);
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [trendingError, setTrendingError] = useState<string | null>(null);
@@ -56,6 +57,8 @@ export default function CommunityScreen({
   const refreshInFlight = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const hasUser = Boolean(user?.id);
+  const currentOwner = useRef(user?.id); currentOwner.current = user?.id;
+  const trendingSequence = useRef(0);
   const loadCircles = useCallback(async (silent = false) => {
     if (!silent) setCirclesLoading(true);
     setCircleError(null);
@@ -113,21 +116,35 @@ export default function CommunityScreen({
   }, [isOffline]);
 
   const loadTrendingCirclePosts = useCallback(async () => {
+    const request = ++trendingSequence.current;
+    const acceptedOwner = user?.id;
+    const revision = communityRevision(acceptedOwner);
+    const valid = () => currentOwner.current === acceptedOwner && request === trendingSequence.current && revision === communityRevision(acceptedOwner);
     setTrendingCircleLoading(true);
     setTrendingCircleError(null);
     if (isOffline) { setTrendingCircleLoading(false); return; }
     try {
+      await reconcileCommunityVisibility(acceptedOwner);
+      if (!valid()) return;
+
       const { data: rows, error: trendingError } = await supabase.rpc('get_trending_circle_posts');
+      if (!valid()) return;
       if (!trendingError && Array.isArray(rows)) {
         const topRows = rows.slice(0, 4) as Array<{ circle_id: unknown; circle_name: unknown; post_id: unknown; content: unknown; tag: unknown; anonymous: unknown; author_name: unknown; author_initials: unknown }>;
-        const avatarUrls = await loadCommunityAuthorAvatars(topRows.map((row) => ({
+        const [avatarUrls, officialIds, namedOwnership, anonymousOwnership] = await Promise.all([loadCommunityAuthorAvatars(topRows.map((row) => ({
           contribution_id: String(row.post_id), kind: 'post' as const, anonymous: row.anonymous === true,
-        })));
+        }))), loadCommunityOfficialAuthors(topRows.map(row => String(row.post_id))),
+          acceptedOwner ? supabase.from('posts').select('id').eq('user_id', acceptedOwner).in('id', topRows.map(row => String(row.post_id))) : Promise.resolve({ data: [], error: null }),
+          acceptedOwner ? supabase.from('anonymous_post_owners').select('post_id').eq('user_id', acceptedOwner).in('post_id', topRows.map(row => String(row.post_id))) : Promise.resolve({ data: [], error: null }),
+        ]);
+        if (!valid()) return;
         setTrendingCirclePosts(topRows.map((row) => {
           const postId = String(row.post_id);
           const anonymous = row.anonymous === true;
           return {
-            circle_id: String(row.circle_id), circle_name: String(row.circle_name), post_id: postId,
+            ownershipKnown: !namedOwnership.error && !anonymousOwnership.error,
+            own: (namedOwnership.data ?? []).some(row => row.id === postId) || (anonymousOwnership.data ?? []).some(row => row.post_id === postId),
+            official: officialIds.has(postId) && !anonymous, circle_id: String(row.circle_id), circle_name: String(row.circle_name), post_id: postId,
             content: String(row.content), tag: String(row.tag), anonymous,
             author_name: anonymous ? 'Anonymous' : String(row.author_name ?? 'Member'),
             author_initials: anonymous ? 'A' : String(row.author_initials ?? '?').slice(0, 2).toUpperCase(),
@@ -136,9 +153,17 @@ export default function CommunityScreen({
         }));
       } else setTrendingCircleError('We could not load trending Circle posts. Please try again.');
     } catch {
+      if (!valid()) return;
       setTrendingCircleError('We could not load trending Circle posts. Please try again.');
-    } finally { setTrendingCircleLoading(false); }
-  }, [isOffline]);
+    } finally { if (valid()) setTrendingCircleLoading(false); }
+  }, [isOffline, user?.id]);
+
+  useEffect(() => subscribeCommunityModeration((owner, ready) => {
+    if (owner !== user?.id) return;
+    if (ready) { void loadTrendingCirclePosts(); return; }
+    trendingSequence.current++; setTrendingCirclePosts([]);
+  }), [user?.id, loadTrendingCirclePosts]);
+  useEffect(() => { trendingSequence.current++; setTrendingCirclePosts([]); }, [user?.id]);
 
   const onRefresh = useCallback(async () => {
     if (refreshInFlight.current) return;
@@ -279,8 +304,7 @@ export default function CommunityScreen({
               </View>
             </View>
             <View className="flex-row items-center gap-sm">
-              <CommunityAuthorAvatar avatarUrl={post.avatar_url} initials={post.author_initials} anonymous={post.anonymous} size="comment" />
-              <Text className="font-heading-bold text-white text-[11px]">{post.author_name}</Text>
+              <Text className="font-heading-bold text-white text-[11px]">{post.official ? 'Dad Health' : post.author_name}</Text>{post.official ? <Text className="font-heading-bold text-lime text-[12px] uppercase">Official</Text> : null}
             </View>
             <Text numberOfLines={2} className="font-body text-white text-[14px] leading-[21px]">{post.content}</Text>
             <View className="flex-row items-center justify-between">

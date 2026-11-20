@@ -1,3 +1,4 @@
+import BlockedAccountsScreen from '../screens/subscreens/BlockedAccountsScreen';
 import NotificationsScreen from '../screens/subscreens/NotificationsScreen';
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -61,6 +62,7 @@ export type AppStackParamList = {
   CommunityFeed: { circleId?: string } | undefined;
   Notifications: undefined;
   NotificationSettings: undefined;
+  BlockedAccounts: undefined;
   PrivacySecurity: undefined;
   TermsPrivacy: undefined;
   HealthPermissions: undefined;
@@ -188,7 +190,8 @@ export default function AppNavigator({
           component={NotificationSettingsScreen}
           options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
         />
-        <Stack.Screen
+        <Stack.Screen name="BlockedAccounts" component={BlockedAccountsScreen} options={{ presentation: 'card' }} />
+      <Stack.Screen
           name="PrivacySecurity"
           component={PrivacySecurityScreen}
           options={{ presentation: 'card', animation: 'slide_from_right', gestureEnabled: true }}
