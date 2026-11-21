@@ -1,3 +1,4 @@
+import { setupOwner } from '../lib/onboardingHandoff';
 import React, {
   createContext,
   useCallback,
@@ -16,6 +17,7 @@ import {
   hasBiometricCredentials,
 } from '../lib/biometric';
 import { isOnboardingComplete } from '../lib/onboarding';
+import { analyticsLifecycle } from '../lib/analytics';
 import { pauseAndClearOfflineUser } from '../lib/offlineSync';
 import { AccountPrivacyRecovery } from '../components/settings/AccountPrivacySheet';
 
@@ -79,10 +81,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  useEffect(() => { if (!loading) return analyticsLifecycle(user?.id ?? null); }, [loading, user?.id]);
   const lastAuthenticatedUserId = useRef<string | null>(null);
   const [onboarding, setOnboarding] = useState<{ owner: string; complete: boolean | null; loading: boolean } | null>(null);
   const onboardingRequest = useRef(0);
   const onboardingComplete = onboarding?.owner === user?.id ? onboarding?.complete ?? null : null;
+  setupOwner(user?.id, onboardingComplete);
   const onboardingLoading = Boolean(user?.id) && (!onboarding || onboarding.owner !== user?.id || onboarding.loading);
   // The enrollment prompt keeps only the email needed by the existing UI.
   // Device credentials are generated locally only after the user opts in.

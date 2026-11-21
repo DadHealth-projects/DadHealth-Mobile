@@ -1,3 +1,4 @@
+import { initialCheckInPending, finishInitialCheckIn } from '../lib/onboardingHandoff';
 import { useNotificationPresentation } from '../contexts/NotificationInboxContext';
 import { confirmNotificationPresentation, notificationOperationFamily } from '../lib/pushNotifications';
 import { checkInDate } from '../lib/checkInCalendar';
@@ -438,6 +439,11 @@ useEffect(() => {
     void AsyncStorage.setItem(dailyCheckInStorageKey, JSON.stringify(pending.state)).catch(() => undefined);
   }, [promptDecisionKey, dailyCheckInStorageKey, notificationOperation, user.id]);
 
+  useEffect(() => {
+    if (initialCheckInPending(user.id) && !checkInModalOpen && !checkInNativePresented
+      && attemptedCheckInPromptSessions.has(promptDecisionKey)) finishInitialCheckIn(user.id);
+  }, [user.id, checkInModalOpen, checkInNativePresented, promptDecisionKey]);
+
   const initialCheckInAnswers = useMemo(() => {
     const today = todayDate;
     const log = data?.moodLogs.find((entry) => entry.date === today);
@@ -452,6 +458,7 @@ useEffect(() => {
     if (!todayDate || !isFocused || activeSection !== 'HOME' || !data || checkedInToday === null || loading) return undefined;
 
     if (checkedInToday) {
+      finishInitialCheckIn(user.id);
       setPromptDecisionReadyKey(promptDecisionKey);
       return undefined;
     }

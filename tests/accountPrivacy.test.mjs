@@ -89,7 +89,7 @@ test('owner cleanup drains writes and prevents delayed persistence without clear
  const blocked=new Promise(r=>release=r);const exports={};
  const deps={'@react-native-async-storage/async-storage':{__esModule:true,default:{getItem:async k=>local.get(k)??null,setItem:async(k,v)=>{local.set(k,v);},getAllKeys:async()=>[...local.keys()],multiRemove:async ks=>ks.forEach(k=>local.delete(k))}},
  'expo-secure-store':{getItemAsync:async k=>secure.get(k)??null,setItemAsync:async(k,v)=>{if(k===`timer.${owner}`)await blocked;secure.set(k,v);},deleteItemAsync:async k=>{secure.delete(k);}},
- './offlineSync':{pauseAndClearOfflineUser:async()=>{}},'./biometric':{clearOwnerBiometricCredentials:async()=>{}}};
+ './analytics':{clearAnalyticsOwner:async id=>{assert.equal(id,owner);}},'./offlineSync':{pauseAndClearOfflineUser:async()=>{}},'./biometric':{clearOwnerBiometricCredentials:async()=>{}}};
  vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../lib/accountPrivacyCleanup.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports,require:id=>deps[id]});
  const writing=exports.writeOwnerSecret(owner,`timer.${owner}`,'private');await new Promise(r=>setImmediate(r));
  const clearing=exports.clearPrivacyOwnerData(owner);const late=exports.writeOwnerSecret(owner,`timer.${owner}`,'late');release();

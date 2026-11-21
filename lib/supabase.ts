@@ -2,6 +2,7 @@ import 'react-native-url-polyfill/auto';
 import { AppState } from 'react-native';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import { analyticsFetch } from './analyticsOccurrence';
 import { SecureStoreAdapter } from './secureStore';
 
 // Keys live only in .env (EXPO_PUBLIC_*). No hardcoded fallback — a missing
@@ -24,6 +25,7 @@ if (missing.length > 0) {
 
 // Non-null assertions are safe here: we threw above if either was undefined.
 export const supabase: SupabaseClient = createClient(supabaseUrl!, supabaseAnonKey!, {
+  global: { fetch: analyticsFetch },
   auth: {
     // Persist the session in the hardware keychain, not localStorage.
     storage: SecureStoreAdapter,

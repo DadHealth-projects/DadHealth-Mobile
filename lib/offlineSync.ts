@@ -1,3 +1,4 @@
+import { occurrenceHeader } from './analyticsOccurrence';
 import { supabase } from './supabase';
 import {
   allowPrivateOfflineUser,
@@ -125,12 +126,14 @@ export async function persistDailyCheckIn(item: OfflineDailyCheckInItem) {
       .from('mood_logs')
       .update(moodPayload)
       .eq('user_id', item.userId)
-      .eq('date', date);
+      .eq('date', date)
+      .setHeader('x-dadhealth-analytics', occurrenceHeader(item.analytics));
     if (updated.error) throw updated.error;
   } else {
     const inserted = await supabase
       .from('mood_logs')
-      .insert({ user_id: item.userId, date, ...moodPayload });
+      .insert({ user_id: item.userId, date, ...moodPayload })
+      .setHeader('x-dadhealth-analytics', occurrenceHeader(item.analytics));
     if (inserted.error) {
       if (inserted.error.code !== '23505') throw inserted.error;
       // Another device may create today's row after the lookup. Retry as a
@@ -139,7 +142,8 @@ export async function persistDailyCheckIn(item: OfflineDailyCheckInItem) {
         .from('mood_logs')
         .update(moodPayload)
         .eq('user_id', item.userId)
-        .eq('date', date);
+        .eq('date', date)
+        .setHeader('x-dadhealth-analytics', occurrenceHeader(item.analytics));
       if (racedUpdate.error) throw racedUpdate.error;
     }
   }

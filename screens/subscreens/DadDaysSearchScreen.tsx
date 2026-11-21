@@ -16,6 +16,7 @@ import { useDashboard, type DadDateItem } from '../../hooks/useDashboard';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { useUpgradeMomentManager } from '../../contexts/UpgradeMomentContext';
 import { trackEvent } from '../../lib/analytics';
+import { dadDaysRequest, DadDaysRequestError } from '../../lib/dadDaysRequest';
 import { supabase } from '../../lib/supabase';
 import { withLocationDeadline } from '../../lib/locationDeadline';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
@@ -67,7 +68,12 @@ export default function DadDaysSearchScreen() {
   const [postcodeInput, setPostcodeInput] = useState('');
   const [postcode, setPostcode] = useState('');
   const [budget, setBudget] = useState<Budget>('free');
-  const [childAge, setChildAge] = useState<ChildAge>('primary');
+  const [ageState, setAgeState] = useState<{ owner?: string; value: ChildAge | null }>({ owner: user?.id, value: null });
+  const childAge = ageState.owner === user?.id ? ageState.value : null;
+  const setChildAge = useCallback((value: ChildAge | null) => setAgeState({ owner: user?.id, value }), [user?.id]);
+  const ageChosen = useRef(false);
+  const ageOwner = useRef(user?.id); ageOwner.current = user?.id;
+  useEffect(() => { ageChosen.current = false; setChildAge(null); accessRequestId.current++; }, [user?.id]);
   const [radius, setRadius] = useState('20');
   const [quickFilters, setQuickFilters] = useState<QuickFilter[]>([]);
   const [isPro, setIsPro] = useState(false);
@@ -75,11 +81,20 @@ export default function DadDaysSearchScreen() {
   const [accessReady, setAccessReady] = useState(false);
   const [locating, setLocating] = useState(false);
   const [searching, setSearching] = useState(false);
+  const searchLock = useRef(false);
+  const searchGeneration = useRef(0);
+  const [emptySearch, setEmptySearch] = useState(false);
+  useEffect(() => {
+    searchGeneration.current++; searchLock.current = false;
+    setResults([]); setSearching(false); setEmptySearch(false); setSearchError(null);
+    return () => { searchGeneration.current++; };
+  }, [user?.id]);
   const [savingName, setSavingName] = useState<string | null>(null);
   const [removingActivityId, setRemovingActivityId] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<{ id: string; message: string } | null>(null);
   const [removedActivityIds, setRemovedActivityIds] = useState<Set<string>>(() => new Set());
   const [results, setResults] = useState<SearchResult[]>([]);
+  const resultsOwner = useRef(user?.id);
   const [savedActivitiesOpen, setSavedActivitiesOpen] = useState(false);
   const saveInFlightKeys = useRef(new Set<string>());
   const removeInFlightIds = useRef(new Set<string>());
@@ -131,7 +146,8 @@ const isActivitySaved = (result: SearchResult) =>
 
   const loadAccess = useCallback(async () => {
     const requestId = ++accessRequestId.current;
-    if (!user?.id || !session?.access_token || isOffline) {
+    const owner = user?.id;
+    if (!owner || !session?.access_token || isOffline) {
       setAccessReady(false);
       return;
     }
@@ -139,21 +155,18 @@ const isActivitySaved = (result: SearchResult) =>
     setSearchError(null);
     setAccessReady(false);
     try {
-      const response = await fetch(`${WEB_URL}/api/dad_days_searches`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      const body = await response.json() as { isPro?: boolean; searchesUsed?: number | null; childAge?: string | null };
-      if (requestId !== accessRequestId.current) return;
-      if (!response.ok || typeof body.isPro !== 'boolean') throw new Error('allowance_unavailable');
+      const body = await dadDaysRequest(WEB_URL, owner);
+      if (requestId !== accessRequestId.current || ageOwner.current !== owner) return;
+      if (typeof body.isPro !== 'boolean') throw new DadDaysRequestError('allowance_unavailable');
 
       setIsPro(body.isPro);
       setSearchesUsed(typeof body.searchesUsed === 'number' ? body.searchesUsed : 0);
-      if (body.childAge && AGES.some((option) => option.value === body.childAge)) {
-        setChildAge(body.childAge as ChildAge);
+      if (!ageChosen.current) {
+        setChildAge(body.childAge && AGES.some((option) => option.value === body.childAge) ? body.childAge as ChildAge : null);
       }
       setAccessReady(true);
-    } catch {
-      if (requestId === accessRequestId.current) setSearchError('We could not load your Dad Days allowance. Please try again.');
+    } catch (error) {
+      if (requestId === accessRequestId.current && ageOwner.current === owner) setSearchError(error instanceof DadDaysRequestError ? error.message : 'We could not load your Dad Days allowance. Please try again.');
     }
   }, [isOffline, session?.access_token, user?.id]);
 
@@ -235,36 +248,49 @@ const isActivitySaved = (result: SearchResult) =>
   // The usage counter reports searches already used, not searches remaining.
   const searchesUsedLabel = `${Math.min(searchesUsed, FREE_LIMIT)} of ${FREE_LIMIT} free Dad Days searches used this month.`;
   const search = useCallback(async () => {
+    if (__DEV__) console.log('[DadDays]', { stage: 'screen', code: 'search_pressed' });
+    if (searchLock.current) return;
     if (!user || !session?.access_token) { navigation.navigate('Login'); return; }
     if (isOffline) { showOfflineAction('dad_days_search'); return; }
+    if (!childAge) { setSearchError('Choose a child age for this search.'); return; }
     if (!coords) { setLocationError('Use your location or enter a postcode first.'); return; }
     if (limitReached) {
       requestMoment({ id: 'dadDaysCounter', trigger: 'explicit', screen: route.key, feature: 'dad_days_unlimited', isPro: entitlement.isPro, trialActive: entitlement.trialActive, loading: entitlement.loading, featureAccess: dadDaysAccess, hasCompletedAction: searchesUsed > 0, lead: `${searchesUsedLabel} Your allowance resets on the first of next month.`, userId: user?.id });
       return;
     }
-    setSearching(true); setSearchError(null); setResults([]);
+    const owner = user.id;
+    const generation = ++searchGeneration.current;
+    const valid = () => ageOwner.current === owner && searchGeneration.current === generation;
+    let stage = 'request';
+    searchLock.current = true;
+    setSearching(true); setSearchError(null); setEmptySearch(false);
     try {
-      const response = await fetch(`${WEB_URL}/api/dad_days_searches`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ ...coords, postcode, budget, radius: Number(radius), childAge, quickFilters, userId: user.id }),
-      });
-      const body = await response.json() as { results?: SearchResult[]; searchesUsed?: number; error?: string };
-      if (response.status === 401) { setSearchError('Your session has expired. Please log in again.'); return; }
-      if (response.status === 403 && body.error === 'search_limit_reached') { setSearchesUsed(FREE_LIMIT); requestMoment({ id: 'dadDaysCounter', trigger: 'explicit', screen: route.key, feature: 'dad_days_unlimited', isPro: entitlement.isPro, trialActive: entitlement.trialActive, loading: entitlement.loading, featureAccess: dadDaysAccess, hasCompletedAction: searchesUsed > 0, lead: `${FREE_LIMIT} of ${FREE_LIMIT} free Dad Days searches used this month. Your allowance resets on the first of next month.`, userId: user.id }); trackEvent('dad_days_search_limit_reached', { searchesUsed: FREE_LIMIT }, user.id); return; }
-      if (!response.ok) { setSearchError(response.status === 429 ? "You're searching too quickly. Wait a moment and try again." : 'We could not search for Dad Days. Please try again.'); return; }
+      const body = await dadDaysRequest(WEB_URL, owner, { ...coords, postcode, budget, radius: Number(radius), childAge, quickFilters });
+      if (!valid()) return;
+      stage = 'present_results';
       const nextResults = body.results ?? [];
       if (nextResults.length > 0) {
         Keyboard.dismiss();
         revealResults.current = true;
         setResultsVersion(version => version + 1);
       }
+      resultsOwner.current = owner;
       setResults(nextResults);
       setSearchesUsed(body.searchesUsed ?? searchesUsed);
-      if (nextResults.length === 0) setSearchError('No activities were found nearby. Increase the radius or change the budget.');
+      setEmptySearch(nextResults.length === 0);
       trackEvent('dad_days_search_completed', { budget, radius: Number(radius), childAge, resultCount: nextResults.length, isPro }, user.id);
-    } catch { setSearchError('We could not search for Dad Days. Check your connection and try again.'); }
-    finally { setSearching(false); }
+    } catch (error) {
+      if (!valid()) return;
+      if (__DEV__ && !(error instanceof DadDaysRequestError)) {
+        console.log('[DadDays]', { stage, code: 'client_failure' });
+      }
+      if (error instanceof DadDaysRequestError && error.status === 403 && error.code === 'search_limit_reached') {
+        setSearchesUsed(FREE_LIMIT); requestMoment({ id: 'dadDaysCounter', trigger: 'explicit', screen: route.key, feature: 'dad_days_unlimited', isPro: entitlement.isPro, trialActive: entitlement.trialActive, loading: entitlement.loading, featureAccess: dadDaysAccess, hasCompletedAction: searchesUsed > 0, lead: `${FREE_LIMIT} of ${FREE_LIMIT} free Dad Days searches used this month. Your allowance resets on the first of next month.`, userId: user.id });
+        trackEvent('dad_days_search_limit_reached', { searchesUsed: FREE_LIMIT }, owner);
+      } else setSearchError(error instanceof DadDaysRequestError ? error.message : 'We could not search for Dad Days. Please try again.');
+    } finally {
+      if (valid()) { searchLock.current = false; setSearching(false); }
+    }
   }, [budget, childAge, coords, dadDaysAccess, entitlement.isPro, entitlement.loading, entitlement.trialActive, isOffline, isPro, limitReached, navigation, postcode, quickFilters, radius, requestMoment, route.key, searchesUsed, searchesUsedLabel, session?.access_token, showOfflineAction, user]);
 
   const save = useCallback(async (result: SearchResult) => {
@@ -372,15 +398,16 @@ const isActivitySaved = (result: SearchResult) =>
               <View className="flex-row border-y border-border">
                 <DropdownTrigger icon="credit-card" label="Budget" value={BUDGETS.find((item) => item.value === budget)?.label ?? 'Free'} open={openFilter === 'budget'} onPress={() => setOpenFilter((current) => current === 'budget' ? null : 'budget')} />
                 <DropdownTrigger icon="navigation" label="Radius" value={RADII.find((item) => item.value === radius)?.label ?? '20 mi'} open={openFilter === 'radius'} onPress={() => setOpenFilter((current) => current === 'radius' ? null : 'radius')} divided />
-                <DropdownTrigger icon="users" label="Child age" value={AGES.find((item) => item.value === childAge)?.label ?? 'Primary'} open={openFilter === 'age'} onPress={() => setOpenFilter((current) => current === 'age' ? null : 'age')} divided />
+                <DropdownTrigger icon="users" label="Child age" value={AGES.find((item) => item.value === childAge)?.label ?? 'Select age'} open={openFilter === 'age'} onPress={() => setOpenFilter((current) => current === 'age' ? null : 'age')} divided />
               </View>
               {openFilter === 'budget' ? <DropdownOptions options={BUDGETS} value={budget} onChange={(value) => { setBudget(value); setOpenFilter(null); setSearchError(null); }} /> : null}
               {openFilter === 'radius' ? <DropdownOptions options={RADII} value={radius} onChange={(value) => { setRadius(value); setOpenFilter(null); setSearchError(null); if (user?.id) { const owner = user.id; void writeOwnerSecret(owner, `${RADIUS_KEY}.${owner}`, value, () => radiusOwner.current === owner).catch(() => undefined); } }} /> : null}
-              {openFilter === 'age' ? <DropdownOptions options={AGES} value={childAge} onChange={(value) => { setChildAge(value); setOpenFilter(null); setSearchError(null); }} /> : null}
+              {openFilter === 'age' ? <DropdownOptions options={AGES} value={childAge ?? ''} onChange={(value) => { ageChosen.current = true; setChildAge(value || null); setOpenFilter(null); setSearchError(null); }} /> : null}
             </View>
 
             {/* Moment 4 — Pro makes Dad Days personal. */}
             <InlineFormError message={isOffline ? null : searchError} />
+            {emptySearch ? <Text accessibilityLiveRegion="polite" className="font-body text-white text-[14px] leading-[20px]">No activities were found nearby. Increase the radius or change the budget.</Text> : null}
 
             {limitReached ? (
               /* The existing Free counter remains visible after the limit. */
@@ -425,7 +452,7 @@ const isActivitySaved = (result: SearchResult) =>
           </View>
         )}
 
-        {results.length > 0 ? <View
+        {resultsOwner.current === user?.id && results.length > 0 ? <View
           key={resultsVersion}
           className="gap-md border-t border-border pt-xl"
           onLayout={({ nativeEvent }) => {

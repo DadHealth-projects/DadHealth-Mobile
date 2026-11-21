@@ -1,3 +1,4 @@
+import type { AnalyticsScope } from './analyticsQueue';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_VERSION = 1;
@@ -36,6 +37,7 @@ type QueueItemBase = {
 
 export type OfflineDailyCheckInItem = QueueItemBase & {
   kind: 'daily_checkin';
+  analytics?: AnalyticsScope | null;
   payload: {
     date: string;
     moodValue: number;
@@ -312,7 +314,12 @@ export function enqueueOfflineWrite(item: OfflineQueueItem): Promise<void> {
       }
       return false;
     });
-    if (duplicateIndex >= 0) items[duplicateIndex] = item;
+    if (duplicateIndex >= 0) {
+      const original = items[duplicateIndex];
+      items[duplicateIndex] = item.kind === 'daily_checkin' && original.kind === 'daily_checkin'
+        ? { ...item, analytics: original.analytics ?? null }
+        : item;
+    }
     else items.push(item);
     await writeEnvelope(privateKey(item.userId, 'queue'), items);
   });

@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import AppTopBar from '../../components/AppTopBar';
+import AnalyticsConsentControl from '../../components/AnalyticsConsentControl';
 import ScreenHero from '../../components/mockup/ScreenHero';
 import { useAuth } from '../../contexts/AuthContext';
 import { disableBiometricLogin, getBiometricLabel, hasBiometricCredentials, isBiometricAvailable } from '../../lib/biometric';
@@ -89,6 +90,7 @@ export default function PrivacySecurityScreen() {
           </View>
         )}
 
+        <AnalyticsConsentControl key={user?.id} owner={user?.id} />
         {message ? <Text accessibilityRole="alert" className="font-body text-tertiary-text text-[14px]">{message}</Text> : null}
       </ScrollView>
     </SafeAreaView>

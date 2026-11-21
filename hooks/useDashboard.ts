@@ -1,3 +1,4 @@
+import { analyticsOccurrence } from '../lib/analyticsOccurrence';
 import { checkInDate, parseCheckInCalendar, type CheckInCalendar } from '../lib/checkInCalendar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
@@ -850,6 +851,7 @@ export function useDashboard(userId: string | undefined) {
       id: Crypto.randomUUID(),
       userId,
       kind: 'daily_checkin',
+      analytics: analyticsOccurrence(userId),
       createdAt: new Date().toISOString(),
       payload: { date, moodValue, energyLevel, connectionLevel, sleepHours },
     };

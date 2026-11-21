@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import useOnboardingProgress from '../../hooks/useOnboardingProgress';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -21,45 +22,51 @@ type Navigation = NativeStackNavigationProp<AppStackParamList, 'OnboardingGoals'
 export default function OnboardingGoalsScreen() {
   const navigation = useNavigation<Navigation>();
   const { user } = useAuth();
-  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
+  const progress = useOnboardingProgress(user?.id);
+  const selectedGoals = progress.choices.goals;
+  const current = useRef(user?.id); current.current = user?.id;
+  const writing = useRef(false);
+  useEffect(() => { current.current = user?.id; return () => { current.current = undefined; }; }, [user?.id]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const toggleGoal = (title: string) => {
     setError(null);
-    setSelectedGoals((current) =>
-      current.includes(title)
-        ? current.filter((goal) => goal !== title)
-        : [...current, title]
-    );
+    progress.change({ goals: selectedGoals.includes(title)
+      ? selectedGoals.filter(goal => goal !== title) : [...selectedGoals, title] });
   };
 
   const handleContinue = async () => {
 
-    if (selectedGoals.length === 0 || saving) return;
+    if (selectedGoals.length === 0 || writing.current || !progress.ready) return;
     if (!user?.id) {
       setError("You're not signed in. Please sign in again to save your choices.");
       return;
     }
 
+    const owner = user.id;
+    writing.current = true;
     setSaving(true);
     setError(null);
     try {
 
-      const { error: saveError } = await supabase
+      const { data: saved, error: saveError } = await supabase
         .from('user_profile')
-        .upsert({ user_id: user.id, goals: selectedGoals }, { onConflict: 'user_id' });
+        .upsert({ user_id: owner, goals: selectedGoals }, { onConflict: 'user_id' }).select('goals').single();
 
       if (saveError) throw saveError;
+      if (current.current !== owner) return;
+      if (JSON.stringify(saved?.goals) !== JSON.stringify(selectedGoals)) throw new Error('unconfirmed');
       // Phase 5 — replace (not push/navigate) so the user can't go back to the
       // goals screen and submit twice. Goals are also passed along for the
       // single combined save on the custody step (Phase 6).
 
       navigation.replace('OnboardingCustody', { goals: selectedGoals });
     } catch (saveError) {
-      setError(onboardingSaveErrorMessage(saveError));
+      if (current.current === owner) setError(onboardingSaveErrorMessage(saveError));
     } finally {
-      setSaving(false);
+      writing.current = false;
+      if (current.current === owner) setSaving(false);
     }
   };
 
@@ -87,7 +94,7 @@ export default function OnboardingGoalsScreen() {
               <FadeInView key={goal.title} delay={80 + index * 45}>
                 <Pressable
                   onPress={() => toggleGoal(goal.title)}
-                  disabled={saving}
+                  disabled={saving || !progress.ready}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: selected }}
                 >
@@ -108,13 +115,13 @@ export default function OnboardingGoalsScreen() {
       {/* Fixed footer — same pattern as the custody screen (Phase 7): SafeAreaView
           > ScrollView > fixed footer, so the button is always visible/tappable. */}
       <View className="px-lg pt-sm pb-lg gap-sm border-t border-border">
-        {error ? (
-          <Text className="font-body text-[#F87171] text-[14px] leading-[20px]">{error}</Text>
+        {error || progress.error ? (
+          <Text className="font-body text-[#F87171] text-[14px] leading-[20px]">{error || progress.error}</Text>
         ) : null}
         <LimeButton
           label="Continue"
           onPress={handleContinue}
-          disabled={selectedGoals.length === 0}
+          disabled={!progress.ready || selectedGoals.length === 0}
           loading={saving}
         />
       </View>

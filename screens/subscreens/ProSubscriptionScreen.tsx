@@ -2,7 +2,7 @@ import { useNotificationPresentation } from '../../contexts/NotificationInboxCon
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useRoute, useNavigation, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import CancellationFlow, { CancellationScheduled, isScheduledAppleMembership } from '../../components/subscriptions/CancellationFlow';
@@ -13,6 +13,8 @@ import { refreshDashboardForUser } from '../../hooks/useDashboard';
 import { useNativeSubscriptions } from '../../hooks/useNativeSubscriptions';
 import type { SubscriptionPlan } from '../../lib/nativeSubscriptions';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
+import { useAnalyticsPresentation } from '../../hooks/useAnalyticsPresentation';
+import { upgradeSource } from '../../lib/analyticsContract';
 import { colors } from '../../theme';
 
 const THIS_WEEK_FEATURES = [
@@ -24,6 +26,8 @@ const THIS_WEEK_FEATURES = [
 export default function ProSubscriptionScreen() {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
   const { user } = useAuth();
+  const route = useRoute();
+  const presented = useAnalyticsPresentation(user?.id, 'paywall_viewed', { source: upgradeSource((route.params as {source?:string} | undefined)?.source) });
   const { isOffline, showOfflineAction, dismissToast } = useNetworkStatus();
   const [cancellationOwner, setCancellationOwner] = useState<string | null>(null);
   useEffect(() => { setCancellationOwner(null); }, [user?.id]);
@@ -91,7 +95,7 @@ export default function ProSubscriptionScreen() {
   );
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-dark">
+    <SafeAreaView onLayout={presented} edges={['top', 'bottom']} className="flex-1 bg-dark">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-lg pt-sm pb-lg gap-lg">
         <Pressable
           onPress={() => navigation.goBack()}

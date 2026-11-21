@@ -1,3 +1,4 @@
+import { setupBlocksUpgrade } from '../lib/onboardingHandoff';
 import React, { createContext, useCallback, useContext, useMemo, useRef, useEffect, useState } from 'react';
 import { StackActions, type NavigationContainerRef } from '@react-navigation/native';
 
@@ -35,6 +36,7 @@ export function UpgradeMomentProvider({
   }, [scope]);
 
   const requestMoment = useCallback((request: MomentRequest) => {
+    if (setupBlocksUpgrade(scope.owner)) return false;
     if (currentScope.current !== scope || !scope.owner || (request.userId && request.userId !== scope.owner)) return false;
     if (!scope.manager.request(request)) return false;
     const ownedRequest = { ...request, userId: scope.owner };

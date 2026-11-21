@@ -2,24 +2,64 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { pauseAndClearOfflineUser } from './offlineSync';
 import { clearOwnerBiometricCredentials } from './biometric';
+import { clearAnalyticsOwner } from './analytics';
 
 // Only owner-qualified keys are removed here. Global biometric/session/audio
 // owners must be cleared through their own lifecycle, never guessed key scans.
 export async function clearPrivacyOwnerData(owner: string) {
-  await serializeOwnerStorage(async () => {
+  const failures: unknown[] = [];
+
+  const attempt = async (work: () => Promise<unknown>) => {
+    try {
+      await work();
+    } catch (error) {
+      failures.push(error);
+    }
+  };
+
+  // Retire analytics immediately without allowing its failure to skip cleanup.
+  const analytics = attempt(() => clearAnalyticsOwner(owner));
+
+  await attempt(() => serializeOwnerStorage(async () => {
     await SecureStore.setItemAsync(retiredKey(owner), '1');
-    const keys: string[] = JSON.parse(await AsyncStorage.getItem(registryKey(owner)) ?? '[]');
-    for (const key of new Set([...keys, `dadHealth_workout_timer.${owner}`, `dadHealth.dadDaysRadius.${owner}`, `dadhealth.deep-link.co-parent-invite.v2.${owner}`]))
-      await SecureStore.deleteItemAsync(key);
+
+    const keys: string[] = JSON.parse(
+      await AsyncStorage.getItem(registryKey(owner)) ?? '[]',
+    );
+
+    for (const key of new Set([
+      ...keys,
+      `dadHealth_workout_timer.${owner}`,
+      `dadHealth.dadDaysRadius.${owner}`,
+      `dadhealth.deep-link.co-parent-invite.v2.${owner}`,
+    ])) {
+      await attempt(() => SecureStore.deleteItemAsync(key));
+    }
+  }));
+
+  await attempt(() => pauseAndClearOfflineUser(owner));
+  await attempt(() => clearOwnerBiometricCredentials(owner));
+
+  await attempt(async () => {
+    const keys = await AsyncStorage.getAllKeys();
+    const owned = keys.filter(key => key.split(/[.:/]/).includes(owner));
+    if (owned.length) await AsyncStorage.multiRemove(owned);
   });
-  await pauseAndClearOfflineUser(owner);
-  await clearOwnerBiometricCredentials(owner);
-  const keys = await AsyncStorage.getAllKeys();
-  const owned = keys.filter(key => key.split(/[.:/]/).includes(owner));
-  if (owned.length) await AsyncStorage.multiRemove(owned);
-  await SecureStore.deleteItemAsync(`dadhealth_push_pre_permission_v1.${owner}`);
-  await SecureStore.deleteItemAsync(`dadhealth.privacy.${owner}.export`);
+
+  await attempt(() =>
+    SecureStore.deleteItemAsync(`dadhealth_push_pre_permission_v1.${owner}`),
+  );
+
+  await attempt(() =>
+    SecureStore.deleteItemAsync(`dadhealth.privacy.${owner}.export`),
+  );
+
+  await analytics;
+
   // The deletion receipt deliberately survives for narrow post-Auth status.
+  if (failures.length) {
+    throw new Error('Account data cleanup is incomplete.');
+  }
 }
 
 // Serialized owner-bound persistence: deletion waits for already-started writes,

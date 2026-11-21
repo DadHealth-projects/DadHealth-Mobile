@@ -17,6 +17,7 @@ for (const path of ['/auth/v1/token?grant_type=password', '/auth/v1/logout']) {
    'react-native': { AppState: { addEventListener() {} } },
    '@supabase/supabase-js': { createClient: (_url, _key, config) => { options = config; return {}; } },
    './secureStore': { SecureStoreAdapter: {} },
+   './analyticsOccurrence': load('lib/analyticsOccurrence.ts', {}, {fetch:transport,URL,Headers}),
   }, {
    process: { env: { EXPO_PUBLIC_SUPABASE_URL: 'https://example.invalid', EXPO_PUBLIC_SUPABASE_ANON_KEY: 'test-only' } },
    fetch: transport, URL, AbortController,
@@ -52,6 +53,8 @@ function harness() {
   const q={select:()=>q,eq:()=>q,maybeSingle:()=>new Promise(resolve=>h.requests.push(resolve))};return q;
  }};
  const mod=load('contexts/AuthContext.tsx',{react,'../lib/supabase':{supabase},'../lib/biometric':{},
+ '../lib/analytics':{analyticsLifecycle:()=>()=>{}},
+ '../lib/onboardingHandoff':load('lib/onboardingHandoff.ts',{}),
  '../components/settings/AccountPrivacySheet':{AccountPrivacyRecovery:()=>null},
  '../lib/onboarding':load('lib/onboarding.ts',{}),'../lib/offlineSync':{pauseAndClearOfflineUser:async()=>{}}});
  h.render=()=>{h.index=0;h.dirty=false;h.value=mod.AuthProvider({children:null}).value;h.effects.splice(0).forEach(f=>f());};

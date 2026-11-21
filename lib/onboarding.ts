@@ -14,6 +14,7 @@ export const GOALS = [
 ] as const;
 
 export const CUSTODY_OPTIONS = [
+  { value: 'no_children', icon: '♡', label: 'No children yet', sub: 'Preparing for what comes next' },
   { value: 'daily', icon: '👨‍👧', label: 'Every day', sub: "I'm with my kids daily" },
   { value: 'split', icon: '🔄', label: '50/50', sub: 'Shared custody, roughly equal time' },
   { value: 'weekends', icon: '🗓️', label: 'Occasionally — weekends or specific days', sub: 'Set days each week or every other weekend' },
@@ -23,11 +24,26 @@ export const CUSTODY_OPTIONS = [
 export type CustodyPattern = (typeof CUSTODY_OPTIONS)[number]['value'];
 
 export const LEGACY_CUSTODY_MAP: Record<CustodyPattern, string> = {
+  no_children: 'no_children',
   daily: 'daily',
   split: 'alternate_weeks',
   weekends: 'occasional',
   varies: 'flexible',
 };
+
+// Same stored bands as the existing web profile; no numeric ages are inferred.
+export const CHILD_AGE_OPTIONS = [
+  { value: 'toddler_0_4', label: 'Toddler (0–4)' },
+  { value: 'primary_5_11', label: 'Primary (5–11)' },
+  { value: 'teen_12_plus', label: 'Teen (12+)' },
+  { value: 'adult_18_plus', label: 'Adult (18+)' },
+] as const;
+export function youngestChildBand(ages: unknown): 'toddler' | 'primary' | 'teen' | null {
+  if (!Array.isArray(ages) || !ages.length || ages.some(age => !CHILD_AGE_OPTIONS.some(option => option.value === age))) return null;
+  if (ages.includes('toddler_0_4')) return 'toddler';
+  if (ages.includes('primary_5_11')) return 'primary';
+  return 'teen'; // Existing Dad Days API defines this band as 12 and over.
+}
 
 /**
  * Onboarding is complete only when BOTH new-style fields are present: at least one

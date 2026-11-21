@@ -1,3 +1,4 @@
+import { setupBlocksUpgrade } from './onboardingHandoff';
 import { StackActions, type NavigationProp } from '@react-navigation/native';
 
 import type { AppStackParamList } from '../navigation/AppNavigator';
@@ -62,6 +63,7 @@ export function navigateToProSubscription(
   interaction: 'lock' | 'cta' | 'badge' = 'cta',
   feature: string = source,
 ) {
+  if (setupBlocksUpgrade(userId)) return false;
   if (!claimNavigation(navigation, userId, source, context, feature)) return false;
   if (interaction === 'lock' || interaction === 'badge') {
     trackEvent('lock_tapped', { feature, source }, userId);

@@ -165,7 +165,7 @@ export function useJournalEntries(userId?: string) {
     try {
       await persistJournalEntry(item);
       assertCurrent();
-      trackEvent('journal_entry_created', { content_length: content.length }, userId);
+      trackEvent('journal_entry_created', {}, userId);
       await refresh();
       return entry;
     } catch (saveError) {
