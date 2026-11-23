@@ -23,7 +23,7 @@ test('verified freeze allowance remains visible when dashboard access is unknown
     react: { ...react, default: react }, '@expo/vector-icons': { Feather: 'Feather' },
     'react-native': { Pressable: 'Pressable', Text: 'Text', View: 'View' },
     '../../theme': { colors: { dark: '#000' } }, './ProBadge': { default: 'ProBadge' },
-    '../../lib/analytics': { trackEvent() {} },
+    '../../lib/analytics': { trackEvent() {} }, '../../lib/streakPresentation': load('lib/streakPresentation.ts'),
   }).default;
   const status = { state: 'current', count: 6, allowance: 1, protectedDates: [], calendarDays: [] };
   const render = (changes = {}) => JSON.stringify(Card({ status, freezeAccess: null, error: null,
@@ -296,4 +296,165 @@ test('backend authorization failure removes restricted report data and explicit 
   assert.equal(h.result.error,'authorization_unavailable');
   h.respond=async()=>({ok:true,json:async()=>payload('free')});
   await h.result.refresh();await h.flush();assert.equal(h.result.report.access,'free');assert.equal(h.result.error,null);h.unmount();
+});
+
+// --- Task 02 regression tests: report read states and streak display ---
+const t02react = { memo: fn => fn, createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
+  useRef: value => ({ current: value }), useEffect() {}, useState: value => [value, () => {}] };
+const streakPresentation = () => load('lib/streakPresentation.ts');
+function t02StreakCard() {
+  return load('components/dashboard/StreakCard.tsx', {
+    react: { ...t02react, default: t02react }, '@expo/vector-icons': { Feather: 'Feather' },
+    'react-native': { Pressable: 'Pressable', Text: 'Text', View: 'View' },
+    '../../theme': { colors: { dark: '#000' } }, './ProBadge': { default: 'ProBadge' },
+    '../../lib/analytics': { trackEvent() {} }, '../../lib/streakPresentation': streakPresentation(),
+  }).default;
+}
+function t02Sheet() {
+  const native = Object.fromEntries(['Modal', 'Pressable', 'ScrollView', 'Text', 'View'].map(n => [n, n]));
+  return load('components/dashboard/WeeklyReportSheet.tsx', {
+    react: { ...t02react, default: t02react }, '@expo/vector-icons': { Feather: 'Feather', MaterialCommunityIcons: 'MaterialCommunityIcons' },
+    'react-native': { ...native, Platform: { OS: 'ios' } }, 'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
+    '../../theme': { colors: { dark: '#000', text: '#fff', lime: '#cf5', border: '#333' } }, '../../lib/analytics': { trackEvent() {} },
+    '../../lib/weeklyReport': api, '../../lib/weeklyReportPresentation': presentation,
+    '../../lib/weeklyReportSharing': { shareWeeklyDadHealthReport: async () => null },
+  }).default;
+}
+function t02Nodes(tree) {
+  const nodes = [];
+  const visit = n => { if (!n || typeof n !== 'object') return; if (Array.isArray(n)) { n.forEach(visit); return; } nodes.push(n); visit(n.props?.children); };
+  visit(tree); return nodes;
+}
+/** Visible text per Text node, with that node's string pieces joined exactly as rendered. */
+const t02Texts = nodes => nodes.filter(n => n.type === 'Text')
+  .map(n => [n.props.children].flat(Infinity).filter(x => typeof x === 'string' || typeof x === 'number').join(''))
+  .filter(Boolean);
+const t02Week = Array.from({ length: 7 }, (_, i) => `2026-11-${String(i + 16).padStart(2, '0')}`);
+
+test('report read failures show plain-language messages with a working Retry and never raw reasons', () => {
+  const Sheet = t02Sheet();
+  const cases = [
+    ['read_failed', 'We couldn’t load your weekly report. Please try again.'],
+    ['invalid_snapshot', 'We couldn’t load your weekly report. Please try again.'],
+    ['PRIVATE_SERVER_DETAIL', 'We couldn’t load your weekly report. Please try again.'],
+    ['entitlement_unavailable', 'We couldn’t confirm your account to load this report. Please try again.'],
+    ['authorization_unavailable', 'We couldn’t confirm your account to load this report. Please try again.'],
+    ['account_changed', 'We couldn’t confirm your account to load this report. Please try again.'],
+    ['offline', 'You’re offline. Reconnect, then try again to load your weekly report.'],
+  ];
+  for (const [reason, message] of cases) {
+    assert.equal(presentation.reportReadMessage(reason), message, reason);
+    let retries = 0;
+    const view = Sheet({ visible: true, userId: 'a', report: null, loading: false, empty: false, error: reason, onRetry: () => { retries++; } });
+    const nodes = t02Nodes(view), texts = t02Texts(nodes);
+    assert.ok(texts.includes(message), reason);
+    // Reason codes never reach the screen ('offline' is also an ordinary English word in its message).
+    if (reason !== 'offline') assert.ok(!texts.some(text => text.includes(reason)), `raw reason ${reason} is hidden`);
+    assert.ok(!texts.some(text => /appear here soon|published Sundays/.test(text)), reason);
+    const retry = nodes.filter(n => n.type === 'Pressable' && n.props.accessibilityLabel === 'Retry loading your weekly report');
+    assert.equal(retry.length, 1, reason); retry[0].props.onPress(); assert.equal(retries, 1, reason);
+    assert.ok(nodes.some(n => n.type === 'Text' && n.props.accessibilityRole === 'alert'), reason);
+  }
+  // While loading, neither a message nor Retry is offered.
+  const loading = t02Nodes(Sheet({ visible: true, userId: 'a', report: null, loading: true, empty: false, error: 'read_failed', onRetry() {} }));
+  assert.ok(loading.some(n => n.props?.accessibilityLabel === 'Preparing weekly report'));
+  assert.ok(!loading.some(n => n.props?.accessibilityLabel === 'Retry loading your weekly report'));
+});
+
+test('unreleased and missing saved reports are distinct states', () => {
+  const Sheet = t02Sheet();
+  const render = props => t02Nodes(Sheet({ visible: true, userId: 'a', report: null, loading: false, error: null, empty: true, onRetry() {}, ...props }));
+  for (const props of [{ emptyReason: 'not_released' }, { emptyReason: null }, {}]) {
+    const nodes = render(props), texts = t02Texts(nodes);
+    assert.ok(texts.includes('Reports are published Sundays at 6am UK time.'), JSON.stringify(props));
+    assert.ok(!nodes.some(n => n.props?.accessibilityLabel === 'Retry loading your weekly report'));
+    assert.ok(!texts.includes(presentation.MISSING_REPORT_MESSAGE));
+  }
+  let retries = 0;
+  const missing = render({ emptyReason: 'snapshot_missing', onRetry: () => { retries++; } }), texts = t02Texts(missing);
+  assert.ok(texts.includes('There’s no saved report for this week yet. Reports are published Sundays from 6am UK time.'));
+  // Distinct from the not-released message, the placeholder and failure copy.
+  assert.ok(!texts.includes('Reports are published Sundays at 6am UK time.'));
+  assert.ok(!texts.some(text => /appear here soon|couldn/.test(text)));
+  // A missing report is not presented as an error alert.
+  assert.ok(!missing.some(n => n.type === 'Text' && n.props.accessibilityRole === 'alert'));
+  missing.find(n => n.props?.accessibilityLabel === 'Retry loading your weekly report').props.onPress();
+  assert.equal(retries, 1);
+});
+
+test('Free reports never gain Pro details from the new read states', () => {
+  const Sheet = t02Sheet();
+  const free = api.parseSavedReport(payload('free'));
+  for (const props of [{ error: 'read_failed' }, { empty: true, emptyReason: 'snapshot_missing' }, {}]) {
+    const tree = Sheet({ visible: true, userId: 'a', report: free, loading: false, error: null, empty: false, onRetry() {}, ...props });
+    const view = JSON.stringify(tree), texts = t02Texts(t02Nodes(tree));
+    assert.doesNotMatch(view, /private|Saved focus|Your one focus for next week|day streak|At report time|Streak protected/);
+    // Pro activity tiles render counts with these exact labels; the Free teaser sentence may name them.
+    for (const label of ['workouts', 'workout', 'Bond sessions', 'Bond session', 'check-ins', 'check-in', '2', '3', '5', '6']) {
+      assert.ok(!texts.includes(label), `Free must not show Pro tile ${label}`);
+    }
+    assert.match(view, /See my full week/);
+    // A retained report is shown as-is; the read-state message is only for the no-report case.
+    assert.doesNotMatch(view, /couldn|saved report for this week|Retry loading/);
+  }
+});
+
+test('report hook keeps not-released and snapshot-missing reasons distinct and clears them on success or error', async () => {
+  const h = hooks(); await h.flush(); assert.equal(h.result.emptyReason, null);
+  h.ok = false;
+  for (const reason of ['not_released', 'snapshot_missing']) {
+    h.answer = { state: 'unavailable', reason };
+    await h.result.refresh(); await h.flush();
+    assert.equal(h.result.empty, true); assert.equal(h.result.error, null); assert.equal(h.result.emptyReason, reason);
+    assert.equal(h.result.report, null);
+  }
+  h.answer = { state: 'unavailable', reason: 'read_failed' };
+  await h.result.refresh(); await h.flush();
+  assert.equal(h.result.empty, false); assert.equal(h.result.emptyReason, null); assert.equal(h.result.error, 'read_failed');
+  h.ok = true; h.answer = payload();
+  await h.result.refresh(); await h.flush();
+  assert.equal(h.result.emptyReason, null); assert.ok(h.result.report);
+  // An account change starts from a neutral state.
+  h.owner = 'b'; h.render(); assert.equal(h.result.emptyReason, null); h.unmount();
+});
+
+test('streak count wording and states are unchanged by the date formatting', () => {
+  const Card = t02StreakCard();
+  const base = { state: 'current', count: 6, lastKnownCount: 6, allowance: 1, protectedDates: [], calendarDays: t02Week, currentDate: '2026-11-18' };
+  const texts = (status, error = null) => t02Texts(t02Nodes(Card({ status, freezeAccess: true, error, onRetry() {}, onUpgrade() {} })));
+  assert.deepEqual(texts(base).slice(0, 2), ['6-day streak', 'Keep showing up—one check-in at a time.']);
+  assert.deepEqual(texts({ ...base, count: 0 }).slice(0, 2), ['Start your streak', "Complete today's check-in to begin."]);
+  // Pending wording stays as on main (the last known count is not shown; that change was not approved).
+  const pending = texts({ ...base, state: 'pending', count: null, allowance: null, lastKnownCount: 12 });
+  assert.deepEqual(pending.slice(0, 2), ['Your check-in streak', 'Your streak count is currently unavailable.']);
+  assert.ok(!pending.some(t => t.includes('12')));
+  assert.deepEqual(texts(null, 'read_failed').slice(0, 2), ['Streak unavailable', 'We couldn’t load your streak. Try again.']);
+  assert.deepEqual(texts({ ...base, state: 'pending', count: null, allowance: null }, 'read_failed').slice(0, 2), ['Streak unavailable', 'Showing your last verified streak.']);
+  assert.ok(!t02Nodes(Card({ status: null, error: 'read_failed', onRetry() {} })).some(n => n.props?.accessibilityLabel === 'Retry loading your streak'));
+});
+
+test('protected days use readable, timezone-stable dates in text and screen-reader labels', () => {
+  const Card = t02StreakCard();
+  const { streakDateLabel, protectedDatesText } = streakPresentation();
+  const status = { state: 'current', count: 5, lastKnownCount: 5, allowance: 0, protectedDates: ['2026-11-18'], calendarDays: t02Week, currentDate: '2026-11-20' };
+  const nodes = t02Nodes(Card({ status, freezeAccess: true, error: null, onRetry() {} }));
+  const texts = t02Texts(nodes).join(' ');
+  assert.match(texts, /Streak protected · Wednesday 18 November/);
+  assert.match(texts, /Freeze used · Resets Monday/);
+  const labels = nodes.map(n => n.props?.accessibilityLabel).filter(Boolean);
+  assert.ok(labels.includes('Wednesday 18 November, streak protected'));
+  assert.ok(labels.includes('Monday 16 November'));
+  assert.ok(!labels.some(label => /\d{4}-\d{2}-\d{2}/.test(label)), 'no raw ISO dates in labels');
+  assert.doesNotMatch(texts, /\d{4}-\d{2}-\d{2}/);
+  const previous = t02Texts(t02Nodes(Card({ status: { ...status, state: 'pending', count: null, allowance: null }, error: null, onRetry() {} }))).join(' ');
+  assert.match(previous, /Previously recorded protection · Wednesday 18 November/);
+  assert.equal(protectedDatesText(['2026-11-16', '2026-11-22']), 'Monday 16 November, Sunday 22 November');
+  for (const zone of ['Pacific/Auckland', 'America/Los_Angeles', 'Europe/London', 'UTC']) {
+    const original = process.env.TZ; process.env.TZ = zone;
+    try {
+      assert.equal(streakDateLabel('2026-11-18'), 'Wednesday 18 November', zone);
+      assert.equal(streakDateLabel('2027-01-01'), 'Friday 1 January', zone);
+    } finally { if (original === undefined) delete process.env.TZ; else process.env.TZ = original; }
+  }
+  for (const invalid of ['2026-02-30', '18/11/2026', '']) assert.equal(streakDateLabel(invalid), invalid);
 });

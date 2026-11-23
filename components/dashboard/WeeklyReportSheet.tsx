@@ -5,15 +5,16 @@ import { Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../theme';
 import { trackEvent } from '../../lib/analytics';
-import { displayReportValue, reportHeadline, reportChange, overallReportChange, reportFocus, reportProtection, hasReportChanges, reportStreakLabel, type ReportFocusPillar } from '../../lib/weeklyReportPresentation';
+import { displayReportValue, reportHeadline, reportChange, overallReportChange, reportFocus, reportProtection, hasReportChanges, reportStreakLabel, reportReadMessage, MISSING_REPORT_MESSAGE, UNRELEASED_REPORT_MESSAGE, type ReportFocusPillar } from '../../lib/weeklyReportPresentation';
 import { reportDates, type SavedWeeklyReport } from '../../lib/weeklyReport';
+import type { EmptyReason } from '../../hooks/useWeeklyReport';
 
 type Props = { visible: boolean; report: SavedWeeklyReport | null; loading: boolean; error: string | null;
-  empty: boolean; userId: string; accountName?: string; onClose: () => void; onDismiss: () => void; onShow?: () => void;
+  empty: boolean; emptyReason?: EmptyReason | null; userId: string; accountName?: string; onClose: () => void; onDismiss: () => void; onShow?: () => void;
   onRetry: () => void; onUpgrade: () => void; onFocus: (pillar: ReportFocusPillar) => void };
 
-export default function WeeklyReportSheet({ visible, report, loading, empty,
-  userId, accountName, onClose, onDismiss, onShow, onUpgrade, onFocus }: Props) {
+export default function WeeklyReportSheet({ visible, report, loading, error, empty, emptyReason,
+  userId, accountName, onClose, onDismiss, onShow, onRetry, onUpgrade, onFocus }: Props) {
   const lockKey = useRef('');
   const [preparingExport, setPreparingExport] = useState(false);
 
@@ -95,8 +96,17 @@ export default function WeeklyReportSheet({ visible, report, loading, empty,
         <ScrollView contentContainerClassName="px-lg pb-xl gap-lg" showsVerticalScrollIndicator={false}>
           {!report ? <View className="min-h-[160px] justify-center gap-sm">
             {loading ? <View accessibilityLabel="Preparing weekly report" className="h-[4px] w-[64px] rounded-full bg-card" />
+              : error || (empty && emptyReason === 'snapshot_missing') ? <>
+                <Text accessibilityRole={error ? 'alert' : 'text'} className="font-body text-white text-[14px] leading-[20px]">
+                  {error ? reportReadMessage(error) : MISSING_REPORT_MESSAGE}
+                </Text>
+                <Pressable onPress={onRetry} accessibilityRole="button" accessibilityLabel="Retry loading your weekly report"
+                  className="min-h-[44px] self-start justify-center border-b border-lime">
+                  <Text className="font-heading-bold text-lime text-[11px] uppercase">Retry</Text>
+                </Pressable>
+              </>
               : <Text className="font-body text-white text-[14px] leading-[20px]">
-                {empty ? 'Reports are published Sundays at 6am UK time.'
+                {empty ? UNRELEASED_REPORT_MESSAGE
                   : 'Your report will appear here soon. Pull down on Today to refresh.'}
               </Text>}
           </View> : <>

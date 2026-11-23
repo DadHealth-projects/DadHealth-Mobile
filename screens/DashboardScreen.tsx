@@ -870,6 +870,7 @@ useEffect(() => {
         loading={shownReport.loading || (weeklyReportAccess === null && loading)}
         error={shownReport.error}
         empty={shownReport.empty}
+        emptyReason={shownReport.emptyReason}
         userId={user.id}
         onShow={() => setReportDidShow(true)}
         onClose={() => setReportOpen(false)} onRetry={() => {

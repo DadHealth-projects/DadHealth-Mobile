@@ -5,6 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 import { colors } from '../../theme';
 import ProBadge from './ProBadge';
 import { trackEvent } from '../../lib/analytics';
+import { protectedDatesText, streakDateLabel } from '../../lib/streakPresentation';
 
 /**
  * The streak is the primary habit mechanic.
@@ -66,7 +67,7 @@ function StreakCard({
         <View className="flex-row justify-between">
           {status.calendarDays.map(date => {
             const protectedDay = status.state === 'current' && status.protectedDates.includes(date);
-            return <View key={date} className="items-center gap-xs" accessibilityLabel={`${date}${protectedDay ? ', Streak protected' : ''}`}>
+            return <View key={date} className="items-center gap-xs" accessibilityLabel={`${streakDateLabel(date)}${protectedDay ? ', streak protected' : ''}`}>
               <Text className="font-body text-white text-[12px]">{new Date(`${date}T00:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' })}</Text>
               <Text className="font-body text-white text-[12px]">{Number(date.slice(-2))}</Text>
               {protectedDay ? <Text className="text-[#9DDFFF]">❄</Text> : null}
@@ -74,7 +75,7 @@ function StreakCard({
           })}
         </View>
         {status.protectedDates.length ? <Text className="font-body text-[#9DDFFF] text-[12px]">
-          {status.state === 'current' && !error ? 'Streak protected' : 'Previously recorded protection'} · {status.protectedDates.join(', ')}
+          {status.state === 'current' && !error ? 'Streak protected' : 'Previously recorded protection'} · {protectedDatesText(status.protectedDates)}
         </Text> : null}
       </View> : null}
       {(freezeAccess === true || status?.allowance === 1) && status?.state === 'current' && !error && status.allowance !== null ? (

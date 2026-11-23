@@ -5,7 +5,10 @@ import { useNetworkStatus } from '../contexts/NetworkContext';
 import { subscribeOfflineSync } from '../lib/offlineStorage';
 import { Item02ReadError, parseSavedReport, type SavedWeeklyReport } from '../lib/weeklyReport';
 
-type Resource<T> = { key: string; data: T | null; loading: boolean; error: string | null; empty: boolean };
+/** Why a read settled empty: the week is not released yet, or a released week has no saved report. */
+export type EmptyReason = 'not_released' | 'snapshot_missing';
+type Resource<T> = { key: string; data: T | null; loading: boolean; error: string | null; empty: boolean;
+  emptyReason: EmptyReason | null };
 /** Private component-owned cache; never survives unmount or an account change. */
 export function useItem02Resource<T>(owner: string | undefined, path: string, accessKey: string,
   parse: (value: unknown) => T, enabled = true) {
@@ -14,7 +17,7 @@ export function useItem02Resource<T>(owner: string | undefined, path: string, ac
   const current = useRef(key); current.current = key;
   const sequence = useRef(0), controller = useRef<AbortController | null>(null);
   const mounted = useRef(false), blocked = useRef(false);
-  const [state, setState] = useState<Resource<T>>({ key, data: null, loading: false, error: null, empty: false });
+  const [state, setState] = useState<Resource<T>>({ key, data: null, loading: false, error: null, empty: false, emptyReason: null });
   const refresh = useCallback(async () => {
     const generation = ++sequence.current;
     controller.current?.abort();
@@ -22,16 +25,16 @@ export function useItem02Resource<T>(owner: string | undefined, path: string, ac
     const valid = () => mounted.current && !blocked.current && current.current === key && sequence.current === generation;
     const retained = (previous: Resource<T>) => previous.key === key ? previous.data : null;
     if (isOffline) {
-      setState(previous => ({ key, data: retained(previous), loading: false, error: 'offline', empty: false }));
+      setState(previous => ({ key, data: retained(previous), loading: false, error: 'offline', empty: false, emptyReason: null }));
       return;
     }
     const request = new AbortController(); controller.current = request;
-    setState(previous => ({ key, data: retained(previous), loading: true, error: null, empty: false }));
+    setState(previous => ({ key, data: retained(previous), loading: true, error: null, empty: false, emptyReason: null }));
     try {
       const payload = await fetchItem02(owner, path, request.signal);
       if (!valid()) return;
       const data = parse(payload);
-      setState({ key, data, loading: false, error: null, empty: false });
+      setState({ key, data, loading: false, error: null, empty: false, emptyReason: null });
     } catch (error) {
       if (!valid()) return;
       const reason = error instanceof Item02ReadError ? error.reason : 'read_failed';
@@ -47,18 +50,19 @@ setState(previous => ({
   loading: false,
   error: empty ? null : reason,
   empty,
+  emptyReason: empty ? reason as EmptyReason : null,
 }));
     }
   }, [owner, key, path, enabled, isOffline, parse]);
   useEffect(() => {
     mounted.current = true; blocked.current = false;
-    if (!enabled) setState({ key, data: null, loading: false, error: null, empty: false });
+    if (!enabled) setState({ key, data: null, loading: false, error: null, empty: false, emptyReason: null });
     void refresh();
     const unsubscribe = subscribeOfflineSync(event => {
       if (event.userId !== owner) return;
       if (event.status === 'cleared') {
         blocked.current = true; ++sequence.current; controller.current?.abort();
-        setState({ key, data: null, loading: false, error: null, empty: false });
+        setState({ key, data: null, loading: false, error: null, empty: false, emptyReason: null });
       } else if (event.status === 'synced') void refresh();
     });
     let previous = AppState.currentState;
@@ -68,7 +72,7 @@ setState(previous => ({
     });
     return () => { mounted.current = false; ++sequence.current; controller.current?.abort(); unsubscribe(); resume.remove(); };
   }, [key, enabled, owner, refresh]);
-  return { ...(state.key === key && enabled ? state : { key, data: null, loading: enabled, error: null, empty: false }), refresh };
+  return { ...(state.key === key && enabled ? state : { key, data: null, loading: enabled, error: null, empty: false, emptyReason: null }), refresh };
 }
 export function useWeeklyReport(owner: string | undefined, access: boolean | null, week?: string, enabled = true) {
   // Dashboard status is an invalidation signal, not permission to fetch. This
@@ -77,7 +81,7 @@ export function useWeeklyReport(owner: string | undefined, access: boolean | nul
   const result = useItem02Resource<SavedWeeklyReport>(owner,
     `/api/reports/weekly${week ? `?week=${encodeURIComponent(week)}` : ''}`, String(access), parseSavedReport, enabled && Boolean(owner));
   return { report: result.data, loading: result.loading, error: result.error,
-    empty: result.empty, refresh: result.refresh };
+    empty: result.empty, emptyReason: result.emptyReason, refresh: result.refresh };
 }
 
 /** Retains the previous report request's 15s bound. No automatic retries. */
