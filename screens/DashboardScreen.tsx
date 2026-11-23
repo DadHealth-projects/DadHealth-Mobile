@@ -747,6 +747,7 @@ useEffect(() => {
                 <View className="relative">
                   <DadScoreCard
                     score={score}
+                    missingScore="—"
                     scoreUnavailable={Boolean(data.scoreError)}
                     baselineBuilding={!data.scoreError && !data.baselineAvailable}
                     items={scoreItems}

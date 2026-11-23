@@ -126,7 +126,10 @@ test('Moment 5 follows Body progress context and keeps the canonical score row f
   assert.equal(body.includes('<GlobalErrorToastReporter message={fitnessLibrary.proError} />'), false);
   assert.ok(body.includes('Want to see how your Body score has changed?'));
   assert.ok(body.includes("navigateToProSubscription(navigation, 'progressTrends'"));
-  assert.ok(row.includes('{Math.round(score ?? 0)}%'));
+  // The row shows the rounded server score; a missing score is never shown as 0%.
+  assert.ok(row.includes('Math.round(score)'));
+  assert.ok(row.includes('{`${value}%`}'));
+  assert.equal(row.includes('score ?? 0'), false);
   assert.ok(row.includes('formattedTrend.arrow'));
 });
 

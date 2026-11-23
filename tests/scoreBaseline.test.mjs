@@ -24,7 +24,9 @@ test('canonical score query exposes server baseline status to all score views', 
   assert.match(bond, /baselineBuilding=\{Boolean\(data && !data\.scoreError && !data\.baselineAvailable\)\}/);
 });
 
-test('baseline state hides placeholder values and trends, but preserves zero and null trend after baseline', async () => {
+// Client-approved 2026-11-23: valid scores show from day one; only week-on-week
+// trends (and the comparison-based warning) wait for the server baseline.
+test('baseline state shows valid scores from day one and hides only trends', async () => {
   const [card, pillarRow, bondCard] = await Promise.all([
     source('components/dashboard/DadScoreCard.tsx'),
     source('components/dashboard/PillarScoreRow.tsx'),
@@ -34,23 +36,25 @@ test('baseline state hides placeholder values and trends, but preserves zero and
   for (const component of [card, pillarRow, bondCard]) {
     assert.ok(component.includes('Building first 7 day trend'));
     assert.match(component, /baselineBuilding/);
+    assert.doesNotMatch(component, /baselineBuilding \? <Text[^>]*>·<\/Text>/, 'no placeholder dot replaces a valid score');
+    assert.doesNotMatch(component, /score \?\? 0/, 'a missing score is never displayed as 0');
   }
-  assert.match(card, /scoreUnavailable \? '—' : baselineBuilding \? <Text className="font-heading text-dark\/75 text-\[30px\] leading-\[34px\] text-center">·<\/Text> : score \?\? missingScore/);
-  assert.match(card, /scoreRingSize = compactWidth \? 104 : 116/);
-  assert.match(card, /ringScoreFontSize = compactWidth \? 44 : 50/);
+  assert.match(card, /scoreUnavailable \? '—' : score \?\? missingScore/);
+  // Card sizes re-pinned to the current values introduced in 7b4c355 (2026-11-07).
+  assert.match(card, /scoreRingSize = compactWidth \? 108 : 120/);
+  assert.match(card, /ringScoreFontSize = compactWidth \? 46 : 52/);
   assert.match(card, /adjustsFontSizeToFit/);
-  assert.match(card, /compactWidth \? 'text-\[11px\]' : 'text-\[12px\]'/);
-  assert.match(card, /lockedValues \? <Feather[\s\S]*? : scoreUnavailable \? <Text className="font-heading-bold text-dark\/75 text-\[10px\]">—<\/Text> : baselineBuilding/);
+  assert.match(card, /compactWidth \? 'text-\[12px\]' : 'text-\[13px\]'/);
   assert.match(card, /!baselineBuilding && \(item\.trend != null \|\| item\.showNeutralTrend\)/);
+  assert.match(card, /!baselineBuilding && item\.warning/);
   assert.match(card, /item\.value !== null && !scoreUnavailable/);
   assert.match(card, /formatScoreTrend\(item\.trend\)/);
-  assert.match(pillarRow, /!scoreUnavailable && !baselineBuilding/);
-  assert.match(pillarRow, /scoreUnavailable \? \([\s\S]*?—<\/Text>\s*\) : baselineBuilding \? \([\s\S]*?text-muted-text\/60 text-\[20px\].*·/);
-  assert.match(pillarRow, /Building first 7 day trend/);
-  assert.match(pillarRow, /Math\.round\(score \?\? 0\)\}%/);
-  assert.match(bondCard, /scoreUnavailable \? '—' : baselineBuilding \? <Text className="font-heading text-dark\/75 text-\[34px\] leading-\[38px\] text-center">·<\/Text> : value/);
+  assert.match(pillarRow, /scoreUnavailable \|\| value === null \? \([\s\S]*?—<\/Text>/);
+  assert.match(pillarRow, /\{`\$\{value\}%`\}/);
+  assert.match(pillarRow, /!scoreUnavailable && value !== null && baselineBuilding/);
+  assert.match(pillarRow, /!scoreUnavailable && value !== null && !baselineBuilding/);
+  assert.match(bondCard, /scoreUnavailable \|\| value === null \? '—' : value/);
   assert.match(bondCard, /!scoreUnavailable && !baselineBuilding/);
-  assert.match(bondCard, /Math\.round\(score \?\? 0\)/);
 });
 
 test('score errors retain error state instead of becoming baseline state', async () => {

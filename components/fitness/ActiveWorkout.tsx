@@ -6,6 +6,7 @@ import type { FitnessWorkout, FitnessWorkoutExercise } from '../../hooks/useFitn
 import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { DAD_STRENGTH_MOVES } from '../../lib/homeContent';
 import { supabase } from '../../lib/supabase';
+import { refreshDashboardForUser } from '../../hooks/useDashboard';
 import LimeButton from '../LimeButton';
 import InlineFormError from '../InlineFormError';
 import SectionHeader from '../dashboard/SectionHeader';
@@ -164,6 +165,8 @@ export default function ActiveWorkout({
       setSaving(false);
       return;
     }
+    // The saved session feeds the canonical Body score; re-read it after the save is confirmed.
+    void refreshDashboardForUser(userId);
 
     if (workout?.id) {
       const completionResult = await supabase.from('workout_completions').insert({

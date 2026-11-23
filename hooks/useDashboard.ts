@@ -806,13 +806,17 @@ export function useDashboard(userId: string | undefined) {
   }, [isOffline, userId]);
 
   useEffect(() => subscribeOfflineSync((event) => {
-    if (event.userId !== userId || event.kind !== 'daily_checkin') return;
-    if (event.status === 'failed') setStore({ syncError: event.message ?? 'Your saved check-in could not be synced.' });
-    if (event.status === 'synced') {
-      setStore({ syncError: null });
-      if (userId && event.kind === 'daily_checkin') void refreshDashboardForUser(userId);
-      else if (userId) void loadDashboard(userId);
+    if (!userId || event.userId !== userId) return;
+    if (event.kind === 'daily_checkin') {
+      if (event.status === 'failed') setStore({ syncError: event.message ?? 'Your saved check-in could not be synced.' });
+      if (event.status === 'synced') {
+        setStore({ syncError: null });
+        void refreshDashboardForUser(userId);
+      }
+      return;
     }
+    // Journal entries feed the canonical Mind and Bond scores; re-read after the save is confirmed.
+    if (event.kind === 'journal_create' && event.status === 'synced') void refreshDashboardForUser(userId);
   }), [userId]);
 
   // Never hand a screen another account's cached rows.
