@@ -112,28 +112,48 @@ test('saved sound off loads independently and storage failure is not reported as
  await store.load('a');await store.load('b');assert.equal(store.get('a'),false);assert.equal(store.get('b'),true);
  await assert.rejects(store.set('a',true));
 });
-test('selected recording repeats every 10 seconds with complete final cue and silent gaps',()=>{
+test('original bell plays once at each minute (0-300 s) with silence elsewhere in a 310 s track',async()=>{
+ const bell=await import('../scripts/mindResetBell.mjs');
  const wav=readFileSync(new URL('../assets/audio/mind-reset-provisional.wav',import.meta.url));
- const source=readFileSync(new URL('../assets/audio/mind-reset-chime-source.wav',import.meta.url));
- const rate=wav.readUInt32LE(24),length=(source.length-44)/2;
- assert.equal(rate,16000);assert.equal((wav.length-44)/2/rate,310);
- assert.ok(length/rate>7 && length/rate<8);
- const first=wav.subarray(44,44+length*2);
- for(let second=0;second<=300;second+=10){
-  assert.deepEqual(wav.subarray(44+second*rate*2,44+(second*rate+length)*2),first);
-  assert.ok(wav.subarray(44+(second*rate+length)*2,44+(second+10)*rate*2).every(v=>v===0),'silent gap');
+ const source=readFileSync(new URL('../assets/audio/mind-reset-bell-source.wav',import.meta.url));
+ const rate=wav.readUInt32LE(24),total=(wav.length-44)/2,length=(source.length-44)/2;
+ assert.equal(rate,16000);assert.equal(total/rate,310);
+ assert.ok(length/rate>=3.5 && length/rate<=4.5,'single soft bell, about four seconds');
+ assert.deepEqual(bell.CUE_SECONDS,[0,60,120,180,240,300]);
+ const cue=wav.subarray(44,44+length*2);
+ const cueStarts=new Set(bell.CUE_SECONDS.map(second=>second*rate));
+ for(const start of cueStarts) assert.deepEqual(wav.subarray(44+start*2,44+(start+length)*2),cue,`bell at ${start/rate}s`);
+ // Everything outside the six bells is silent: no chimes between minutes and nothing after the completion bell.
+ for(let i=0;i<total;i++){
+  const inCue=[...cueStarts].some(start=>i>=start&&i<start+length);
+  if(!inCue) assert.equal(wav.readInt16LE(44+i*2),0,`silence at ${(i/rate).toFixed(3)}s`);
  }
+ assert.ok(300*rate+length<total,'completion bell finishes inside the track');
 });
 
-test('selected recording preserves all samples with edge fades and clipping headroom',()=>{
+test('bell assets are reproducible from the original in-repo synthesis, with fades and clipping headroom',async()=>{
+ const bell=await import('../scripts/mindResetBell.mjs');
+ const source=readFileSync(new URL('../assets/audio/mind-reset-bell-source.wav',import.meta.url));
  const wav=readFileSync(new URL('../assets/audio/mind-reset-provisional.wav',import.meta.url));
- const source=readFileSync(new URL('../assets/audio/mind-reset-chime-source.wav',import.meta.url));
- const rate=16000,length=(source.length-44)/2;
- const expected=Array.from({length},(_,i)=>source.readInt16LE(44+i*2)*Math.min(1,i/(rate*0.02))*Math.min(1,(length-1-i)/(rate*0.1)));
- const peak=expected.reduce((m,v)=>Math.max(m,Math.abs(v)),0);
- for(let i=0;i<length;i++)assert.equal(wav.readInt16LE(44+i*2),Math.round(expected[i]/peak*0.6*32767) || 0);
- assert.equal(wav.readInt16LE(44),0);assert.equal(wav.readInt16LE(44+(length-1)*2),0);
- assert.ok(expected.some(v=>v!==0));
+ assert.ok(bell.encodeWav(bell.synthesizeBell()).equals(source),'source equals the original synthesis');
+ const cue=bell.processCue(bell.decodeWav(source));
+ assert.ok(bell.encodeWav(bell.buildTrack(cue)).equals(wav),'bundled track equals the generator output');
+ assert.equal(cue[0],0);assert.equal(cue[cue.length-1],0);
+ const peak=cue.reduce((m,v)=>Math.max(m,Math.abs(v)),0);
+ assert.equal(peak,Math.round(0.6*32767));
+ assert.ok(cue.some(v=>v!==0));
+});
+
+test('track length keeps the 310 s missed-end fallback reachable and the app still loads the same asset',()=>{
+ const playback=readFileSync(new URL('../lib/mindResetPlayback.ts',import.meta.url),'utf8');
+ const context=readFileSync(new URL('../contexts/MindResetContext.tsx',import.meta.url),'utf8');
+ const wav=readFileSync(new URL('../assets/audio/mind-reset-provisional.wav',import.meta.url));
+ assert.match(playback,/status\.didJustFinish \|\| status\.currentTime >= 310/);
+ assert.match(playback,/Math\.min\(300, Math\.floor\(position\)\)/);
+ assert.equal((wav.length-44)/2/16000,310);
+ assert.match(context,/require\('\.\.\/assets\/audio\/mind-reset-provisional\.wav'\)/);
+ const generator=readFileSync(new URL('../scripts/generate-mind-reset-tone.mjs',import.meta.url),'utf8');
+ assert.doesNotMatch(generator,/mind-reset-chime-source|mind-reset-chime\.mp3/,'unlicensed recording is not used');
 });
 
 test('voice cleanup tolerates native release during stop and still deletes cached audio and unlocks ownership', async () => {

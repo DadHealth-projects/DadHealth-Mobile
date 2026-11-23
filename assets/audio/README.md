@@ -1,24 +1,33 @@
-# Mind Reset - user-supplied chime
+# Mind Reset - original bell
 
-Current source: user-supplied `mind-reset-chime.mp3`, replaced 2026-11-18.
-Duration decoded: 7.488 seconds. Creator/source URL/licence of this replacement
-have not been independently established. The earlier Pixabay attribution
-applied to the previous file and must not be assumed for this replacement.
-Confirm replacement provenance before distribution.
+Current sound: an original soft meditation bell created for Dad Health by
+additive synthesis in `scripts/mindResetBell.mjs` (no recorded or third-party
+audio). Approved by the project owner on 2026-11-23 (Option A, minute chimes).
+Ownership terms for distribution remain the project owner's to confirm.
 
-Decoded locally using Chromium Web Audio to mono 16-bit PCM at 16 kHz:
-`mind-reset-chime-source.wav`. Retained for deterministic regeneration.
+Bell: G4 (392 Hz) fundamental with a slightly detuned twin (~1.6 Hz shimmer),
+inharmonic partials at 2.756x, 5.404x and 8.933x, a 12 ms soft-mallet attack
+and a 4.0-second natural decay. Source: `mind-reset-bell-source.wav`, mono
+16-bit PCM at 16 kHz.
+
 Processing: 20 ms attack fade, 100 ms end fade, peak normalization to 0.6
-full scale (about -4.44 dBFS). Complete recording retained; no overlapping cues.
+full scale (about -4.44 dBFS).
 
-Regenerate: `node scripts/generate-mind-reset-tone.mjs`.
-The bundled `mind-reset-provisional.wav` contains 31 repetitions starting at
-elapsed seconds 0, 10, 20, ... 300, with 2.512 seconds of silence between cues.
-Duration: 310 seconds. The final recording plays fully after five-minute visual
-completion. Native playback owns timing, including when muted. This supersedes
-the previous 15-second repeat interval; no session/navigation behaviour changes.
+Regenerate: `node scripts/generate-mind-reset-tone.mjs` (deterministic).
+The bundled `mind-reset-provisional.wav` contains one bell at elapsed seconds
+0, 60, 120, 180, 240 and 300, with silence between. Duration: 310 seconds.
+The session completes visually at 300 seconds; the final bell then plays
+(300-304 s) as the completion chime, followed by silence. The 310-second length
+is kept because playback's missed-end fallback ends the session when native
+position reaches 310 seconds; nothing audible plays after the completion bell.
+Native playback owns timing, including when muted.
 
-Visual completion is at 300 seconds; playback releases after the final tail.
+Rollback only: `mind-reset-chime.mp3` (user-supplied, replaced 2026-11-18) and
+its decode `mind-reset-chime-source.wav` are retained for review rollback and are
+no longer used by the app or the generator. Their creator, source URL and licence
+were never independently established; do not distribute or reuse them outside
+this project. Remove them once the new bell is accepted.
+
 Back, tab navigation and screen unmount retain the account-owned session.
 Finish here, End session, logout and account changes release playback.
 The compact app control can return to Reset, pause/resume or end it.
