@@ -6,6 +6,8 @@ import ts from 'typescript';
 import { createUpgradeMomentSession } from '../lib/upgradeMomentManager.js';
 const read = p => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const compile = source => ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React } }).outputText;
+/** The real onboarding hand-off state (added in dc4a932); no owner is set unless a test sets one. */
+function loadOnboardingHandoff() { const exports={}; vm.runInNewContext(compile(read('lib/onboardingHandoff.ts')),{exports}); return exports; }
 const request = { id:'weeklyReport', screen:'today', feature:'weekly_report', userId:'a', isPro:false, trialActive:false, loading:false, featureAccess:false, hasCompletedAction:true };
 
 test('explicit prompts reopen without consuming or bypassing automatic caps', () => {
@@ -19,8 +21,8 @@ test('explicit prompts reopen without consuming or bypassing automatic caps', ()
 test('explicit prompts still reject Pro, trial, unknown and loading access',()=>{
   for(const change of [{isPro:true},{isPro:null},{trialActive:true},{trialActive:null},{featureAccess:null},{featureAccess:true},{loading:true}]) assert.equal(createUpgradeMomentSession().request({...request,trigger:'explicit',...change}),false);
 });
-function providerHarness() {
- const h={owner:'a',events:[],actions:[],ready:true}; let cursor=0,queued=[];const slots=[],effects=[];
+function providerHarness(handoff = loadOnboardingHandoff()) {
+ const h={owner:'a',events:[],actions:[],ready:true,handoff}; let cursor=0,queued=[];const slots=[],effects=[];
  const same=(a,b)=>a&&b&&a.length===b.length&&a.every((x,i)=>x===b[i]);
  const react={createContext:()=>({Provider:'Provider'}),useContext:()=>null,
   createElement:(type,props,...children)=>({type,props:props??{},children}),
@@ -30,7 +32,7 @@ function providerHarness() {
   useCallback:(fn,deps)=>react.useMemo(()=>fn,deps),
   useEffect:(fn,deps)=>{const i=cursor++;if(!same(effects[i]?.deps,deps))queued.push(()=>{effects[i]?.cleanup?.();effects[i]={deps,cleanup:fn()};});}};
  const navigationRef={isReady:()=>h.ready,getCurrentRoute:()=>({name:h.route??'Tabs'}),dispatch:a=>h.actions.push(a)};
- const mocks={react,'@react-navigation/native':{StackActions:{push:(name,params)=>({name,params})}},'../components/ProPromptModal':{default:'Prompt'},'../lib/proMoments':{PRO_MOMENTS:{weeklyReport:{body:'Weekly report'}}},'../lib/upgradeMomentManager':{createUpgradeMomentSession},'../lib/analytics':{trackEvent:(...a)=>h.events.push(a)},'./AuthContext':{useAuth:()=>({user:h.owner?{id:h.owner}:null})}};
+ const mocks={react,'@react-navigation/native':{StackActions:{push:(name,params)=>({name,params})}},'../components/ProPromptModal':{default:'Prompt'},'../lib/proMoments':{PRO_MOMENTS:{weeklyReport:{body:'Weekly report'}}},'../lib/upgradeMomentManager':{createUpgradeMomentSession},'../lib/analytics':{trackEvent:(...a)=>h.events.push(a)},'./AuthContext':{useAuth:()=>({user:h.owner?{id:h.owner}:null})},'../lib/onboardingHandoff':handoff};
  const exports={};vm.runInNewContext(compile(read('contexts/UpgradeMomentContext.tsx')),{exports,require:n=>{assert.ok(n in mocks,n);return mocks[n];}});
  h.render=()=>{cursor=0;queued=[];const tree=exports.UpgradeMomentProvider({children:null,navigationRef});h.request=tree.props.value.requestMoment;h.modal=tree.children[1];queued.forEach(fn=>fn());};
  h.unmount=()=>effects.forEach(e=>e?.cleanup?.());h.render();h.render();return h;
@@ -43,11 +45,12 @@ test('account change cancels old callbacks and resets only that account session'
  h.owner='b';h.render();h.render();old();assert.equal(h.actions.length,0);assert.equal(oldRequest(request),false);assert.equal(h.request({...request,userId:'a'}),false);assert.equal(h.request({...request,userId:'b'}),true);h.render();h.modal.props.onDismiss();h.render();h.modal.props.onDismissed();h.render();assert.equal(h.request({...request,userId:'b'}),false);h.unmount();
 });
 test('unmounted prompt cannot navigate from a late dismissal',()=>{const h=providerHarness();h.request(request);h.render();h.modal.props.onUpgrade();h.render();const finish=h.modal.props.onDismissed;h.unmount();finish();assert.equal(h.actions.length,0);});
-function navigationHarness() {
- const h={events:[],actions:[],state:{key:'stack-a',index:0,routes:[{key:'origin',name:'Tabs'}]},listeners:new Set(),auth:new Set()};
+function navigationHarness(handoff = loadOnboardingHandoff()) {
+ const h={handoff,events:[],actions:[],state:{key:'stack-a',index:0,routes:[{key:'origin',name:'Tabs'}]},listeners:new Set(),auth:new Set()};
  const nav={getParent:()=>undefined,getState:()=>h.state,addListener:(_,fn)=>{h.listeners.add(fn);return()=>h.listeners.delete(fn);},dispatch:a=>h.actions.push(a)};
  const exports={};vm.runInNewContext(compile(read('lib/proNavigation.ts')),{exports,require:n=>{
   if(n==='@react-navigation/native')return {StackActions:{push:(name,params)=>({name,params})}};
+  if(n==='./onboardingHandoff')return handoff;
   if(n==='./supabase')return {supabase:{auth:{onAuthStateChange:fn=>{h.auth.add(fn);return {data:{subscription:{unsubscribe:()=>h.auth.delete(fn)}}};}}}};
   return {trackEvent:(...a)=>h.events.push(a)};
  }});
@@ -56,6 +59,18 @@ function navigationHarness() {
  h.showPro=()=>{h.state={...h.state,index:1,routes:[h.state.routes[0],{key:'pro-new',name:'ProSubscription',params:h.actions.at(-1).params}]};h.emit();};
  return h;
 }
+test('upgrade prompts wait until onboarding and the first check-in hand-off finish',()=>{
+ const handoff=loadOnboardingHandoff();handoff.setupOwner('a',false);const h=providerHarness(handoff);
+ assert.equal(h.request({...request,trigger:'explicit'}),false,'setup incomplete');
+ handoff.setupOwner('a',true);handoff.beginInitialCheckIn('a');assert.equal(h.request({...request,trigger:'explicit'}),false,'first check-in pending');
+ handoff.finishInitialCheckIn('a');assert.equal(h.request({...request,trigger:'explicit'}),true);
+ assert.equal(loadOnboardingHandoff().setupBlocksUpgrade('a'),false,'no owner set: never blocks');
+});
+test('Pro navigation is blocked during onboarding for that owner only',()=>{
+ const handoff=loadOnboardingHandoff();handoff.setupOwner('a',false);const h=navigationHarness(handoff);
+ assert.equal(h.open('a'),false);assert.equal(h.actions.length,0);
+ handoff.setupOwner('a',true);assert.notEqual(h.open('a'),false);assert.equal(h.actions.length,1);
+});
 test('unrelated state events cannot release pending Pro navigation; Back allows another entry',()=>{
  const h=navigationHarness();h.open();h.emit();h.emit();h.open();
  assert.equal(h.actions.length,1);assert.equal(h.listeners.size,1);assert.equal(h.auth.size,1);
@@ -122,8 +137,14 @@ test('late animation and dismissal after account change or unmount cannot naviga
  }
 });
 test('Dad Days only confirmed quota failure enters upgrade branch',()=>{
- const source=read('screens/subscreens/DadDaysSearchScreen.tsx');const condition=source.match(/if \((response.status === 403 && body.error === 'search_limit_reached')\)/)?.[1];assert.ok(condition);
- for(const [status,error,want] of [[403,'search_limit_reached',true],[403,'forbidden',false],[401,'Unauthorized',false],[503,'allowance_unavailable',false]]) assert.equal(vm.runInNewContext(condition,{response:{status},body:{error}}),want);
+ // The screen now reads the typed request error (lib/dadDaysRequest.ts) instead of the raw response body.
+ const source=read('screens/subscreens/DadDaysSearchScreen.tsx');const condition=source.match(/if \((error instanceof DadDaysRequestError && error\.status === 403 && error\.code === 'search_limit_reached')\)/)?.[1];assert.ok(condition);
+ class DadDaysRequestError { constructor(code,status){this.code=code;this.status=status;} }
+ for(const [status,code,want] of [[403,'search_limit_reached',true],[403,'forbidden',false],[401,'Unauthorized',false],[503,'allowance_unavailable',false],[500,'search_limit_reached',false]])
+  assert.equal(vm.runInNewContext(condition,{DadDaysRequestError,error:new DadDaysRequestError(code,status)}),want,`${status} ${code}`);
+ assert.equal(vm.runInNewContext(condition,{DadDaysRequestError,error:{status:403,code:'search_limit_reached'}}),false,'untyped errors never enter the upgrade branch');
+ // The request layer refuses to report a quota failure that did not arrive as 403.
+ assert.match(read('lib/dadDaysRequest.ts'),/code === 'search_limit_reached' && status !== 403 \? 'server_failed' : code/);
  assert.match(source,/remaining === 0/);assert.match(source,/FREE_LIMIT = 3/);
 });
 test('existing purchase refresh, manual Back, offline and initial-route contracts remain wired',()=>{
@@ -149,11 +170,14 @@ test('entry inventory preserves source IDs and explicit feature mappings',()=>{
  ['screens/subscreens/MilestoneTrackerScreen.tsx',"'milestone_photos', 'Milestone photos and insights'"],
  ['screens/subscreens/ManualActivityHistoryScreen.tsx',"'progressTrends', 'Manual activity trends', user?.id, 'lock', 'trends'"],
  ['screens/subscreens/ProfileScreen.tsx',"source: 'profile_membership', context: 'Membership', feature: 'profile_membership'"],
+ // Since f734767 the weekly report opens the paywall after native dismissal; same source ID and feature.
+ ['screens/DashboardScreen.tsx',"openPro('weeklyReport', 'Your weekly report', 'lock', 'weekly_report')"],
  ['components/AccountSheet.tsx',"'account', 'Dad Health Pro'"],
  ['components/AccountSheet.tsx',"source: 'account_membership', context: 'Membership', feature: 'account_membership'"],
  ];
- for(const [path,text] of cases) assert.ok(read(path).includes(text),`${path}: ${text}`);
- for(const [path,id,feature] of [['screens/DashboardScreen.tsx','checkIn','mind_plan'],['screens/DashboardScreen.tsx','weeklyReport','weekly_report'],['screens/subscreens/DadDaysSearchScreen.tsx','dadDaysCounter','dad_days_unlimited']]) assert.match(read(path),new RegExp(`id: '${id}', trigger: 'explicit', screen: route.key, feature: '${feature}'`));
+ // Formatting-insensitive: the same arguments must be present even when a call spans lines.
+ for(const [path,text] of cases) assert.ok(read(path).replace(/\s+/g,' ').includes(text),`${path}: ${text}`);
+ for(const [path,id,feature] of [['screens/DashboardScreen.tsx','checkIn','mind_plan'],['screens/subscreens/DadDaysSearchScreen.tsx','dadDaysCounter','dad_days_unlimited']]) assert.match(read(path),new RegExp(`id: '${id}', trigger: 'explicit', screen: route.key, feature: '${feature}'`));
 });
 
 

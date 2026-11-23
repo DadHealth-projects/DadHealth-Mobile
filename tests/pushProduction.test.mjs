@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import vm from 'node:vm';
+import ts from 'typescript';
 import { createOneSignalAuthLifecycle } from '../lib/oneSignalAuthLifecycle.js';
 
 const root = new URL('../', import.meta.url);
@@ -14,20 +16,39 @@ test('iOS push uses production APNs configuration', async () => {
 });
 
 test('notification taps route every supported destination natively', async () => {
+  // Routes moved from pushNotifications.ts into the shared resolver; verify the resolver itself.
   const router = await readFile(new URL('lib/pushNotifications.ts', root), 'utf8');
+  assert.ok(router.includes("import { resolveNotificationDestination } from './notificationDestinations';"));
+  assert.ok(router.includes('if(target.params) navigate(target.route,target.params); else navigate(target.route);'));
 
-  for (const destination of [
-    "navigate('CommunityPostThread'",
-    "navigate('SharedCalendar'",
-    "screen: 'Home'",
-    "screen: 'Bond'",
-    "screen: 'Fit'",
-    "screen: 'Mind'",
-    "screen: 'Squad'",
-  ]) {
-    assert.ok(router.includes(destination), `Missing native route: ${destination}`);
+  const compiled = ts.transpileModule(await readFile(new URL('lib/notificationDestinations.ts', root), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const module = { exports: {} };
+  const mocks = {
+    './weeklyReport': { isReportWeek: (value) => value === '2026-11-09' },
+    './deepLinks': { isValidCommunityPostId: (value) => typeof value === 'string' && /^[\da-f]{8}-[\da-f]{4}-[1-5][\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i.test(value) },
+  };
+  new vm.Script(`(function (exports, require, module) { ${compiled}
+})`)
+    .runInContext(vm.createContext({ module, exports: module.exports }))(module.exports, (name) => {
+      if (!(name in mocks)) throw new Error(`Unexpected import: ${name}`);
+      return mocks[name];
+    }, module);
+  const resolve = module.exports.resolveNotificationDestination;
+  const postId = '9f34c5ab-14e9-4bb0-8c2a-1e787fdf265e';
+
+  assert.equal(resolve({ type: 'community_reply', post_id: postId }).route, 'CommunityPostThread');
+  assert.equal(resolve({ type: 'co_parent_event_added' }).route, 'SharedCalendar');
+  for (const [link, screen] of [['/', 'Home'], ['/bond', 'Bond'], ['/fitness', 'Fit'], ['/mind', 'Mind'], ['/community', 'Squad']]) {
+    const target = resolve({ link });
+    assert.equal(target.route, 'Tabs', `Missing native route for ${link}`);
+    assert.equal(target.params.screen, screen, `Missing native route for ${link}`);
   }
-  assert.ok(router.includes("params: { openScoreDetail: true }"));
+  for (const link of ['/score', '/progress']) {
+    assert.deepEqual({ ...resolve({ link }).params.params }, { openScoreDetail: true }, link);
+  }
+  assert.deepEqual({ ...resolve({ type: 'score' }).params.params }, { openScoreDetail: true });
 });
 
 test('Expo web never initializes the native OneSignal bridge', async () => {

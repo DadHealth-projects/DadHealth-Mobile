@@ -11,6 +11,11 @@ function load(path,mocks={},extra={}){
 const id='03200000-0000-4000-8000-000000000001',other='03200000-0000-4000-8000-000000000002';
 const isUuid=v=>typeof v==='string'&&/^[0-9a-f-]{36}$/.test(v);
 const resolver=load('lib/notificationDestinations.ts',{'./weeklyReport':{isReportWeek:v=>v==='2026-11-09'},'./deepLinks':{isValidCommunityPostId:isUuid}});
+test('Present Dad completion needs a valid saved session id',()=>{
+ for(const fields of [{},{session_id:'not-a-uuid'},{session_id:''}]) assert.equal(resolver.resolveNotificationDestination({version:'1',type:'present_dad_mode_complete',...fields}),null);
+ const target=resolver.resolveNotificationDestination({version:'1',type:'present_dad_mode_complete',session_id:id});
+ assert.equal(target.route,'Tabs');assert.equal(target.params.screen,'Bond');assert.equal(target.params.params.completedPresentDadSessionId,id);
+});
 test('journal prompt opens the Journal writer rather than the Mind tab',()=>{
  const target=resolver.resolveNotificationDestination({version:'1',type:'journal_prompt'});
  assert.equal(target.route,'Journal');
@@ -21,7 +26,7 @@ const destinations=[
  ['morning_checkin',{destination_version:'1'},'check-in'],['lowest_pillar',{destination_version:'1',pillar:'bond'},'bond-control'],
  ['weekly_score',{reporting_week:'2026-11-09'},'report'],['trial_ending',{destination_version:'1',trial_episode:id},'plan'],
  ['community_reply',{post_id:id},'community'],['community_like',{post_id:id},'community'],['co_parent_event_added',{event_id:id},'calendar'],
- ['present_dad_mode_complete',{},'Bond'],['bedtime_story',{},'Bond'],['milestone_anniversary',{},'Bond'],
+ ['present_dad_mode_complete',{session_id:id},'present-dad-complete'],['bedtime_story',{},'Bond'],['milestone_anniversary',{},'Bond'],
  ['workout_window',{},'Fit'],['journal_prompt',{},'journal'],['weekly_challenge',{},'Home'],
  ['lowest_pillar',{destination_version:'1',pillar:'mind'},'mind-reset'],
  ['lowest_pillar',{destination_version:'1',pillar:'body',workout_id:'89e97b6c-0bfa-407d-a9f4-5020b086ba11'},'workout'],
@@ -101,7 +106,7 @@ test('account switch clears data immediately and stale reads/counts cannot repop
 });
 test('failed read acknowledgement does not change read state or count',async()=>{
  const h=stateHarness();await h.flush();await h.value.refresh();await h.flush();h.write=async()=>{throw Error('offline');};await h.value.markAll();await h.flush();
- assert.equal(h.value.items[0].read_at,null);assert.equal(h.value.unreadCount,1);assert.match(h.value.error,/couldn/);
+ assert.equal(h.value.items[0].read_at,null);assert.equal(h.value.unreadCount,1);assert.equal(h.value.error,'Your read status wasn’t saved.');
 });
 test('unavailable destination message survives the inbox focus refresh',async()=>{
  const h=stateHarness();await h.flush();h.bridge.unavailable();h.render();await h.value.refresh();await h.flush();
