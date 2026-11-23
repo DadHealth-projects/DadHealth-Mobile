@@ -1,6 +1,6 @@
 import { useNotificationPresentation } from '../../contexts/NotificationInboxContext';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import { ActivityIndicator, AppState, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRoute, useNavigation, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,7 +11,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { refreshDashboardForUser } from '../../hooks/useDashboard';
 import { useNativeSubscriptions } from '../../hooks/useNativeSubscriptions';
-import type { SubscriptionPlan } from '../../lib/nativeSubscriptions';
+import { trialDisclosure, type SubscriptionPlan } from '../../lib/nativeSubscriptions';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { useAnalyticsPresentation } from '../../hooks/useAnalyticsPresentation';
 import { upgradeSource } from '../../lib/analyticsContract';
@@ -38,6 +38,17 @@ export default function ProSubscriptionScreen() {
   const subscriptions = useNativeSubscriptions(user?.id, refreshEntitlement);
   const selectedProduct = subscriptions.products.find((product) => product.plan === selectedPlan);
   const trialAvailable = selectedProduct?.trialEligibility === 'eligible';
+  // Recalculated on every render from the current time; the effect below forces
+  // a render when the shown dates expire or the app returns to the foreground.
+  const [, refreshTrialTerms] = useReducer((tick: number) => tick + 1, 0);
+  const trialTerms = trialDisclosure(selectedProduct);
+  const trialTermsValidUntil = trialTerms?.validUntil ?? null;
+  useEffect(() => {
+    if (trialTermsValidUntil === null) return;
+    const timer = setTimeout(refreshTrialTerms, Math.max(0, trialTermsValidUntil - Date.now()) + 1000);
+    const resume = AppState.addEventListener('change', (next) => { if (next === 'active') refreshTrialTerms(); });
+    return () => { clearTimeout(timer); resume.remove(); };
+  }, [trialTermsValidUntil]);
   const optionReady = subscriptions.storeAvailable
     && Boolean(selectedProduct?.displayPrice.trim()) && selectedProduct?.trialEligibility !== 'unknown'
     && Boolean(selectedProduct);
@@ -207,7 +218,8 @@ export default function ProSubscriptionScreen() {
             {!user ? (
               <ProAction label="Log in to continue" onPress={() => navigation.navigate('Login')} />
             ) : optionReady ? (
-              <ProAction label={trialAvailable ? 'Start 7-day free trial' : 'Subscribe'}
+              <ProAction label={trialAvailable ? 'START MY 7-DAY FREE TRIAL' : 'Subscribe'}
+                accessibilityLabel={trialAvailable ? 'Start my 7-day free trial' : 'Subscribe'}
                 onPress={() => {
 
                   if (isOffline) showOfflineAction('subscriptions');
@@ -215,6 +227,11 @@ export default function ProSubscriptionScreen() {
                 }}
                 loading={subscriptions.purchasing}
                 disabled={checking || subscriptions.managing || subscriptions.restoring || subscriptions.status?.canPurchase !== true} />
+            ) : null}
+            {user && optionReady && trialTerms ? (
+              <Text className="font-body text-white text-[14px] leading-[20px] text-center">
+                {`Your free trial ends on ${trialTerms.trialEndsOn}. Your first payment of ${trialTerms.price} is taken on ${trialTerms.firstPaymentOn}, then ${trialTerms.price} every ${trialTerms.period} unless you cancel.`}
+              </Text>
             ) : null}
             {user && !subscriptions.storeSupported && !subscriptions.loading ? (
               <Text className="font-body text-white text-[13px] leading-[18px] text-center">Subscriptions aren’t available on this device right now.</Text>
@@ -282,12 +299,12 @@ function ProHeader({ title, description, free = false }: { title: string; descri
   );
 }
 
-function ProAction({ label, onPress, loading = false, disabled = false, outlined = false }: {
-  label: string; onPress(): void; loading?: boolean; disabled?: boolean; outlined?: boolean;
+function ProAction({ label, accessibilityLabel, onPress, loading = false, disabled = false, outlined = false }: {
+  label: string; accessibilityLabel?: string; onPress(): void; loading?: boolean; disabled?: boolean; outlined?: boolean;
 }) {
   return (
     <Pressable onPress={onPress} disabled={disabled || loading} accessibilityRole="button"
-      accessibilityLabel={label} accessibilityState={{ disabled: disabled || loading, busy: loading }}
+      accessibilityLabel={accessibilityLabel ?? label} accessibilityState={{ disabled: disabled || loading, busy: loading }}
       className={`min-h-[48px] rounded-[14px] px-md flex-row items-center justify-center gap-sm active:opacity-70 ${outlined ? 'border border-white/70 bg-white/5' : 'bg-lime'} ${disabled || loading ? 'opacity-60' : ''}`}>
       <Text className={`font-body-semibold text-[16px] ${outlined ? 'text-white' : 'text-dark'}`}>{label}</Text>
       {loading ? <ActivityIndicator size="small" color={outlined ? colors.text : colors.dark} />
