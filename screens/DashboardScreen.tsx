@@ -1,4 +1,5 @@
-import { initialCheckInPending, finishInitialCheckIn } from '../lib/onboardingHandoff';
+import { initialCheckInPending, finishInitialCheckIn, firstRunTourPending, finishFirstRunTour } from '../lib/onboardingHandoff';
+import FirstRunTour from '../components/onboarding/FirstRunTour';
 import { useNotificationPresentation } from '../contexts/NotificationInboxContext';
 import { confirmNotificationPresentation, notificationOperationFamily } from '../lib/pushNotifications';
 import { checkInDate } from '../lib/checkInCalendar';
@@ -205,6 +206,11 @@ export function DashboardScreenContent({
   const showCrisisSupportDetails = () => setCrisisOpen(true);
   const [scoreSheetOpen, setScoreSheetOpen] = useState(false);
   const [checkInNativePresented, setCheckInNativePresented] = useState(false);
+  // First-run tour: blocks other prompts until its native sheet has fully gone.
+  const [tourVisible, setTourVisible] = useState(() => firstRunTourPending(user.id));
+  const [tourNativePresented, setTourNativePresented] = useState(false);
+  const startCheckInAfterTour = useRef(false);
+  const tourBusy = tourVisible || tourNativePresented;
   const [scoreNativePresented, setScoreNativePresented] = useState(false);
   useEffect(() => { if (checkInModalOpen && Platform.OS === 'ios') setCheckInNativePresented(true); }, [checkInModalOpen]);
   useEffect(() => { if (scoreSheetOpen && Platform.OS === 'ios') setScoreNativePresented(true); }, [scoreSheetOpen]);
@@ -237,7 +243,7 @@ export function DashboardScreenContent({
     ? data?.moodLogs.some(log => log.date === todayDate) ?? null : null;
   const waitForPromptDecision = Boolean(
     isFocused && activeSection === 'HOME' && checkedInToday === false &&
-    !checkInModalOpen && !requestedCheckIn && !scoreSheetOpen && !reportOpen && !reportNativePresented && !openWeeklyReport && !openScoreDetail && !pendingBiometricEnrollment &&
+    !tourBusy && !checkInModalOpen && !requestedCheckIn && !scoreSheetOpen && !reportOpen && !reportNativePresented && !openWeeklyReport && !openScoreDetail && !pendingBiometricEnrollment &&
     !attemptedCheckInPromptSessions.has(promptDecisionKey) &&
     promptDecisionReadyKey !== promptDecisionKey,
   );
@@ -339,7 +345,7 @@ useEffect(() => {
     return result;
   }, [saveCheckIn]);
 
-  const pushModalBusy = checkInModalOpen || checkInNativePresented || reportOpen || reportNativePresented
+  const pushModalBusy = tourBusy || checkInModalOpen || checkInNativePresented || reportOpen || reportNativePresented
     || scoreSheetOpen || scoreNativePresented || Boolean(pendingBiometricEnrollment) || permissionPresented;
   useEffect(() => {
     setPushModalBlocked(pushModalBusy);
@@ -427,6 +433,13 @@ useEffect(() => {
     setReminderMessage(null);
     setCheckInModalOpen(true);
   }, [promptDecisionKey, reportOpen, reportNativePresented]);
+
+  // "Start my check-in" opens it once the tour has fully closed; Skip leaves the ordinary first prompt to open it.
+  useEffect(() => {
+    if (tourBusy || !startCheckInAfterTour.current) return;
+    startCheckInAfterTour.current = false;
+    if (checkedInToday === false) openDailyCheckIn();
+  }, [tourBusy, checkedInToday, openDailyCheckIn]);
 
   const confirmCheckInShown = useCallback(() => {
     if (!reportMounted.current || !promptPresentation.current.visible
@@ -906,10 +919,21 @@ useEffect(() => {
           else navigation.navigate('Tabs', { screen: 'Bond', params: { openPresentDad: String(Date.now()) } });
         }} />
       <PushPrePermissionPrompt
-        eligible={permissionEligible && isFocused && !checkInModalOpen && !checkInNativePresented
+        eligible={permissionEligible && isFocused && !tourBusy && !checkInModalOpen && !checkInNativePresented
           && !reportOpen && !reportNativePresented && !scoreSheetOpen && !scoreNativePresented
           && !pendingBiometricEnrollment && !requestedCheckIn && !openWeeklyReport}
         onPresentationChange={setPermissionPresented}
+      />
+      <FirstRunTour
+        key={`first-run-tour:${user.id}`}
+        visible={tourVisible}
+        onShow={() => { if (Platform.OS === 'ios') setTourNativePresented(true); }}
+        onDismiss={() => setTourNativePresented(false)}
+        onFinish={(startCheckIn) => {
+          finishFirstRunTour(user.id);
+          startCheckInAfterTour.current = startCheckIn;
+          setTourVisible(false);
+        }}
       />
       <DailyCheckInModal
         key={`daily-check-in:${user.id}`}
