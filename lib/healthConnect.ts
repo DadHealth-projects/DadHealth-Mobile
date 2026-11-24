@@ -1,6 +1,7 @@
 import { NativeModules, Platform, TurboModuleRegistry } from 'react-native';
 
 import { supabase } from './supabase';
+import { markDashboardStale } from './dashboardFreshness';
 
 type HealthConnectModule = typeof import('react-native-health-connect');
 type HealthConnectPermission = {
@@ -202,6 +203,7 @@ async function performHealthConnectSync(userId: string, days: number): Promise<H
     p_sleep: sleep,
   });
   if (error) throw error;
+  markDashboardStale(userId);
 
   const syncedAt = new Date().toISOString();
   const { error: integrationError } = await supabase

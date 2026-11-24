@@ -1,6 +1,7 @@
 import { Platform, TurboModuleRegistry } from 'react-native';
 
 import { supabase } from './supabase';
+import { markDashboardStale } from './dashboardFreshness';
 
 type HealthKitModule = typeof import('@kingstinct/react-native-healthkit');
 
@@ -200,6 +201,7 @@ async function performAppleHealthSync(userId: string, days: number): Promise<App
     p_sleep: sleep,
   });
   if (error) throw error;
+  markDashboardStale(userId);
 
   const syncedAt = new Date().toISOString();
   const { error: integrationError } = await supabase

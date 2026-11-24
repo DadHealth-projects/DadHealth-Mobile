@@ -18,6 +18,7 @@ import { useUpgradeMomentManager } from '../../contexts/UpgradeMomentContext';
 import { trackEvent } from '../../lib/analytics';
 import { dadDaysRequest, DadDaysRequestError } from '../../lib/dadDaysRequest';
 import { supabase } from '../../lib/supabase';
+import { markDashboardStale } from '../../lib/dashboardFreshness';
 import { withLocationDeadline } from '../../lib/locationDeadline';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
@@ -321,6 +322,7 @@ const isActivitySaved = (result: SearchResult) =>
         setSaveError({ name: result.name, message: 'We could not save this activity. Please try again.' });
         return;
       }
+      markDashboardStale(user.id);
       trackEvent('dad_days_result_saved', { activityName: result.name, budget }, user.id);
       await refreshDashboard();
       Alert.alert('Saved', 'This activity was added to your saved Dad Days.');

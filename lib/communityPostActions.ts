@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { markDashboardStale } from './dashboardFreshness';
 
 const likeMutationLocks = new Set<string>();
 
@@ -32,7 +33,9 @@ export async function toggleCommunityPostSave(userId: string, postId: string, sa
 export async function deleteCommunityPost(userId: string, postId: string): Promise<string | null> {
   try {
     const { data, error } = await supabase.rpc('delete_own_community_post', { p_post_id: postId });
-    return error || data !== true ? 'We could not delete this post.' : null;
+    if (error || data !== true) return 'We could not delete this post.';
+    markDashboardStale(userId);
+    return null;
   } catch {
     return 'We could not delete this post. Please try again.';
   }

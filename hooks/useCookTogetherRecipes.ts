@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNetworkStatus } from '../contexts/NetworkContext';
 import { trackEvent } from '../lib/analytics';
 import { supabase } from '../lib/supabase';
+import { markDashboardStale } from '../lib/dashboardFreshness';
 
 export type RecipeDifficulty = 'easy' | 'medium';
 export type RecipeStep = { title?: string; instruction: string; kid_instruction?: string };
@@ -142,6 +143,7 @@ export function useCookTogetherRecipes(userId?: string) {
     const { error: completeError } = await supabase.rpc('complete_cook_together_recipe', { p_recipe_id: recipe.id });
     setBusyId(null);
     if (completeError) return { error: 'We could not mark this recipe complete.' };
+    markDashboardStale(userId);
     trackEvent('cook_together_recipe_completed', { recipe_id: recipe.id, difficulty: recipe.difficulty, prep_mins: recipe.prep_mins }, userId);
     await refresh();
     return { error: null };

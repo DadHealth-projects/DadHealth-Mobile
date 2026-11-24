@@ -21,6 +21,7 @@ import { trackEvent } from '../../lib/analytics';
 import { PRO_LOCKS } from '../../lib/proMoments';
 import { navigateToProSubscription } from '../../lib/proNavigation';
 import { supabase } from '../../lib/supabase';
+import { markDashboardStale } from '../../lib/dashboardFreshness';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
 
@@ -119,6 +120,7 @@ export default function MilestoneTrackerScreen() {
       : await supabase.from('milestones').insert({ user_id: user.id, ...values }).select('id').single();
     if (saveResult.error) setFormError('We could not save this milestone. Please try again.');
     else {
+      markDashboardStale(user.id);
       trackEvent(editingId ? 'milestone_updated' : 'milestone_logged', { tag: tag.trim() || 'moment', date: date.toISOString().slice(0, 10), text_length: text.length }, user.id);
       if (photo) await uploadPhoto(saveResult.data.id, photo);
       setNote(''); setTag('moment'); setPhoto(null); setEditingId(null); setDate(new Date());

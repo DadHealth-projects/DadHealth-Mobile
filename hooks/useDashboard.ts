@@ -19,6 +19,13 @@ import { loadNativeSubscriptionStatus } from '../lib/nativeSubscriptions';
 import { getCurrentWeekDayKeys, toLocalDateKey } from '../lib/dashboard.utils';
 import { buildBodyWeekSeries } from '../lib/bodyActivityWeek';
 import { refreshAfterInFlight } from '../lib/refreshAfterInFlight';
+import {
+  clearDashboardFreshness,
+  dashboardReadGeneration,
+  isDashboardFresh,
+  markDashboardStale,
+  recordCompleteDashboardRead,
+} from '../lib/dashboardFreshness';
 import { mergeDashboardRefreshState, type DashboardReadFailures } from '../lib/dashboardRefreshState';
 
 const SCORE_QUERY_ERROR = "Dad Health Score couldn't load. Pull to refresh.";
@@ -581,6 +588,7 @@ function setStore(next: Partial<StoreState>): void {
 }
 
 async function runFetch(userId: string, identityVersion: number): Promise<void> {
+  const freshnessGeneration = dashboardReadGeneration(userId);
   try {
     const result = await withTimeout(fetchDashboard(userId));
     if (store.userId !== userId || dashboardIdentityVersion !== identityVersion) return;
@@ -592,6 +600,8 @@ async function runFetch(userId: string, identityVersion: number): Promise<void> 
       result.failedReads,
     );
     setStore({ data, error: null });
+    if (Object.values(result.failedReads).some(Boolean)) markDashboardStale(userId);
+    else recordCompleteDashboardRead(userId, todayKey(), Date.now(), freshnessGeneration);
     try {
       if (dashboardIdentityVersion === identityVersion) await writeDashboardCache(userId, data);
     } catch {
@@ -599,6 +609,7 @@ async function runFetch(userId: string, identityVersion: number): Promise<void> 
       // a client-facing failure.
     }
   } catch (fetchError) {
+    markDashboardStale(userId);
     if (store.userId !== userId || dashboardIdentityVersion !== identityVersion) return;
     const current = store.userId === userId ? store.data : null;
     try {
@@ -739,8 +750,23 @@ export function refreshDashboardForUser(userId: string): Promise<void> {
   return refreshAfterInFlight(inFlightByUser, userId, loadDashboard);
 }
 
-/** Focus/resume refreshes join an in-flight read instead of queuing another one. */
+/**
+ * Focus/resume refreshes join an in-flight read instead of queuing another one,
+ * and skip the full reload when a complete read finished within the freshness
+ * window today. Unknown access, errors and day changes always reload.
+ */
 export function refreshDashboardIfIdle(userId: string): Promise<void> {
+  const current = store.userId === userId ? store.data : null;
+  if (
+    current
+    && isDashboardFresh({
+      userId,
+      day: todayKey(),
+      now: Date.now(),
+      entitlementKnown: current.isPro !== null,
+      hasError: Boolean(store.error || store.syncError),
+    })
+  ) return inFlightByUser.get(userId) ?? Promise.resolve();
   return loadDashboard(userId);
 }
 
@@ -781,6 +807,7 @@ export function useDashboard(userId: string | undefined) {
       activeDashboardUserId = nextUserId;
       dashboardIdentityVersion += 1;
       inFlightByUser.clear();
+      clearDashboardFreshness();
     }
     if (!userId) {
       // Signed out: drop the cached member data so nothing leaks between users.
@@ -807,6 +834,7 @@ export function useDashboard(userId: string | undefined) {
 
   useEffect(() => subscribeOfflineSync((event) => {
     if (!userId || event.userId !== userId) return;
+    if (event.status === 'synced') markDashboardStale(userId);
     if (event.kind === 'daily_checkin') {
       if (event.status === 'failed') setStore({ syncError: event.message ?? 'Your saved check-in could not be synced.' });
       if (event.status === 'synced') {

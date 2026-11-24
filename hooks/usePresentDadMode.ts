@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { useNetworkStatus } from '../contexts/NetworkContext';
 import { supabase } from '../lib/supabase';
+import { markDashboardStale } from '../lib/dashboardFreshness';
 
 export type PresentDadSession = {
   id: string;
@@ -108,6 +109,7 @@ export function usePresentDadMode(userId?: string) {
       const result = await supabase.rpc('finish_present_dad_session', { p_session_id: sessionId });
       if (result.error) throw result.error;
       const completed = sessionFrom(result.data);
+      markDashboardStale(userId);
       if (!completed) throw new Error('The completion response was incomplete.');
       setSession(completed);
       return completed;

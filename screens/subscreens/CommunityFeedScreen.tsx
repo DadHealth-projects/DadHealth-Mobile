@@ -16,6 +16,7 @@ import { dashboardIcon } from '../../lib/dashboardIcons';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
 import { supabase } from '../../lib/supabase';
+import { markDashboardStale } from '../../lib/dashboardFreshness';
 
 type CircleDetails = {
   id: string;
@@ -141,6 +142,7 @@ export default function CommunityFeedScreen() {
       if (result.error) {
         setCircleError(`We could not ${circleJoined ? 'leave' : 'join'} this Circle. Please try again.`);
       } else {
+        markDashboardStale(user.id);
         if (!circleJoined) trackEvent('circle_joined', { circle_id: circleId }, user.id);
         setCircleJoined(!circleJoined);
         setActiveCircleTab('discussion');

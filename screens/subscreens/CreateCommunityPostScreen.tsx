@@ -16,6 +16,7 @@ import { trackEvent } from '../../lib/analytics';
 import { communityTagLabel } from '../../lib/communityLabels';
 import { dashboardIcon } from '../../lib/dashboardIcons';
 import { supabase } from '../../lib/supabase';
+import { markDashboardStale } from '../../lib/dashboardFreshness';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
 
@@ -135,6 +136,7 @@ if (isHourlyLimit) {
         pendingPost.current = null;
         return;
       }
+      markDashboardStale(user.id);
       trackEvent('community_post_created', { tag, anonymous, content_length: content.length }, user.id);
       pendingPost.current = null;
       setSubmissionUncertain(false);

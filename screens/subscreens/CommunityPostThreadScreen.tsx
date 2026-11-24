@@ -20,6 +20,7 @@ import { loadCommunityAuthorAvatars, loadCommunityOfficialAuthors } from '../../
 import { createRefreshDeduper, createRealtimeRefreshScheduler, isCommunityCommentChangeRelevant, isCommunityCommentLikeRelevant, isCommunityPostActivityChangeRelevant } from '../../lib/communityRealtime.mjs';
 import { deleteCommunityPost, toggleCommunityPostLike, toggleCommunityPostSave } from '../../lib/communityPostActions';
 import { supabase } from '../../lib/supabase';
+import { markDashboardStale } from '../../lib/dashboardFreshness';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
 import { dashboardIcon } from '../../lib/dashboardIcons';
@@ -379,6 +380,7 @@ if (!postResult.data) {
         pendingComment.current = null;
         return;
       }
+      markDashboardStale(user.id);
       trackEvent('comment_added', { post_id: route.params.postId, has_parent: Boolean(replyTo), content_length: content.length }, user.id);
       pendingComment.current = null;
       setCommentUncertain(false);
