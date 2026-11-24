@@ -160,7 +160,7 @@ test('saved activities refresh canonical scores only after the save is confirmed
   const listener = hook.slice(hook.indexOf('useEffect(() => subscribeOfflineSync((event) => {'), hook.indexOf('}), [userId]);', hook.indexOf('useEffect(() => subscribeOfflineSync((event) => {')));
   assert.match(listener, /if \(!userId \|\| event\.userId !== userId\) return;/);
   assert.match(listener, /if \(event\.kind === 'daily_checkin'\) \{[\s\S]*?event\.status === 'synced'[\s\S]*?refreshDashboardForUser\(userId\);[\s\S]*?return;\s*\}/);
-  assert.match(listener, /if \(event\.kind === 'journal_create' && event\.status === 'synced'\) void refreshDashboardForUser\(userId\);/);
+  assert.match(listener, /if \(\(event\.kind === 'journal_create' \|\| event\.kind === 'mind_reset_complete'\) && event\.status === 'synced'\) \{\s*void refreshDashboardForUser\(userId\);/);
   // A failed journal sync never shows the check-in sync error.
   assert.equal(listener.split('Your saved check-in could not be synced.').length - 1, 1);
   assert.ok(listener.indexOf('Your saved check-in could not be synced.') < listener.indexOf("event.kind === 'journal_create'"));

@@ -843,8 +843,10 @@ export function useDashboard(userId: string | undefined) {
       }
       return;
     }
-    // Journal entries feed the canonical Mind and Bond scores; re-read after the save is confirmed.
-    if (event.kind === 'journal_create' && event.status === 'synced') void refreshDashboardForUser(userId);
+    // Journal entries and Mind Resets feed the canonical scores; re-read after the save is confirmed.
+    if ((event.kind === 'journal_create' || event.kind === 'mind_reset_complete') && event.status === 'synced') {
+      void refreshDashboardForUser(userId);
+    }
   }), [userId]);
 
   // Never hand a screen another account's cached rows.

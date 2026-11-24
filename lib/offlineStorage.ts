@@ -56,7 +56,16 @@ export type OfflineJournalCreateItem = QueueItemBase & {
   };
 };
 
-export type OfflineQueueItem = OfflineDailyCheckInItem | OfflineJournalCreateItem;
+export type OfflineMindResetItem = QueueItemBase & {
+  kind: 'mind_reset_complete';
+  /** The queue item id is also the server's idempotent session id. */
+  payload: {
+    completedAt: string;
+    activeSeconds: number;
+  };
+};
+
+export type OfflineQueueItem = OfflineDailyCheckInItem | OfflineJournalCreateItem | OfflineMindResetItem;
 
 export type OfflineSyncEvent = {
   userId: string;
@@ -312,6 +321,7 @@ export function enqueueOfflineWrite(item: OfflineQueueItem): Promise<void> {
       if (item.kind === 'journal_create' && existing.kind === 'journal_create') {
         return existing.payload.entry.id === item.payload.entry.id;
       }
+      if (item.kind === 'mind_reset_complete') return existing.id === item.id;
       return false;
     });
     if (duplicateIndex >= 0) {

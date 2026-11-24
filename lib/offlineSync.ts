@@ -13,6 +13,7 @@ import {
   type OfflineDailyCheckInItem,
   type OfflineJournalEntry,
   type OfflineJournalCreateItem,
+  type OfflineMindResetItem,
   type OfflineQueueItem,
 } from './offlineStorage';
 
@@ -183,8 +184,48 @@ export async function persistJournalEntry(item: OfflineJournalCreateItem) {
   if (existing.error || !existing.data) throw result.error;
 }
 
+/** The backend accepts completions up to 8 days old (complete_mind_reset). */
+export const MIND_RESET_MAX_AGE_MS = 8 * 24 * 60 * 60 * 1000;
+
+/** A completion the server cannot accept yet (device clock ahead); keep it and try again later. */
+export class MindResetRetryLaterError extends Error {
+  constructor() {
+    super('mind_reset_retry_later');
+    this.name = 'MindResetRetryLaterError';
+  }
+}
+
+export function createMindResetQueueItem(
+  userId: string,
+  id: string,
+  activeSeconds: number,
+  completedAt = new Date().toISOString(),
+): OfflineMindResetItem {
+  return { id, userId, kind: 'mind_reset_complete', createdAt: completedAt, payload: { completedAt, activeSeconds } };
+}
+
+export async function persistMindReset(item: OfflineMindResetItem, now = Date.now()) {
+  const { completedAt, activeSeconds } = item.payload;
+  const completedMs = Date.parse(completedAt);
+  if (!item.id || !Number.isFinite(completedMs) || !Number.isInteger(activeSeconds) || activeSeconds < 60 || activeSeconds > 300) {
+    throw new Error('invalid_mind_reset');
+  }
+  // Too old for the server to accept: drop it honestly instead of retrying forever.
+  if (now - completedMs > MIND_RESET_MAX_AGE_MS) throw new Error('mind_reset_expired');
+  const result = await supabase.rpc('complete_mind_reset', {
+    p_id: item.id,
+    p_completed_at: completedAt,
+    p_active_seconds: activeSeconds,
+  });
+  if (!result.error) return;
+  // The only other 22023 cause with a valid payload is a completion time ahead of the server clock.
+  if (result.error.code === '22023' && completedMs > now - MIND_RESET_MAX_AGE_MS) throw new MindResetRetryLaterError();
+  throw result.error;
+}
+
 async function processItem(item: OfflineQueueItem) {
   if (item.kind === 'daily_checkin') await persistDailyCheckIn(item);
+  else if (item.kind === 'mind_reset_complete') await persistMindReset(item);
   else await persistJournalEntry(item);
 }
 
@@ -224,6 +265,8 @@ async function runQueue(userId: string, runGeneration: number) {
     } catch (error) {
       if (activeUserId !== userId || generation !== runGeneration) return;
       if (isRetryableOfflineError(error)) return;
+      // Leave it queued for the next sync without blocking later items.
+      if (error instanceof MindResetRetryLaterError) continue;
       await failItem(item);
     }
   }
