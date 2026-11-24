@@ -19,10 +19,16 @@ test('screens never refresh automatically on focus and refresh indicators are pu
   ]);
 
   for (const source of [mind, bond, fitness, community, communityFeed, home, dashboard]) {
-    assert.doesNotMatch(source, /useFocusEffect/);
     assert.match(source, /refreshing=\{refreshing\}/);
     assert.match(source, /refreshInFlight\.current/);
   }
+  for (const source of [mind, bond, fitness, home, dashboard]) assert.doesNotMatch(source, /useFocusEffect/);
+  // d0547e5 / 2199ecf (30 Oct) re-added narrow focus reloads on Community: trending lists only, and the
+  // circle feed skips its first focus. Neither is a full-screen refresh or shows the pull indicator.
+  const communityFocus = community.slice(community.indexOf('useFocusEffect(useCallback('), community.indexOf('useFocusEffect(useCallback(') + 200);
+  assert.match(communityFocus, /void Promise\.all\(\[loadTrending\(\), loadTrendingCirclePosts\(\)\]\);/);
+  assert.doesNotMatch(communityFocus, /setRefreshing|feed\.refresh|refresh\(\)/);
+  assert.match(communityFeed, /if \(initialFocusRef\.current\) \{\s*initialFocusRef\.current = false;\s*return undefined;\s*\}/);
   assert.match(legacyScore, /navigation\.replace\('Tabs'/);
   assert.match(bond, /const refreshInFlight = useRef\(false\)/);
   assert.match(presentDadUI, /const existing = await mode\.refresh\(\)/);
@@ -53,12 +59,15 @@ test('manual pull refresh reuses the existing screen skeletons consistently', as
   ]);
 
   assert.match(pillar, /const REFRESH_SKELETON_MAX_MS = 900/);
-  assert.match(pillar, /loading \|\| \(refreshing && !refreshSkeletonExpired\)/);
+  // 3babd6e added an opt-in flag that keeps loaded content visible during a pull refresh.
+  assert.match(pillar, /loading \|\| \(!preserveContentOnRefresh && refreshing && !refreshSkeletonExpired\)/);
   assert.match(pillar, /setTimeout\(\(\) => setRefreshSkeletonExpired\(true\), REFRESH_SKELETON_MAX_MS\)/);
   assert.match(pillar, /showSkeleton && skeleton \? skeleton : children/);
-  assert.match(dashboard, /const showHomeSkeleton = !data && !dashboardError/);
+  assert.match(dashboard, /const showHomeSkeleton =\s*!data && loading && !dashboardError/); // 07cd0d0
   assert.match(home, /refreshing \? \([\s\S]*?<PublicHomeSkeleton \/>/);
   assert.match(communityFeed, /feed\.loading \|\| refreshing \?/);
   assert.doesNotMatch(pillar, /useFocusEffect/);
-  assert.match(dashboard, /useFocusEffect/);
+  // Today's focus refresh lives in the dashboard hook: skipped on first focus, then only when idle.
+  const dashboardHook = await readFile(new URL('hooks/useDashboard.ts', root), 'utf8');
+  assert.match(dashboardHook, /const shouldRefreshOnFocus = hasFocused\.current;[\s\S]*?if \(shouldRefreshOnFocus && userId && !isOffline\) void refreshDashboardIfIdle\(userId\);/);
 });

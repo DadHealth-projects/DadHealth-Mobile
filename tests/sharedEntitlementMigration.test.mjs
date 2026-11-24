@@ -12,17 +12,18 @@ test('Today routes feature access through shared keys and keeps unknown state ne
     read('components/dashboard/StreakCard.tsx'),
     read('components/dashboard/WeeklyReportCard.tsx'),
   ]);
+  // fa529f1 / 263ebc7: unknown access shows no Pro badge, and the report card carries no access logic.
 
   for (const key of ['mind_plan', 'score_insights', 'weekly_report', 'streak_freeze']) {
     assert.match(screen, new RegExp(`can\\('${key}'\\)`));
   }
-  assert.match(followUp, /planAccess !== null/);
+  assert.match(followUp, /\{planAccess === false \? <ProBadge \/> : null\}/);
   assert.match(streak, /freezeAccess === false && onUpgrade/);
   assert.match(streak, /freezeAccess === true/);
-  assert.match(weekly, /reportAccess === null/);
+  assert.doesNotMatch(weekly, /reportAccess|isPro/);
   assert.match(screen, /proTease="Your insights"/);
   assert.match(screen, /proTeaseLocked=\{scoreInsightsAccess === false\}/);
-  assert.match(screen, /isWeeklyReportDay\(\)/);
+  assert.match(screen, /if \(isReportWeek\(openWeeklyReport\)\)/);
 });
 
 test('Body cards use shared access while retaining Free workout and generated workout paths', async () => {

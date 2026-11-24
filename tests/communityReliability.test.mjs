@@ -24,9 +24,13 @@ test('A lost post or comment response is checked by stable ID before a manual id
     read('screens/subscreens/CreateCommunityPostScreen.tsx'),
     read('screens/subscreens/CommunityPostThreadScreen.tsx'),
   ]);
+  // c945d40: posts are inserted with the stable id and retried only after a status check; replies keep the
+  // idempotent upsert. Either way an uncertain write is never blindly repeated.
+  assert.match(create, /\.from\('posts'\)\s*\.insert\(pending\.payload\)/);
+  assert.match(create, /if \(submissionUncertain && !safeToRetry\) return;/);
+  assert.match(thread, /\.upsert\(pending\.payload, \{ onConflict: 'id', ignoreDuplicates: true \}\)/);
   for (const source of [create, thread]) {
     assert.match(source, /Crypto\.randomUUID\(\)/);
-    assert.match(source, /\.upsert\(pending\.(?:payload), \{ onConflict: 'id', ignoreDuplicates: true \}\)/);
     assert.match(source, /\.select\('id'\)\.eq\('id', pending\.id\)/);
     assert.match(source, /Check (?:post|reply) status/);
     assert.match(source, /submissionUncertain|commentUncertain/);
@@ -37,10 +41,13 @@ test('A lost post or comment response is checked by stable ID before a manual id
 
 test('Hourly named-post conflict has safe copy; anonymous posts keep user_id null', async () => {
   const create = await read('screens/subscreens/CreateCommunityPostScreen.tsx');
-  assert.match(create, /insertError\.code === '23505' && !anonymous/);
-  assert.match(create, /already shared a named post this hour/);
+  // c945d40: the server's hourly limit (P0001 community_hourly_post_limit, or the 23505 constraint) gets
+  // fixed, safe copy; raw error fields are read only to classify and are never shown.
+  assert.match(create, /insertError\.code === 'P0001' &&\s*insertError\.message\?\.includes\('community_hourly_post_limit'\)/);
+  assert.match(create, /caughtError\?\.code === '23505' && caughtIdentifiesHourlyConstraint/);
+  assert.match(create, /You've already shared a post this hour\. Please try again later\./);
   assert.match(create, /user_id: anonymous \? null : user\.id/);
-  assert.doesNotMatch(create, /insertError\.message|insertError\.details/);
+  assert.doesNotMatch(create, /setError\([^)]*(?:insertError|caughtError)\./);
 });
 
 test('Community load failures have retries and trending failures are not shown as empty results', async () => {

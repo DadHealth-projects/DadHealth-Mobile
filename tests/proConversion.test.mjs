@@ -53,11 +53,16 @@ test('approved conversion entry points use the existing Pro prompt', async () =>
   ]);
 
   assert.match(dashboard, /requestMoment\(\{[\s\S]*?id: 'checkIn'/);
-  assert.match(dashboard, /requestMoment\(\{[\s\S]*?id: 'weeklyReport'/);
+  // Since f734767 the weekly report upgrade opens the Pro screen directly after the sheet closes.
+  assert.ok(dashboard.includes("openPro('weeklyReport', 'Your weekly report', 'lock', 'weekly_report')"));
   assert.ok(checkIn.includes('onPress={onPlan}'));
-  assert.ok(checkIn.includes("accessibilityLabel={planAccess ? 'Build my plan' : 'Build my plan with Dad Health Pro'}"));
-  assert.ok(weekly.includes('PRO_MOMENTS.weeklyReport'));
-  assert.ok(aiWorkout.includes("id: 'aiWorkout'"));
+  // Since f6205a2 only confirmed Free access (false) hears the Pro wording; unknown access stays neutral.
+  assert.ok(checkIn.includes("accessibilityLabel={planAccess === false ? 'Build my plan with Dad Health Pro' : 'Build my plan'}"));
+  // Since 263ebc7 the weekly report entry is the dashboard's openPro('weeklyReport', ...) asserted above,
+  // reached from inside the opened report; the Today card itself carries no Pro moment.
+  assert.equal(weekly.includes('PRO_MOMENTS'), false);
+  // The AI Workout entry renders the shared Pro moment rather than a local id.
+  assert.ok(aiWorkout.includes('moment={PRO_MOMENTS.aiWorkout}'));
   assert.ok(dadDays.includes("id: 'dadDaysCounter'"));
   assert.ok(manager.includes('PRO_MOMENTS[active.id]'));
   assert.ok(scoreDetails.includes('PRO_MOMENTS.score'));
@@ -73,16 +78,19 @@ test('Moment 2 keeps free recommendation and Build My Plan Pro row', async () =>
   assert.ok(advice.includes("\"You're feeling stressed today.\""));
   assert.ok(advice.includes('stressLevel >= 4'));
   assert.ok(followUp.indexOf('advice.primary.recommendation') < followUp.indexOf('Build my plan'));
-  assert.ok(followUp.includes('min-h-[48px] w-full items-center justify-center rounded-[7px] bg-lime'));
+  // Button styling was aligned with the check-in actions in 228c1c9.
+  assert.ok(followUp.includes('rounded-button bg-lime py-md items-center'));
   assert.ok(followUp.includes('min-h-[60px] flex-row items-center justify-between'));
   assert.ok(followUp.indexOf('onAction(action.action)') < followUp.indexOf('onPlan'));
-  assert.ok(followUp.includes("planAccess ? 'Build my plan' : 'Build my plan with Dad Health Pro'"));
+  assert.ok(followUp.includes("planAccess === false ? 'Build my plan with Dad Health Pro' : 'Build my plan'"));
   assert.ok(followUp.includes('planAccess === false ? <ProBadge /> : null'));
-  assert.ok(followUp.includes('A plan around your mood and score.'));
+  // Subtitle copy changed in fa529f1.
+  assert.ok(followUp.includes("' · A seven-day plan shaped around your goals.'"));
   assert.ok(dashboard.includes('<CheckInFollowUp'));
   assert.ok(dashboard.includes('planAccess={buildMyPlanAccess}'));
   assert.match(dashboard, /id: 'checkIn'/);
-  assert.ok(dashboard.includes('data.checkedInToday ? ('));
+  // f734767 derives checkedInToday (null while unknown) before rendering the follow-up.
+  assert.ok(dashboard.includes('{checkedInToday ? ('));
 });
 
 test('Moment 7 counts searches used', async () => {
@@ -103,7 +111,8 @@ test('Dad Days has no second-search teaser and retains the exhausted-quota modal
   assert.ok(dadDays.includes("if (limitReached) {"));
   assert.ok(dadDays.includes("id: 'dadDaysCounter'"));
   assert.ok(dadDays.includes('const FREE_LIMIT = 3;'));
-  assert.ok(dadDays.includes("response.status === 403 && body.error === 'search_limit_reached'"));
+  // The response is parsed into a typed DadDaysRequestError (dc4a932); the screen checks its code.
+  assert.ok(dadDays.includes("error instanceof DadDaysRequestError && error.status === 403 && error.code === 'search_limit_reached'"));
 });
 
 test('Moment 5 follows Body progress context and keeps the canonical score row free', async () => {
@@ -165,27 +174,30 @@ test('AI workout uses the single screen and requires confirmed Pro or Trial acce
 });
 
 test('the weekly Sunday report is a Pro feature and never invents a week', async () => {
-  const [report, card, dashboard] = await Promise.all([
+  const [report, card, dashboard, sheet] = await Promise.all([
     source('lib/weeklyReport.ts'),
     source('components/dashboard/WeeklyReportCard.tsx'),
     source('screens/DashboardScreen.tsx'),
+    source('components/dashboard/WeeklyReportSheet.tsx'),
   ]);
 
-  assert.ok(report.includes('date.getDay() === 0'));
+  // Since 440bb4e the app reads the server's saved report and validates its 7-day week; it never builds one.
+  assert.ok(report.includes('!isReportWeek(period.weekStart) || !isReportWeek(period.weekEndExclusive)'));
+  assert.ok(report.includes('Date.parse(period.weekEndExclusive) - Date.parse(period.weekStart) !== 7 * 86400000'));
   assert.ok(report.includes('Your scores are here. Week-on-week trends will appear when previous-week data is available.'));
   assert.ok(report.includes('score: Math.round(source.mindScore ?? 0)'));
   assert.ok(report.includes('const trend = formatScoreTrend(change);'));
   assert.ok(report.includes('ACTION_FOCUS[source.recommendedAction]'));
-  const freeBranchStart = card.indexOf('if (reportAccess === false)');
-  const freeBranch = card.slice(freeBranchStart, card.indexOf('\n  return (', freeBranchStart));
-  assert.ok(freeBranch.includes('Learn about weekly Dad Health reports'));
-  assert.ok(freeBranch.includes('PRO_MOMENTS.weeklyReport.body'));
-  assert.ok(freeBranch.includes('onPress={onUpgrade}'));
-  assert.equal(freeBranch.includes('<WeeklyReportBody'), false);
+  // Since 263ebc7 the Today card is one entry for everyone (brief 02: Free teaser, Pro details).
+  // It shows only the saved week's dates; Free/Pro detail is decided by the saved report's access.
+  assert.ok(card.includes('reportDates(report.weekStart, report.weekEndExclusive)'));
+  assert.equal(card.includes('buildWeeklyReport'), false);
   assert.equal(card.includes('<ProLockedPreview'), false);
-  assert.ok(dashboard.includes('isWeeklyReportDay()'));
-  assert.ok(dashboard.includes('{showWeeklyReport ? ('));
-  assert.match(dashboard, /id: 'weeklyReport'/);
+  assert.ok(sheet.includes("const detail = report?.access === 'pro' ? report.details : undefined;"));
+  assert.ok(sheet.includes("report.access === 'free' ? <>"));
+  assert.ok(sheet.includes('onPress={onUpgrade}'));
+  assert.ok(dashboard.includes('if (isReportWeek(openWeeklyReport))'), 'deep links open only a valid saved week');
+  assert.ok(dashboard.includes("openPro('weeklyReport'"));
   assert.ok(dashboard.includes('<WeeklyReportCard'));
 });
 
@@ -204,12 +216,14 @@ test('conversion moments stay compact until the user asks for Pro', async () => 
   assert.ok(prompt.includes('onPress={onDismiss}'));
   assert.ok(dashboard.includes('proTease="Your insights"'));
   assert.ok(dashboard.includes('proTeaseLocked={scoreInsightsAccess === false}'));
-  assert.ok(aiWorkout.includes("payload.code === 'pro_required'"));
+  // The 403 parsing moved to lib/aiWorkout.ts; the screen reacts to the typed error code.
+  assert.ok(aiWorkout.includes("cause.code === 'pro_required'"));
   assert.equal(aiWorkout.includes('free_limit_reached'), false);
   assert.ok(dadDays.includes('free Dad Days searches used this month.'));
   assert.ok(dadDays.includes("id: 'dadDaysCounter'"));
   assert.equal(dadDays.includes('<ProUpgradeSection'), false);
-  assert.ok(weekly.includes('Learn about weekly Dad Health reports'));
+  // Since 263ebc7 the Today report card never sells Pro itself; Free sees the upgrade only inside the opened report.
+  assert.equal(weekly.includes('onUpgrade'), false);
   assert.ok(scoreDetails.includes('See your score history'));
   assert.ok(scoreDetails.includes('Your monthly report'));
   assert.ok(scoreDetails.includes('onUpgrade={onUpgrade}'));
@@ -240,8 +254,10 @@ test('Today Build My Plan and streak rows share one lock Pro badge', async () =>
   assert.ok(badge.includes('name="lock"'));
   assert.ok(badge.includes("accessibilityLabel={isTrial ? 'Pro trial access' : 'Pro feature'}"));
   assert.ok(badge.includes("isTrial ? 'Trial' : 'Pro'"));
-  assert.ok(plan.includes("borderStyle: 'dotted'"));
-  assert.ok(streak.includes("borderStyle: 'dotted'"));
+  // Dotted borders were removed in the divider-led redesign (fa529f1, e7c454b); the shared badge
+  // still appears only when access is confirmed false, never while it is unknown.
+  assert.ok(plan.includes('{planAccess === false ? <ProBadge /> : null}'));
+  assert.ok(streak.includes('freezeAccess === false && onUpgrade ? ('));
 });
 
 test('Share Report remains available to Free without including Pro monthly report details', async () => {
@@ -315,8 +331,9 @@ test('the paywall is the only place Pro is sold', async () => {
 
   // No paywall on first open: it is a pushed screen, never the initial route.
   assert.ok(navigator.includes("initialRouteName = 'Tabs'"));
-  assert.ok(paywall.includes("headline={'Make Dad Health\\npersonal'}"));
+  // Headline copy was updated with the Pro membership screen in 3dbaf93.
+  assert.ok(paywall.includes("title={'Unlock the\\nfull experience'}"));
   assert.ok(paywall.indexOf('title="Annual"') < paywall.indexOf('title="Monthly"'));
   assert.ok(paywall.includes('Start my 7-day free trial'));
-  assert.ok(paywall.includes('The version of you your kids deserve'));
+  assert.ok(paywall.includes('Go further with personalised plans, advanced tools and more.'));
 });

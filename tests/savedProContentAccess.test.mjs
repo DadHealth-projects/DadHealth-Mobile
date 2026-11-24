@@ -7,8 +7,9 @@ const aiWorkout = await readFile(new URL('../screens/subscreens/AIWorkoutScreen.
 const activeWorkout = await readFile(new URL('../screens/subscreens/ActiveWorkoutScreen.tsx', import.meta.url), 'utf8');
 const mealPlanner = await readFile(new URL('../screens/subscreens/MealPlannerScreen.tsx', import.meta.url), 'utf8');
 
-test('Free Body library only includes the current weekly assignment', () => {
-  assert.match(fitness, /workoutLibraryAccess === true[\s\S]*?fitnessLibrary\.workouts[\s\S]*?fitnessLibrary\.workouts\.filter\(\(workout\) => workout\.id === fitnessLibrary\.weeklyWorkout\?\.id\)/);
+// Since 3babd6e Free also sees admin workouts the server marks access_level 'free'; never Pro rows.
+test('Free Body library includes only free-tier admin workouts and the current weekly assignment', () => {
+  assert.match(fitness, /workoutLibraryAccess === true\s*\? fitnessLibrary\.workouts\s*: weeklyWorkoutAccess\s*\? fitnessLibrary\.workouts\.filter\(\(workout\) => workout\.source === 'admin' && \(\s*workout\.access_level === 'free' \|\| workout\.id === fitnessLibrary\.weeklyWorkout\?\.id\s*\)\)\s*: \[\]/);
   assert.match(fitness, /aiWorkoutAccess === true[\s\S]*?workout\.source === 'ai_generated'/);
 });
 

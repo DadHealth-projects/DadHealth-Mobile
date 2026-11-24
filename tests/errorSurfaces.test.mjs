@@ -102,11 +102,13 @@ test('screen-level load failures render inline and are suppressed while offline'
 
   assert.ok(reporter.includes('<InlineFormError message={isOffline ? null : message} />'));
   assert.ok(screenNotice.includes('<InlineFormError message={isOffline ? null : message} />'));
-  assert.ok(fitness.includes('<GlobalErrorToastReporter message={fitnessLibrary.error} />'));
+  assert.ok(fitness.includes('<GlobalErrorToastReporter message={workoutLibraryOpen ? null : fitnessLibrary.error} />')); // 9d68148
   assert.ok(weekly.includes('<GlobalErrorToastReporter message={loadError} />'));
   assert.ok(calendar.includes('<GlobalErrorToastReporter message={loadError} />'));
   assert.ok(journal.includes('<GlobalErrorToastReporter message={journal.syncError ?? journal.error} />'));
-  assert.ok(planner.includes('<GlobalErrorToastReporter message={library.error} />'));
+  // e57ee13 removed the planner's library load entirely; its remaining errors render inline, muted offline.
+  assert.equal(planner.includes('useFitnessLibrary'), false);
+  assert.ok(planner.includes('<InlineFormError message={isOffline ? null : error ?? (accessCheckAttempted ? entitlement.verificationMessage : null)} />'));
 });
 
 test('network-only feature actions use connectivity notices rather than feature failure text offline', async () => {

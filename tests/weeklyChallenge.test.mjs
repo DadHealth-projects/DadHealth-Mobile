@@ -48,8 +48,11 @@ test('dedicated mobile challenge screen implements the approved participation li
     "supabase.rpc('complete_weekly_challenge'",
     ".eq('id', route.params.challengeId)",
     'p_challenge_id: challenge.id',
-    "SecureStore.getItemAsync(localStartedKey)",
-    "SecureStore.setItemAsync(startedKey(user.id, challenge.id), 'true')",
+    // 291e323: start state goes through account-scoped helpers that refuse a changed account.
+    "readChallengeSecret(localStartedKey)",
+    "writeChallengeSecret(startedKey(user.id, challenge.id), 'true')",
+    "return readOwnerSecret(owner, key, () => currentContextRef.current.userId === owner);",
+    "return writeOwnerSecret(owner, key, value, () => currentContextRef.current.userId === owner);",
     "SecureStore.deleteItemAsync(startedKey(user.id, challenge.id))",
     'Ready for this week?',
     'One challenge. One week. A chance to show up where it matters.',

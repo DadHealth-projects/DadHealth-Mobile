@@ -38,7 +38,8 @@ test('Present Dad content keeps first-use, timer, completion, and honest Focus b
   const openStart = ui.indexOf('const open = useCallback');
   const openEnd = ui.indexOf('\n  }, [mode.refresh', openStart);
   const openHandler = ui.slice(openStart, openEnd);
-  assert.match(openHandler, /if \(preference\.data\?\.intro_seen_at\)/);
+  // An explicit review (open(true)) shows the intro again even after it was seen.
+  assert.match(openHandler, /if \(preference\.data\?\.intro_seen_at && !review\)/);
   assert.doesNotMatch(openHandler, /upsert\(/, 'showing or closing the intro must not persist it');
   const startStart = ui.indexOf('const start = useCallback');
   const startEnd = ui.indexOf('\n  }, [mode.start', startStart);
@@ -63,7 +64,7 @@ test('Present Dad content keeps first-use, timer, completion, and honest Focus b
   assert.match(migration, /revoke all on public\.present_dad_sessions from public, anon, authenticated/);
   assert.match(dispatch, /\.eq\("status", "active"\)\s*\.lte\("ends_at", nowIso\)/);
   assert.match(dispatch, /update\(\{ status: "completed", completed_at: nowIso \}\)/);
-  assert.match(dispatch, /\.gte\("completed_duration_seconds", 3600\)/);
+  assert.match(dispatch, /\.gte\(["']completed_duration_seconds["'], 3600\)/); // quote style changed in 60692d3
   const bond = await read('screens/BondScreen.tsx');
   assert.match(bond, /navigation\.navigate\('Tabs', \{\s*screen: 'Home',\s*params: \{ openScoreDetail: true \}/);
   assert.match(bond, /onViewBondScore=\{onViewBondScore\}/);
@@ -86,14 +87,16 @@ test('Community uses Admin-managed descriptions and the approved subtitle', asyn
   assert.match(mobile, /navigation\.navigate\('CommunityFeed', \{ circleId \}\)/);
   assert.match(mobile, /title="Live sessions"/);
   assert.ok(mobile.indexOf('title="Live sessions"') > mobile.indexOf('title="Your Dad Circles"'));
-  assert.match(card, /\{description \? \([\s\S]*?\{description\}[\s\S]*?\) : null\}/);
-  assert.match(card, /flex-col rounded-card p-md/);
-  assert.match(card, /font-body text-muted-text text-\[12px\] leading-\[18px\] mt-sm/);
+  // 9feefac (circle card readability): bordered card and 14px description text.
+  assert.match(card, /\{description \? <Text[^>]*>\{description\}<\/Text> : null\}/);
+  assert.match(card, /flex-col rounded-card border border-border bg-card p-md/);
+  assert.match(card, /font-body text-muted-text text-\[14px\] leading-\[18px\] mt-sm/);
   assert.match(card, /flex-row items-center gap-md pt-md/);
   assert.match(card, /onOpen\(id\)/);
   assert.match(card, /Joined ✓/);
   assert.doesNotMatch(card, /onToggle|onPress=\{toggle\}/);
-  assert.match(mobile, /membersCount === 1 \? 'member' : 'members'/);
+  // The member count copy moved into the card ("dad"/"dads", asserted next); the screen passes the count.
+  assert.match(mobile, /membersCount=\{circle\.members_count\}/);
   assert.match(card, /\(membersCount \?\? 0\) === 1 \? 'dad' : 'dads'/);
   assert.match(home, /data\.dadsCount === 1 \? 'dad' : 'dads'/);
   assert.match(migration, /add column if not exists description text/);

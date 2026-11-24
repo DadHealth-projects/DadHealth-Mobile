@@ -103,11 +103,15 @@ for (const period of [{ unit: 'day', value: 7 }, { unit: 'week', value: 1 }]) {
     assert.equal(plan.trialEligibility, 'eligible'); assert.equal(plan.displayPrice, 'GBP 6.99');
   });
 }
+// Since e59393c (17 Nov) a plan whose store offer is not a valid free 7-day trial is 'ineligible':
+// it is sold at the store price with no trial wording, rather than blocked as 'unknown'.
 for (const patch of [{ paymentMode: 'pay-up-front' }, { paymentMode: 'unknown' }, { paymentMode: undefined },
   { price: 1 }, { periodCount: 2 }, { periodCount: undefined }, { period: { unit: 'day', value: 3 } }, { period: { unit: 'week', value: 7 } }]) {
-  test(`invalid introductory offer stays unknown: ${JSON.stringify(patch)}`, async () => {
-    const [plan] = await serviceHarness().api.resolveNativePlanEligibility([product(monthly, 'g', offer(patch))], async () => true);
-    assert.equal(plan.hasSevenDayTrial, false); assert.equal(plan.trialEligibility, 'unknown');
+  test(`invalid introductory offer never promises a trial: ${JSON.stringify(patch)}`, async () => {
+    let lookups = 0;
+    const [plan] = await serviceHarness().api.resolveNativePlanEligibility([product(monthly, 'g', offer(patch))], async () => { lookups += 1; return true; });
+    assert.equal(plan.hasSevenDayTrial, false); assert.equal(plan.trialEligibility, 'ineligible');
+    assert.equal(lookups, 0, 'an eligible account must not turn an invalid offer into a trial');
   });
 }
 test('eligibility uses each actual group; same group shares one lookup', async () => {
@@ -121,9 +125,11 @@ test('eligibility uses each actual group; same group shares one lookup', async (
 });
 test('missing group, missing offer and eligibility failure never promise a trial', async () => {
   const api = serviceHarness().api;
-  for (const row of [product(monthly, ''), product(monthly, 'g', null), product()]) {
+  // Missing group or failed lookup stays unknown (not purchasable); no offer at all is ineligible (no trial).
+  for (const [row, expected] of [[product(monthly, ''), 'unknown'], [product(monthly, 'g', null), 'ineligible'], [product(), 'unknown']]) {
     const [plan] = await api.resolveNativePlanEligibility([row], async () => { throw Error('offline'); });
-    assert.equal(plan.trialEligibility, 'unknown');
+    assert.equal(plan.trialEligibility, expected);
+    assert.notEqual(plan.trialEligibility, 'eligible');
   }
 });
 test('account-bound API rejects a changed owner before dispatch', async () => {
@@ -434,11 +440,15 @@ test('effect cleanup/restart cannot revive an old verification result', async ()
 });
 
 
-test('settled request without an event releases busy state with neutral copy and no automatic retry', async () => {
+// Since 85f4e19 (14 Nov) a settled store request is not treated as a failed confirmation: the
+// purchase event can arrive later. The wait ends on the store's own purchase or error event.
+test('settled request without an event keeps waiting for the store, then a store cancel releases it', async () => {
   const h = hookHarness(); await h.flush(); await h.result.purchase('monthly'); await h.flush();
-  assert.equal(h.result.purchasing, false); assert.equal(h.result.status.isPro, false);
-  assert.equal(h.result.notice, 'Purchase confirmation has not arrived. Use Restore purchases to check.');
-  assert.equal(h.requests.length, 1); assert.equal(h.verifies.length, 0);
+  assert.equal(h.result.purchasing, true); assert.equal(h.result.status.isPro, false);
+  assert.equal(h.result.notice, null, 'no false "confirmation has not arrived" message');
+  assert.equal(h.requests.length, 1); assert.equal(h.verifies.length, 0, 'no automatic retry or verification');
+  h.error({ code: 'user-cancelled' }); await h.flush();
+  assert.equal(h.result.purchasing, false); assert.match(h.result.notice, /Purchase cancelled/);
   await h.result.restore(); await h.flush(); assert.match(h.result.notice, /No active/); h.unmount();
 });
 test('request settlement cannot release verification that a callback already owns', async () => {
@@ -484,7 +494,9 @@ test('old request settlement cannot clear a new account operation', async () => 
   h.iap.requestPurchase = () => current.promise;
   const next = h.result.purchase('monthly'); await tick(); old.resolve(); await previous; await h.flush();
   assert.equal(h.result.purchasing, true); assert.equal(h.result.notice, null);
-  current.resolve(); await next; await h.flush(); assert.equal(h.result.purchasing, false); h.unmount();
+  current.resolve(); await next; await h.flush();
+  assert.equal(h.result.purchasing, true, 'the new account still waits for its own store outcome');
+  h.error({ code: 'user-cancelled' }); await h.flush(); assert.equal(h.result.purchasing, false); h.unmount();
 });
 test('unmount suppresses neutral confirmation from a late request settlement', async () => {
   const h = hookHarness(); await h.flush(); const request = deferred();

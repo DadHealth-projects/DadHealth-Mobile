@@ -12,7 +12,8 @@ test('Fitness uses the selected workout name, move count, duration and equipment
   assert.match(source, /const workoutMeta = selectedWorkout[\s\S]*?\$\{selectedWorkout\.duration_mins\} min/);
   assert.match(source, /const workoutMeta = selectedWorkout[\s\S]*?EQUIPMENT_LABEL\[selectedWorkout\.equipment\]/);
   assert.match(source, /EQUIPMENT_LABEL\[selectedWorkout\.equipment\]/);
-  assert.match(source, /<Text className="font-body text-muted-text[^>]*>[\s\S]*selectedWorkout\s*\?[\s\S]*workoutMeta[\s\S]*<\/Text>/);
+  // 6734007 aligned the meta line to white body text.
+  assert.match(source, /<Text className="font-body text-white[^>]*>\s*\{selectedWorkout\s*\?\s*workoutMeta\s*: fitnessLibrary\.assignmentKnown/);
   assert.doesNotMatch(source, /sub=\{workoutMeta\}/);
   assert.match(source, /\{workoutName\}/);
   assert.match(source, /\?\s*workoutMeta/);

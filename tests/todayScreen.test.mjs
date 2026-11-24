@@ -19,9 +19,10 @@ test('Today follows the approved score-led hierarchy', async () => {
     '<DadScoreCard',
     '<CheckInFollowUp',
     '<StreakCard',
+    // f734767 moved the weekly report entry up beside the streak, ahead of the challenge.
+    '<WeeklyReportCard',
     '<ChallengeCard',
     '<TodayFocusCard',
-    '<WeeklyReportCard',
     '<SupportingTools',
     '<RemindersList',
   ].map((needle) => signedIn.indexOf(needle));
@@ -69,7 +70,9 @@ test('daily check-in uses approved Mind, Body, Bond wording with optional Sleep'
   assert.ok(screen.includes('<DailyCheckInModal'));
   assert.ok(screen.includes('reminderMessage={reminderMessage}'));
   assert.ok(screen.includes('waitForPromptDecision'));
-  assert.ok(screen.includes('AsyncStorage.setItem(dailyCheckInStorageKey, JSON.stringify(decision.state))'));
+  // f734767: the prompt state is persisted once the modal has actually been shown (counted once).
+  assert.ok(screen.includes('void AsyncStorage.setItem(dailyCheckInStorageKey, JSON.stringify(pending.state))'));
+  assert.ok(screen.includes('pendingPrompt.current = null; // Repeated native onShow must count only once.'));
   assert.ok(screen.includes("state === 'active' && previousState !== 'active'"));
   assert.ok(screen.includes('setForegroundSessionId((sessionId) => sessionId + 1)'));
   assert.ok(screen.includes('attemptedCheckInPromptSessions.has(promptDecisionKey)'));
@@ -80,7 +83,8 @@ test('daily check-in uses approved Mind, Body, Bond wording with optional Sleep'
   assert.ok(prompt.includes('You skipped your check-in earlier. Got a minute for yourself?'));
   assert.ok(prompt.includes("Still haven't checked in today? Take a moment when you're ready."));
   assert.ok(screen.includes('if (checkInModalOpen)'));
-  assert.ok(screen.includes('if (scoreSheetOpen || pendingBiometricEnrollment || openScoreDetail)'));
+  // f734767 widened the guard so the prompt never stacks on the report, score sheet or biometric prompt.
+  assert.ok(screen.includes('if (reportOpen || reportNativePresented || checkInNativePresented || openWeeklyReport || scoreSheetOpen || pendingBiometricEnrollment || openScoreDetail || permissionPresented || requestedCheckIn) {'));
   assert.ok(modal.includes('Skip for now'));
   assert.ok(modal.includes('{reminderMessage ??'));
   assert.ok(modal.includes("onRequestClose={close}"));
@@ -238,7 +242,7 @@ test('Today score card and detail sheet use canonical values for Free and Pro', 
   assert.ok(detail.includes('Score trends'));
   assert.ok(detail.includes('Share report'));
   assert.ok(detail.includes('useProgressReport(sheetUserId, isPro)'));
-  assert.ok(detail.includes('className="h-[70%] rounded-t-[28px] bg-[#111214]"'));
+  assert.ok(detail.includes('className="h-[80%] rounded-t-[28px] bg-[#111214]"')); // height changed in e59393c
   assert.ok(detail.includes('{!isPro && entitlementKnown ? <View className="border-y border-border py-md">'));
   assert.ok(moments.includes('Understand your score'));
   assert.ok(moments.includes('personalised insights, weekly trends and recommendations.'));
@@ -300,7 +304,8 @@ test('Today uses the assigned Cook Together recipe for Free and Pro users', asyn
 
   assert.ok(fitnessHook.includes(".from('workouts')"));
   assert.ok(fitnessHook.includes(".eq('source', 'admin')"));
-  assert.ok(screen.includes("key: 'workout'"));
+  // a0ab9f4 moved the workout entry out of the supporting list into its own Today card.
+  assert.ok(screen.includes('<TodayWorkoutCard'));
   assert.ok(screen.includes("key: 'meal'"));
   assert.ok(screen.includes("key: 'bond'"));
   assert.ok(screen.includes('title: weeklyRecipe?.title ?? \'Cook Together\''));

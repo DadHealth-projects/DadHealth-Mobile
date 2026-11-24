@@ -19,11 +19,12 @@ test('resolved mobile Pro gates use the authenticated server entitlement status'
   assert.match(dashboard, /AppState\.addEventListener\('change'/);
   assert.match(dashboard, /useFocusEffect/);
   assert.match(dashboard, /refreshDashboardForUser\(userId\)/);
-  assert.match(library, /useState<boolean \| null>\(userId \? null : false\)/);
-  assert.match(library, /const pro = subscriptionStatus \? subscriptionStatus\.isPro === true : null/);
+  // Since 6b06a48 the fitness library no longer derives Pro itself: rows carry the server's
+  // access_level and screens gate through the shared entitlement keys.
+  assert.doesNotMatch(library, /isPro|subscriptionStatus|loadNativeSubscriptionStatus/);
+  assert.match(library, /access_level/);
   assert.match(fitness, /aiWorkoutAccess === false/);
   assert.match(fitness, /mealPlannerAccess === false/);
-  assert.match(library, /loadNativeSubscriptionStatus\(\)/);
   assert.match(milestone, /photoAccess === true/);
   assert.match(milestone, /entitlementKnown/);
   assert.match(manualHistory, /useEntitlement/);
@@ -42,20 +43,23 @@ test('unknown subscription status does not render Free Mind locks or upgrade CTA
     read('components/dashboard/CheckInFollowUp.tsx'),
     read('components/dashboard/ScoreDetailSheet.tsx'),
   ]);
-  assert.match(mind, /mindPlanAccess === false \? \([\s\S]*?<MindPlanLockedCard/);
+  assert.match(mind, /planAccess === false \? \(\s*<MindPlanLockedCard/);
   assert.match(mind, /trendsAccess === false \? 'View mood trends'/);
-  assert.match(dashboard, /proTease=\{scoreInsightsAccess === false/);
+  assert.match(dashboard, /proTeaseLocked=\{scoreInsightsAccess === false\}/);
   assert.match(dashboard, /<StreakCard[\s\S]*?freezeAccess=\{streakFreezeAccess\}/);
-  assert.match(followUp, /planAccess !== null \? <View/);
+  // fa529f1: the plan row shows the Pro badge only for confirmed Free (false), never while unknown.
+  assert.match(followUp, /\{planAccess === false \? <ProBadge \/> : null\}/);
   assert.match(details, /!isPro && entitlementKnown/);
   const streakCard = await read('components/dashboard/StreakCard.tsx');
   assert.match(streakCard, /freezeAccess === true/);
   assert.match(streakCard, /freezeAccess === false/);
-  assert.match(dashboard, /<WeeklyReportCard[\s\S]*?reportAccess=\{weeklyReportAccess\}/);
+  // 263ebc7: the report card opens the saved report for everyone; access gates the detail, not the card.
+  assert.match(dashboard, /const weeklyReportAccess = entitlement\.can\('weekly_report'\)/);
+  assert.match(dashboard, /<WeeklyReportCard[\s\S]*?report=\{latestReport\.report\}/);
   const account = await read('components/AccountSheet.tsx');
   assert.match(account, /isConfirmedFree/);
   const weeklyCard = await read('components/dashboard/WeeklyReportCard.tsx');
-  assert.match(weeklyCard, /reportAccess === null/);
+  assert.doesNotMatch(weeklyCard, /reportAccess|isPro/);
   assert.match(dashboard, /entitlement\.can\('score_insights'\)/);
 });
 
@@ -74,7 +78,8 @@ test('routine resume refresh preserves confirmed access and unknown status does 
   assert.doesNotMatch(resume, /markDashboardEntitlementUnknown/);
   assert.match(dashboard, /isPro: null,[\s\S]*?trialActive: null,[\s\S]*?checkedInToday/);
   assert.match(dashboard, /const fallback = current \?\? \(cached && typeof cached === 'object' \? cached : null\)/);
-  assert.match(library, /if \(isOffline\) \{[\s\S]*?setIsPro\(userId \? null : false\)/);
+  assert.match(library, /if \(isOffline\) \{/);
+  assert.doesNotMatch(library, /setIsPro/);
   assert.match(library, /requestId !== latestRequest\.current/);
   assert.match(native, /const requestId = \+\+statusRequestId\.current;[\s\S]*?setStatus\(null\)/);
   assert.match(native, /statusRequestId\.current === requestId/);
@@ -97,7 +102,10 @@ test('Free clients retain personal weekly mood and sleep reads but do not receiv
   assert.match(report, /if \(!userId \|\| !isPro\)/);
   assert.match(report, /fetchProInsight<.*monthly-report/);
   assert.match(history, /fetchProInsight<.*score-history/);
-  assert.match(weekly, /!isPro/);
+  // Since 440bb4e the server returns the owner-filtered saved report (Free or Pro projection).
+  assert.match(weekly, /\/api\/reports\/weekly/);
+  assert.match(weekly, /parseSavedReport/);
+  assert.doesNotMatch(weekly, /buildWeeklyReport/);
   assert.match(details, /useProgressReport\(sheetUserId, isPro\)/);
 });
 
@@ -122,10 +130,13 @@ test('streak freeze copy uses the server-provided state and never derives it loc
   assert.match(dashboard, /freezesRemaining: typeof subscriptionStatus\?\.freezesRemaining === 'number'/);
   assert.match(dashboard, /freezeUsedThisWeek: null/);
   assert.match(card, /'Freeze used · Resets Monday'/);
-  assert.match(card, /Streak protected · \$\{freezesRemaining\}/);
+  // 177729d: the card shows the server's reconciled protected dates.
+  assert.match(card, /'Streak protected' : 'Previously recorded protection'\} · \{protectedDatesText\(status\.protectedDates\)\}/);
   assert.match(status, /freezeUsedThisWeek\?: boolean/);
   assert.match(status, /freezesRemaining\?: number/);
-  assert.match(screen, /freezeUsedThisWeek=\{data\.freezeUsedThisWeek\}/);
-  assert.match(screen, /freezesRemaining=\{data\.freezesRemaining\}/);
-  assert.doesNotMatch(card, /new Date|user_streak_freezes|week_start/);
+  assert.match(screen, /status=\{liveStreak\.data\}/);
+  assert.match(screen, /freezeAccess=\{streakFreezeAccess\}/);
+  assert.match(card, /status\.allowance === 1/);
+  // new Date(...) only formats a server date for display; nothing is derived from the current time.
+  assert.doesNotMatch(card, /new Date\(\)|Date\.now\(\)|user_streak_freezes|week_start/);
 });

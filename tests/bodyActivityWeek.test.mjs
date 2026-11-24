@@ -31,7 +31,9 @@ test('empty week stays empty; Sunday remains final bucket', () => {
 });
 
 test('same Body activity logged in both sources counts once; separate logs still count', () => {
-  const workouts = [{ performed_at: '2026-10-13T18:00:00-07:00', exercise_name: 'Running', duration_minutes: 30 }];
+  // Noon UTC is 13 October on every device clock from UTC-11 to UTC+11, so the result does not
+  // depend on the timezone of the machine running the test (workouts bucket by device-local date).
+  const workouts = [{ performed_at: '2026-10-13T12:00:00Z', exercise_name: 'Running', duration_minutes: 30 }];
   const manual = [
     { activity_date: '2026-10-13', activity_type: 'running', duration_minutes: 30 },
     { activity_date: '2026-10-13', activity_type: 'cycling', duration_minutes: 30 },

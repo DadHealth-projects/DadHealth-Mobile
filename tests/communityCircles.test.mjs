@@ -146,7 +146,8 @@ test('Post Details preserves the same post route and exposes post engagement and
     source('navigation/AppNavigator.tsx'),
     source('lib/communityPostActions.ts'),
   ]);
-  assert.match(navigation, /CommunityPostThread: \{ postId: string \}/);
+  // The notification inbox added an optional operation id to the same route.
+  assert.match(navigation, /CommunityPostThread: \{ postId: string(?:; notificationOperation\?: string)? \}/);
   assert.match(screen, /route\.params\.postId/);
   assert.match(screen, /toggleCommunityPostLike/);
   assert.match(screen, /toggleCommunityPostSave/);

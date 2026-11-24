@@ -58,35 +58,38 @@ for (const [isPro, trialActive, title] of [[false, false, 'Free Plan'], [true, f
 
 test('Profile retains verified manual/paid access through refresh and failure, but clears on account switch', async () => {
   const h = await profileHarness(); h.data = { isPro: true, trialActive: false }; h.render();
+  // Card design since 1d32b15: a refresh keeps the verified title; unknown reads "Unable to load membership".
   h.data = { isPro: null, trialActive: null }; h.loading = true; h.render();
-  assert.match(h.card.props.accessibilityLabel, /Dad Health Pro/); assert.match(h.text, /Checking membership/);
+  assert.match(h.card.props.accessibilityLabel, /Dad Health Pro/); assert.doesNotMatch(h.text, /Unable to load|Tap to try again/);
   h.loading = false; h.render(); assert.match(h.card.props.accessibilityLabel, /Dad Health Pro/);
-  h.owner = 'account-b'; h.render(); assert.match(h.card.props.accessibilityLabel, /temporarily unavailable/);
+  h.owner = 'account-b'; h.render(); assert.match(h.card.props.accessibilityLabel, /Unable to load membership/);
   assert.doesNotMatch(h.card.props.accessibilityLabel, /Dad Health Pro|Free Plan/);
   h.data = { isPro: false, trialActive: false }; h.render(); assert.match(h.card.props.accessibilityLabel, /Free Plan/);
 });
 
-test('Profile unknown loading settles to one inline retry; repeat taps and failed retry do not navigate', async () => {
+// Since 1d32b15 the whole membership card is the retry ("Tap to try again"); there is no separate button.
+test('Profile unknown loading settles to one card retry; repeat taps and failed retry do not navigate', async () => {
   const h = await profileHarness(); h.loading = true; h.render();
-  assert.match(h.card.props.accessibilityLabel, /Checking membership\.\.\./);
-  assert.equal(h.nodes.filter(n => n.type === 'ActivityIndicator').length, 1);
-  assert.equal(h.retry, undefined);
-  h.loading = false; h.render(); assert.match(h.card.props.accessibilityLabel, /temporarily unavailable/);
-  assert.equal(h.nodes.filter(n => n.type === 'ActivityIndicator').length, 0);
+  assert.equal(h.card.props.accessibilityLabel, 'Membership. Membership', 'neutral while loading: neither Free nor Pro');
+  assert.doesNotMatch(h.text, /Unable to load|Tap to try again/);
+  h.card.props.onPress(); assert.equal(h.refreshCalls, 0, 'no retry while the first load is still running');
+  h.loading = false; h.render(); assert.match(h.card.props.accessibilityLabel, /Unable to load membership/);
+  assert.match(h.text, /Tap to try again/);
   let reject; h.refresh = () => new Promise((_, no) => { reject = no; });
-  let stopped = 0; const event = { stopPropagation() { stopped++; } };
-  h.retry.props.onPress(event); h.retry.props.onPress(event);
-  assert.equal(h.refreshCalls, 1); assert.equal(stopped, 2); assert.equal(h.actions.length, 0);
+  h.card.props.onPress(); h.card.props.onPress();
+  assert.equal(h.refreshCalls, 1); assert.equal(h.actions.length, 0);
   reject(Error('server error')); await new Promise(resolve => setImmediate(resolve)); h.render();
-  assert.match(h.card.props.accessibilityLabel, /temporarily unavailable/); assert.ok(h.retry);
+  assert.match(h.card.props.accessibilityLabel, /Unable to load membership/); assert.equal(h.actions.length, 0);
   h.refresh = async () => { h.data = { isPro: true, trialActive: true }; };
-  h.retry.props.onPress(event); await new Promise(resolve => setImmediate(resolve)); h.render();
-  assert.equal(h.refreshCalls, 2); assert.match(h.card.props.accessibilityLabel, /Pro Trial/);
+  h.card.props.onPress(); await new Promise(resolve => setImmediate(resolve)); h.render();
+  assert.equal(h.refreshCalls, 2); assert.match(h.card.props.accessibilityLabel, /Pro Trial/); assert.equal(h.actions.length, 0);
 });
 
 test('Account Sheet upgrade and membership entries reach the same subscription screen', async () => {
   const account = await read('components/AccountSheet.tsx');
-  assert.match(account, /title: isConfirmedFree \? 'Upgrade to Pro' : 'Membership'/);
+  // Free sees upgrade wording; unknown or Pro stays neutral ("Dad Health Pro").
+  assert.match(account, /title: isConfirmedFree \? 'Upgrade to Pro' : 'Dad Health Pro'/);
+  assert.match(account, /const isConfirmedFree = !dashboardLoading && entitlement\.can\('mind_plan'\) === false/);
   assert.match(account, /navigateToProSubscription\(navigation, 'account', 'Dad Health Pro'/);
   assert.match(account, /navigation\.navigate\('ProSubscription', \{ source: 'account_membership'/);
 });

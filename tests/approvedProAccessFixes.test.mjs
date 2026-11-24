@@ -75,8 +75,10 @@ test('Expo Go skips native IAP loading while server entitlement refresh remains 
 test('Pro score details stay available separately from the gated Weekly Report', async () => {
   const [details, weekly] = await Promise.all([
     readMobile('components/dashboard/ScoreDetailSheet.tsx'),
-    readMobile('components/dashboard/WeeklyReportCard.tsx'),
+    // Since 263ebc7 the weekly report gate is the saved report's access, applied in the sheet.
+    readMobile('components/dashboard/WeeklyReportSheet.tsx'),
   ]);
   assert.match(details, /useDashboard|Dad Health Score|Score details/i);
-  assert.match(weekly, /reportAccess === false/);
+  assert.match(weekly, /const detail = report\?\.access === 'pro' \? report\.details : undefined;/);
+  assert.match(weekly, /report\.access === 'free' \? <>/);
 });

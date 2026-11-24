@@ -27,21 +27,29 @@ test('raised LOG action is separate from tabs and preserves logging destinations
   assert.match(source, /Animated\.timing\(sheetTranslateY/);
 });
 
-test('legacy Score notification links return to Today after Score leaves the tab navigator', async () => {
-  const source = await readFile(new URL('lib/pushNotifications.ts', root), 'utf8');
-  assert.match(source, /data\.type === 'weekly_score'[\s\S]*?navigate\('Tabs', \{ screen: 'Home', params: \{ openScoreDetail: true \} \}\)/);
+// Routing moved to lib/notificationDestinations.ts; weekly_score now opens that week's saved report on Today
+// (brief 03: each notification opens the right screen), and a link without a valid week is ignored.
+test('weekly report notification links open that saved week on Today and ignore invalid weeks', async () => {
+  const [destinations, push] = await Promise.all([
+    readFile(new URL('lib/notificationDestinations.ts', root), 'utf8'),
+    readFile(new URL('lib/pushNotifications.ts', root), 'utf8'),
+  ]);
+  assert.match(destinations, /case 'weekly_score':return isReportWeek\(data\.reporting_week\)\?\{\.\.\.tab\('Home',\{openWeeklyReport:data\.reporting_week\}\),family:'report'\}:null;/);
+  assert.match(push, /additionalData\.type === 'weekly_score' && !isReportWeek\(additionalData\.reporting_week\)\) return;/);
 });
 
 test('Community naming and Dad Circles copy are consistent in user-facing screens', async () => {
-  const [community, createPost, notificationSettings] = await Promise.all([
+  const [community, createPost, notificationSettings, feedScreen] = await Promise.all([
     readFile(new URL('screens/CommunityScreen.tsx', root), 'utf8'),
     readFile(new URL('screens/subscreens/CreateCommunityPostScreen.tsx', root), 'utf8'),
     readFile(new URL('screens/subscreens/NotificationSettingsScreen.tsx', root), 'utf8'),
+    readFile(new URL('screens/subscreens/CommunityFeedScreen.tsx', root), 'utf8'),
   ]);
 
   assert.match(community, /title="Your Dad Circles"/);
   assert.match(community, /Your Dad Circles — find dads going through the same chapter as you/);
-  assert.match(community, /Be the first to share with the community\./);
+  // The empty-feed prompt lives on the full community feed screen.
+  assert.match(feedScreen, /No posts yet\. Be the first to share\./);
   assert.match(createPost, /with the community/);
   assert.match(notificationSettings, /linkLabel: 'Community'/);
 });

@@ -27,7 +27,8 @@ test('native purchases are bound to the signed-in account and verified before fi
     source('lib/nativeSubscriptions.ts'),
     source('hooks/useNativeSubscriptions.ts'),
   ]);
-  const verifyIndex = hook.indexOf('verifyNativePurchase(purchase, scope.owner!)');
+  // The call later gained an operation id argument; match the stable account-bound prefix.
+  const verifyIndex = hook.indexOf('verifyNativePurchase(purchase, scope.owner!');
   const finishIndex = hook.indexOf('finishTransaction', verifyIndex);
   assert.match(hook, /appAccountToken: preparation\.appAccountToken/);
   assert.match(hook, /obfuscatedAccountId: preparation\.obfuscatedAccountId/);

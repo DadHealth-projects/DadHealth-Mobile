@@ -5,10 +5,11 @@ import test from 'node:test';
 const root = new URL('../', import.meta.url);
 
 test('successful and queued check-ins explain the Mind score connection', async () => {
-  const source = await readFile(new URL('screens/DashboardScreen.tsx', root), 'utf8');
+  // Since 1bd6210 the confirmation lives in the check-in modal; the queued copy was shortened there.
+  const source = await readFile(new URL('components/dashboard/DailyCheckInModal.tsx', root), 'utf8');
 
-  assert.match(source, /Check-in saved for Mind, Body and Bond\./);
-  assert.match(source, /Saved on this device\. It will sync when you're back online\. Your Mind, Body and Bond answers are saved\./);
+  assert.match(source, /'Check-in saved for Mind, Body and Bond\.'/);
+  assert.match(source, /"Saved on this device\. It will sync when you're back online\."/);
 });
 
 test('completed workout feedback explains the Body score connection', async () => {

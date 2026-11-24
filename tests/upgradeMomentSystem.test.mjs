@@ -129,7 +129,8 @@ test('upgrade analytics carry feature and source', async () => {
     read('components/dashboard/DadScoreCard.tsx'),
     read('components/dashboard/ScoreDetailSheet.tsx'),
     read('components/dashboard/StreakCard.tsx'),
-    read('components/dashboard/WeeklyReportCard.tsx'),
+    // Since 263ebc7 the weekly report lock (Free teaser) lives in the report sheet, not the Today card.
+    read('components/dashboard/WeeklyReportSheet.tsx'),
     read('screens/MindScreen.tsx'),
     read('components/mind/MindPlanLockedCard.tsx'),
   ]);

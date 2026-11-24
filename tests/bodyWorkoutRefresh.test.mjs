@@ -19,6 +19,8 @@ function renderShell(props) {
     './AppTopBar': { default: 'AppTopBar' },
     './GlobalErrorToastReporter': { default: 'Error' },
     '../contexts/NetworkContext': { useNetworkStatus: () => ({ dismissToast() {} }) },
+    // 8bf325c: the shell reports presentation to the notification inbox.
+    '../contexts/NotificationInboxContext': { useNotificationPresentation: () => {} },
     '../theme': { colors: {} },
   };
   const code = ts.transpileModule(read('components/PillarScreen.tsx'), { compilerOptions: {

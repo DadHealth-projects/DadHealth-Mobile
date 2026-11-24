@@ -9,12 +9,15 @@ async function source(path) {
 }
 
 test('Today keeps its approved lime score and check-in surfaces', async () => {
-  const [today, score] = await Promise.all([
+  const [today, score, checkIn] = await Promise.all([
     source('screens/DashboardScreen.tsx'),
     source('components/dashboard/DadScoreCard.tsx'),
+    source('components/dashboard/DailyCheckInModal.tsx'),
   ]);
 
-  assert.ok(today.includes('bg-lime rounded-card px-xl py-xl'));
+  // 07cd0d0 moved the lime check-in surface from the Today page into the check-in modal.
+  assert.ok(checkIn.includes('className="w-full flex-1 overflow-hidden rounded-card bg-lime"'));
+  assert.ok(today.includes('<DailyCheckInModal'));
   assert.ok(score.includes('bg-lime rounded-t-[18px]'));
   assert.equal(today.includes('scoreLabel="of 100" flat'), false);
 });
@@ -39,7 +42,8 @@ test('Body uses divider-led sections instead of tall dark cards', async () => {
   assert.ok(body.indexOf('<SectionHeader title="Body this week"') < body.indexOf('<StatCard value={stats[0].value}'));
   assert.equal(body.includes('workoutSummary'), false);
   assert.ok(body.includes('Your weekly activity will appear here as you complete workouts.'));
-  assert.ok(body.indexOf('<SectionHeader title="Body this week"') < body.indexOf('Active workout'));
+  // 6b06a48 replaced the "Active workout" heading with the "Start workout" action.
+  assert.ok(body.indexOf('<SectionHeader title="Body this week"') < body.indexOf('<LimeButton label="Start workout →"'));
 });
 
 test('Mind places facts and sleep below the feeling description without duplicating sections', async () => {
@@ -47,13 +51,15 @@ test('Mind places facts and sleep below the feeling description without duplicat
 
   assert.ok(mind.includes('<StatTile'));
   assert.match(mind, /summary=\{moodSummary\}[\s\S]{0,40}flat/);
-  assert.ok(mind.includes("rounded-button border px-md py-md ${featured ? 'border-lime/25 bg-lime/5' : 'border-border bg-card'}"));
+  assert.ok(mind.includes("featured ? 'border border-lime/25 bg-lime/5' : 'border border-border bg-card'")); // f6205a2
   assert.ok(mind.includes('gap-md border-b border-border pb-md'));
   assert.ok(mind.indexOf('title="Mind Reset"') < mind.indexOf('<PillarScoreRow'));
   assert.ok(mind.indexOf('<PillarScoreRow') < mind.indexOf('<ManualActivitySection'));
   assert.ok(mind.indexOf('<StatTile value="1 in 8"') > mind.indexOf('<ManualActivitySection'));
   assert.equal((mind.match(/<SectionHeader title="Mind facts"/g) ?? []).length, 1);
-  assert.equal((mind.match(/<SectionHeader title="Sleep quality this week"/g) ?? []).length, 1);
+  // f7aa6af folded the separate sleep section into the mood summary; sleep still appears exactly once.
+  assert.equal((mind.match(/\{sleepInsights\.pattern\}/g) ?? []).length, 1);
+  assert.equal(mind.includes('<SectionHeader title="Sleep quality this week"'), false);
 });
 
 test('Bond keeps its existing green score and compact action cards', async () => {
@@ -70,5 +76,5 @@ test('Community keeps its compact circle tiles and recent-post row', async () =>
 
   assert.ok(community.includes('<CircleCard'));
   assert.ok(community.includes('<CircleCard'));
-  assert.ok(community.includes('min-h-[76px] flex-row items-center gap-md rounded-button border border-border bg-card px-md'));
+  assert.ok(community.includes('min-h-[96px] flex-row items-center gap-md rounded-card border border-border bg-card p-md')); // d0547e5
 });

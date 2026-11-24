@@ -78,7 +78,9 @@ test('Home queues a deduplicated daily check-in and protects newer wearable slee
   assert.ok(sync.includes(".eq('source', 'manual')"));
   assert.doesNotMatch(sync, /recomputeStreak\(item\.userId\)/);
   assert.match(sync, /daily_checkin/);
-  assert.ok(screen.includes("Saved on this device. It will sync when you're back online."));
+  // The queued-check-in confirmation moved into the check-in modal (1bd6210).
+  const checkInModal = await source('components/dashboard/DailyCheckInModal.tsx');
+  assert.ok(checkInModal.includes("Saved on this device. It will sync when you're back online."));
 });
 
 test('new Journal entries queue with a client UUID while offline edits and deletes stay blocked', async () => {
@@ -163,7 +165,8 @@ test('feature errors remain inline and stale feature failures are hidden while o
   assert.ok(reporter.includes('<InlineFormError message={isOffline ? null : message} />'));
   assert.ok(screenNotice.includes('<InlineFormError message={isOffline ? null : message} />'));
   assert.equal(topBar.includes('text-red'), false);
-  assert.ok(fitness.includes('<GlobalErrorToastReporter message={fitnessLibrary.error} />'));
+  // 9d68148: the toast is muted while the library sheet is open, because the sheet shows the error itself.
+  assert.ok(fitness.includes('<GlobalErrorToastReporter message={workoutLibraryOpen ? null : fitnessLibrary.error} />'));
   assert.equal(fitness.includes('text-red'), false);
   assert.ok(therapist.includes('<ScreenErrorNotice message={bookingError ?? directory.error} />'));
   assert.equal(therapist.includes('text-red'), false);
@@ -194,9 +197,14 @@ test('feature screens keep their normal layout without offline retry screens or 
   }
 
   assert.ok(files[0].includes('<ScreenErrorNotice message={circleError} />'));
-  assert.equal(files[0].includes('liveSessionsError ?'), false);
-  assert.equal(files[0].includes('trendingError ?'), false);
-  assert.equal(files[3].includes('error && !post ?'), false);
+  // Community sections report their own inline notice and hide only the failed section; no retry cards.
+  for (const name of ['liveSessionsError', 'trendingError', 'trendingCircleError']) {
+    assert.ok(files[0].includes(`<ScreenErrorNotice message={${name}} />`), name);
+    assert.ok(files[0].includes(`${name} ? null :`), name);
+  }
+  // caaf941: with no post at all there is no layout to keep, so the thread shows a truthful error;
+  // offline is checked first and never shows the failure text.
+  assert.match(files[3], /isOffline && !post \? <Text[^>]*>You’re offline\. This post isn’t available on this device\.<\/Text> : error && !post \?/);
   assert.equal(files[4].includes('if (recipeData.error)'), false);
   assert.equal(files[5].includes('journal.error ? ('), false);
   assert.ok(files[9].includes('<GlobalErrorToastReporter message={loadError} />'));
@@ -230,9 +238,9 @@ test('cached data renders before background refresh and dashboard requests stay 
   assert.ok(dashboard.includes('const inFlightByUser = new Map<string, Promise<void>>()'));
   assert.ok(dashboard.includes('const existingRequest = inFlightByUser.get(userId)'));
   assert.ok(dashboard.includes('if (existingRequest) return existingRequest'));
-  assert.ok(dashboard.indexOf('await hydrateDashboardCache(userId, false)') < dashboard.indexOf('await runFetch(userId)'));
+  assert.ok(dashboard.indexOf('if (!hasCurrentData) await hydrateDashboardCache(userId, false, identityVersion);') < dashboard.indexOf('await runFetch(userId, identityVersion);'));
   assert.ok(community.includes('if (!silent) setLoading(false)'));
-  assert.ok(journal.includes('cached = await loadCached();\n      setLoading(false);'));
+  assert.match(journal, /cached = await loadCached\(request\);\s*if \(!valid\(\)\) return;\s*setLoading\(false\);/); // f6205a2 added a stale-request guard
 });
 
 test('network-backed feature loaders stop waiting immediately in airplane mode', async () => {

@@ -17,7 +17,9 @@ function report(changes = [1, 2, 3], scores = [50, 60, 70]) {
 for (const [changes, title] of [
   [[1,2,3], 'Bond led the way, Dad.'], [[2,2,0], 'Your scores moved forward, Dad.'],
   [[1,-1,0], 'Some scores rose, others dipped, Dad.'], [[0,-1,-2], 'Your scores dipped, Dad. It happens.'],
-  [[0,0,0], 'Your scores held steady, Dad.'], [[0.11,0.12,0], 'Body led the way, Dad.'],
+  [[0,0,0], 'Your scores held steady, Dad.'],
+  // Rises under one point never name a leader (that would read "Body rose 0 points").
+  [[0.11,0.12,0], 'Your scores edged up, Dad.'], [[0.6,1.4,0], 'Body led the way, Dad.'],
   [[0.1,-0.1,0], 'Some scores rose, others dipped, Dad.'],
 ]) test(`exact changes select headline ${changes}`, () => {
   const saved = report(changes), before = JSON.stringify(saved);
@@ -45,7 +47,8 @@ test('point formatting rounds only display and never substitutes overall changes
     saved.overallChange = available(value); assert.equal(overallReportChange(saved), text);
   }
   saved.comparisonAvailable = false;
-  assert.equal(reportChange(saved, available(9)), '—'); assert.equal(overallReportChange(saved), null);
+  // Without a comparison week the change slot is empty and the sheet renders nothing there.
+  assert.equal(reportChange(saved, available(9)), ''); assert.equal(overallReportChange(saved), null);
 });
 test('focus uses saved weakest pillar, exact changes, tie priority and no Free details', () => {
   for (const [change, text] of [[-0.1,'Mind was your lowest score and fell this week. Choose one manageable session.'],

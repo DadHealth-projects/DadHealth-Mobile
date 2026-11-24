@@ -10,15 +10,18 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
 test('Score upgrade closes first and navigates once only after native dismissal', () => {
   const source = read('screens/DashboardScreen.tsx');
   const handlers = source.slice(source.indexOf('  const requestScoreUpgrade ='), source.indexOf('  const openCheckInPlan ='));
-  const calls = [], pending = { current: null }, user = { id: 'owner-a' }, exports = {};
+  const calls = [], native = [], pending = { current: null }, user = { id: 'owner-a' }, exports = {};
   vm.runInNewContext(compile(`${handlers}\nexport { requestScoreUpgrade, finishScoreDismissal };`), {
     exports, user, scoreUpgradePending: pending, useCallback: (fn) => fn,
+    // f734767: dismissal also clears the native-presented flag while the screen is mounted.
+    reportMounted: { current: true }, setScoreNativePresented: (value) => native.push(value),
     setScoreSheetOpen: (value) => calls.push(['visible', value]),
     openPro: (...args) => calls.push(['navigate', ...args]),
   });
   exports.requestScoreUpgrade(); exports.requestScoreUpgrade();
   assert.deepEqual(calls, [['visible', false]]);
   exports.finishScoreDismissal(); exports.finishScoreDismissal();
+  assert.deepEqual(native, [false, false], 'each native dismissal clears the presented flag');
   assert.deepEqual(calls[1], ['navigate', 'score', 'Understand your score', 'lock', 'score_insights']);
   assert.equal(calls.length, 2);
   exports.requestScoreUpgrade(); user.id = 'owner-b'; exports.finishScoreDismissal();
