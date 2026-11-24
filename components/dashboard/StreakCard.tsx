@@ -5,7 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 import { colors } from '../../theme';
 import ProBadge from './ProBadge';
 import { trackEvent } from '../../lib/analytics';
-import { protectedDatesText, streakDateLabel } from '../../lib/streakPresentation';
+import { calmResetMessage, protectedDatesText, streakDateLabel } from '../../lib/streakPresentation';
 
 /**
  * The streak is the primary habit mechanic.
@@ -25,6 +25,7 @@ function StreakCard({
   userId?: string;
 }) {
   const count = status?.state === 'current' ? status.count : null;
+  const resetMessage = status?.state === 'current' && !error ? calmResetMessage(status.resetOn, status.calendarDays) : null;
   const lockViewed = useRef(false);
   useEffect(() => {
     if (freezeAccess !== false || lockViewed.current) return;
@@ -62,6 +63,8 @@ function StreakCard({
           </Text>
         </View>
       </View>
+
+      {resetMessage ? <Text className="font-body text-white text-[14px] leading-[20px]">{resetMessage}</Text> : null}
 
       {status ? <View className="gap-sm">
         <View className="flex-row justify-between">

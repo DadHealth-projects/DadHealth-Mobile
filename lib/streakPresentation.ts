@@ -17,3 +17,12 @@ export function streakDateLabel(date: string): string {
 export function protectedDatesText(dates: readonly string[]): string {
   return dates.map(streakDateLabel).join(', ');
 }
+
+/**
+ * Calm reset line (brief 02: no guilt language). Shown only when the server
+ * recorded a reset during the week on screen; never inferred on the device.
+ */
+export function calmResetMessage(resetOn: string | null | undefined, calendarDays: readonly string[]): string | null {
+  if (!resetOn || !DATE_KEY.test(resetOn) || !calendarDays.includes(resetOn)) return null;
+  return `Your streak restarted on ${streakDateLabel(resetOn)}. That's okay. Every check-in counts, starting with today's.`;
+}
