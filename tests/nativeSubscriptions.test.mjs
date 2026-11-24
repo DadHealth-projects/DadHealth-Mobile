@@ -69,7 +69,9 @@ test('the approved mobile Pro entry points route to one native subscription scre
   // Prices come from the store only. No hardcoded amount may ship in the paywall.
   assert.doesNotMatch(screen, /£\d/);
   assert.match(screen, /displayPrice \?\? null/);
-  assert.match(screen, /Start 7-day free trial/);
+  assert.match(screen, /START MY 7-DAY FREE TRIAL/);
+  assert.match(screen, /accessibilityLabel=\{trialAvailable \? 'Start my 7-day free trial' : 'Subscribe'\}/);
+  assert.match(screen, /trialDisclosure\(selectedProduct\)/);
   assert.match(screen, /Restore purchases/);
   assert.match(screen, /Manage subscription/);
   assert.doesNotMatch(screen, /\/pricing|Stripe|PaymentSheet/);

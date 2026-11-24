@@ -39,6 +39,59 @@ export interface NativePlanProduct {
   basePlanId: string | null;
 }
 
+/** Length of the free trial accepted by the store offer checks below. */
+export const TRIAL_DAYS = 7;
+/**
+ * Apple (P1W / 7 days) and Google Play (P7D) both end a trial a fixed duration
+ * after the purchase instant, so a trial lasts exactly 7 × 24 hours. Adding
+ * local calendar days instead is wrong when the device's clocks change during
+ * the trial.
+ */
+export const TRIAL_DURATION_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
+
+export interface TrialDisclosure {
+  /** Instant the trial would end if purchased at `now`. */
+  trialEndsAt: string;
+  /** Device-local calendar date of `trialEndsAt`. */
+  trialEndsOn: string;
+  /** The store takes the first payment when the trial ends. */
+  firstPaymentOn: string;
+  price: string;
+  period: 'month' | 'year';
+  /** Epoch ms after which the dates above change and must be recalculated. */
+  validUntil: number;
+}
+
+const disclosureDate = (date: Date) =>
+  date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+/**
+ * Pre-purchase disclosure for the selected plan. Returns null unless the store
+ * has verified a seven-day free introductory offer, this account is eligible,
+ * and the store supplied a localised price. The trial starts at purchase, so
+ * the end is `now` plus the store's trial duration, shown as a device-local
+ * date. The authoritative end date after purchase comes from the server.
+ */
+export function trialDisclosure(product: NativePlanProduct | null | undefined, now: Date = new Date()): TrialDisclosure | null {
+  if (!product || !product.hasSevenDayTrial || product.trialEligibility !== 'eligible') return null;
+  const price = product.displayPrice.trim();
+  if (!price || !Number.isFinite(now.getTime())) return null;
+  const end = new Date(now.getTime() + TRIAL_DURATION_MS);
+  const label = disclosureDate(end);
+  // The label changes once the trial end passes the next local midnight. The
+  // Date constructor resolves a midnight skipped by a clock change to the
+  // first valid local time of that day.
+  const nextLocalDay = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
+  return {
+    trialEndsAt: end.toISOString(),
+    trialEndsOn: label,
+    firstPaymentOn: label,
+    price,
+    period: product.plan === 'annual' ? 'year' : 'month',
+    validUntil: nextLocalDay.getTime() - TRIAL_DURATION_MS,
+  };
+}
+
 type IapModule = typeof import('react-native-iap');
 
 let cachedIap: IapModule | null | undefined;

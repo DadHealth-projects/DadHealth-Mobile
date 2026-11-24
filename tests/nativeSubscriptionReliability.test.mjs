@@ -293,14 +293,15 @@ test('Expo Go keeps canonical access without loading store products', async () =
   assert.equal(h.catalogCalls, 0); assert.equal(h.result.catalogLoading, false); h.unmount();
 });
 
-function screen(overrides = {}) {
-  const actions = [], state = { status: free, products: [{ plan: 'annual', displayPrice: 'GBP 49.99', trialEligibility: 'eligible' }],
+function screen(overrides = {}, harness = {}) {
+  const actions = [], state = { status: free, products: [{ plan: 'annual', displayPrice: 'GBP 49.99', trialEligibility: 'eligible', hasSevenDayTrial: true }],
     loading: false, catalogLoading: false, statusLoading: false, storeAvailable: true, storeSupported: true,
     retry: () => actions.push('retry'), purchase: () => actions.push('purchase'), restore: () => actions.push('restore'), manage: () => actions.push('manage'), ...overrides };
   const react = { useEffect: () => {}, useCallback: (fn) => fn, useMemo: (fn) => fn(), useState: () => ['annual', () => {}],
-    createElement: (type, props, ...children) => typeof type === 'function' ? type({ ...props, children }) : ({ type, props: props ?? {}, children }) };
+    useReducer: (_reducer, initial) => [initial, () => {}],
+    createElement: (type, props, ...children) => typeof type === 'function' ? type({ ...props, children }) : ({ type, props: props ?? {}, children }), ...harness.react };
   const mocks = { react: { ...react, default: react },
-    'react-native': { Platform: { OS: 'ios' }, ActivityIndicator: 'ActivityIndicator', Pressable: 'Pressable', ScrollView: 'ScrollView', Text: 'Text', View: 'View' },
+    'react-native': { Platform: { OS: 'ios' }, ActivityIndicator: 'ActivityIndicator', Pressable: 'Pressable', ScrollView: 'ScrollView', Text: 'Text', View: 'View', AppState: harness.appState },
     '@expo/vector-icons': { Feather: 'Icon', MaterialCommunityIcons: 'Icon' }, '@react-navigation/native': {
       useNavigation: () => ({ goBack: () => actions.push('back'), navigate: (route) => actions.push(route) }), useRoute: () => ({ params: { source: 'settings', context: overrides.context } }),
     }, 'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
@@ -309,6 +310,10 @@ function screen(overrides = {}) {
     '../../hooks/useDashboard': { refreshDashboardForUser() {} },
     '../../hooks/useNativeSubscriptions': { useNativeSubscriptions: () => state },
     '../../theme': { colors: {} },
+    '../../contexts/NotificationInboxContext': { useNotificationPresentation() {} },
+    '../../hooks/useAnalyticsPresentation': { useAnalyticsPresentation: () => () => {} },
+    '../../lib/analyticsContract': { upgradeSource: (source) => source },
+    '../../lib/nativeSubscriptions': { trialDisclosure: serviceHarness().api.trialDisclosure },
   };
   for (const name of ['AppTopBar', 'InlineFormError', 'LimeButton', 'mockup/ScreenHero', 'subscriptions/CancellationFlow']) mocks[`../../components/${name}`] = { __esModule: true, default: name };
   mocks['../../components/subscriptions/CancellationFlow'] = { __esModule: true, ...load('components/subscriptions/CancellationFlow.tsx', {
@@ -316,7 +321,7 @@ function screen(overrides = {}) {
     'react-native-safe-area-context': mocks['react-native-safe-area-context'], 'expo-crypto': { randomUUID: () => 'test' },
     '../../lib/nativeSubscriptions': {}, '../../theme': { colors: {} },
   }) };
-  const module = load('screens/subscreens/ProSubscriptionScreen.tsx', mocks);
+  const module = load('screens/subscreens/ProSubscriptionScreen.tsx', mocks, harness.globals);
   const tree = module.default(), nodes = [];
   function visit(node) { if (Array.isArray(node)) node.forEach(visit); else if (node && typeof node === 'object') {
     nodes.push(node); visit(node.children); visit(node.props?.leftAccessory);
@@ -324,15 +329,19 @@ function screen(overrides = {}) {
   visit(tree); return { nodes, text: JSON.stringify(tree), actions };
 }
 test('paywall renders trial/paid CTAs, blocks unknown/loading and wires Retry plus Back', () => {
-  assert.match(screen().text, /Start 7-day free trial/);
+  const trial = screen();
+  assert.match(trial.text, /START MY 7-DAY FREE TRIAL/);
+  assert.ok(trial.nodes.some((n) => n.type === 'Pressable' && n.props.accessibilityLabel === 'Start my 7-day free trial'));
+  assert.match(trial.text, /Your free trial ends on \d{1,2} [A-Z][a-z]+ \d{4}\. Your first payment of GBP 49\.99 is taken on \d{1,2} [A-Z][a-z]+ \d{4}, then GBP 49\.99 every year unless you cancel\./);
   const paid = screen({ products: [{ plan: 'annual', displayPrice: 'GBP 49.99', trialEligibility: 'ineligible' }] });
-  assert.match(paid.text, /Subscribe/); assert.doesNotMatch(paid.text, /Start 7-day/);
+  assert.match(paid.text, /Subscribe/); assert.doesNotMatch(paid.text, /START MY 7-DAY|Start my 7-day|free trial ends|first payment/);
   const unknown = screen({ products: [{ plan: 'annual', displayPrice: 'GBP 49.99', trialEligibility: 'unknown' }] });
-  assert.equal(unknown.nodes.filter((n) => n.type === 'Pressable' && ['Start 7-day free trial', 'Subscribe'].includes(n.props.accessibilityLabel)).length, 0);
+  assert.equal(unknown.nodes.filter((n) => n.type === 'Pressable' && ['Start my 7-day free trial', 'Subscribe'].includes(n.props.accessibilityLabel)).length, 0);
+  assert.doesNotMatch(unknown.text, /free trial ends|first payment/);
   unknown.nodes.find((n) => n.type === 'Pressable' && JSON.stringify(n.children).includes('Retry')).props.onPress();
   unknown.nodes.find((n) => n.props?.accessibilityLabel === 'Close Dad Health Pro').props.onPress();
   assert.deepEqual(unknown.actions, ['retry', 'back']);
-  const loading = screen({ catalogLoading: true, products: [], storeAvailable: false }); assert.doesNotMatch(loading.text, /Start 7-day|Subscribe"/);
+  const loading = screen({ catalogLoading: true, products: [], storeAvailable: false }); assert.doesNotMatch(loading.text, /START MY 7-DAY|Start my 7-day|Subscribe"|free trial ends|first payment/);
   assert.doesNotMatch(loading.text, /Checking subscription|"Retry"/);
   const unsupported = screen({ products: [], storeAvailable: false, storeSupported: false });
   assert.doesNotMatch(unsupported.text, />Retry|"Retry"/); assert.match(unsupported.text, /available on this device/);
@@ -341,7 +350,7 @@ test('paywall renders trial/paid CTAs, blocks unknown/loading and wires Retry pl
 test('loaded paywall keeps its CTA and wording during refresh but blocks purchase until settled', () => {
   for (const eligibility of ['eligible', 'ineligible']) {
     const products = [{ plan: 'annual', displayPrice: 'GBP 49.99', trialEligibility: eligibility }];
-    const label = eligibility === 'eligible' ? 'Start 7-day free trial' : 'Subscribe';
+    const label = eligibility === 'eligible' ? 'Start my 7-day free trial' : 'Subscribe';
     for (const progress of [{ catalogLoading: true }, { statusLoading: true }]) {
       const refreshing = screen({ products, ...progress });
       const button = refreshing.nodes.find(n => n.type === 'Pressable' && n.props.accessibilityLabel === label);
@@ -584,8 +593,8 @@ test('manual, trial, overlap and missing billing information use truthful member
  assert.match(unknown.text,/Everything is unlocked/);assert.doesNotMatch(unknown.text,/Manage subscription|Billed through|Current period ends|invalid/);
 });
 test('Free and expired preserve paywall; missing access never becomes Free',()=>{
- for(const status of [free,{...free,status:'expired'}]) {const h=screen({status});assert.match(h.text,/Start 7-day free trial/);assert.ok(h.nodes.some(n=>n.props.accessibilityLabel==='Close Dad Health Pro'));assert.doesNotMatch(h.text,/Membership/);}
- const unknown=screen({status:null,statusError:'Could not verify access',products:[]});assert.doesNotMatch(unknown.text,/Start 7-day free trial|Everything is unlocked/);assert.match(unknown.text,/Could not verify access/);
+ for(const status of [free,{...free,status:'expired'}]) {const h=screen({status});assert.match(h.text,/START MY 7-DAY FREE TRIAL/);assert.ok(h.nodes.some(n=>n.props.accessibilityLabel==='Close Dad Health Pro'));assert.doesNotMatch(h.text,/Membership/);}
+ const unknown=screen({status:null,statusError:'Could not verify access',products:[]});assert.doesNotMatch(unknown.text,/START MY 7-DAY|Start my 7-day|free trial ends|Everything is unlocked/);assert.match(unknown.text,/Could not verify access/);
  assert.match(screen({status:null,loading:true}).text,/Checking your subscription/);
  assert.match(screen({status:pro,offline:true,statusError:'Offline'}).text,/Everything is unlocked/);
 });
@@ -692,7 +701,7 @@ test('unified paywall keeps crown, checklist before plans, store prices and righ
   for (const radio of radios) assert.match(radio.children[1].props.className, /rounded-full/);
   assert.equal(radios[0].props.accessibilityState.checked, true);
   assert.doesNotMatch(h.text, /Save 28|59.99|Guided mind|Early access/);
-  h.nodes.find(n => n.props.accessibilityLabel === 'Start 7-day free trial').props.onPress();
+  h.nodes.find(n => n.props.accessibilityLabel === 'Start my 7-day free trial').props.onPress();
   assert.deepEqual(h.actions, ['purchase']);
 });
 
@@ -712,7 +721,7 @@ test('unified paid, trial and manual cards use verified rows and outlined manage
       manage[0].props.onPress(); assert.deepEqual(h.actions, ['manage']);
       assert.match(h.text, /Current period ends/);
     }
-    assert.doesNotMatch(h.text, /Renews on|Trial ends|won.t be charged|Start 7-day/);
+    assert.doesNotMatch(h.text, /Renews on|Trial ends|won.t be charged|Start 7-day|START MY 7-DAY|Start my 7-day|free trial ends|first payment/);
   }
 });
 
@@ -837,4 +846,132 @@ test('dedicated scheduled presentation requires current Apple evidence after aut
 test('scheduled Apple state omits an unknown end and never claims future unverified access',()=>{
  const h=screen({status:pro,managedId:'sub-a',memberships:[{...scheduledMembership,cancellation:{state:'scheduled',end:null}}],returnState:'refreshed'});
  assert.match(h.text,/Apple has confirmed/);assert.doesNotMatch(h.text,/Access ends|until this date/);
+});
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const annualTrialPlan = { plan: 'annual', productId: annual, displayPrice: 'GBP 49.99', hasSevenDayTrial: true, trialEligibility: 'eligible' };
+/** Runs fn with the process timezone pinned, restoring the original afterwards. */
+function inTimeZone(zone, fn) {
+  const original = process.env.TZ;
+  process.env.TZ = zone;
+  try { return fn(); } finally { if (original === undefined) delete process.env.TZ; else process.env.TZ = original; }
+}
+/** Independent oracle: the store's end instant rendered in an explicit IANA zone. */
+const storeEndDate = (zone, at) => new Intl.DateTimeFormat('en-GB', { timeZone: zone, day: 'numeric', month: 'long', year: 'numeric' })
+  .format(new Date(at + WEEK_MS));
+
+test('trial disclosure uses the verified seven-day offer, store price and the store trial duration', () => {
+  const { trialDisclosure, TRIAL_DAYS, TRIAL_DURATION_MS } = serviceHarness().api;
+  assert.equal(TRIAL_DAYS, 7); assert.equal(TRIAL_DURATION_MS, WEEK_MS);
+  inTimeZone('Europe/London', () => {
+    const now = new Date('2026-11-23T12:00:00Z');
+    const terms = trialDisclosure(annualTrialPlan, now);
+    assert.equal(terms.trialEndsAt, '2026-11-30T12:00:00.000Z');
+    assert.equal(terms.trialEndsOn, '30 November 2026'); assert.equal(terms.firstPaymentOn, '30 November 2026');
+    assert.equal(terms.price, 'GBP 49.99'); assert.equal(terms.period, 'year');
+    const monthlyTerms = trialDisclosure({ ...annualTrialPlan, plan: 'monthly', productId: monthly, displayPrice: ' GBP 6.99 ' }, now);
+    assert.equal(monthlyTerms.price, 'GBP 6.99'); assert.equal(monthlyTerms.period, 'month');
+    assert.equal(trialDisclosure(annualTrialPlan, new Date('2026-12-28T23:30:00Z')).trialEndsOn, '4 January 2027');
+  });
+});
+
+test('trial end date follows the store instant across UK and international clock changes', () => {
+  const { trialDisclosure } = serviceHarness().api;
+  const cases = [
+    // [zone, purchase instant, expected device-local end date]
+    ['Europe/London', '2026-10-21T23:30:00Z', '28 October 2026'], // 00:30 BST; ends 23:30 GMT after clocks go back
+    ['Europe/London', '2026-03-27T23:30:00Z', '4 April 2026'], // 23:30 GMT; ends 00:30 BST after clocks go forward
+    ['Europe/London', '2026-11-23T23:59:59Z', '30 November 2026'],
+    ['Europe/London', '2026-11-24T00:00:00Z', '1 December 2026'],
+    ['America/New_York', '2026-10-29T04:30:00Z', '4 November 2026'], // 00:30 EDT
+    ['Australia/Sydney', '2026-03-31T13:30:00Z', '7 April 2026'], // 00:30 AEDT
+    ['Australia/Sydney', '2026-09-30T13:30:00Z', '8 October 2026'], // 23:30 AEST
+    ['UTC', '2026-11-23T23:59:59Z', '30 November 2026'],
+  ];
+  for (const [zone, at, expected] of cases) inTimeZone(zone, () => {
+    const terms = trialDisclosure(annualTrialPlan, new Date(at));
+    assert.equal(terms.trialEndsOn, expected, `${zone} ${at}`);
+    assert.equal(terms.firstPaymentOn, expected, `${zone} ${at}`);
+    assert.equal(Date.parse(terms.trialEndsAt) - Date.parse(at), WEEK_MS);
+  });
+});
+
+test('every half hour through clock-change weeks matches the store end instant and expires at the right moment', () => {
+  const { trialDisclosure } = serviceHarness().api;
+  const windows = [
+    ['Europe/London', '2026-10-18T00:00:00Z'], ['Europe/London', '2026-03-22T00:00:00Z'],
+    ['America/New_York', '2026-10-25T00:00:00Z'], ['America/New_York', '2026-03-01T00:00:00Z'],
+    ['Australia/Sydney', '2026-03-29T00:00:00Z'], ['Australia/Sydney', '2026-09-27T00:00:00Z'],
+  ];
+  for (const [zone, from] of windows) inTimeZone(zone, () => {
+    const start = Date.parse(from);
+    for (let at = start; at < start + 2 * WEEK_MS; at += 30 * 60 * 1000) {
+      const terms = trialDisclosure(annualTrialPlan, new Date(at));
+      const label = `${zone} ${new Date(at).toISOString()}`;
+      assert.equal(terms.trialEndsOn, storeEndDate(zone, at), label);
+      assert.ok(terms.validUntil > at, `${label} validity in the future`);
+      // Still correct just before validUntil, and the next date from validUntil onwards.
+      assert.equal(trialDisclosure(annualTrialPlan, new Date(terms.validUntil - 1)).trialEndsOn, terms.trialEndsOn, label);
+      const next = trialDisclosure(annualTrialPlan, new Date(terms.validUntil)).trialEndsOn;
+      assert.notEqual(next, terms.trialEndsOn, label);
+      assert.equal(next, storeEndDate(zone, terms.validUntil), label);
+    }
+  });
+});
+
+test('paywall recalculates trial dates when they expire and when the app returns to the foreground', () => {
+  const effects = [], timers = [], cleared = [], listeners = [];
+  let renders = 0;
+  const appState = { addEventListener: (event, fn) => { listeners.push([event, fn]); return { remove: () => listeners.push(['removed']) }; } };
+  const h = screen({}, {
+    appState,
+    react: { useEffect: (fn, deps) => effects.push({ fn, deps }), useReducer: (_reducer, initial) => [initial, () => { renders += 1; }] },
+    globals: { setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; }, clearTimeout: (id) => cleared.push(id) },
+  });
+  assert.match(h.text, /Your free trial ends on/);
+  const trialEffect = effects.find(({ deps }) => Array.isArray(deps) && deps.length === 1 && typeof deps[0] === 'number');
+  assert.ok(trialEffect, 'trial date effect is registered with its expiry');
+  const before = Date.now();
+  const cleanup = trialEffect.fn();
+  assert.equal(timers.length, 1);
+  const expectedDelay = trialEffect.deps[0] - before + 1000;
+  assert.ok(Math.abs(timers[0].ms - expectedDelay) < 1000, `delay ${timers[0].ms} vs ${expectedDelay}`);
+  assert.ok(timers[0].ms > 0 && timers[0].ms <= 26 * 60 * 60 * 1000);
+  timers[0].fn(); assert.equal(renders, 1);
+  const change = listeners.find(([event]) => event === 'change')[1];
+  change('background'); assert.equal(renders, 1);
+  change('active'); assert.equal(renders, 2);
+  cleanup();
+  assert.deepEqual(cleared, [1]); assert.ok(listeners.some(([event]) => event === 'removed'));
+  // No verified trial: the effect schedules no timer or listener.
+  const idle = [];
+  screen({ products: [{ plan: 'annual', displayPrice: 'GBP 49.99', trialEligibility: 'ineligible', hasSevenDayTrial: true }] },
+    { appState, react: { useEffect: (fn, deps) => idle.push({ fn, deps }) } });
+  const idleEffect = idle.find(({ deps }) => Array.isArray(deps) && deps.length === 1 && deps[0] === null);
+  assert.ok(idleEffect);
+  const count = timers.length;
+  assert.equal(idleEffect.fn(), undefined); assert.equal(timers.length, count);
+});
+
+test('trial disclosure is withheld unless eligibility, offer and price are all verified', () => {
+  const { trialDisclosure } = serviceHarness().api;
+  const base = { plan: 'annual', productId: annual, displayPrice: 'GBP 49.99', hasSevenDayTrial: true, trialEligibility: 'eligible' };
+  const now = new Date(2026, 10, 23);
+  for (const patch of [{ trialEligibility: 'ineligible' }, { trialEligibility: 'unknown' }, { hasSevenDayTrial: false },
+    { displayPrice: '' }, { displayPrice: '   ' }]) assert.equal(trialDisclosure({ ...base, ...patch }, now), null, JSON.stringify(patch));
+  assert.equal(trialDisclosure(undefined, now), null);
+  assert.equal(trialDisclosure(null, now), null);
+  assert.equal(trialDisclosure(base, new Date(Number.NaN)), null);
+});
+
+test('paywall shows trial dates only for an eligible verified offer and never for paid, unknown or Pro states', () => {
+  const offerless = screen({ products: [{ plan: 'annual', displayPrice: 'GBP 49.99', trialEligibility: 'eligible', hasSevenDayTrial: false }] });
+  assert.doesNotMatch(offerless.text, /free trial ends|first payment/);
+  const ineligible = screen({ products: [{ plan: 'annual', displayPrice: 'GBP 49.99', trialEligibility: 'ineligible', hasSevenDayTrial: true }] });
+  assert.match(ineligible.text, /Subscribe/); assert.doesNotMatch(ineligible.text, /free trial ends|first payment|START MY 7-DAY/);
+  for (const status of [pro, { ...pro, status: 'trialing' }, { ...pro, primaryProvider: 'manual' }]) {
+    assert.doesNotMatch(screen({ status }).text, /free trial ends|first payment|START MY 7-DAY/);
+  }
+  const signedOutPrices = screen({ status: null, statusError: 'Could not verify access' });
+  assert.doesNotMatch(signedOutPrices.text, /free trial ends|first payment/);
 });
