@@ -1,6 +1,21 @@
 import type { SavedMeasurement, SavedWeeklyReport } from './weeklyReport';
 
 export const TREND_FALLBACK = 'Building first 7 day trend';
+export const UNRELEASED_REPORT_MESSAGE = 'Reports are published Sundays at 6am UK time.';
+/**
+ * The server found no saved report for a released week. This is also the normal
+ * state before an account's first report, so it never implies one should exist.
+ */
+export const MISSING_REPORT_MESSAGE = 'There’s no saved report for this week yet. Reports are published Sundays from 6am UK time.';
+
+/** Plain-language read failure. Raw reasons, codes and server text are never shown. */
+export function reportReadMessage(reason: string): string {
+  if (reason === 'offline') return 'You’re offline. Reconnect, then try again to load your weekly report.';
+  if (reason === 'authorization_unavailable' || reason === 'entitlement_unavailable' || reason === 'account_changed') {
+    return 'We couldn’t confirm your account to load this report. Please try again.';
+  }
+  return 'We couldn’t load your weekly report. Please try again.';
+}
 export const displayReportValue = (value?: SavedMeasurement) =>
   value?.state === 'available' ? String(Math.round(value.value)) : '—';
 
