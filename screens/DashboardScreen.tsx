@@ -771,7 +771,15 @@ useEffect(() => {
                       ? `${weeklyWorkout.duration_mins} min · ${weeklyWorkout.exercises.length} ${
                           weeklyWorkout.exercises.length === 1 ? 'move' : 'moves'
                         }`
-                      : 'No workout scheduled this week. Explore the workout library to find something that works for you.'
+                      // Only claim "no workout" once the assignment is known; a failure is shown, and while
+                      // loading the copy stays neutral (no "checking" text, as approved in 18e921a).
+                      : workoutError
+                        ? "Couldn't load this week's workout. Pull to refresh."
+                        : assignmentKnown
+                          ? 'No workout scheduled this week. Explore the workout library to find something that works for you.'
+                          : isOffline
+                            ? 'Connect to the internet to check this week’s workout.'
+                            : 'Explore the workout library to find something that works for you.'
                   }
                   hasWorkout={Boolean(weeklyWorkout?.id)}
                   onPress={() =>

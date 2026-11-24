@@ -21,8 +21,8 @@ test('entitlement verification errors stay off Body and appear only after explic
     readMobile('screens/subscreens/MealPlannerScreen.tsx'),
   ]);
   assert.doesNotMatch(body, /fitnessLibrary\.proError|Unable to confirm Dad Health Pro access/);
-  assert.match(body, /AI Workout access/);
-  assert.match(body, /Meal Planner access/);
+  // 61cfc6d reworded the access rows; both still show the verification message only after a manual check.
+  assert.equal((body.match(/message=\{accessCheckAttempted \? entitlement\.verificationMessage : null\}/g) ?? []).length, 2);
   assert.match(body, /Check access/);
   assert.match(hook, /verificationMessage: !loading && isPro === null/);
   for (const screen of [ai, meals]) {
@@ -38,7 +38,8 @@ test('dashboard ignores responses from prior login identity after logout or acco
   assert.match(dashboard, /inFlightByUser\.clear\(\)/);
   assert.match(dashboard, /dashboardIdentityVersion !== identityVersion/);
   assert.match(dashboard, /if \(!userId\)[\s\S]*?setStore\(\{ userId: null, data: null, loading: false/);
-  assert.match(dashboard, /postsResult,[\s\S]*?subscriptionStatus,[\s\S]*?loadNativeSubscriptionStatus\(\)\.catch\(\(\) => null\)/);
+  // a37a846: a failed status read is recorded as failed (unknown), never silently treated as Free.
+  assert.match(dashboard, /postsResult,[\s\S]*?subscriptionStatusResult,[\s\S]*?loadNativeSubscriptionStatus\(\)\.then\(\s*\(status\) => \(\{ status, failed: false \}\),\s*\(\) => \(\{ status: null, failed: true \}\),/);
 });
 
 test('Today uses Body workout source and separates assignment loading, empty and failure states', async () => {
@@ -47,9 +48,13 @@ test('Today uses Body workout source and separates assignment loading, empty and
     readMobile('screens/DashboardScreen.tsx'),
   ]);
   assert.doesNotMatch(dashboard, /suggestedWorkout/);
-  assert.match(today, /useFitnessLibrary\(user\.id\)/);
+  assert.match(today, /useFitnessLibrary\(user\.id, activeSection === 'HOME'/);
   assert.match(today, /workoutError/);
-  assert.match(today, /Checking this week's workout/);
+  // The Today's workout card claims "no workout" only once the assignment is known (fixed 2026-11-24).
+  const card = today.slice(today.indexOf('<TodayWorkoutCard'), today.indexOf('hasWorkout=', today.indexOf('<TodayWorkoutCard')));
+  const order = ["workoutError", "Couldn't load this week's workout", 'assignmentKnown', 'No workout scheduled this week', 'isOffline', "'Explore the workout library to find something that works for you.'"].map((text) => card.indexOf(text));
+  order.forEach((index) => assert.ok(index > 0, card));
+  for (let i = 1; i < order.length; i += 1) assert.ok(order[i] > order[i - 1], 'workout card states are out of order');
   assert.match(today, /No workout has been assigned this week yet/);
   assert.match(today, /else navigation\.navigate\('Tabs', \{ screen: 'Fit' \}\)/);
 });
