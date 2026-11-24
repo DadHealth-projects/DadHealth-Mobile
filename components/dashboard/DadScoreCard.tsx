@@ -87,7 +87,7 @@ function DadScoreCard({
               style={{ fontSize: ringScoreFontSize, lineHeight: ringScoreFontSize }}
               className="font-heading text-dark"
             >
-              {lockedValues ? <Feather name="lock" size={22} color="#080808" /> : scoreUnavailable ? '—' : baselineBuilding ? <Text className="font-heading text-dark/75 text-[30px] leading-[34px] text-center">·</Text> : score ?? missingScore}
+              {lockedValues ? <Feather name="lock" size={22} color="#080808" /> : scoreUnavailable ? '—' : score ?? missingScore}
             </Text>
 
             <Text adjustsFontSizeToFit numberOfLines={1} className="font-heading-bold text-dark/75 text-[11px] tracking-[1.5px] uppercase">
@@ -97,7 +97,7 @@ function DadScoreCard({
         ) : (
           <View>
             <Text className="font-heading text-dark" style={{ fontSize: compactWidth ? 60 : 66, lineHeight: compactWidth ? 58 : 64 }}>
-              {lockedValues ? <Feather name="lock" size={28} color="#080808" /> : scoreUnavailable ? '—' : baselineBuilding ? <Text className="font-heading text-dark/75 text-[34px] leading-[38px] text-center">·</Text> : score ?? missingScore}
+              {lockedValues ? <Feather name="lock" size={28} color="#080808" /> : scoreUnavailable ? '—' : score ?? missingScore}
             </Text>
             <Text className="font-heading-bold text-dark/75 text-[11px] tracking-[1.5px] uppercase">
               {scoreLabel}
@@ -123,6 +123,8 @@ function DadScoreCard({
 
           {items.map((item) => {
             const trend = formatScoreTrend(item.trend);
+            // Scores show from day one; week-on-week trends and the comparison-based
+            // warning wait for the server's baseline.
             const showTrend = !baselineBuilding && (item.trend != null || item.showNeutralTrend);
             const showWarning = !baselineBuilding && item.warning;
             return (
@@ -149,10 +151,6 @@ function DadScoreCard({
                   <Feather name="lock" size={11} color="#080808" />
                 ) : scoreUnavailable ? (
                   <Text className="font-heading-bold text-dark/75 text-[10px]">—</Text>
-                ) : baselineBuilding ? (
-                  <View className="h-[14px] w-[14px] items-center justify-center">
-                    <Text className="font-heading-bold text-dark/75 text-[16px] leading-[14px] text-center">·</Text>
-                  </View>
                 ) : item.value === null ? (
                   missingItemValue ? (
                     <Text className="font-heading-bold text-dark/75 text-[10px]">{missingItemValue}</Text>
@@ -173,7 +171,7 @@ function DadScoreCard({
                 )}
               </View>
 
-              {!baselineBuilding ? <View className="h-[5px] rounded-full bg-dark/10 overflow-hidden">
+              <View className="h-[5px] rounded-full bg-dark/10 overflow-hidden">
                 {item.value !== null && !scoreUnavailable ? (
                   <View
                     className="h-full rounded-full bg-dark"
@@ -182,7 +180,7 @@ function DadScoreCard({
                     }}
                   />
                 ) : null}
-              </View> : null}
+              </View>
             </View>
           );})}
             </>

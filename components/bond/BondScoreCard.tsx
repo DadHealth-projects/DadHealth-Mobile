@@ -6,8 +6,9 @@ import { colors } from '../../theme';
 import { formatScoreTrend } from '../../lib/scoreTrends';
 
 function BondScoreCard({ score, trend, scoreUnavailable = false, baselineBuilding = false }: { score: number | null; trend: number | null; scoreUnavailable?: boolean; baselineBuilding?: boolean }) {
-  const value = Math.round(score ?? 0);
-  const progress = Math.min(100, Math.max(0, value));
+  // A missing score is shown as unknown, never as a fabricated 0.
+  const value = score === null || !Number.isFinite(score) ? null : Math.round(score);
+  const progress = value === null ? 0 : Math.min(100, Math.max(0, value));
   const formattedTrend = formatScoreTrend(trend);
 
   return (
@@ -15,7 +16,7 @@ function BondScoreCard({ score, trend, scoreUnavailable = false, baselineBuildin
       <View className="flex-row items-center gap-lg">
         <View>
           <Text className="font-heading text-dark text-[56px] leading-[52px]">
-            {scoreUnavailable ? '—' : baselineBuilding ? <Text className="font-heading text-dark/75 text-[34px] leading-[38px] text-center">·</Text> : value}
+            {scoreUnavailable || value === null ? '—' : value}
           </Text>
           <Text className="font-heading-bold text-dark/75 text-[10px] tracking-[1.5px] uppercase">out of 100</Text>
         </View>
@@ -25,9 +26,9 @@ function BondScoreCard({ score, trend, scoreUnavailable = false, baselineBuildin
             <Text className="font-heading-bold text-dark text-[13px] tracking-[0.5px] uppercase">Bond score</Text>
             {!scoreUnavailable && !baselineBuilding ? <Text className="font-heading-bold text-dark text-[11px]">{formattedTrend.arrow}{formattedTrend.change == null ? '' : ` ${formattedTrend.change} pts`}</Text> : null}
           </View>
-          {!baselineBuilding ? <View className="h-[5px] rounded-full bg-dark/10 overflow-hidden">
-            <View className="h-full rounded-full bg-dark" style={{ width: `${progress}%` }} />
-          </View> : null}
+          <View className="h-[5px] rounded-full bg-dark/10 overflow-hidden">
+            {!scoreUnavailable && value !== null ? <View className="h-full rounded-full bg-dark" style={{ width: `${progress}%` }} /> : null}
+          </View>
         </View>
       </View>
       {!scoreUnavailable && baselineBuilding ? <Text accessibilityLiveRegion="polite" className="font-heading-bold text-dark/70 text-[14px] leading-[20px] tracking-label uppercase mt-md text-center">Building first 7 day trend</Text> : null}

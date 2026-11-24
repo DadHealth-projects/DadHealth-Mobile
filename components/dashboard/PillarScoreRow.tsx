@@ -17,31 +17,31 @@ export default function PillarScoreRow({
   baselineBuilding?: boolean;
 }) {
   const formattedTrend = formatScoreTrend(trend);
+  // A missing score is shown as unknown, never as a fabricated 0.
+  const value = score === null || !Number.isFinite(score) ? null : Math.round(score);
 
   return (
     <View
-      accessibilityLabel={scoreUnavailable
+      accessibilityLabel={scoreUnavailable || value === null
         ? `${pillar} score unavailable`
         : baselineBuilding
-          ? `${pillar} score. Building first 7 day trend`
-          : `${pillar} score ${score ?? 0} percent, trend ${formattedTrend.arrow}${formattedTrend.change == null ? '' : ` ${formattedTrend.change} points`}`}
+          ? `${pillar} score ${value} percent. Building first 7 day trend`
+          : `${pillar} score ${value} percent, trend ${formattedTrend.arrow}${formattedTrend.change == null ? '' : ` ${formattedTrend.change} points`}`}
       className="min-h-[42px] flex-row items-center justify-between border-b border-border"
     >
       <Text className="font-heading-bold text-muted-text text-[11px] uppercase tracking-label">{pillar} score</Text>
       <View className="flex-row items-center gap-sm">
-        {scoreUnavailable ? (
+        {scoreUnavailable || value === null ? (
           <Text className="font-heading-bold text-white text-[14px]">—</Text>
-        ) : baselineBuilding ? (
-          <View className="flex-row items-center gap-xs">
-            <Text className="font-heading-bold text-muted-text/60 text-[20px] leading-[18px]">·</Text>
-            <Text numberOfLines={2} className="max-w-[154px] text-right font-heading-bold text-muted-text text-[10px]">
-              Building first 7 day trend
-            </Text>
-          </View>
         ) : (
-          <Text className="font-heading-bold text-white text-[14px]">{`${Math.round(score ?? 0)}%`}</Text>
+          <Text className="font-heading-bold text-white text-[14px]">{`${value}%`}</Text>
         )}
-        {!scoreUnavailable && !baselineBuilding ? (
+        {!scoreUnavailable && value !== null && baselineBuilding ? (
+          <Text numberOfLines={2} className="max-w-[154px] text-right font-heading-bold text-muted-text text-[10px]">
+            Building first 7 day trend
+          </Text>
+        ) : null}
+        {!scoreUnavailable && value !== null && !baselineBuilding ? (
           <Text className="font-heading-bold text-lime text-[13px]">
             {formattedTrend.arrow}{formattedTrend.change == null ? '' : ` ${formattedTrend.change} pts`}
           </Text>
