@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNetworkStatus } from '../contexts/NetworkContext';
 import { supabase } from '../lib/supabase';
+import { reminderTimeError } from '../lib/reminderTime';
 
 export type NotificationType = 'morning_checkin' | 'lowest_pillar' | 'trial_ending' | 'community_like' | 'bedtime_story' | 'workout_window' | 'weekly_score' | 'streak_at_risk' | 'weekly_challenge' | 'journal_prompt' | 'milestone_anniversary' | 'community_reply' | 'co_parent_event_added' | 'present_dad_mode_complete';
 export type NotificationPreference = { notification_type: NotificationType; enabled: boolean; send_time: string | null };
@@ -60,14 +61,11 @@ export function useNotificationSettings(userId?: string) {
     () => supabase.from('user_profile').update({ timezone }).eq('user_id', userId!),
     () => update({ timezone })), [write, userId, update]);
   const upsertPreference = useCallback((type: NotificationType, enabled: boolean, sendTime: string | null) => {
-    if (
-  enabled &&
-  type === 'morning_checkin' &&
-  sendTime !== null &&
-  !/^(?:0[89]|1[0-9]|20):(?:00|15|30|45):00$/.test(sendTime)
-) {
-  return Promise.resolve('Choose a time between 08:00 and 20:45.');
-}
+    // Only schedulable reminder times are saved; the reason is stated, never silently corrected.
+    if (enabled && type === 'morning_checkin' && sendTime !== null) {
+      const invalid = reminderTimeError(sendTime);
+      if (invalid) return Promise.resolve(invalid);
+    }
     const time = type === 'morning_checkin' ? sendTime ?? '08:00:00' : sendTime;
     return write(type, () => supabase.from('notification_preferences').upsert({ user_id: userId!, notification_type: type, enabled, send_time: time }, { onConflict: 'user_id,notification_type' }),
       () => setStored(previous => ({ scope, value: { ...(previous.scope === scope ? previous.value : empty), preferences: [

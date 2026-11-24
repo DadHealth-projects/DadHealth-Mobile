@@ -13,6 +13,7 @@ import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { useNotificationSettings, type NotificationType } from '../../hooks/useNotificationSettings';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { colors } from '../../theme';
+import { REMINDER_TIMES } from '../../lib/reminderTime';
 import { requestPushPermission } from '../../lib/pushNotifications';
 
 const TYPES: Array<{ type: NotificationType; title: string; description: string; linkLabel: string; needsTime?: boolean; timeHint?: string }> = [
@@ -130,9 +131,7 @@ export default function NotificationSettingsScreen() {
           </View>
         </>}
 
-        {pickerType === 'morning_checkin' ? <ScrollView className="max-h-[220px] border-y border-border">{Array.from({ length: 52 }, (_, index) => {
-          const minutes = 8 * 60 + index * 15;
-          const time = String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0') + ':00';
+        {pickerType === 'morning_checkin' ? <ScrollView className="max-h-[220px] border-y border-border">{REMINDER_TIMES.map((time) => {
           return <Pressable key={time} accessibilityRole="button" onPress={() => { setPickerType(null); void saveTime('morning_checkin', timeToDate(time)); }} className="min-h-[44px] justify-center border-b border-border"><Text className="font-body text-white">{time.slice(0, 5)}</Text></Pressable>;
         })}</ScrollView> : pickerType ? <View className="border-y border-border py-md"><DateTimePicker value={pickerValue} mode="time" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onPickerChange} />{Platform.OS === 'ios' ? <Pressable onPress={() => { const type = pickerType; setPickerType(null); void saveTime(type, pickerValue); }} className="min-h-[44px] items-center justify-center border-y border-lime/30"><Text className="font-heading-bold text-lime text-[11px] uppercase">Done</Text></Pressable> : null}</View> : null}
         {!isOffline && message ? <Text accessibilityRole="alert" className="font-body text-tertiary-text text-[14px]">{message}</Text> : null}
