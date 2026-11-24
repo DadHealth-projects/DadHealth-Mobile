@@ -139,7 +139,20 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
 
             <View>
               <SectionHeader title="Badges" className="mb-sm" />
-              {badgeData.loading ? <Text className="font-body text-muted-text text-[14px]">Loading badges…</Text> : badgeData.earnedCount === 0 ? (
+              {badgeData.loading ? <Text className="font-body text-muted-text text-[14px]">Loading badges…</Text> : badgeData.catalogue.length > 0 ? (
+                <View className="gap-sm">
+                  {badgeData.earnedCount === 0 ? <Text className="font-body text-muted-text text-[14px] leading-[20px]">Complete a check-in or log an activity to earn your first badge.</Text> : null}
+                  <View className="flex-row flex-wrap gap-sm">
+                    {badgeData.catalogue.map((badge) => (
+                      <View key={badge.id} accessible accessibilityLabel={`${badge.name}, ${badge.earned ? 'earned' : 'locked'}`}
+                        className={`min-h-[66px] basis-[31%] grow items-center justify-center border px-xs py-xs ${badge.earned ? 'border-lime/20' : 'border-border opacity-40'}`}>
+                        <Text className="text-[18px]">{badge.icon}</Text>
+                        <Text className={`font-heading-bold text-[11px] uppercase text-center mt-xs ${badge.earned ? 'text-lime' : 'text-muted-text'}`}>{badge.name}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : badgeData.earnedCount === 0 ? (
                 <View className="flex-row items-center gap-sm border-y border-border py-sm">
                   <Text className="text-[22px]">{badgeData.badges[0]?.icon ?? '🏅'}</Text>
                   <View className="flex-1">
