@@ -81,12 +81,17 @@ test('Pro gets admin plus owned generated workouts; Free gets only assigned work
   assert.deepEqual(Array.from(modal(h.result, false).visible, (item) => item.id), ['weekly']); h.unmount();
 });
 
-test('unknown access never exposes Pro rows or claims empty; Retry verifies access', async () => {
-  const h = harness(); h.replies.assignment = { data: null, error: null }; await h.settle();
-  const view = modal(h.result, null);
-  assert.equal(view.visible.length, 0); assert.match(view.text, /verify your access/);
+// Since 3babd6e a signed-in account's library access is boolean: anything short of a confirmed Pro
+// entitlement uses the restricted view, so unknown access can never expose Pro rows.
+test('unknown access never exposes Pro rows or claims the full library is empty', async () => {
+  const source = read('screens/FitnessScreen.tsx');
+  assert.match(source, /const workoutLibraryAccess = hasUser\s*\? entitlement\.can\('workout_library'\) === true\s*\? true\s*: false\s*: null;/);
+  const h = harness(); await h.settle();
+  const view = modal(h.result, false);
+  assert.ok(view.visible.length > 0);
+  assert.ok(view.visible.every((item) => item.source === 'admin' && (item.access_level === 'free' || item.id === h.result.weeklyWorkout?.id)), 'restricted view shows no Pro rows');
   assert.doesNotMatch(view.text, /No workouts are available yet/);
-  view.nodes.find((node) => node.props.label === 'Retry').props.onPress(); assert.deepEqual(view.actions, ['access']); h.unmount();
+  h.unmount();
 });
 
 test('successful zero rows is genuine empty; failed query offers library Retry and recovers', async () => {

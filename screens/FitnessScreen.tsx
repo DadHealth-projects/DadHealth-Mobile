@@ -403,7 +403,13 @@ export default function FitnessScreen({
                   <View className="gap-sm py-sm">
                     {[0, 1, 2].map((item) => <View key={item} className="h-[64px] rounded-button bg-white/5" />)}
                   </View>
-                ) : libraryProblem ? null : (
+                ) : libraryProblem && !fitnessLibrary.isOffline ? (
+                  // The screen toast is muted while this sheet is open, so the sheet states the failure itself.
+                  <View className="py-md gap-sm">
+                    <Text className="font-body text-muted-text text-[14px] leading-[19px]">{libraryProblem}</Text>
+                    <LimeButton label="Try again" onPress={() => void refreshLibrary()} />
+                  </View>
+                ) : (
                   <View className="py-md">
                     <Text className="font-body text-muted-text text-[14px] leading-[19px]">
                       {fitnessLibrary.isOffline
