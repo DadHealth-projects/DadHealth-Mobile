@@ -25,9 +25,10 @@ test('feed, trending, posts, comments and nested replies use privacy-filtered au
     read('../screens/CommunityScreen.tsx'),
   ]);
   assert.match(avatarLoader, /p_post_ids: postIds, p_comment_ids: commentIds/);
-  assert.match(feed, /avatar_url: row\.anonymous === true \? null : avatarUrls\.get\(String\(row\.id\)\)/);
+  // Removed (tombstoned) contributions also carry no photo since the moderation work (6ee3f50).
+  assert.match(feed, /avatar_url: row\.removed_at \|\| row\.anonymous === true \? null : avatarUrls\.get\(String\(row\.id\)\)/);
   assert.match(postDetails, /avatar_url: row\.anonymous === true \? null : avatarUrls\.get\(String\(row\.id\)\)/);
-  assert.match(postDetails, /avatar_url: anonymous \? null : avatarUrls\.get\(id\)/);
+  assert.match(postDetails, /avatar_url: item\.removed_at \|\| anonymous \? null : avatarUrls\.get\(id\)/);
   assert.match(postDetails, /CommunityAuthorAvatar avatarUrl=\{comment\.avatar_url\}/);
   assert.match(community, /CommunityAuthorAvatar avatarUrl=\{post\.avatar_url\}/);
   assert.match(community, /anonymous: row\.anonymous === true/);

@@ -20,6 +20,7 @@ import { useCommunityFeed } from '../hooks/useCommunityFeed';
 import { useCommunityPresence } from '../hooks/useCommunityPresence';
 import { communityTagLabel } from '../lib/communityLabels';
 import CommunityAuthorAvatar from '../components/community/CommunityAuthorAvatar';
+import CommunityActionsMenu from '../components/community/CommunityActionsMenu';
 import { loadCommunityAuthorAvatars, loadCommunityOfficialAuthors } from '../lib/communityAuthorAvatars';
 import { colors } from '../theme';
 import type { AppStackParamList } from '../navigation/AppNavigator';
@@ -302,8 +303,10 @@ export default function CommunityScreen({
               <View className="bg-lime px-sm py-xs">
                 <Text className="font-heading-bold text-dark text-[11px] uppercase">{communityTagLabel(post.tag)}</Text>
               </View>
+              {post.ownershipKnown ? <CommunityActionsMenu target={{ kind: 'post', id: post.post_id }} own={post.own} /> : null}
             </View>
             <View className="flex-row items-center gap-sm">
+              <CommunityAuthorAvatar avatarUrl={post.avatar_url} initials={post.author_initials} anonymous={post.anonymous} size="comment" />
               <Text className="font-heading-bold text-white text-[11px]">{post.official ? 'Dad Health' : post.author_name}</Text>{post.official ? <Text className="font-heading-bold text-lime text-[12px] uppercase">Official</Text> : null}
             </View>
             <Text numberOfLines={2} className="font-body text-white text-[14px] leading-[21px]">{post.content}</Text>
