@@ -26,7 +26,7 @@ export default function PillarScoreRow({
         ? `${pillar} score unavailable`
         : baselineBuilding
           ? `${pillar} score ${value} percent. Building first 7 day trend`
-          : `${pillar} score ${value} percent, trend ${formattedTrend.arrow}${formattedTrend.change == null ? '' : ` ${formattedTrend.change} points`}`}
+          : `${pillar} score ${value} percent, trend ${formattedTrend.arrow}${formattedTrend.change == null ? '' : ` ${formattedTrend.change} ${formattedTrend.change === 1 ? 'point' : 'points'}`}`}
       className="min-h-[42px] flex-row items-center justify-between border-b border-border"
     >
       <Text className="font-heading-bold text-muted-text text-[11px] uppercase tracking-label">{pillar} score</Text>

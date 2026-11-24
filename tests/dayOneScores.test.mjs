@@ -112,6 +112,14 @@ test('Mind and Body rows show the rounded score from day one with the baseline m
   }
 });
 
+test('pillar trend label uses the right plural for screen readers', () => {
+  const label = (trend) => PillarScoreRow({ pillar: 'Body', score: 60, trend, baselineBuilding: false }).props.accessibilityLabel;
+  assert.equal(label(1), 'Body score 60 percent, trend ↑ 1 point');
+  assert.equal(label(-1), 'Body score 60 percent, trend ↓ 1 point');
+  assert.equal(label(4), 'Body score 60 percent, trend ↑ 4 points');
+  assert.equal(label(0), 'Body score 60 percent, trend → 0 points');
+});
+
 test('Bond card shows the score and bar from day one; trends wait; missing and failed reads are "—"', () => {
   const dayOne = BondScoreCard({ score: 18.4, trend: 6, baselineBuilding: true });
   const shown = texts(dayOne);
