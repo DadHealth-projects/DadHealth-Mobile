@@ -23,12 +23,21 @@ function harness(overrides={}) {
  h.render=()=>{cursor=0;pending=[];h.tree=exports.default(h.props);pending.forEach(f=>f());h.nodes=[];h.text='';function walk(n){if(Array.isArray(n))return n.forEach(walk);if(typeof n==='string'||typeof n==='number'){h.text+=n+' ';return;}if(n&&typeof n==='object'){h.nodes.push(n);walk(n.children);}}walk(h.tree);};
  h.press=label=>{const n=h.nodes.find(n=>n.props.accessibilityLabel===label);assert.ok(n,`Missing ${label}: ${h.text}`);assert.ok(!n.props.disabled,`Disabled ${label}`);n.props.onPress();h.render();};
  h.next=()=>h.press('Continue');h.flush=async()=>{await tick();h.render();};h.unmount=()=>effects.forEach(e=>e?.cleanup?.());
- h.toHandoff=(reason='Other')=>{h.next();h.press(reason);h.next();h.next();};h.render();return h;
+ h.toHandoff=(reason='Other')=>{h.press(reason);h.next();};h.render();return h;
 }
 for(const reason of ['Too expensive','Not using it enough','Missing a feature','Technical problem','Other'])test(`cancellation accepts ${reason} with optional empty feedback`,async()=>{
  const h=harness();h.toHandoff(reason);h.press('Continue to Apple');await h.flush();assert.equal(h.saves.length,1);assert.equal(h.saves[0][1].details,'');assert.deepEqual(h.opens,['sub-a']);assert.match(h.text,/Thanks for/);assert.doesNotMatch(h.text,/Cancellation Scheduled/);h.unmount();
 });
-test('text is capped at 1000 and chevron preserves steps',()=>{const h=harness();h.next();h.press('Other');h.next();const input=h.nodes.find(n=>n.type==='TextInput');assert.equal(input.props.maxLength,1000);input.props.onChangeText('a'.repeat(1001));h.render();assert.equal(h.nodes.find(n=>n.type==='TextInput').props.value.length,1000);h.press('Go back');assert.match(h.text,/Tell us why/);h.press('Go back');h.press('Go back');assert.equal(h.closes,1);h.unmount();});
+test('brief 01: one screen asks why, with all five reasons and optional free text together',async()=>{
+ const h=harness();assert.match(h.text,/Tell us why/);assert.match(h.text,/main reason for cancelling/);
+ for(const label of ['Too expensive','Not using it enough','Missing a feature','Technical problem','Other'])assert.ok(h.nodes.some(n=>n.props.accessibilityLabel===label&&n.props.accessibilityRole==='radio'),label);
+ assert.ok(h.nodes.some(n=>n.type==='TextInput'&&n.props.accessibilityLabel==='Optional feedback'),'free text is on the same screen');
+ assert.ok(h.nodes.find(n=>n.props.accessibilityLabel==='Continue').props.disabled,'a reason is required before continuing');
+ h.press('Other');h.nodes.find(n=>n.type==='TextInput').props.onChangeText('  synthetic reason text  ');h.render();h.next();
+ assert.match(h.text,/Manage with/);assert.ok(!h.nodes.some(n=>n.type==='TextInput'),'no second feedback screen');
+ h.press('Continue to Apple');await h.flush();assert.equal(h.saves[0][1].reason,'other');assert.equal(h.saves[0][1].details,'synthetic reason text');h.unmount();
+});
+test('text is capped at 1000 and chevron preserves steps',()=>{const h=harness();h.press('Other');const input=h.nodes.find(n=>n.type==='TextInput');assert.equal(input.props.maxLength,1000);input.props.onChangeText('a'.repeat(1001));h.render();assert.equal(h.nodes.find(n=>n.type==='TextInput').props.value.length,1000);h.next();assert.match(h.text,/Manage with/);h.press('Go back');assert.match(h.text,/Tell us why/);assert.equal(h.nodes.find(n=>n.type==='TextInput').props.value.length,1000,'answer kept when going back');h.press('Go back');assert.equal(h.closes,1);h.unmount();});
 test('rapid taps save once; uncertain retry reuses exact payload and bypass remains available',async()=>{
  const h=harness();const gate=deferred();h.save=async(...args)=>{h.saves.push(args);await gate.promise;};h.toHandoff();const action=h.nodes.find(n=>n.props.accessibilityLabel==='Continue to Apple');action.props.onPress();action.props.onPress();assert.equal(h.saves.length,1);gate.reject(Error('lost response'));await h.flush();assert.doesNotMatch(h.text,/Thanks for/);
  h.save=async(...args)=>{h.saves.push(args);throw Error('offline');};h.press('Retry');await h.flush();assert.deepEqual(h.saves[0],h.saves[1]);h.press('Continue without saving feedback');await h.flush();assert.equal(h.opens.length,1);assert.equal(h.closes,1);h.unmount();

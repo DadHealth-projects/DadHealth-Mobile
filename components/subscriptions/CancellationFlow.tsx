@@ -18,9 +18,10 @@ type Props = {
   refresh(): Promise<boolean>; manage(id: string): Promise<boolean>; onClose(): void;
   returnState: string; offline: boolean;
 };
-type Step = 'intro' | 'reason' | 'feedback' | 'handoff' | 'receipt';
+// Brief 01: after "Cancel subscription", one screen asks why (five reasons plus optional free text).
+type Step = 'reason' | 'handoff' | 'receipt';
 export default function CancellationFlow({ owner, subscriptions, loading, loadError, refresh, manage, onClose, returnState, offline }: Props) {
-  const [step, setStep] = useState<Step>('intro');
+  const [step, setStep] = useState<Step>('reason');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reason, setReason] = useState<CancellationReason | null>(null);
   const [details, setDetails] = useState('');
@@ -42,8 +43,8 @@ export default function CancellationFlow({ owner, subscriptions, loading, loadEr
   const back = () => {
     if (busy) return;
     setError(null);
-    if (step === 'intro' || step === 'receipt') onClose();
-    else setStep(step === 'handoff' ? 'feedback' : step === 'feedback' ? 'reason' : 'intro');
+    if (step === 'reason' || step === 'receipt') onClose();
+    else setStep('reason');
   };
   const handoff = async (save: boolean) => {
     const current = scope.current;
@@ -78,11 +79,9 @@ export default function CancellationFlow({ owner, subscriptions, loading, loadEr
     } finally { current.busy = false; if (valid()) setBusy(false); }
   };
   const title = !selected && eligible.length > 1 ? 'Choose subscription'
-    : step === 'intro' ? 'Cancel\nSubscription' : step === 'reason' ? 'Tell us why'
-    : step === 'feedback' ? 'Your feedback' : step === 'handoff' ? `Manage with\n${provider ?? 'your provider'}` : 'Thanks for\nyour feedback';
-  const description = step === 'intro' ? 'We’re sorry to see you go. Before you continue, could you let us know the main reason for cancelling?'
-    : step === 'reason' ? 'What’s the main reason for cancelling?'
-    : step === 'feedback' ? 'Is there anything else you’d like to share? (Optional)'
+    : step === 'reason' ? 'Tell us why'
+    : step === 'handoff' ? `Manage with\n${provider ?? 'your provider'}` : 'Thanks for\nyour feedback';
+  const description = step === 'reason' ? 'We’re sorry to see you go. What’s the main reason for cancelling?'
     : step === 'handoff' ? `You’ll be taken to Apple’s subscription settings to cancel your Dad Health subscription.`
     : 'We’ve received your feedback. You can manage your subscription anytime with your provider.';
   return (
@@ -116,9 +115,12 @@ export default function CancellationFlow({ owner, subscriptions, loading, loadEr
             <View className={`h-[20px] w-[20px] rounded-full border items-center justify-center ${reason === item.value ? 'border-lime' : 'border-white/70'}`}>{reason === item.value ? <View className="h-[10px] w-[10px] rounded-full bg-lime" /> : null}</View>
           </Pressable>
         ))}</View> : null}
-        {selected && step === 'feedback' ? <View className="rounded-[16px] border border-white/50 bg-card p-md">
+        {selected && step === 'reason' ? <View className="gap-sm">
+          <Text className="font-body text-white text-[14px]">Anything else you’d like to share? (Optional)</Text>
+          <View className="rounded-[16px] border border-white/50 bg-card p-md">
           <TextInput value={details} onChangeText={text => setDetails(text.slice(0,1000))} editable={!locked} maxLength={1000} multiline textAlignVertical="top" placeholder="Tell us more..." placeholderTextColor="#FFFFFF" accessibilityLabel="Optional feedback" className="min-h-[180px] font-body text-white text-[15px]" />
           <Text className="font-body text-white text-[12px] text-right">{details.length} / 1,000</Text>
+          </View>
         </View> : null}
         {selected && (step === 'handoff' || step === 'receipt') ? <View className="rounded-[16px] bg-card p-md gap-md">
           <Row label="Provider" value={provider!} />
@@ -134,9 +136,7 @@ export default function CancellationFlow({ owner, subscriptions, loading, loadEr
         {offline ? <Text className="font-body text-white text-[14px]">Reconnect to continue with your provider.</Text> : null}
         <View className="flex-1" />
         {selected ? <View className="gap-sm">
-          {step === 'intro' ? <Action label="Continue" onPress={() => { setSelectedId(selected.id); setStep('reason'); }} disabled={!selected.canCancel} /> : null}
-          {step === 'reason' ? <Action label="Continue" disabled={!reason} onPress={() => setStep('feedback')} /> : null}
-          {step === 'feedback' ? <Action label="Continue" onPress={() => setStep('handoff')} /> : null}
+          {step === 'reason' ? <Action label="Continue" disabled={!reason || !selected.canCancel} onPress={() => { setSelectedId(selected.id); setStep('handoff'); }} /> : null}
           {step === 'handoff' ? <Action label={error ? 'Retry' : `Continue to ${provider}`} disabled={busy || offline} onPress={() => void handoff(true)} /> : null}
           {error && step === 'handoff' ? <Action outlined label="Continue without saving feedback" disabled={busy || offline} onPress={() => void handoff(false)} /> : null}
           {step === 'receipt' && error ? <Action label={`Continue to ${provider}`} disabled={busy || offline} onPress={() => void handoff(false)} /> : null}
