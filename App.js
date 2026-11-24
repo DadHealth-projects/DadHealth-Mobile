@@ -27,6 +27,7 @@ import AppleHealthManager from './components/AppleHealthManager';
 import HealthConnectManager from './components/HealthConnectManager';
 import Splash from './components/Splash';
 import OfflineSyncManager from './components/OfflineSyncManager';
+import TimezoneSyncManager from './components/TimezoneSyncManager';
 import GlobalConnectivityToast from './components/GlobalConnectivityToast';
 import OfflineStatusBanner from './components/OfflineStatusBanner';
 import { attachPushNavigation, notificationRouteChanged } from './lib/pushNotifications';
@@ -120,6 +121,7 @@ function AppContent() {
         <AuthProvider>
           <NotificationInboxProvider>
           <OfflineSyncManager />
+          <TimezoneSyncManager />
           <OfflineStatusBanner>
             <NavigationContainer
               onStateChange={() => notificationRouteChanged(navigationRef.getCurrentRoute()?.params?.notificationOperation, navigationRef.getCurrentRoute()?.key)}
