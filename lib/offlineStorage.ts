@@ -79,7 +79,7 @@ const queueLocks = new Map<string, Promise<void>>();
 const privateWriteLocks = new Map<string, Promise<void>>();
 const blockedPrivateUsers = new Set<string>();
 
-function privateKey(userId: string, name: 'dashboard' | 'journal' | 'community' | 'community_v2' | 'community_v3' | 'queue') {
+function privateKey(userId: string, name: 'dashboard' | 'journal' | 'community' | 'community_v2' | 'community_v3' | 'queue' | 'badges_seen') {
   return `${PREFIX}.private.${userId}.${name}`;
 }
 
@@ -386,8 +386,19 @@ export async function clearPrivateOfflineData(userId: string): Promise<void> {
     privateKey(userId, 'community_v3'),
     communityInvalidKey(userId),
     privateKey(userId, 'queue'),
+    privateKey(userId, 'badges_seen'),
   ]);
   await AsyncStorage.removeItem(communityPendingKey(userId));
 communityCacheDirty.delete(userId);
   emitOfflineSync({ userId, kind: 'all', status: 'cleared' });
+}
+
+/** Badge names this account has already been shown (brief 07 celebration); null before the first baseline. */
+export async function readSeenBadges(userId: string): Promise<string[] | null> {
+  const names = await readEnvelope<unknown>(privateKey(userId, 'badges_seen'));
+  return Array.isArray(names) ? names.filter((name): name is string => typeof name === 'string') : null;
+}
+
+export function writeSeenBadges(userId: string, names: string[]): Promise<void> {
+  return withPrivateWriteLock(userId, () => writeEnvelope(privateKey(userId, 'badges_seen'), names));
 }

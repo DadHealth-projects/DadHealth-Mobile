@@ -157,6 +157,8 @@ export type DashboardData = {
   // ── Progress (web dashboardPreview/ProgressScreen.tsx) ──
   reportStats: { workouts: number; journal: number; dadDates: number };
   badges: BadgeItem[];
+  /** True when earned badges could not be read; an empty list then means unknown, not none. */
+  badgesReadFailed?: boolean;
 };
 
 type DashboardError = { code?: string; message?: string; details?: string; hint?: string };
@@ -497,6 +499,7 @@ async function fetchDashboard(userId: string): Promise<DashboardFetchResult> {
       savedDadActivities: Boolean(savedDadDatesResult.error),
     },
     data: {
+    badgesReadFailed: Boolean(badgesResult.error),
     displayName: profile?.display_name ?? (typeof dashboard?.display_name === 'string' ? dashboard.display_name : null),
     goals: Array.isArray(profile?.goals) ? profile.goals.filter((goal): goal is string => typeof goal === 'string') : [],
     mindScore: nullableScore(scoresResult.data?.mind_score),

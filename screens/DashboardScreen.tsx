@@ -27,6 +27,7 @@ import { setPushModalBlocked } from '../lib/pushNotifications';
 import { subscribeOfflineSync } from '../lib/offlineStorage';
 import DailyCheckInModal from '../components/dashboard/DailyCheckInModal';
 import GlobalErrorToastReporter from '../components/GlobalErrorToastReporter';
+import BadgeCelebration from '../components/dashboard/BadgeCelebration';
 import DadScoreCard from '../components/dashboard/DadScoreCard';
 import FadeInView from '../components/FadeInView';
 import GreetingHeader from '../components/dashboard/GreetingHeader';
@@ -742,6 +743,7 @@ useEffect(() => {
                   name={displayName}
                 />
               </FadeInView>
+              {!isOffline ? <BadgeCelebration userId={user.id} badges={data.badgesReadFailed ? null : data.badges} /> : null}
 
               <FadeInView delay={90}>
                 <View className="relative">
