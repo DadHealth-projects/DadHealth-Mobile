@@ -16,6 +16,7 @@ import {
   type Interval,
   type ReadOutcome,
 } from './healthSyncCore';
+import { markRefreshCompleted, nextRefreshDays } from './healthRefreshWindow';
 
 type HealthKitModule = typeof import('@kingstinct/react-native-healthkit');
 
@@ -166,7 +167,10 @@ export async function syncAppleHealthIfConnected(
     if (Number.isFinite(elapsed) && elapsed >= 0 && elapsed < AUTO_SYNC_INTERVAL_MS) return null;
   }
 
-  return syncAppleHealth(userId, options.days ?? 7);
+  const days = options.days ?? await nextRefreshDays('apple_health', userId);
+  const result = await syncAppleHealth(userId, days);
+  await markRefreshCompleted('apple_health', userId, days);
+  return result;
 }
 
 async function performAppleHealthSync(userId: string, days: number): Promise<AppleHealthSyncResult> {

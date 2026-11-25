@@ -47,7 +47,11 @@ test('Health Connect uses the approved aggregation and sync cadence', async () =
   assert.match(integration, /readAllRecords\(healthConnect, 'ExerciseSession'/);
   assert.match(integration, /minutesByDay\(intervals, timeZone\)/);
   assert.match(integration, /return syncHealthConnect\(userId, 30\)/);
-  assert.match(integration, /options\.days \?\? 7/);
+  // Routine syncs re-read 7 days; once a day the window widens to 30 for older corrections (client blocker 3).
+  assert.match(integration, /options\.days \?\? await nextRefreshDays\('health_connect', userId\)/);
+  const core = await source('lib/healthSyncCore.ts');
+  assert.match(core, /export const ROUTINE_WINDOW_DAYS = 7;/);
+  assert.match(core, /export const EXTENDED_WINDOW_DAYS = 30;/);
   assert.match(integration, /15 \* 60 \* 1000/);
   assert.match(manager, /state === 'active'/);
   assert.doesNotMatch(manager, /Background|TaskManager|setInterval/);

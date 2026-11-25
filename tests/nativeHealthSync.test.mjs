@@ -59,6 +59,7 @@ function appleHarness({ steps = 'empty', workouts = [], sleep = [], timezone = '
       './supabase': { supabase },
       './dashboardFreshness': { markDashboardStale: () => {} },
       './healthSyncCore': core,
+      './healthRefreshWindow': { nextRefreshDays: async () => 7, markRefreshCompleted: async () => {} },
       '@kingstinct/react-native-healthkit': healthKit,
     })[name] ?? assert.fail(`unexpected import ${name}`),
   });
@@ -155,4 +156,15 @@ test('wiring: logout/account switch invalidate syncs; hooks ignore stale results
   assert.match(screen, /no Apple Health data was readable/);
   assert.match(screen, /Disconnected\. Dad Health has stopped importing\./);
   assert.doesNotMatch(screen, /Resting heart rate/);
+});
+
+test('wiring: routine syncs pick the window from the per-account schedule and record only successful extended runs', () => {
+  for (const [file, provider, fn] of [['lib/appleHealth.ts', 'apple_health', 'syncAppleHealth'], ['lib/healthConnect.ts', 'health_connect', 'syncHealthConnect']]) {
+    const src = read(file);
+    const expected = `  const days = options.days ?? await nextRefreshDays('${provider}', userId);\n  const result = await ${fn}(userId, days);\n  await markRefreshCompleted('${provider}', userId, days);`;
+    assert.ok(src.replace(/\r\n/g, '\n').includes(expected), file);
+  }
+  const store = read('lib/healthRefreshWindow.ts');
+  assert.ok(store.includes('dadhealth.health.extended.v1.${provider}.${userId}'), 'per account and provider');
+  assert.ok(store.includes('if (days < EXTENDED_WINDOW_DAYS) return;'), 'routine syncs do not reset the schedule');
 });

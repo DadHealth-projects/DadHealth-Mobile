@@ -194,3 +194,19 @@ export function createHealthSyncGuard(userId: string, currentSessionUserId: () =
     },
   };
 }
+
+/* ---------------- Corrections outside the normal window ---------------- */
+
+export const ROUTINE_WINDOW_DAYS = 7;
+export const EXTENDED_WINDOW_DAYS = 30;
+export const EXTENDED_REFRESH_EVERY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Routine syncs re-read 7 days. At most once a day the window widens to 30 days so
+ * edits and deletions made weeks ago in Apple Health / Health Connect are reconciled
+ * with the same rules (a failed or unprovable read still never erases history).
+ */
+export function refreshWindowDays(lastExtendedAt: number | null, now: number): number {
+  if (lastExtendedAt == null || !Number.isFinite(lastExtendedAt) || lastExtendedAt > now) return EXTENDED_WINDOW_DAYS;
+  return now - lastExtendedAt >= EXTENDED_REFRESH_EVERY_MS ? EXTENDED_WINDOW_DAYS : ROUTINE_WINDOW_DAYS;
+}

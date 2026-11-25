@@ -116,3 +116,12 @@ test('sleep corrections: a read with sleep sends zeros for empty days (clears de
   assert.deepEqual(plain(core.reconcileSleep({ state: 'read', values: new Map() }, days, true)).map((r) => r.hours), [0, 0, 0], 'Health Connect: confirmed permission');
   assert.deepEqual(plain(core.reconcileSleep({ state: 'failed' }, days, true)), []);
 });
+
+test('corrections outside 7 days: a 30-day reconciliation runs at most once a day, and first sync is extended', () => {
+  const now = Date.parse('2026-11-25T12:00:00Z');
+  assert.equal(core.refreshWindowDays(null, now), 30, 'never extended yet');
+  assert.equal(core.refreshWindowDays(now - 60 * 60_000, now), 7, 'extended an hour ago');
+  assert.equal(core.refreshWindowDays(now - 24 * 3_600_000, now), 30, 'a day has passed');
+  assert.equal(core.refreshWindowDays(now + 60_000, now), 30, 'clock moved backwards: re-run');
+  assert.equal(core.refreshWindowDays(Number.NaN, now), 30);
+});

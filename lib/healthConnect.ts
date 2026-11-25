@@ -16,6 +16,7 @@ import {
   type Interval,
   type ReadOutcome,
 } from './healthSyncCore';
+import { markRefreshCompleted, nextRefreshDays } from './healthRefreshWindow';
 
 type HealthConnectModule = typeof import('react-native-health-connect');
 type HealthConnectPermission = {
@@ -180,7 +181,10 @@ export async function syncHealthConnectIfConnected(
     if (Number.isFinite(elapsed) && elapsed >= 0 && elapsed < AUTO_SYNC_INTERVAL_MS) return null;
   }
 
-  return syncHealthConnect(userId, options.days ?? 7);
+  const days = options.days ?? await nextRefreshDays('health_connect', userId);
+  const result = await syncHealthConnect(userId, days);
+  await markRefreshCompleted('health_connect', userId, days);
+  return result;
 }
 
 export function openHealthConnectSettings() {
