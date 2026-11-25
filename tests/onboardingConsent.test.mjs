@@ -173,7 +173,7 @@ test('saved consent without registration stays selected with truthful feedback a
  const h=renderHarness();let granted=false,ready=false,activated=0;
  const C=load('components/AnalyticsConsentControl.tsx',{react:h.react,'react-native':{View:'View',Text:'Text',Pressable:'Pressable',Switch:'Switch'},
  '@react-navigation/native':{useNavigation:()=>({navigate(){}})},'../theme':{colors:{lime:'lime'}},
- '../lib/analytics':{getAnalyticsConsentStatus:async()=>({granted,ready}),setAnalyticsConsent:async(_owner,value)=>{granted=value==='granted';}}}).default;
+ '../lib/analytics':{getAnalyticsConsentStatus:async()=>({granted,ready,enabled:true}),setAnalyticsConsent:async(_owner,value)=>{granted=value==='granted';}}}).default;
  h.run=()=>C({owner:'a',onGranted:()=>activated++});h.render();await h.flush();
  nodes(h.value,'Switch')[0].props.onValueChange(true);await h.flush();
  assert.equal(nodes(h.value,'Switch')[0].props.value,true);assert.equal(activated,0);

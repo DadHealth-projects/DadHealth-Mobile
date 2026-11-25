@@ -5,6 +5,18 @@ import { getAnalyticsConsentStatus, setAnalyticsConsent } from '../lib/analytics
 import type { AppStackParamList } from '../navigation/AppNavigator';
 import { colors } from '../theme';
 
+/**
+ * The saved choice is reported truthfully. When this build has analytics switched
+ * off (EXPO_PUBLIC_ANALYTICS_ENABLED not 'true'), a saved "on" is not a failure:
+ * nothing is collected until analytics is enabled, so say that instead of an error.
+ */
+export function consentMessage(granted: boolean, saved: boolean, ready: boolean, enabled: boolean): string {
+  if (saved !== granted) return 'We couldn’t save your analytics choice.';
+  if (!saved || ready) return '';
+  return enabled ? 'We couldn’t turn this on right now. Please try again later.'
+    : 'Your choice is saved. Sharing starts when analytics is switched on in a future update.';
+}
+
 /** Consent belongs to this account on this device, never to the next login. */
 export default function AnalyticsConsentControl({ owner, onGranted, card = false }: { owner: string | undefined; onGranted?: () => void; card?: boolean }) {
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
@@ -16,8 +28,8 @@ export default function AnalyticsConsentControl({ owner, onGranted, card = false
     let alive = true;
     mounted.current = true;
     setState({ owner, granted: false, busy: true, error: '' });
-    void getAnalyticsConsentStatus(owner ?? null).then(({ granted, ready }) => {
-      if (alive && current.current === owner) setState({ owner, granted, busy: false, error: granted && !ready ? 'We couldn’t turn this on right now. Please try again later.' : '' });
+    void getAnalyticsConsentStatus(owner ?? null).then(({ granted, ready, enabled }) => {
+      if (alive && current.current === owner) setState({ owner, granted, busy: false, error: consentMessage(granted, granted, ready, enabled) });
     }).catch(() => {
       if (alive && current.current === owner) setState({ owner, granted: false, busy: false, error: 'We couldn’t read your analytics choice.' });
     });
@@ -29,9 +41,9 @@ export default function AnalyticsConsentControl({ owner, onGranted, card = false
     setState(s => ({ ...s, busy: true, error: '' }));
     try {
       await setAnalyticsConsent(owner ?? null, granted ? 'granted' : 'denied');
-      const { granted: saved, ready } = await getAnalyticsConsentStatus(owner ?? null);
+      const { granted: saved, ready, enabled } = await getAnalyticsConsentStatus(owner ?? null);
       if (mounted.current && current.current === owner) setState({ owner, granted: saved, busy: false,
-        error: saved === granted ? saved && !ready ? 'We couldn’t turn this on right now. Please try again later.' : '' : 'We couldn’t save your analytics choice.' });
+        error: consentMessage(granted, saved, ready, enabled) });
       if (mounted.current && current.current === owner && granted && saved && ready) onGranted?.();
     } catch {
       if (mounted.current && current.current === owner) setState(s => ({ ...s, busy: false, error: 'We couldn’t save your analytics choice.' }));
