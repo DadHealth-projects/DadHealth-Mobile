@@ -152,12 +152,17 @@ export function reconcileMetric(
   return windowDays.map((day) => ({ metric_type: metricType, value: Math.max(0, Math.round(outcome.values.get(day) ?? 0)), recorded_at: `${day}T00:00:00.000Z` }));
 }
 
-/** Sleep: the server stores only positive hours, so only read days with sleep are sent. */
-export function reconcileSleep(outcome: ReadOutcome, windowDays: readonly string[]): DailySleep[] {
+/**
+ * Sleep follows the same rule as metrics: nothing on a failed or unprovable read;
+ * otherwise every window day, with 0 for a day with no sleep. A 0 asks the server to
+ * clear that provider's imported row (migration 20261125140000); older servers ignore 0.
+ */
+export function reconcileSleep(outcome: ReadOutcome, windowDays: readonly string[], permissionConfirmed = false): DailySleep[] {
   if (outcome.state !== 'read') return [];
+  if (!permissionConfirmed && !windowDays.some((day) => (outcome.values.get(day) ?? 0) > 0)) return [];
   return windowDays.flatMap((day) => {
     const hours = outcome.values.get(day) ?? 0;
-    return hours > 0 && hours <= 24 ? [{ date: day, hours }] : [];
+    return hours >= 0 && hours <= 24 ? [{ date: day, hours: hours > 0 ? hours : 0 }] : [];
   });
 }
 

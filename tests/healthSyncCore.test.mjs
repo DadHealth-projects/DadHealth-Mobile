@@ -106,3 +106,13 @@ test('session isolation: a sync started by A is stale after logout, account swit
   const later = core.createHealthSyncGuard('user-a', async () => session);
   assert.equal(await later.isCurrent(), false, 'signed out');
 });
+
+test('sleep corrections: a read with sleep sends zeros for empty days (clears deleted imports); unprovable reads send nothing', () => {
+  const days = ['2026-11-23', '2026-11-24', '2026-11-25'];
+  assert.deepEqual(plain(core.reconcileSleep({ state: 'read', values: new Map([['2026-11-24', 7.5]]) }, days)), [
+    { date: '2026-11-23', hours: 0 }, { date: '2026-11-24', hours: 7.5 }, { date: '2026-11-25', hours: 0 },
+  ]);
+  assert.deepEqual(plain(core.reconcileSleep({ state: 'read', values: new Map() }, days)), [], 'Apple: empty cannot prove no sleep');
+  assert.deepEqual(plain(core.reconcileSleep({ state: 'read', values: new Map() }, days, true)).map((r) => r.hours), [0, 0, 0], 'Health Connect: confirmed permission');
+  assert.deepEqual(plain(core.reconcileSleep({ state: 'failed' }, days, true)), []);
+});

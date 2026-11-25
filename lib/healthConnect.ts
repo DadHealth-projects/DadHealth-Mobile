@@ -221,7 +221,7 @@ async function performHealthConnectSync(userId: string, days: number): Promise<H
     ...reconcileMetric('steps', steps, windowDays, true),
     ...reconcileMetric('active_mins', exercise, windowDays, true),
   ];
-  const sleepRows = reconcileSleep(sleep, windowDays);
+  const sleepRows = reconcileSleep(sleep, windowDays, true);
 
   // The server takes the owner from the session token; never upload under a different session.
   await guard.assertCurrent();
@@ -246,7 +246,7 @@ async function performHealthConnectSync(userId: string, days: number): Promise<H
     metricsWritten: Number(counts.metrics_written ?? 0),
     sleepWritten: Number(counts.sleep_written ?? 0),
     syncedAt,
-    readableData: metrics.some((row) => row.value > 0) || sleepRows.length > 0,
+    readableData: metrics.some((row) => row.value > 0) || sleepRows.some((row) => row.hours > 0),
   };
 }
 

@@ -196,7 +196,7 @@ async function performAppleHealthSync(userId: string, days: number): Promise<App
   // Imported workouts feed the existing active-minutes metric only (one scoring path, no duplicate credit).
   const metrics = [...reconcileMetric('steps', steps, windowDays), ...reconcileMetric('active_mins', workouts, windowDays)];
   const sleepRows = reconcileSleep(sleep, windowDays);
-  const readableData = metrics.length > 0 || sleepRows.length > 0;
+  const readableData = metrics.length > 0 || sleepRows.some((row) => row.hours > 0);
 
   // The server takes the owner from the session token; never upload under a different session.
   await guard.assertCurrent();
