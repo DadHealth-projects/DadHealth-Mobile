@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import CancellationFlow, { CancellationScheduled, isScheduledAppleMembership } from '../../components/subscriptions/CancellationFlow';
 import InlineFormError from '../../components/InlineFormError';
+import SkeletonBlock from '../../components/skeleton/SkeletonBlock';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { refreshDashboardForUser } from '../../hooks/useDashboard';
@@ -120,10 +121,7 @@ export default function ProSubscriptionScreen() {
         </Pressable>
 
         {(subscriptions.loading || checking) && !subscriptions.status ? (
-          <View className="gap-sm items-center">
-            <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Dad Health Pro</Text>
-            <Text accessibilityLiveRegion="polite" className="font-body text-white text-[14px]">Checking your subscription…</Text>
-          </View>
+          <SubscriptionSkeleton />
         ) : subscriptions.status?.isPro === true ? (
           <>
             <ProHeader
@@ -201,6 +199,7 @@ export default function ProSubscriptionScreen() {
               <PlanRow
                 title="Annual"
                 price={planCopy.annual.price}
+                loading={subscriptions.catalogLoading}
                 suffix={planCopy.annual.suffix}
                 selected={selectedPlan === 'annual'}
                 disabled={subscriptions.purchasing || subscriptions.restoring || subscriptions.managing}
@@ -209,6 +208,7 @@ export default function ProSubscriptionScreen() {
               <PlanRow
                 title="Monthly"
                 price={planCopy.monthly.price}
+                loading={subscriptions.catalogLoading}
                 suffix={planCopy.monthly.suffix}
                 selected={selectedPlan === 'monthly'}
                 disabled={subscriptions.purchasing || subscriptions.restoring || subscriptions.managing}
@@ -286,6 +286,31 @@ export default function ProSubscriptionScreen() {
   );
 }
 
+/**
+ * Shown only while access is still unknown: the screen's own layout with section
+ * placeholders. No price, no purchase button and no Pro state until the server confirms.
+ */
+function SubscriptionSkeleton() {
+  return (
+    <View accessible accessibilityLabel="Loading your subscription" accessibilityLiveRegion="polite" className="gap-lg">
+      <View className="items-center gap-md pb-sm">
+        <MaterialCommunityIcons name="crown" size={32} color={colors.lime} />
+        <Text className="font-body-semibold text-lime text-[11px] tracking-label">DAD HEALTH PRO</Text>
+        <SkeletonBlock width={220} height={28} radius={8} />
+        <SkeletonBlock width={260} height={16} radius={6} />
+      </View>
+      <View className="gap-sm">
+        <SkeletonBlock height={16} radius={6} />
+        <SkeletonBlock height={16} radius={6} />
+        <SkeletonBlock width="80%" height={16} radius={6} />
+      </View>
+      <SkeletonBlock height={80} radius={16} />
+      <SkeletonBlock height={80} radius={16} />
+      <SkeletonBlock height={48} radius={14} />
+    </View>
+  );
+}
+
 function ProHeader({ title, description, free = false }: { title: string; description: string; free?: boolean }) {
   return (
     <View className="items-center gap-md pb-sm">
@@ -313,9 +338,10 @@ function ProAction({ label, accessibilityLabel, onPress, loading = false, disabl
   );
 }
 
-function PlanRow({ title, price, suffix, selected, onPress, disabled = false }: {
+function PlanRow({ title, price, suffix, selected, onPress, disabled = false, loading = false }: {
   title: string;
   price: string | null;
+  loading?: boolean;
   suffix: string;
   selected: boolean;
   onPress(): void;
@@ -330,7 +356,9 @@ function PlanRow({ title, price, suffix, selected, onPress, disabled = false }: 
       className={`min-h-[80px] rounded-[16px] flex-row items-center gap-md border px-lg py-md active:opacity-80 ${selected ? 'border-lime bg-lime/5' : 'border-transparent bg-card'}`}>
       <View className="flex-1 gap-xs">
         <Text className="font-body-semibold text-white text-[17px]">{title}</Text>
-        <Text className="font-body text-white text-[14px]">{price ? `${price} / ${suffix === 'per year' ? 'year' : 'month'}` : '\u2014'}</Text>
+        {!price && loading ? <SkeletonBlock width={110} height={14} radius={6} /> : (
+          <Text className="font-body text-white text-[14px]">{price ? `${price} / ${suffix === 'per year' ? 'year' : 'month'}` : '\u2014'}</Text>
+        )}
       </View>
       <View className={`h-[22px] w-[22px] rounded-full border items-center justify-center ${selected ? 'border-lime' : 'border-white/70'}`}>
         {selected ? <View className="h-[12px] w-[12px] rounded-full bg-lime" /> : null}

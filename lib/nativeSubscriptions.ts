@@ -127,7 +127,11 @@ export function nativeSubscriptionUserMessage(error: unknown, fallback: string):
   return error instanceof NativeSubscriptionError ? error.message : fallback;
 }
 
-async function authenticatedRequest<T>(path: string, init?: RequestInit, expectedOwner?: string): Promise<T> {
+/** Read-only status checks must not hold a screen open while the server or database is stalled. */
+export const SUBSCRIPTION_READ_TIMEOUT_MS = 15_000;
+const SLOW_CHECK_MESSAGE = 'Checking your subscription is taking longer than usual. Please try again.';
+
+async function authenticatedRequest<T>(path: string, init?: RequestInit, expectedOwner?: string, timeoutMs?: number): Promise<T> {
   const { data, error } = await supabase.auth.getSession();
   if (error || !data.session?.access_token) {
     throw new NativeSubscriptionError('Please log in to continue.', 'unauthorized');
@@ -135,15 +139,28 @@ async function authenticatedRequest<T>(path: string, init?: RequestInit, expecte
   if (expectedOwner && data.session.user.id !== expectedOwner) {
     throw new NativeSubscriptionError('Your account changed. Please try again.', 'account_changed');
   }
-  const response = await fetch(`${WEB_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${data.session.access_token}`,
-      ...init?.headers,
-    },
-  });
-  const payload = (await response.json().catch(() => null)) as { error?: string; code?: string } | null;
+  // Only read-only calls pass a timeout; purchase verification is never cut short by the client.
+  const controller = timeoutMs ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  let response: Response;
+  let payload: { error?: string; code?: string } | null;
+  try {
+    response = await fetch(`${WEB_URL}${path}`, {
+      ...init,
+      ...(controller ? { signal: controller.signal } : {}),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${data.session.access_token}`,
+        ...init?.headers,
+      },
+    });
+    payload = (await response.json().catch(() => null)) as { error?: string; code?: string } | null;
+  } catch (requestError) {
+    if (controller?.signal.aborted) throw new NativeSubscriptionError(SLOW_CHECK_MESSAGE, 'timeout');
+    throw requestError;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
   if (expectedOwner) {
     const current = await supabase.auth.getSession();
     if (current.error || current.data.session?.user.id !== expectedOwner) {
@@ -176,7 +193,7 @@ function validatedSummary(value: unknown): NativeSubscriptionStatus {
 }
 
 export async function loadNativeSubscriptionStatus(expectedOwner?: string): Promise<NativeSubscriptionStatus> {
-  const response = await authenticatedRequest<unknown>('/api/native-subscriptions/status', undefined, expectedOwner);
+  const response = await authenticatedRequest<unknown>('/api/native-subscriptions/status', undefined, expectedOwner, SUBSCRIPTION_READ_TIMEOUT_MS);
   if (!response || typeof response !== 'object' || Array.isArray(response)) return validatedSummary(response);
   const details = response as Partial<NativeSubscriptionStatus>;
   return validatedSummary({
@@ -399,7 +416,7 @@ export interface MembershipSubscription {
   cancellation: { state: 'scheduled' | 'unknown'; end: string | null };
 }
 export async function loadNativeMembership(expectedOwner: string): Promise<MembershipSubscription[]> {
-  const result = await authenticatedRequest<{ subscriptions: MembershipSubscription[] }>('/api/native-subscriptions/membership', undefined, expectedOwner);
+  const result = await authenticatedRequest<{ subscriptions: MembershipSubscription[] }>('/api/native-subscriptions/membership', undefined, expectedOwner, SUBSCRIPTION_READ_TIMEOUT_MS);
   if (!result || !Array.isArray(result.subscriptions) || result.subscriptions.some(item =>
     !item || typeof item.id !== 'string' || item.provider !== 'apple'
     || ![null,'monthly','annual'].includes(item.plan) || typeof item.status !== 'string'

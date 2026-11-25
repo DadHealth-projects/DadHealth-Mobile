@@ -39,7 +39,8 @@ function serviceHarness() {
       access_token: 'mock-token', user: { id: h.owner },
     } }, error: null }) } } },
   }, { process: { env: { EXPO_PUBLIC_APPLE_IAP_PRO_MONTHLY_PRODUCT_ID: monthly, EXPO_PUBLIC_APPLE_IAP_PRO_ANNUAL_PRODUCT_ID: annual } },
-    fetch: async (...args) => { h.requests.push(args); return { ok: true, json: async () => h.payload }; } });
+    fetch: async (...args) => { h.requests.push(args); return { ok: true, json: async () => h.payload }; },
+    setTimeout, clearTimeout, AbortController });
   return h;
 }
 
@@ -321,7 +322,7 @@ function screen(overrides = {}, harness = {}) {
     '../../lib/analyticsContract': { upgradeSource: (source) => source },
     '../../lib/nativeSubscriptions': { trialDisclosure: serviceHarness().api.trialDisclosure },
   };
-  for (const name of ['AppTopBar', 'InlineFormError', 'LimeButton', 'mockup/ScreenHero', 'subscriptions/CancellationFlow']) mocks[`../../components/${name}`] = { __esModule: true, default: name };
+  for (const name of ['AppTopBar', 'InlineFormError', 'LimeButton', 'mockup/ScreenHero', 'subscriptions/CancellationFlow', 'skeleton/SkeletonBlock']) mocks[`../../components/${name}`] = { __esModule: true, default: name };
   mocks['../../components/subscriptions/CancellationFlow'] = { __esModule: true, ...load('components/subscriptions/CancellationFlow.tsx', {
     react: { ...react, default: react }, 'react-native': mocks['react-native'], '@expo/vector-icons': mocks['@expo/vector-icons'],
     'react-native-safe-area-context': mocks['react-native-safe-area-context'], 'expo-crypto': { randomUUID: () => 'test' },
@@ -573,7 +574,10 @@ test('Pro rendering has one error, one heading and stable retry/offline presenta
   assert.match(unknown.text, /Status failed/); assert.doesNotMatch(unknown.text, /Catalog failed/);
   const busy = screen({ status: null, statusLoading: true, catalogLoading: true });
   assert.equal(busy.nodes.filter((n) => n.type === 'InlineFormError' && n.props.message).length, 0);
-  assert.match(busy.text, /Checking your subscription/);
+  // Client instruction: no blocking "Checking your subscription" text; show the screen's skeleton instead.
+  assert.doesNotMatch(busy.text, /Checking your subscription/);
+  assert.ok(busy.nodes.some((n) => n.props?.accessibilityLabel === 'Loading your subscription'));
+  assert.doesNotMatch(busy.text, /START MY 7-DAY|Subscribe|Everything is unlocked|Pro is Active/, 'unknown access is neither Free nor Pro');
   const proRetry = screen({ status: pro, statusLoading: true, catalogLoading: true });
   assert.match(proRetry.text, /Everything is unlocked/);
   assert.doesNotMatch(proRetry.text, /Checking subscription|"Retry"/);
@@ -607,7 +611,9 @@ test('manual, trial, overlap and missing billing information use truthful member
 test('Free and expired preserve paywall; missing access never becomes Free',()=>{
  for(const status of [free,{...free,status:'expired'}]) {const h=screen({status});assert.match(h.text,/START MY 7-DAY FREE TRIAL/);assert.ok(h.nodes.some(n=>n.props.accessibilityLabel==='Close Dad Health Pro'));assert.doesNotMatch(h.text,/Membership/);}
  const unknown=screen({status:null,statusError:'Could not verify access',products:[]});assert.doesNotMatch(unknown.text,/START MY 7-DAY|Start my 7-day|free trial ends|Everything is unlocked/);assert.match(unknown.text,/Could not verify access/);
- assert.match(screen({status:null,loading:true}).text,/Checking your subscription/);
+ const loadingScreen=screen({status:null,loading:true});
+ assert.ok(loadingScreen.nodes.some(n=>n.props?.accessibilityLabel==='Loading your subscription'));
+ assert.doesNotMatch(loadingScreen.text,/Checking your subscription|START MY 7-DAY|Everything is unlocked/);
  assert.match(screen({status:pro,offline:true,statusError:'Offline'}).text,/Everything is unlocked/);
 });
 test('management repeated taps are excluded and matching lock releases after failure',async()=>{
@@ -986,4 +992,29 @@ test('paywall shows trial dates only for an eligible verified offer and never fo
   }
   const signedOutPrices = screen({ status: null, statusError: 'Could not verify access' });
   assert.doesNotMatch(signedOutPrices.text, /free trial ends|first payment/);
+});
+
+test('a stalled status check ends with a truthful, retryable error instead of an endless skeleton', async () => {
+  const h = serviceHarness();
+  let signal;
+  const api = load('lib/nativeSubscriptions.ts', {
+    'react-native': { Platform: { OS: 'ios' }, Linking: { canOpenURL: async () => true, openURL: async () => {} } },
+    'expo-constants': { default: { appOwnership: 'standalone' } },
+    './supabase': { supabase: { auth: { getSession: async () => ({ data: { session: { access_token: 't', user: { id: 'owner-a' } } }, error: null }) } } },
+  }, { process: { env: {} }, AbortController, clearTimeout,
+    setTimeout: (fn, ms) => { assert.equal(ms, 15000); queueMicrotask(fn); return 1; },
+    fetch: (_url, init) => new Promise((_, reject) => { signal = init.signal; init.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))); }) });
+  await assert.rejects(api.loadNativeSubscriptionStatus('owner-a'), (error) => error.code === 'timeout' && /taking longer than usual/.test(error.message));
+  assert.equal(signal.aborted, true);
+  // Purchase verification never gets a client-side timeout.
+  const src = read('lib/nativeSubscriptions.ts');
+  assert.match(src, /`\/api\/native-subscriptions\/verify\/\$\{provider\}`,[\s\S]*?expectedOwner,\s*\);/);
+  assert.match(src, /'\/api\/native-subscriptions\/status', undefined, expectedOwner, SUBSCRIPTION_READ_TIMEOUT_MS\)/);
+  void h;
+});
+
+test('known Free status shows plan rows at once, with a placeholder only for prices still loading', () => {
+  const h = screen({ status: free, catalogLoading: true, products: [] });
+  assert.match(h.text, /Annual/); assert.match(h.text, /Monthly/);
+  assert.ok(h.nodes.filter((n) => n.type === 'skeleton/SkeletonBlock').length >= 2, 'price placeholders while the store catalogue loads');
 });
