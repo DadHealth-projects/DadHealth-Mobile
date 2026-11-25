@@ -16,15 +16,13 @@ import { colors } from '../../theme';
 
 const APPLE_DATA_TYPES = [
   ['activity', 'Steps', 'Your daily step total.'],
-  ['clock', 'Active minutes', 'Apple Exercise Time from each day.'],
-  ['heart', 'Resting heart rate', 'Your daily resting heart-rate estimate.'],
+  ['clock', 'Workouts', 'Time from workouts recorded in Apple Health, each counted once.'],
   ['moon', 'Sleep', 'Time Apple Health records as asleep.'],
 ] as const;
 
 const HEALTH_CONNECT_DATA_TYPES = [
   ['activity', 'Steps', 'Your daily step total.'],
-  ['clock', 'Active minutes', 'Exercise time from each day.'],
-  ['heart', 'Resting heart rate', 'Your daily resting heart-rate estimate.'],
+  ['clock', 'Workouts', 'Time from exercise sessions in Health Connect, each counted once.'],
   ['moon', 'Sleep', 'Time Health Connect records as asleep.'],
 ] as const;
 
@@ -46,8 +44,9 @@ export default function HealthPermissionsScreen() {
       }
     : {
         hero: 'Connect Apple Health to keep your Body activity up to date.',
-        connected: 'Apple Health connected',
-        connectedMessage: 'Apple Health connected.',
+        // Apple never confirms read access, so "linked" (not "access granted") is the truthful state.
+        connected: 'Apple Health linked',
+        connectedMessage: 'Apple Health linked.',
         syncedMessage: 'Apple Health data synced.',
         connect: 'Connect Apple Health',
         unavailable: 'Apple Health isn’t available on this device.',
@@ -59,17 +58,30 @@ export default function HealthPermissionsScreen() {
   );
   const [message, setMessage] = useState<string | null>(null);
 
+  const noReadableData = isAndroid
+    ? 'Linked, but no steps, workouts or sleep were found in Health Connect for the last few days.'
+    : 'Linked, but no Apple Health data was readable. If you expected data, check iPhone Settings > Health > Data Access & Devices > Dad Health.';
+
   const connect = useCallback(async () => {
     setMessage(null);
     const result = await health.connect();
-    if (result) setMessage(providerCopy.connectedMessage);
-  }, [health.connect, providerCopy.connectedMessage]);
+    if (result) setMessage(result.readableData ? providerCopy.connectedMessage : noReadableData);
+  }, [health.connect, noReadableData, providerCopy.connectedMessage]);
 
   const sync = useCallback(async () => {
     setMessage(null);
     const result = await health.sync();
-    if (result) setMessage(providerCopy.syncedMessage);
-  }, [health.sync, providerCopy.syncedMessage]);
+    if (result) setMessage(result.readableData ? providerCopy.syncedMessage : noReadableData);
+  }, [health.sync, noReadableData, providerCopy.syncedMessage]);
+
+  const disconnect = useCallback(async () => {
+    setMessage(null);
+    if (await health.disconnect()) {
+      setMessage(isAndroid
+        ? 'Disconnected. Dad Health has stopped importing. To remove its access too, turn it off in Health Connect.'
+        : 'Disconnected. Dad Health has stopped importing. To remove its access too, turn it off in iPhone Settings > Health.');
+    }
+  }, [health.disconnect, isAndroid]);
 
   const manageAccess = useCallback(() => {
     if (isAndroid) {
@@ -124,6 +136,9 @@ export default function HealthPermissionsScreen() {
               <LimeButton label="Sync now" onPress={() => void sync()} loading={health.saving} />
               <Pressable onPress={manageAccess} accessibilityRole="button" className="min-h-[44px] self-start justify-center border-b border-lime active:opacity-70">
                 <Text className="font-heading-bold text-lime text-[11px] uppercase">{isAndroid ? 'Manage Health Connect access' : 'Manage in Apple settings'}</Text>
+              </Pressable>
+              <Pressable onPress={() => void disconnect()} disabled={health.saving} accessibilityRole="button" accessibilityLabel={isAndroid ? 'Disconnect Health Connect' : 'Disconnect Apple Health'} className="min-h-[44px] self-start justify-center active:opacity-70">
+                <Text className="font-heading-bold text-white text-[11px] uppercase">Disconnect</Text>
               </Pressable>
             </>
           ) : (

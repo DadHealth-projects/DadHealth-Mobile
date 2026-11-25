@@ -56,7 +56,7 @@ function harness() {
  '../lib/analytics':{analyticsLifecycle:()=>()=>{}},
  '../lib/onboardingHandoff':load('lib/onboardingHandoff.ts',{}),
  '../components/settings/AccountPrivacySheet':{AccountPrivacyRecovery:()=>null},
- '../lib/onboarding':load('lib/onboarding.ts',{}),'../lib/offlineSync':{pauseAndClearOfflineUser:async()=>{}}});
+ '../lib/onboarding':load('lib/onboarding.ts',{}),'../lib/offlineSync':{pauseAndClearOfflineUser:async()=>{}},'../lib/healthSyncCore':{invalidateHealthSyncs(){}}});
  h.render=()=>{h.index=0;h.dirty=false;h.value=mod.AuthProvider({children:null}).value;h.effects.splice(0).forEach(f=>f());};
  h.flush=async()=>{for(let i=0;i<4;i++){await new Promise(r=>setImmediate(r));if(h.dirty)h.render();}};
  h.signIn=id=>{h.auth('SIGNED_IN',id?{user:{id}}:null);h.render();};h.render();return h;

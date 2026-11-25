@@ -15,7 +15,8 @@ test('Health Permissions uses production Apple Health copy', async () => {
   for (const expected of [
     'Connect Apple Health',
     'Allow Dad Health to read your health data so Body activity stays up to date automatically.',
-    'Apple Health connected',
+    // Apple never confirms read access, so the status says "linked" (client blocker 5).
+    'Apple Health linked',
     'You can change what Dad Health can access anytime in Apple Health or iPhone Settings.',
     'Apple Health isn’t available on this device.',
     'Apple Health access wasn’t enabled. You can change this anytime in iPhone Settings.',
@@ -37,15 +38,17 @@ test('Health Permissions uses production Apple Health copy', async () => {
   }
 });
 
-test('Health Permissions keeps the four approved data rows', async () => {
+test('Health Permissions lists the three in-scope data rows', async () => {
   const screen = await readFile(
     new URL('screens/subscreens/HealthPermissionsScreen.tsx', root),
     'utf8',
   );
 
-  for (const row of ['Steps', 'Active minutes', 'Resting heart rate', 'Sleep']) {
+  for (const row of ['Steps', 'Workouts', 'Sleep']) {
     assert.ok(screen.includes(row), `Missing health data row: ${row}`);
   }
+  assert.equal(screen.includes('Resting heart rate'), false, 'resting heart rate is out of scope');
+  assert.equal(screen.includes('Apple Exercise Time'), false, 'workouts use recorded durations');
 });
 
 test('Health Permissions uses production Health Connect copy on Android', async () => {

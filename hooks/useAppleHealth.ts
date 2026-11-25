@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   AppleHealthError,
   connectAppleHealth,
+  disconnectAppleHealth,
   getAppleHealthAuthorization,
   getAppleHealthCapability,
   getAppleHealthIntegration,
@@ -19,6 +20,9 @@ export function useAppleHealth(userId?: string) {
   const [loading, setLoading] = useState(Boolean(userId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Results that arrive after an account switch must never reach this account's screen.
+  const owner = useRef(userId);
+  owner.current = userId;
 
   const refresh = useCallback(async () => {
     setCapability(getAppleHealthCapability());
@@ -38,6 +42,7 @@ export function useAppleHealth(userId?: string) {
           ? getAppleHealthAuthorization()
           : Promise.resolve<AppleHealthAuthorization>('unknown'),
       ]);
+      if (owner.current !== userId) return;
       setIntegration(nextIntegration);
       setAuthorization(nextAuthorization);
       setError(null);
@@ -58,9 +63,11 @@ export function useAppleHealth(userId?: string) {
     setError(null);
     try {
       const result = await connectAppleHealth(userId);
+      if (owner.current !== userId) return null;
       await refresh();
       return result;
     } catch (caughtError) {
+      if (owner.current !== userId) return null;
       setError(getAppleHealthConnectionError(caughtError));
       return null;
     } finally {
@@ -74,9 +81,11 @@ export function useAppleHealth(userId?: string) {
     setError(null);
     try {
       const result = await syncAppleHealth(userId, 7);
+      if (owner.current !== userId) return null;
       await refresh();
       return result;
     } catch (caughtError) {
+      if (owner.current !== userId) return null;
       setError(
         caughtError instanceof AppleHealthError && caughtError.code === 'permission_denied'
           ? 'Apple Health access wasn’t enabled. You can change this anytime in iPhone Settings.'
@@ -88,7 +97,24 @@ export function useAppleHealth(userId?: string) {
     }
   }, [refresh, userId]);
 
-  return { capability, authorization, integration, loading, saving, error, refresh, connect, sync };
+  /** App-level disconnect: stops imports and removes the link. It does not change system permissions. */
+  const disconnect = useCallback(async () => {
+    if (!userId) return false;
+    setSaving(true);
+    setError(null);
+    try {
+      await disconnectAppleHealth(userId);
+      if (owner.current === userId) setIntegration(null);
+      return true;
+    } catch {
+      if (owner.current === userId) setError('We couldn’t disconnect Apple Health. Please try again.');
+      return false;
+    } finally {
+      if (owner.current === userId) setSaving(false);
+    }
+  }, [userId]);
+
+  return { capability, authorization, integration, loading, saving, error, refresh, connect, sync, disconnect };
 }
 
 function getAppleHealthConnectionError(error: unknown) {

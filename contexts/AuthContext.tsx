@@ -19,6 +19,7 @@ import {
 import { isOnboardingComplete } from '../lib/onboarding';
 import { analyticsLifecycle } from '../lib/analytics';
 import { pauseAndClearOfflineUser } from '../lib/offlineSync';
+import { invalidateHealthSyncs } from '../lib/healthSyncCore';
 import { AccountPrivacyRecovery } from '../components/settings/AccountPrivacySheet';
 
 type AuthResult = { error: string | null };
@@ -102,6 +103,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (previousUserId !== (nextSession?.user.id ?? null)) {
       onboardingRequest.current++;
       setOnboarding(null);
+      // Discard any native health read or upload started by the previous account.
+      invalidateHealthSyncs();
     }
     setSession(nextSession);
     setUser(nextSession?.user ?? null);
@@ -250,6 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signedOutUserId = user?.id;
     lastAuthenticatedUserId.current = null;
     setPendingEnrollment(null);
+    invalidateHealthSyncs();
 
     // Stop and drain the current user's worker before ending the Supabase
     // session. Private caches and queued writes are removed before another

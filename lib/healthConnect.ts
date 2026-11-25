@@ -2,11 +2,25 @@ import { NativeModules, Platform, TurboModuleRegistry } from 'react-native';
 
 import { supabase } from './supabase';
 import { markDashboardStale } from './dashboardFreshness';
+import {
+  createHealthSyncGuard,
+  dayKeysBetween,
+  invalidateHealthSyncs,
+  isValidTimeZone,
+  minutesByDay,
+  reconcileMetric,
+  reconcileSleep,
+  sleepHoursByWakeDay,
+  startOfDayIn,
+  sumSlicesByDay,
+  type Interval,
+  type ReadOutcome,
+} from './healthSyncCore';
 
 type HealthConnectModule = typeof import('react-native-health-connect');
 type HealthConnectPermission = {
   accessType: 'read';
-  recordType: 'Steps' | 'ExerciseSession' | 'RestingHeartRate' | 'SleepSession';
+  recordType: 'Steps' | 'ExerciseSession' | 'SleepSession';
 };
 
 export type HealthConnectCapability =
@@ -39,12 +53,13 @@ export type HealthConnectSyncResult = {
   metricsWritten: number;
   sleepWritten: number;
   syncedAt: string;
+  /** False when no steps, exercise or sleep data was readable in the window. */
+  readableData: boolean;
 };
 
 const READ_PERMISSIONS: HealthConnectPermission[] = [
   { accessType: 'read', recordType: 'Steps' },
   { accessType: 'read', recordType: 'ExerciseSession' },
-  { accessType: 'read', recordType: 'RestingHeartRate' },
   { accessType: 'read', recordType: 'SleepSession' },
 ];
 const HEALTH_CONNECT_PROVIDER = 'health_connect';
@@ -114,10 +129,12 @@ export async function getHealthConnectIntegration(userId: string): Promise<Healt
 
 export async function connectHealthConnect(userId: string): Promise<HealthConnectSyncResult> {
   const healthConnect = await initializeAvailableHealthConnect();
+  const guard = createHealthSyncGuard(userId, currentSessionUserId);
   const granted = await healthConnect.requestPermission(READ_PERMISSIONS);
   if (getGrantedRecordTypes(granted).size === 0) {
     throw new HealthConnectError('permission_denied', 'Health Connect access was not enabled.');
   }
+  await guard.assertCurrent();
 
   const connectedAt = new Date().toISOString();
   const { error } = await supabase.from('user_integrations').upsert(
@@ -173,39 +190,50 @@ export function openHealthConnectSettings() {
 }
 
 async function performHealthConnectSync(userId: string, days: number): Promise<HealthConnectSyncResult> {
+  const guard = createHealthSyncGuard(userId, currentSessionUserId);
   const healthConnect = await initializeAvailableHealthConnect();
   const granted = getGrantedRecordTypes(await healthConnect.getGrantedPermissions());
   if (granted.size === 0) {
     throw new HealthConnectError('permission_denied', 'Health Connect access is not enabled.');
   }
 
-  const endDate = new Date();
-  const startDate = startOfLocalDay(endDate);
-  startDate.setDate(startDate.getDate() - (days - 1));
+  const timeZone = await accountTimeZone(userId);
+  const endMs = Date.now();
+  const windowDays = dayKeysBetween(timeZone, endMs - (days - 1) * 86_400_000, endMs);
+  const startDate = new Date(startOfDayIn(timeZone, windowDays[0]));
+  const endDate = new Date(endMs);
+  const notPermitted: ReadOutcome = { state: 'not_permitted' };
 
-  const [steps, activeMinutes, restingHeartRate, sleep] = await Promise.all([
+  const [steps, exercise, sleep] = await Promise.all([
     granted.has('Steps')
-      ? queryDailySteps(healthConnect, startDate, endDate)
-      : Promise.resolve([]),
+      ? readOutcome(() => queryStepSlices(healthConnect, startDate, endDate).then((slices) => sumSlicesByDay(slices, timeZone)))
+      : Promise.resolve(notPermitted),
     granted.has('ExerciseSession')
-      ? queryDailyExerciseMinutes(healthConnect, startDate, endDate)
-      : Promise.resolve([]),
-    granted.has('RestingHeartRate')
-      ? queryDailyRestingHeartRate(healthConnect, startDate, endDate)
-      : Promise.resolve([]),
+      ? readOutcome(() => queryExerciseIntervals(healthConnect, startDate, endDate).then((intervals) => minutesByDay(intervals, timeZone)))
+      : Promise.resolve(notPermitted),
     granted.has('SleepSession')
-      ? queryDailySleep(healthConnect, startDate, endDate)
-      : Promise.resolve([]),
+      ? readOutcome(() => querySleepIntervals(healthConnect, startDate, endDate).then((intervals) => sleepHoursByWakeDay(intervals, timeZone)))
+      : Promise.resolve(notPermitted),
   ]);
 
+  // Health Connect confirms each granted read permission, so an empty successful read is a genuine zero.
+  const metrics = [
+    ...reconcileMetric('steps', steps, windowDays, true),
+    ...reconcileMetric('active_mins', exercise, windowDays, true),
+  ];
+  const sleepRows = reconcileSleep(sleep, windowDays);
+
+  // The server takes the owner from the session token; never upload under a different session.
+  await guard.assertCurrent();
   const { data, error } = await supabase.rpc('upsert_health_connect_daily_data', {
-    p_metrics: [...steps, ...activeMinutes, ...restingHeartRate],
-    p_sleep: sleep,
+    p_metrics: metrics,
+    p_sleep: sleepRows,
   });
   if (error) throw error;
   markDashboardStale(userId);
 
   const syncedAt = new Date().toISOString();
+  await guard.assertCurrent();
   const { error: integrationError } = await supabase
     .from('user_integrations')
     .update({ last_sync_at: syncedAt })
@@ -218,104 +246,85 @@ async function performHealthConnectSync(userId: string, days: number): Promise<H
     metricsWritten: Number(counts.metrics_written ?? 0),
     sleepWritten: Number(counts.sleep_written ?? 0),
     syncedAt,
+    readableData: metrics.some((row) => row.value > 0) || sleepRows.length > 0,
   };
 }
 
-async function queryDailySteps(
-  healthConnect: HealthConnectModule,
-  startDate: Date,
-  endDate: Date,
-) {
-  const groups = await healthConnect.aggregateGroupByPeriod({
+/**
+ * App-level disconnect: stops in-flight and future imports for this account and
+ * removes the connection. Health Connect permissions are managed in Health Connect.
+ * Imported history is kept unless the member deletes their account.
+ */
+export async function disconnectHealthConnect(userId: string): Promise<void> {
+  invalidateHealthSyncs();
+  activeSyncs.delete(userId);
+  const { error } = await supabase.from('user_integrations').delete()
+    .eq('user_id', userId).eq('provider', HEALTH_CONNECT_PROVIDER);
+  if (error) throw error;
+}
+
+async function currentSessionUserId(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user.id ?? null;
+}
+
+/** Canonical account calendar: the saved account timezone, falling back to the phone only when none is saved. */
+async function accountTimeZone(userId: string): Promise<string> {
+  const { data } = await supabase.from('user_profile').select('timezone').eq('user_id', userId).maybeSingle();
+  const saved = (data as { timezone?: string | null } | null)?.timezone;
+  if (isValidTimeZone(saved)) return saved;
+  const device = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return isValidTimeZone(device) ? device : 'UTC';
+}
+
+async function readOutcome(read: () => Promise<Map<string, number>>): Promise<ReadOutcome> {
+  try {
+    return { state: 'read', values: await read() };
+  } catch {
+    return { state: 'failed' };
+  }
+}
+
+/** 15-minute step totals (Health Connect de-duplicates by app priority), re-bucketed into account days. */
+async function queryStepSlices(healthConnect: HealthConnectModule, startDate: Date, endDate: Date) {
+  const groups = await healthConnect.aggregateGroupByDuration({
     recordType: 'Steps',
     timeRangeFilter: dateRange(startDate, endDate),
-    timeRangeSlicer: { period: 'DAYS', length: 1 },
+    timeRangeSlicer: { duration: 'MINUTES', length: 15 },
   });
-
   return groups.flatMap((group) => {
-    const value = Math.round(Number(group.result.COUNT_TOTAL ?? 0));
-    return value > 0 ? [metricRow('steps', value, group.startTime)] : [];
+    const value = Number(group.result.COUNT_TOTAL ?? 0);
+    const start = new Date(group.startTime).getTime();
+    return Number.isFinite(value) && Number.isFinite(start) ? [{ start, value }] : [];
   });
 }
 
-async function queryDailyExerciseMinutes(
-  healthConnect: HealthConnectModule,
-  startDate: Date,
-  endDate: Date,
-) {
-  const groups = await healthConnect.aggregateGroupByPeriod({
-    recordType: 'ExerciseSession',
-    timeRangeFilter: dateRange(startDate, endDate),
-    timeRangeSlicer: { period: 'DAYS', length: 1 },
-  });
-
-  return groups.flatMap((group) => {
-    const seconds = Number(group.result.EXERCISE_DURATION_TOTAL?.inSeconds ?? 0);
-    const value = Math.round(seconds / 60);
-    return value > 0 ? [metricRow('active_mins', value, group.startTime)] : [];
+/** Actual exercise-session intervals; overlapping sessions from several apps count once. */
+async function queryExerciseIntervals(healthConnect: HealthConnectModule, startDate: Date, endDate: Date): Promise<Interval[]> {
+  const records = await readAllRecords(healthConnect, 'ExerciseSession', startDate, endDate);
+  return records.flatMap((record) => {
+    const start = new Date(record.startTime).getTime();
+    const end = new Date(record.endTime).getTime();
+    return Number.isFinite(start) && Number.isFinite(end) && end > start ? [[start, end] as Interval] : [];
   });
 }
 
-async function queryDailyRestingHeartRate(
-  healthConnect: HealthConnectModule,
-  startDate: Date,
-  endDate: Date,
-) {
-  const records = await readAllRecords(healthConnect, 'RestingHeartRate', startDate, endDate);
-  const latestByDate = new Map<string, { time: number; value: number }>();
-
-  for (const record of records) {
-    const time = new Date(record.time).getTime();
-    const value = Number(record.beatsPerMinute);
-    if (!Number.isFinite(time) || !Number.isFinite(value) || value <= 0) continue;
-    const date = localDateKey(new Date(time));
-    const existing = latestByDate.get(date);
-    if (!existing || time > existing.time) latestByDate.set(date, { time, value });
-  }
-
-  return Array.from(latestByDate.entries()).map(([date, record]) =>
-    metricRow('resting_hr', Math.round(record.value * 10) / 10, date),
-  );
-}
-
-async function queryDailySleep(
-  healthConnect: HealthConnectModule,
-  startDate: Date,
-  endDate: Date,
-) {
-  const queryStart = new Date(startDate);
-  queryStart.setDate(queryStart.getDate() - 1);
+async function querySleepIntervals(healthConnect: HealthConnectModule, startDate: Date, endDate: Date): Promise<Interval[]> {
+  const queryStart = new Date(startDate.getTime() - 86_400_000);
   const records = await readAllRecords(healthConnect, 'SleepSession', queryStart, endDate);
-  const intervalsByDate = new Map<string, Array<[number, number]>>();
-
-  for (const record of records) {
-    const recordedStages = record.stages ?? [];
-    const asleepStages = recordedStages.filter((stage) => ASLEEP_STAGE_TYPES.has(Number(stage.stage)));
-    const intervals = recordedStages.length > 0
-      ? asleepStages.map((stage) => [new Date(stage.startTime).getTime(), new Date(stage.endTime).getTime()] as [number, number])
-      : [[new Date(record.startTime).getTime(), new Date(record.endTime).getTime()] as [number, number]];
-
-    for (const [start, end] of intervals) {
-      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
-      const date = localDateKey(new Date(end));
-      const dayIntervals = intervalsByDate.get(date) ?? [];
-      dayIntervals.push([start, end]);
-      intervalsByDate.set(date, dayIntervals);
-    }
-  }
-
-  const firstDate = localDateKey(startDate);
-  const lastDate = localDateKey(endDate);
-  return Array.from(intervalsByDate.entries()).flatMap(([date, intervals]) => {
-    if (date < firstDate || date > lastDate) return [];
-    const hours = mergeIntervalHours(intervals);
-    return hours > 0 && hours <= 24 ? [{ date, hours }] : [];
+  return records.flatMap((record) => {
+    const stages = record.stages ?? [];
+    const asleep = stages.filter((stage) => ASLEEP_STAGE_TYPES.has(Number(stage.stage)));
+    const intervals = stages.length > 0
+      ? asleep.map((stage) => [new Date(stage.startTime).getTime(), new Date(stage.endTime).getTime()] as Interval)
+      : [[new Date(record.startTime).getTime(), new Date(record.endTime).getTime()] as Interval];
+    return intervals.filter(([start, end]) => Number.isFinite(start) && Number.isFinite(end) && end > start);
   });
 }
 
-async function readAllRecords<T extends 'RestingHeartRate' | 'SleepSession'>(
+async function readAllRecords(
   healthConnect: HealthConnectModule,
-  recordType: T,
+  recordType: 'ExerciseSession' | 'SleepSession',
   startDate: Date,
   endDate: Date,
 ) {
@@ -333,13 +342,11 @@ async function readAllRecords<T extends 'RestingHeartRate' | 'SleepSession'>(
     pageToken = page.pageToken;
   } while (pageToken);
 
-  return records as T extends 'RestingHeartRate'
-    ? Array<{ time: string; beatsPerMinute: number }>
-    : Array<{
-        startTime: string;
-        endTime: string;
-        stages?: Array<{ startTime: string; endTime: string; stage: number }>;
-      }>;
+  return records as Array<{
+    startTime: string;
+    endTime: string;
+    stages?: Array<{ startTime: string; endTime: string; stage: number }>;
+  }>;
 }
 
 async function initializeAvailableHealthConnect() {
@@ -375,52 +382,9 @@ function dateRange(startDate: Date, endDate: Date) {
   };
 }
 
-function metricRow(
-  metricType: 'steps' | 'active_mins' | 'resting_hr',
-  value: number,
-  dateValue: string,
-) {
-  const date = dateValue.slice(0, 10);
-  return {
-    metric_type: metricType,
-    value,
-    recorded_at: `${date}T00:00:00.000Z`,
-  };
-}
 
-function mergeIntervalHours(intervals: Array<[number, number]>) {
-  const sorted = [...intervals].sort((left, right) => left[0] - right[0]);
-  let totalMs = 0;
-  let currentStart: number | null = null;
-  let currentEnd: number | null = null;
 
-  for (const [start, end] of sorted) {
-    if (currentStart == null || currentEnd == null) {
-      currentStart = start;
-      currentEnd = end;
-    } else if (start <= currentEnd) {
-      currentEnd = Math.max(currentEnd, end);
-    } else {
-      totalMs += currentEnd - currentStart;
-      currentStart = start;
-      currentEnd = end;
-    }
-  }
 
-  if (currentStart != null && currentEnd != null) totalMs += currentEnd - currentStart;
-  return Math.round((totalMs / 3_600_000) * 100) / 100;
-}
-
-function startOfLocalDay(value: Date) {
-  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
-}
-
-function localDateKey(value: Date) {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const day = String(value.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
 
 function clampDays(days: number) {
   if (!Number.isFinite(days)) return 7;

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   HealthConnectError,
   connectHealthConnect,
+  disconnectHealthConnect,
   getHealthConnectAuthorization,
   getHealthConnectCapability,
   getHealthConnectIntegration,
@@ -20,6 +21,9 @@ export function useHealthConnect(userId?: string) {
   const [loading, setLoading] = useState(Boolean(userId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Results that arrive after an account switch must never reach this account's screen.
+  const owner = useRef(userId);
+  owner.current = userId;
 
   const refresh = useCallback(async () => {
     setLoading(Boolean(userId));
@@ -39,6 +43,7 @@ export function useHealthConnect(userId?: string) {
           ? getHealthConnectAuthorization()
           : Promise.resolve<HealthConnectAuthorization>('unknown'),
       ]);
+      if (owner.current !== userId) return;
       setIntegration(nextIntegration);
       setAuthorization(nextAuthorization);
       setError(null);
@@ -59,9 +64,11 @@ export function useHealthConnect(userId?: string) {
     setError(null);
     try {
       const result = await connectHealthConnect(userId);
+      if (owner.current !== userId) return null;
       await refresh();
       return result;
     } catch (caughtError) {
+      if (owner.current !== userId) return null;
       setError(getHealthConnectConnectionError(caughtError));
       return null;
     } finally {
@@ -75,9 +82,11 @@ export function useHealthConnect(userId?: string) {
     setError(null);
     try {
       const result = await syncHealthConnect(userId, 7);
+      if (owner.current !== userId) return null;
       await refresh();
       return result;
     } catch (caughtError) {
+      if (owner.current !== userId) return null;
       setError(
         caughtError instanceof HealthConnectError && caughtError.code === 'permission_denied'
           ? 'Health Connect access isn’t enabled. You can change this anytime in Health Connect settings.'
@@ -89,6 +98,23 @@ export function useHealthConnect(userId?: string) {
     }
   }, [refresh, userId]);
 
+  /** App-level disconnect: stops imports and removes the link. It does not change Health Connect permissions. */
+  const disconnect = useCallback(async () => {
+    if (!userId) return false;
+    setSaving(true);
+    setError(null);
+    try {
+      await disconnectHealthConnect(userId);
+      if (owner.current === userId) setIntegration(null);
+      return true;
+    } catch {
+      if (owner.current === userId) setError('We couldn’t disconnect Health Connect. Please try again.');
+      return false;
+    } finally {
+      if (owner.current === userId) setSaving(false);
+    }
+  }, [userId]);
+
   return {
     capability,
     authorization,
@@ -99,6 +125,7 @@ export function useHealthConnect(userId?: string) {
     refresh,
     connect,
     sync,
+    disconnect,
     openSettings: openHealthConnectSettings,
   };
 }

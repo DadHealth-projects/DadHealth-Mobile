@@ -2,6 +2,20 @@ import { Platform, TurboModuleRegistry } from 'react-native';
 
 import { supabase } from './supabase';
 import { markDashboardStale } from './dashboardFreshness';
+import {
+  createHealthSyncGuard,
+  dayKeysBetween,
+  invalidateHealthSyncs,
+  isValidTimeZone,
+  minutesByDay,
+  reconcileMetric,
+  reconcileSleep,
+  sleepHoursByWakeDay,
+  startOfDayIn,
+  sumSlicesByDay,
+  type Interval,
+  type ReadOutcome,
+} from './healthSyncCore';
 
 type HealthKitModule = typeof import('@kingstinct/react-native-healthkit');
 
@@ -30,12 +44,15 @@ export type AppleHealthSyncResult = {
   metricsWritten: number;
   sleepWritten: number;
   syncedAt: string;
+  /** False when every read came back empty: Apple does not reveal whether read access was granted. */
+  readableData: boolean;
 };
 
+// Steps, recorded workouts and sleep only. Resting heart rate is out of scope;
+// Apple Exercise Time is replaced by actual workout durations.
 const READ_TYPES = [
   'HKQuantityTypeIdentifierStepCount',
-  'HKQuantityTypeIdentifierAppleExerciseTime',
-  'HKQuantityTypeIdentifierRestingHeartRate',
+  'HKWorkoutTypeIdentifier',
   'HKCategoryTypeIdentifierSleepAnalysis',
 ] as const;
 
@@ -99,10 +116,13 @@ export async function connectAppleHealth(userId: string): Promise<AppleHealthSyn
     throw new AppleHealthError('unavailable', 'Apple Health is unavailable.');
   }
 
+  const guard = createHealthSyncGuard(userId, currentSessionUserId);
+  // A completed request does not prove read access: Apple never reveals denied reads.
   const requestCompleted = await healthKit.requestAuthorization({ toRead: READ_TYPES });
   if (!requestCompleted) {
     throw new AppleHealthError('permission_denied', 'Apple Health authorization was not completed.');
   }
+  await guard.assertCurrent();
   const { error } = await supabase.from('user_integrations').upsert(
     {
       user_id: userId,
@@ -150,6 +170,7 @@ export async function syncAppleHealthIfConnected(
 }
 
 async function performAppleHealthSync(userId: string, days: number): Promise<AppleHealthSyncResult> {
+  const guard = createHealthSyncGuard(userId, currentSessionUserId);
   const healthKit = loadHealthKit();
   if (!healthKit || !healthKit.isHealthDataAvailable()) {
     throw new AppleHealthError('unavailable', 'Apple Health is unavailable.');
@@ -160,50 +181,34 @@ async function performAppleHealthSync(userId: string, days: number): Promise<App
     throw new AppleHealthError('permission_denied', 'Apple Health authorization is not ready.');
   }
 
-  const endDate = new Date();
-  const startDate = startOfLocalDay(endDate);
-  startDate.setDate(startDate.getDate() - (days - 1));
+  const timeZone = await accountTimeZone(userId);
+  const endMs = Date.now();
+  const windowDays = dayKeysBetween(timeZone, endMs - (days - 1) * 86_400_000, endMs);
+  const startDate = new Date(startOfDayIn(timeZone, windowDays[0]));
+  const endDate = new Date(endMs);
 
-  const [steps, activeMinutes, restingHeartRate, sleep] = await Promise.all([
-    queryDailyQuantity(
-      healthKit,
-      'HKQuantityTypeIdentifierStepCount',
-      'cumulativeSum',
-      'count',
-      'steps',
-      startDate,
-      endDate,
-    ),
-    queryDailyQuantity(
-      healthKit,
-      'HKQuantityTypeIdentifierAppleExerciseTime',
-      'cumulativeSum',
-      'min',
-      'active_mins',
-      startDate,
-      endDate,
-    ),
-    queryDailyQuantity(
-      healthKit,
-      'HKQuantityTypeIdentifierRestingHeartRate',
-      'mostRecent',
-      'count/min',
-      'resting_hr',
-      startDate,
-      endDate,
-    ),
-    queryDailySleep(healthKit, startDate, endDate),
+  const [steps, workouts, sleep] = await Promise.all([
+    readOutcome(() => queryStepSlices(healthKit, startDate, endDate).then((slices) => sumSlicesByDay(slices, timeZone))),
+    readOutcome(() => queryWorkoutIntervals(healthKit, startDate, endDate).then((intervals) => minutesByDay(intervals, timeZone))),
+    readOutcome(() => querySleepIntervals(healthKit, startDate, endDate).then((intervals) => sleepHoursByWakeDay(intervals, timeZone))),
   ]);
 
-  const metrics = [...steps, ...activeMinutes, ...restingHeartRate];
+  // Imported workouts feed the existing active-minutes metric only (one scoring path, no duplicate credit).
+  const metrics = [...reconcileMetric('steps', steps, windowDays), ...reconcileMetric('active_mins', workouts, windowDays)];
+  const sleepRows = reconcileSleep(sleep, windowDays);
+  const readableData = metrics.length > 0 || sleepRows.length > 0;
+
+  // The server takes the owner from the session token; never upload under a different session.
+  await guard.assertCurrent();
   const { data, error } = await supabase.rpc('upsert_apple_health_daily_data', {
     p_metrics: metrics,
-    p_sleep: sleep,
+    p_sleep: sleepRows,
   });
   if (error) throw error;
   markDashboardStale(userId);
 
   const syncedAt = new Date().toISOString();
+  await guard.assertCurrent();
   const { error: integrationError } = await supabase
     .from('user_integrations')
     .update({ last_sync_at: syncedAt })
@@ -216,114 +221,94 @@ async function performAppleHealthSync(userId: string, days: number): Promise<App
     metricsWritten: Number(counts.metrics_written ?? 0),
     sleepWritten: Number(counts.sleep_written ?? 0),
     syncedAt,
+    readableData,
   };
 }
 
-async function queryDailyQuantity(
-  healthKit: HealthKitModule,
-  identifier:
-    | 'HKQuantityTypeIdentifierStepCount'
-    | 'HKQuantityTypeIdentifierAppleExerciseTime'
-    | 'HKQuantityTypeIdentifierRestingHeartRate',
-  statistic: 'cumulativeSum' | 'mostRecent',
-  unit: 'count' | 'min' | 'count/min',
-  metricType: 'steps' | 'active_mins' | 'resting_hr',
-  startDate: Date,
-  endDate: Date,
-) {
+/**
+ * App-level disconnect: stops in-flight and future imports for this account and
+ * removes the connection. It does not change iPhone permissions (Settings > Health).
+ * Imported history is kept unless the member deletes their account.
+ */
+export async function disconnectAppleHealth(userId: string): Promise<void> {
+  invalidateHealthSyncs();
+  activeSyncs.delete(userId);
+  const { error } = await supabase.from('user_integrations').delete()
+    .eq('user_id', userId).eq('provider', APPLE_HEALTH_PROVIDER);
+  if (error) throw error;
+}
+
+async function currentSessionUserId(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user.id ?? null;
+}
+
+/** Canonical account calendar: the saved account timezone, falling back to the phone only when none is saved. */
+async function accountTimeZone(userId: string): Promise<string> {
+  const { data } = await supabase.from('user_profile').select('timezone').eq('user_id', userId).maybeSingle();
+  const saved = (data as { timezone?: string | null } | null)?.timezone;
+  if (isValidTimeZone(saved)) return saved;
+  const device = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return isValidTimeZone(device) ? device : 'UTC';
+}
+
+async function readOutcome(read: () => Promise<Map<string, number>>): Promise<ReadOutcome> {
+  try {
+    return { state: 'read', values: await read() };
+  } catch {
+    return { state: 'failed' };
+  }
+}
+
+/** 15-minute step totals (HealthKit de-duplicates overlapping sources), re-bucketed into account days. */
+async function queryStepSlices(healthKit: HealthKitModule, startDate: Date, endDate: Date) {
   const rows = await healthKit.queryStatisticsCollectionForQuantity(
-    identifier,
-    [statistic],
+    'HKQuantityTypeIdentifierStepCount',
+    ['cumulativeSum'],
     startDate,
-    { day: 1 },
-    {
-      filter: { date: { startDate, endDate, strictStartDate: true, strictEndDate: false } },
-      unit,
-    },
+    { minute: 15 },
+    { filter: { date: { startDate, endDate, strictStartDate: true, strictEndDate: false } }, unit: 'count' },
   );
-
   return rows.flatMap((row) => {
-    const quantity = statistic === 'cumulativeSum'
-      ? row.sumQuantity?.quantity
-      : row.mostRecentQuantity?.quantity;
-    if (quantity == null || !Number.isFinite(quantity) || quantity <= 0 || !row.startDate) return [];
-
-    const value = metricType === 'resting_hr'
-      ? Math.round(quantity * 10) / 10
-      : Math.round(quantity);
-    return [{
-      metric_type: metricType,
-      value,
-      recorded_at: `${localDateKey(new Date(row.startDate))}T00:00:00.000Z`,
-    }];
+    const value = row.sumQuantity?.quantity;
+    if (value == null || !Number.isFinite(value) || !row.startDate) return [];
+    return [{ start: new Date(row.startDate).getTime(), value }];
   });
 }
 
-async function queryDailySleep(healthKit: HealthKitModule, startDate: Date, endDate: Date) {
-  const queryStart = new Date(startDate);
-  queryStart.setDate(queryStart.getDate() - 1);
+/** Recorded workouts as [start, start + recorded duration]; HealthKit's duration excludes pauses. */
+async function queryWorkoutIntervals(healthKit: HealthKitModule, startDate: Date, endDate: Date): Promise<Interval[]> {
+  const workouts = await healthKit.queryWorkoutSamples({
+    limit: 0,
+    ascending: true,
+    filter: { date: { startDate, endDate, strictStartDate: false, strictEndDate: false } },
+  });
+  return workouts.flatMap((workout) => {
+    const start = new Date(workout.startDate).getTime();
+    const end = new Date(workout.endDate).getTime();
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
+    const quantity = Number(workout.duration?.quantity);
+    const unit = String(workout.duration?.unit ?? 's');
+    const seconds = unit === 'min' ? quantity * 60 : unit === 'hr' ? quantity * 3600 : quantity;
+    const activeMs = Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds * 1000, end - start) : end - start;
+    return [[start, start + activeMs] as Interval];
+  });
+}
+
+async function querySleepIntervals(healthKit: HealthKitModule, startDate: Date, endDate: Date): Promise<Interval[]> {
+  const queryStart = new Date(startDate.getTime() - 86_400_000);
   const samples = await healthKit.queryCategorySamples('HKCategoryTypeIdentifierSleepAnalysis', {
     limit: 0,
     ascending: true,
     filter: { date: { startDate: queryStart, endDate, strictStartDate: false, strictEndDate: false } },
   });
-
   const asleepValues = new Set([1, 3, 4, 5]);
-  const intervalsByDate = new Map<string, Array<[number, number]>>();
-
-  for (const sample of samples) {
-    if (!asleepValues.has(Number(sample.value))) continue;
+  return samples.flatMap((sample) => {
+    if (!asleepValues.has(Number(sample.value))) return [];
     const start = new Date(sample.startDate).getTime();
     const end = new Date(sample.endDate).getTime();
-    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
-
-    const date = localDateKey(new Date(end));
-    const intervals = intervalsByDate.get(date) ?? [];
-    intervals.push([start, end]);
-    intervalsByDate.set(date, intervals);
-  }
-
-  return Array.from(intervalsByDate.entries()).flatMap(([date, intervals]) => {
-    if (date < localDateKey(startDate) || date > localDateKey(endDate)) return [];
-    const hours = mergeIntervalHours(intervals);
-    return hours > 0 && hours <= 24 ? [{ date, hours }] : [];
+    return Number.isFinite(start) && Number.isFinite(end) && end > start ? [[start, end] as Interval] : [];
   });
-}
-
-function mergeIntervalHours(intervals: Array<[number, number]>) {
-  const sorted = [...intervals].sort((left, right) => left[0] - right[0]);
-  let totalMs = 0;
-  let currentStart: number | null = null;
-  let currentEnd: number | null = null;
-
-  for (const [start, end] of sorted) {
-    if (currentStart == null || currentEnd == null) {
-      currentStart = start;
-      currentEnd = end;
-    } else if (start <= currentEnd) {
-      currentEnd = Math.max(currentEnd, end);
-    } else {
-      totalMs += currentEnd - currentStart;
-      currentStart = start;
-      currentEnd = end;
-    }
-  }
-
-  if (currentStart != null && currentEnd != null) totalMs += currentEnd - currentStart;
-  return Math.round((totalMs / 3_600_000) * 10) / 10;
-}
-
-function startOfLocalDay(value: Date) {
-  const date = new Date(value);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function localDateKey(value: Date) {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const day = String(value.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 }
 
 function clampDays(days: number) {

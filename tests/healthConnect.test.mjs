@@ -20,7 +20,6 @@ test('Health Connect is pinned and requests only the approved read permissions',
   const expectedPermissions = [
     'android.permission.health.READ_STEPS',
     'android.permission.health.READ_EXERCISE',
-    'android.permission.health.READ_RESTING_HEART_RATE',
     'android.permission.health.READ_SLEEP',
   ];
   const healthPermissions = appData.expo.android.permissions.filter((permission) =>
@@ -28,10 +27,10 @@ test('Health Connect is pinned and requests only the approved read permissions',
   );
   assert.deepEqual(healthPermissions.sort(), expectedPermissions.sort());
 
-  for (const recordType of ['Steps', 'ExerciseSession', 'RestingHeartRate', 'SleepSession']) {
+  for (const recordType of ['Steps', 'ExerciseSession', 'SleepSession']) {
     assert.ok(integration.includes(`recordType: '${recordType}'`), `Missing ${recordType}`);
   }
-  for (const forbidden of ['Weight', 'ActiveCaloriesBurned', 'ExerciseRoute', 'BackgroundAccessPermission', 'ReadHealthDataHistory']) {
+  for (const forbidden of ['RestingHeartRate', 'Weight', 'ActiveCaloriesBurned', 'ExerciseRoute', 'BackgroundAccessPermission', 'ReadHealthDataHistory']) {
     assert.equal(integration.includes(`recordType: '${forbidden}'`), false, `Unexpected ${forbidden} access`);
   }
 });
@@ -42,9 +41,11 @@ test('Health Connect uses the approved aggregation and sync cadence', async () =
     source('components/HealthConnectManager.tsx'),
   ]);
 
-  assert.match(integration, /aggregateGroupByPeriod\(\{\s*recordType: 'Steps'/);
-  assert.match(integration, /aggregateGroupByPeriod\(\{\s*recordType: 'ExerciseSession'/);
-  assert.match(integration, /EXERCISE_DURATION_TOTAL\?\.inSeconds/);
+  // Client blocker 2 and 4: steps in 15-minute slices re-bucketed into account days; actual
+  // exercise-session intervals (overlaps merged) instead of a device-day duration total.
+  assert.match(integration, /aggregateGroupByDuration\(\{\s*recordType: 'Steps'[\s\S]*?timeRangeSlicer: \{ duration: 'MINUTES', length: 15 \}/);
+  assert.match(integration, /readAllRecords\(healthConnect, 'ExerciseSession'/);
+  assert.match(integration, /minutesByDay\(intervals, timeZone\)/);
   assert.match(integration, /return syncHealthConnect\(userId, 30\)/);
   assert.match(integration, /options\.days \?\? 7/);
   assert.match(integration, /15 \* 60 \* 1000/);
@@ -58,9 +59,11 @@ test('Health Connect writes only normalized metrics and preserves manual sleep h
     source('lib/offlineSync.ts'),
   ]);
 
-  for (const metric of ["'steps'", "'active_mins'", "'resting_hr'"]) {
+  for (const metric of ["'steps'", "'active_mins'"]) {
     assert.ok(integration.includes(metric), `Missing normalized metric ${metric}`);
   }
+  // Client blocker 6: resting heart rate is out of scope (no request, read or upload).
+  assert.doesNotMatch(integration, /resting_hr|RestingHeartRate/);
   assert.match(integration, /upsert_health_connect_daily_data/);
   assert.match(offlineSync, /WEARABLE_SLEEP_SOURCES\.has/);
   assert.ok(offlineSync.includes("'health_connect'"));
