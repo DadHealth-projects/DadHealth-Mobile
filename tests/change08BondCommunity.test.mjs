@@ -50,6 +50,7 @@ test('Present Dad content keeps first-use, timer, completion, and honest Focus b
   assert.match(ui, /<= 15/);
   assert.match(ui, /<= 5/);
   assert.match(ui, /iPhone Focus for you/);
+  assert.match(ui, /Platform\.OS === 'android'\s*\? 'Want fewer interruptions\? You can turn on Do Not Disturb from Quick Settings\. Dad Health can’t turn on Do Not Disturb for you\.'/);
   assert.match(ui, /Session complete/);
   assert.match(ui, /View Bond score/);
   assert.match(ui, /onPress=\{\(\) => void viewBondScore\(\)\}/);

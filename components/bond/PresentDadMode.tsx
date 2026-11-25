@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -318,7 +318,9 @@ function FocusNote() {
   return (
     <View className="rounded-button border border-border px-md py-sm">
       <Text className="font-body text-muted-text text-[14px] leading-[18px]">
-        Want fewer interruptions? You can turn on a Focus from Control Center. Dad Health can’t activate iPhone Focus for you.
+        {Platform.OS === 'android'
+          ? 'Want fewer interruptions? You can turn on Do Not Disturb from Quick Settings. Dad Health can’t turn on Do Not Disturb for you.'
+          : 'Want fewer interruptions? You can turn on a Focus from Control Center. Dad Health can’t activate iPhone Focus for you.'}
       </Text>
     </View>
   );
