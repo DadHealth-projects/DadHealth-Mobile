@@ -34,7 +34,7 @@ export type HealthConnectAuthorization = 'ready' | 'partial' | 'request_required
 
 export class HealthConnectError extends Error {
   constructor(
-    public readonly code: 'unavailable' | 'provider_update_required' | 'permission_denied',
+    public readonly code: 'unavailable' | 'provider_update_required' | 'permission_denied' | 'not_connected',
     message: string,
   ) {
     super(message);
@@ -233,6 +233,12 @@ async function performHealthConnectSync(userId: string, days: number): Promise<H
     p_metrics: metrics,
     p_sleep: sleepRows,
   });
+  // The server rejects uploads without this member's live connection (disconnected
+  // elsewhere, or account deletion in progress): stop and show "not linked", don't retry.
+  if (error?.message === 'integration_not_connected') {
+    activeSyncs.delete(userId);
+    throw new HealthConnectError('not_connected', 'The health connection is no longer linked.');
+  }
   if (error) throw error;
   markDashboardStale(userId);
 

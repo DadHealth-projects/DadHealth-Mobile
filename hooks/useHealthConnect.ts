@@ -88,10 +88,14 @@ export function useHealthConnect(userId?: string) {
     } catch (caughtError) {
       if (owner.current !== userId) return null;
       setError(
-        caughtError instanceof HealthConnectError && caughtError.code === 'permission_denied'
-          ? 'Health Connect access isn’t enabled. You can change this anytime in Health Connect settings.'
-          : 'We couldn’t sync with Health Connect. Please try again.',
+        caughtError instanceof HealthConnectError && caughtError.code === 'not_connected'
+          ? 'Health Connect is no longer linked to this account. Connect again to resume syncing.'
+          : caughtError instanceof HealthConnectError && caughtError.code === 'permission_denied'
+            ? 'Health Connect access isn’t enabled. You can change this anytime in Health Connect settings.'
+            : 'We couldn’t sync with Health Connect. Please try again.',
       );
+      // A server "not linked" answer means the link is gone: re-read it so the screen offers Connect.
+      if (caughtError instanceof HealthConnectError && caughtError.code === 'not_connected') void refresh();
       return null;
     } finally {
       setSaving(false);

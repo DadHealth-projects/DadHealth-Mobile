@@ -25,7 +25,7 @@ export type AppleHealthAuthorization = 'ready' | 'request_required' | 'unknown';
 
 export class AppleHealthError extends Error {
   constructor(
-    public readonly code: 'unavailable' | 'permission_denied',
+    public readonly code: 'unavailable' | 'permission_denied' | 'not_connected',
     message: string,
   ) {
     super(message);
@@ -208,6 +208,12 @@ async function performAppleHealthSync(userId: string, days: number): Promise<App
     p_metrics: metrics,
     p_sleep: sleepRows,
   });
+  // The server rejects uploads without this member's live connection (disconnected
+  // elsewhere, or account deletion in progress): stop and show "not linked", don't retry.
+  if (error?.message === 'integration_not_connected') {
+    activeSyncs.delete(userId);
+    throw new AppleHealthError('not_connected', 'The health connection is no longer linked.');
+  }
   if (error) throw error;
   markDashboardStale(userId);
 

@@ -49,7 +49,7 @@ function appleHarness({ steps = 'empty', workouts = [], sleep = [], timezone = '
   const supabase = {
     auth: { getSession: async () => ({ data: { session: h.session ? { user: { id: h.session } } : null } }) },
     from: table,
-    rpc: async (name, args) => { h.rpc.push([name, plain(args)]); return { data: { metrics_written: args.p_metrics.length, sleep_written: args.p_sleep.length }, error: null }; },
+    rpc: async (name, args) => { h.rpc.push([name, plain(args)]); if (h.rpcError) return { data: null, error: { message: h.rpcError } }; return { data: { metrics_written: args.p_metrics.length, sleep_written: args.p_sleep.length }, error: null }; },
   };
   const exports = {};
   vm.runInNewContext(compile('lib/appleHealth.ts'), {
@@ -167,4 +167,20 @@ test('wiring: routine syncs pick the window from the per-account schedule and re
   const store = read('lib/healthRefreshWindow.ts');
   assert.ok(store.includes('dadhealth.health.extended.v1.${provider}.${userId}'), 'per account and provider');
   assert.ok(store.includes('if (days < EXTENDED_WINDOW_DAYS) return;'), 'routine syncs do not reset the schedule');
+});
+
+test('a server "not linked" rejection stops the sync with a clear state instead of a generic retry', async () => {
+  const h = appleHarness({ workouts: [[DAY, 20]] });
+  // The post-migration server answer for a device whose link was removed elsewhere.
+  h.rpcError = 'integration_not_connected';
+  await assert.rejects(h.api.syncAppleHealth('user-a', 7), (e) => e.name === 'AppleHealthError' && e.code === 'not_connected');
+  assert.equal(h.updates.length, 0, 'no "last synced" stamp after a rejected upload');
+  const src = read('lib/appleHealth.ts');
+  assert.match(src, /if \(error\?\.message === 'integration_not_connected'\) \{\s*activeSyncs\.delete\(userId\);\s*throw new AppleHealthError\('not_connected'/);
+  assert.match(read('lib/healthConnect.ts'), /throw new HealthConnectError\('not_connected'/);
+  for (const hook of ['hooks/useAppleHealth.ts', 'hooks/useHealthConnect.ts']) {
+    const text = read(hook);
+    assert.match(text, /is no longer linked to this account\. Connect again to resume syncing\./, hook);
+    assert.match(text, /caughtError\.code === 'not_connected'\) void refresh\(\);/, hook);
+  }
 });

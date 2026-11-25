@@ -87,10 +87,14 @@ export function useAppleHealth(userId?: string) {
     } catch (caughtError) {
       if (owner.current !== userId) return null;
       setError(
-        caughtError instanceof AppleHealthError && caughtError.code === 'permission_denied'
-          ? 'Apple Health access wasn’t enabled. You can change this anytime in iPhone Settings.'
-          : 'We couldn’t sync with Apple Health. Please try again.',
+        caughtError instanceof AppleHealthError && caughtError.code === 'not_connected'
+          ? 'Apple Health is no longer linked to this account. Connect again to resume syncing.'
+          : caughtError instanceof AppleHealthError && caughtError.code === 'permission_denied'
+            ? 'Apple Health access wasn’t enabled. You can change this anytime in iPhone Settings.'
+            : 'We couldn’t sync with Apple Health. Please try again.',
       );
+      // A server "not linked" answer means the link is gone: re-read it so the screen offers Connect.
+      if (caughtError instanceof AppleHealthError && caughtError.code === 'not_connected') void refresh();
       return null;
     } finally {
       setSaving(false);
