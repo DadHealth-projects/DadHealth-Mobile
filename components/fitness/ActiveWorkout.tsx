@@ -5,6 +5,7 @@ import { readOwnerSecret, writeOwnerSecret } from '../../lib/accountPrivacyClean
 import type { FitnessWorkout, FitnessWorkoutExercise } from '../../hooks/useFitnessLibrary';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { DAD_STRENGTH_MOVES } from '../../lib/homeContent';
+import * as Crypto from 'expo-crypto';
 import { supabase } from '../../lib/supabase';
 import { refreshDashboardForUser } from '../../hooks/useDashboard';
 import LimeButton from '../LimeButton';
@@ -60,6 +61,10 @@ export default function ActiveWorkout({
   const [running, setRunning] = useState(false);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [saving, setSaving] = useState(false);
+  // One id per logged session, kept until the whole save succeeds. A retry after a lost
+  // response or a failed completion re-sends the same id, so the Body score never counts
+  // one workout twice (canonical scoring adds 8 points per workout_sessions row).
+  const pendingSession = useRef<{ owner: string; id: string } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [messageTone, setMessageTone] = useState<'success' | 'error'>('success');
 
@@ -148,9 +153,12 @@ export default function ActiveWorkout({
 
     setSaving(true);
     const durationMinutes = Math.max(1, Math.ceil(elapsedSeconds / 60));
+    if (pendingSession.current?.owner !== userId) pendingSession.current = { owner: userId, id: Crypto.randomUUID() };
+    const sessionId = pendingSession.current.id;
     const sessionResult = await supabase
       .from('workout_sessions')
       .insert({
+        id: sessionId,
         user_id: userId,
         exercise_name: currentMove.title || 'Dad Strength',
         duration_minutes: durationMinutes,
@@ -159,7 +167,8 @@ export default function ActiveWorkout({
       });
 
     if (currentOwner.current !== userId) return;
-    if (sessionResult.error) {
+    if (sessionResult.error && !(await workoutSessionAlreadySaved(sessionResult.error, sessionId, userId))) {
+      if (currentOwner.current !== userId) return;
       setMessageTone('error');
       setMessage('We could not log this session. Please try again.');
       setSaving(false);
@@ -184,6 +193,7 @@ export default function ActiveWorkout({
       }
     }
 
+    pendingSession.current = null;
     const nextIndex = (currentExerciseIndex + 1) % moves.length;
     const nextMove = moves[nextIndex];
     setMessageTone('success');
@@ -271,4 +281,11 @@ export default function ActiveWorkout({
       </View>
     </View>
   );
+}
+
+/** A unique-key conflict on our own id means an earlier attempt was saved; confirm it before trusting it. */
+async function workoutSessionAlreadySaved(error: { code?: string }, id: string, userId: string) {
+  if (error.code !== '23505') return false;
+  const existing = await supabase.from('workout_sessions').select('id').eq('id', id).eq('user_id', userId).maybeSingle();
+  return !existing.error && Boolean(existing.data);
 }
