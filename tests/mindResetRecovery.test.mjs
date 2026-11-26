@@ -38,11 +38,11 @@ function world({ storageFails = false, serverDown = false, sessionUser = 'A', ke
     from: () => { throw new Error('unused'); },
   };
   const secure = {
-    getItemAsync: async (k) => { if (w.keychainFails) throw new Error('keychain locked'); return w.keychain.get(k) ?? null; },
-    setItemAsync: async (k, v) => { if (w.keychainFails) throw new Error('keychain locked'); w.keychain.set(k, v); },
-    deleteItemAsync: async (k) => { if (w.keychainFails) throw new Error('keychain locked'); w.keychain.delete(k); },
+    getItemAsync: async (k) => { if (w.keychainFails || w.keychainReadFails) throw new Error('keychain locked'); return w.keychain.get(k) ?? null; },
+    setItemAsync: async (k, v) => { if (w.keychainFails) throw new Error('keychain locked'); if (w.beforeKeychainWrite) await w.beforeKeychainWrite(); w.keychain.set(k, v); },
+    deleteItemAsync: async (k) => { if (w.keychainFails || w.keychainDeleteFails) throw new Error('keychain locked'); w.keychain.delete(k); },
   };
-  const pendingStore = load('lib/mindResetPendingStore.ts', { 'expo-secure-store': secure }, { JSON, Array, Number });
+  const pendingStore = load('lib/mindResetPendingStore.ts', { 'expo-secure-store': secure }, { JSON, Array, Number, Map, Set, Math, Date, Promise });
   const sync = load('lib/offlineSync.ts', { './supabase': { supabase }, './offlineStorage': storage, './analyticsOccurrence': { occurrenceHeader: () => 'none' },
     './mindResetPendingStore': pendingStore });
   let id = 0;
@@ -159,4 +159,69 @@ test('sign-out clears the keychain copy too', async () => {
   assert.equal(w.keychain.size, 1);
   await sync.pauseAndClearOfflineUser('A');
   assert.equal(w.keychain.size, 0);
+});
+
+// Client audit A4 (26 Nov): edge cases of the keychain fallback.
+const heldIds = (w) => { const raw = [...w.keychain.values()][0]; return raw ? JSON.parse(raw).map((i) => i.id) : []; };
+
+test('a 9th completion is never silently dropped: it is reported as not durable and still recovered', async () => {
+  const { w, sync } = world({ storageFails: true, serverDown: true });
+  const results = [];
+  for (let i = 1; i <= 9; i++) {
+    const item = sync.createMindResetQueueItem('A', `00000000-0000-4000-8000-00000000000${i}`.slice(-36), 60 + i, `2026-11-26T0${Math.min(i, 9)}:00:00Z`);
+    results.push(await sync.holdPendingMindReset(item));
+  }
+  assert.deepEqual(results.slice(0, 8), Array(8).fill(true), 'first eight are durable');
+  assert.equal(heldIds(w).length, 8, 'keychain capacity respected');
+  assert.equal(sync.pendingMindResetCount('A'), 9, 'all nine still held in memory');
+  // The overflow is the oldest item; its hold call already returned true before the 9th arrived,
+  // so the recovery message must not claim everything is kept on the phone.
+  await sync.syncOfflineQueue('A');
+  const last = w.events.filter((e) => e.kind === 'mind_reset_complete' && e.status === 'failed').at(-1);
+  assert.equal(last?.message, sync.MIND_RESET_SAVE_FAILED, 'honest: not everything is kept on this phone');
+  w.serverDown = false;
+  await sync.syncOfflineQueue('A');
+  assert.equal(credits(w), 9, 'every completion credited once the server is back');
+  assert.equal(w.keychain.size, 0);
+});
+
+test('a failed keychain read never erases completions that are saved there', async () => {
+  const first = world({ storageFails: true, serverDown: true });
+  await first.completion.recordMindResetCompletion('A', 120);
+  assert.equal(heldIds(first.w).length, 1);
+  // Restart with an unreadable keychain: recovery must not overwrite the stored entry.
+  const second = world({ storageFails: true, serverDown: true, keychain: first.w.keychain, server: first.w.server });
+  second.w.keychainReadFails = true;
+  await second.sync.syncOfflineQueue('A');
+  assert.equal(heldIds(second.w).length, 1, 'still stored');
+  assert.ok(second.w.events.some((e) => e.kind === 'mind_reset_complete' && e.status === 'failed'), 'unknown state is reported, not silent');
+  second.w.keychainReadFails = false; second.w.serverDown = false;
+  await second.sync.syncOfflineQueue('A');
+  assert.equal(credits(second.w), 1);
+});
+
+test('a failed keychain delete makes sign-out cleanup fail loudly after finishing the other steps', async () => {
+  const { w, sync, completion } = world({ storageFails: true, serverDown: true });
+  await completion.recordMindResetCompletion('A', 120);
+  w.keychainDeleteFails = true;
+  await assert.rejects(sync.pauseAndClearOfflineUser('A'), /keychain locked/);
+  assert.equal(sync.pendingMindResetCount('A'), 0, 'memory cleared regardless');
+  assert.equal(w.keychain.size, 1, 'the entry remains, and the failure was reported rather than hidden');
+});
+
+test('a completion held while recovery is running is not overwritten by it', async () => {
+  const { w, sync, completion } = world({ storageFails: true, serverDown: true });
+  await completion.recordMindResetCompletion('A', 120);
+  const late = sync.createMindResetQueueItem('A', '00000000-0000-4000-8000-0000000000ee', 200, '2026-11-26T12:00:00Z');
+  // A real concurrent hold arrives while recovery is mid-write; it must queue behind the lock
+  // (not wait inside it) and must survive the recovery's write.
+  let lateHold = null;
+  w.beforeKeychainWrite = async () => { if (!lateHold) lateHold = sync.holdPendingMindReset(late); };
+  await sync.syncOfflineQueue('A');
+  w.beforeKeychainWrite = null;
+  assert.equal(await lateHold, true, 'the late hold is stored durably after the recovery write');
+  assert.ok(heldIds(w).includes(late.id), 'recovery did not overwrite it');
+  w.serverDown = false;
+  await sync.syncOfflineQueue('A');
+  assert.equal(credits(w), 2, 'both completions credited, once each');
 });
