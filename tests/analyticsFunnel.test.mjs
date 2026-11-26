@@ -32,7 +32,7 @@ test('business request snapshots consent without awaiting analytics; offline exp
 test('offline check-in uses its saved original capability and legacy queued entries explicitly suppress attribution',async()=>{
  const headers=[];
  function builder(){return {select(){return this;},eq(){return this;},insert(){return this;},update(){return this;},setHeader(k,v){headers.push([k,v]);return this;},maybeSingle:async()=>({data:null,error:null}),then(resolve){resolve({error:null});}};}
- const api=load('lib/offlineSync.ts',{'./supabase':{supabase:{from:()=>builder()}},'./offlineStorage':{},'./analyticsOccurrence':{occurrenceHeader:s=>s?JSON.stringify(s):'none'}});
+ const api=load('lib/offlineSync.ts',{'./supabase':{supabase:{from:()=>builder()}},'./offlineStorage':{},'./mindResetPendingStore':{readHeldMindResets:async()=>[],writeHeldMindResets:async()=>true,clearHeldMindResets:async()=>{}},'./analyticsOccurrence':{occurrenceHeader:s=>s?JSON.stringify(s):'none'}});
  const item={userId:'A',payload:{date:'2026-11-20',moodValue:3},analytics:{owner:'A',consent:'saved',secret:'original'}};
  await api.persistDailyCheckIn(item);assert.equal(headers[0][1],JSON.stringify(item.analytics));
  await api.persistDailyCheckIn({...item,analytics:undefined});assert.equal(headers[1][1],'none');

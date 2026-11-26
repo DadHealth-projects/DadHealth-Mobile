@@ -85,6 +85,7 @@ function syncModule(rpcResult) {
     './analyticsOccurrence': { occurrenceHeader: () => ({}) },
     './supabase': { supabase },
     './offlineStorage': {},
+    './mindResetPendingStore':{readHeldMindResets:async()=>[],writeHeldMindResets:async()=>true,clearHeldMindResets:async()=>{}},
   });
   return { mod, calls };
 }
@@ -122,5 +123,5 @@ test('queue, provider and dashboard are wired: dedupe by id, retry-later skips, 
   assert.match(sync, /if \(error instanceof MindResetRetryLaterError\) continue;/);
   assert.match(provider, /\(activeSeconds\) => \{ if \(owner\) void recordMindResetCompletion\(owner, activeSeconds\); \}/);
   assert.match(dashboard, /event\.kind === 'mind_reset_complete'\) && event\.status === 'synced'\) \{\s*void refreshDashboardForUser\(userId\);/);
-  assert.match(read('lib/mindResetCompletion.ts'), /const item = createMindResetQueueItem\(userId, Crypto\.randomUUID\(\), activeSeconds\);\s*try \{\s*await enqueueOfflineWrite\(item\);\s*\} catch \{\s*holdPendingMindReset\(item\);\s*\}\s*try \{\s*await syncOfflineQueue\(userId\);/, 'queued first; held (never dropped) when the device cannot store it; then synced');
+  assert.match(read('lib/mindResetCompletion.ts'), /const item = createMindResetQueueItem\(userId, Crypto\.randomUUID\(\), activeSeconds\);\s*try \{\s*await enqueueOfflineWrite\(item\);\s*\} catch \{\s*await holdPendingMindReset\(item\);\s*\}\s*try \{\s*await syncOfflineQueue\(userId\);/, 'queued first; held (never dropped) when the device cannot store it; then synced');
 });

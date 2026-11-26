@@ -15,8 +15,8 @@ function load(path, mocks, extras = {}) {
   return exports;
 }
 
-function world({ storageFails = false, serverDown = false, sessionUser = 'A' } = {}) {
-  const w = { queue: new Map(), events: [], server: new Map(), rpcCalls: 0, storageFails, serverDown, sessionUser };
+function world({ storageFails = false, serverDown = false, sessionUser = 'A', keychainFails = false, keychain = new Map(), server = new Map() } = {}) {
+  const w = { queue: new Map(), events: [], server, rpcCalls: 0, storageFails, serverDown, sessionUser, keychain, keychainFails };
   const storage = {
     allowPrivateOfflineUser() {}, blockPrivateOfflineUser() {}, clearPrivateOfflineData: async () => {},
     emitOfflineSync: (event) => w.events.push(event),
@@ -37,7 +37,14 @@ function world({ storageFails = false, serverDown = false, sessionUser = 'A' } =
     },
     from: () => { throw new Error('unused'); },
   };
-  const sync = load('lib/offlineSync.ts', { './supabase': { supabase }, './offlineStorage': storage, './analyticsOccurrence': { occurrenceHeader: () => 'none' } });
+  const secure = {
+    getItemAsync: async (k) => { if (w.keychainFails) throw new Error('keychain locked'); return w.keychain.get(k) ?? null; },
+    setItemAsync: async (k, v) => { if (w.keychainFails) throw new Error('keychain locked'); w.keychain.set(k, v); },
+    deleteItemAsync: async (k) => { if (w.keychainFails) throw new Error('keychain locked'); w.keychain.delete(k); },
+  };
+  const pendingStore = load('lib/mindResetPendingStore.ts', { 'expo-secure-store': secure }, { JSON, Array, Number });
+  const sync = load('lib/offlineSync.ts', { './supabase': { supabase }, './offlineStorage': storage, './analyticsOccurrence': { occurrenceHeader: () => 'none' },
+    './mindResetPendingStore': pendingStore });
   let id = 0;
   const completion = load('lib/mindResetCompletion.ts', {
     'expo-crypto': { randomUUID: () => `00000000-0000-4000-8000-${String(++id).padStart(12, '0')}` },
@@ -70,7 +77,7 @@ test('storage and network both fail: honest failure, held for retry, then credit
   assert.equal(credits(w), 0);
   assert.equal(sync.pendingMindResetCount('A'), 1, 'held, not discarded');
   const failure = w.events.find((e) => e.kind === 'mind_reset_complete' && e.status === 'failed');
-  assert.equal(failure?.message, sync.MIND_RESET_SAVE_FAILED, 'the screen gets an honest message');
+  assert.equal(failure?.message, sync.MIND_RESET_SAVE_DELAYED, 'honest message: kept on this phone, not yet sent');
   w.serverDown = false;
   await sync.syncOfflineQueue('A');
   await sync.syncOfflineQueue('A');
@@ -96,7 +103,7 @@ test('duplicate submission of the same completion never credits twice', async ()
   const item = sync.createMindResetQueueItem('A', '00000000-0000-4000-8000-0000000000ff', 100);
   await sync.persistMindReset(item);
   await sync.persistMindReset(item);
-  sync.holdPendingMindReset(item); sync.holdPendingMindReset(item);
+  await sync.holdPendingMindReset(item); await sync.holdPendingMindReset(item);
   assert.equal(sync.pendingMindResetCount('A'), 1, 'held once per id');
   await sync.syncOfflineQueue('A');
   assert.equal(credits(w), 1);
@@ -121,4 +128,35 @@ test('the Mind Reset screen shows the honest save problem only for this account 
   assert.match(ui, /if \(event\.status === 'synced' \|\| event\.status === 'cleared'\) setSaveProblem\(null\);/);
   assert.match(ui, /\{saveProblem \? <Text accessibilityRole="alert"/);
   assert.doesNotMatch(ui, /saved to your Mind score|counted toward/i, 'never claims credit before the server confirms');
+});
+
+test('app restart: a completion the queue could not store is recovered from the keychain and credited once', async () => {
+  const first = world({ storageFails: true, serverDown: true });
+  await first.completion.recordMindResetCompletion('A', 180);
+  assert.equal(credits(first.w), 0);
+  assert.equal(first.w.keychain.size, 1, 'saved durably outside the failed queue');
+  // Process killed: memory gone. Relaunch with the same keychain and server, network back.
+  const second = world({ storageFails: true, serverDown: false, keychain: first.w.keychain, server: first.w.server });
+  assert.equal(second.sync.pendingMindResetCount('A'), 0, 'fresh process starts with empty memory');
+  await second.sync.syncOfflineQueue('A');
+  assert.equal(credits(second.w), 1, 'credit recovered after restart');
+  assert.equal(second.w.keychain.size, 0, 'cleared once the server confirmed');
+  await second.sync.syncOfflineQueue('A');
+  assert.equal(credits(second.w), 1, 'never credited twice');
+});
+
+test('queue AND keychain unavailable: memory only, and the message says so (not guaranteed across restart)', async () => {
+  const { w, sync, completion } = world({ storageFails: true, serverDown: true, keychainFails: true });
+  await completion.recordMindResetCompletion('A', 120);
+  assert.equal(sync.pendingMindResetCount('A'), 1);
+  const failure = w.events.find((e) => e.kind === 'mind_reset_complete' && e.status === 'failed');
+  assert.equal(failure?.message, sync.MIND_RESET_SAVE_FAILED, '"keep trying while Dad Health is open" - no false durability claim');
+});
+
+test('sign-out clears the keychain copy too', async () => {
+  const { w, sync, completion } = world({ storageFails: true, serverDown: true });
+  await completion.recordMindResetCompletion('A', 120);
+  assert.equal(w.keychain.size, 1);
+  await sync.pauseAndClearOfflineUser('A');
+  assert.equal(w.keychain.size, 0);
 });
