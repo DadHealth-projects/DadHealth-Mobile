@@ -120,9 +120,13 @@ test('loaded content stays interactive through background refresh and recoverabl
   assert.equal(h.result.loading,false);assert.equal(h.result.error,'read_failed');assert.ok(h.result.report);
   h.fail=false;h.wait=null;await h.result.refresh();await h.flush();assert.equal(h.result.error,null);h.unmount();
 });
-test('failed initial load settles without repeated automatic attempts; explicit Retry works',async()=>{
-  const h=hooks();h.fail=true;await h.flush();assert.equal(h.result.report,null);assert.equal(h.result.loading,false);
-  const calls=h.requests.length;for(let i=0;i<4;i++) await h.flush();assert.equal(h.requests.length,calls);
+test('failed initial load makes exactly one quick automatic retry, then settles; explicit Retry works',async()=>{
+  // 2026-11-26 (client-approved reliability fix): one bounded retry for a temporary failure, never a loop.
+  const h=hooks();h.fail=true;await h.flush();await new Promise(r=>setTimeout(r,1100));await h.flush();
+  assert.equal(h.result.report,null);assert.equal(h.result.loading,false);
+  const calls=h.requests.length;assert.equal(calls,2,'initial request plus one automatic retry');
+  for(let i=0;i<4;i++) await h.flush();await new Promise(r=>setTimeout(r,1100));await h.flush();
+  assert.equal(h.requests.length,calls,'no further automatic attempts');
   h.fail=false;await h.result.refresh();await h.flush();assert.ok(h.result.report);h.unmount();
 });
 test('account changes abort stale work; downgrade and private-cache cleanup remove Pro details',async()=>{
@@ -149,7 +153,8 @@ test('missing saved week settles empty, while unknown entitlement removes privat
   await h.result.refresh();await h.flush();assert.equal(h.result.empty,false);
   assert.equal(h.result.error,'entitlement_unavailable');assert.equal(h.result.report,null);
   const calls=h.requests.length;h.access=null;h.render();assert.equal(h.result.report,null);
-  await h.flush();assert.equal(h.requests.length,calls+1);assert.equal(h.result.error,'entitlement_unavailable');
+  await h.flush();await new Promise(r=>setTimeout(r,1100));await h.flush();
+  assert.equal(h.requests.length,calls+2,'re-read on the access change plus its one quick retry');assert.equal(h.result.error,'entitlement_unavailable');
   assert.equal(h.result.report,null);h.unmount();
 });
 test('live streak reader preserves pending versus current and canonical calendar dates',()=>{

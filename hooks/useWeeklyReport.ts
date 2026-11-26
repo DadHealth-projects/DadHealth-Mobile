@@ -5,6 +5,15 @@ import { useNetworkStatus } from '../contexts/NetworkContext';
 import { subscribeOfflineSync } from '../lib/offlineStorage';
 import { Item02ReadError, parseSavedReport, type SavedWeeklyReport } from '../lib/weeklyReport';
 
+/** Temporary server-side failures that one quick automatic retry can clear (2026-11-26 evidence). */
+export const ITEM02_RETRYABLE = new Set(['read_failed', 'entitlement_unavailable', 'network']);
+/** A retry only follows a failure that came back quickly; a slow failure is never repeated. */
+export const ITEM02_RETRY_FAST_FAILURE_MS = 8000;
+export const ITEM02_RETRY_DELAY_MS = 1000;
+const wait = (ms: number, signal: AbortSignal) => new Promise<void>((resolve) => {
+  const timer = setTimeout(resolve, ms);
+  signal.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
+});
 /** Why a read settled empty: the week is not released yet, or a released week has no saved report. */
 export type EmptyReason = 'not_released' | 'snapshot_missing';
 type Resource<T> = { key: string; data: T | null; loading: boolean; error: string | null; empty: boolean;
@@ -31,7 +40,7 @@ export function useItem02Resource<T>(owner: string | undefined, path: string, ac
     const request = new AbortController(); controller.current = request;
     setState(previous => ({ key, data: retained(previous), loading: true, error: null, empty: false, emptyReason: null }));
     try {
-      const payload = await fetchItem02(owner, path, request.signal);
+      const payload = await fetchItem02WithRetry(owner, path, request.signal, valid);
       if (!valid()) return;
       const data = parse(payload);
       setState({ key, data, loading: false, error: null, empty: false, emptyReason: null });
@@ -111,4 +120,24 @@ const payload = await response.json();
       new Promise<never>((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Item02ReadError('read_failed')); }, 15000); }),
     ]);
   } finally { clearTimeout(timer); parentSignal.removeEventListener('abort', cancel); }
+}
+
+/**
+ * One automatic retry for a temporary failure that came back quickly. Missing or unreleased
+ * reports, sign-in and account problems, cancellations and timeouts are never retried, and the
+ * account / request generation is re-checked before retrying. The 15 s per-request bound is unchanged.
+ */
+export async function fetchItem02WithRetry(owner: string, path: string, signal: AbortSignal,
+  stillValid: () => boolean = () => true, fetcher = fetchItem02, now = () => Date.now()): Promise<unknown> {
+  const started = now();
+  try {
+    return await fetcher(owner, path, signal);
+  } catch (error) {
+    const reason = error instanceof Item02ReadError ? error.reason : 'network';
+    const timedOut = now() - started >= ITEM02_RETRY_FAST_FAILURE_MS;
+    if (!ITEM02_RETRYABLE.has(reason) || timedOut || signal.aborted || !stillValid()) throw error;
+    await wait(ITEM02_RETRY_DELAY_MS, signal);
+    if (signal.aborted || !stillValid()) throw error;
+    return fetcher(owner, path, signal);
+  }
 }
