@@ -169,10 +169,12 @@ export function reconcileSleep(outcome: ReadOutcome, windowDays: readonly string
 /* ---------------- Account / session isolation ---------------- */
 
 let healthGeneration = 0;
+const invalidationListeners = new Set<() => void>();
 
 /** Invalidate every in-flight native health sync (logout, account switch, disconnect, deletion). */
 export function invalidateHealthSyncs(): void {
   healthGeneration += 1;
+  for (const cancel of invalidationListeners) cancel();
 }
 
 export class StaleHealthSyncError extends Error {
@@ -188,6 +190,11 @@ export function createHealthSyncGuard(userId: string, currentSessionUserId: () =
   const generation = healthGeneration;
   return {
     userId,
+    onInvalidate(cancel: () => void) {
+      if (generation !== healthGeneration) cancel();
+      invalidationListeners.add(cancel);
+      return () => { invalidationListeners.delete(cancel); };
+    },
     isCurrent: async () => generation === healthGeneration && (await currentSessionUserId()) === userId,
     async assertCurrent() {
       if (generation !== healthGeneration || (await currentSessionUserId()) !== userId) throw new StaleHealthSyncError();

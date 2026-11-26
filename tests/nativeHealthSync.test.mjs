@@ -39,7 +39,7 @@ function appleHarness({ steps = 'empty', workouts = [], sleep = [], timezone = '
   const table = (name) => {
     const q = {
       select: () => q, eq: () => q,
-      maybeSingle: async () => name === 'user_profile' ? { data: { timezone }, error: null } : { data: null, error: null },
+      maybeSingle: async () => name === 'user_profile' ? { data: { timezone }, error: null } : { data: { id: 'connection-a' }, error: null },
       update: (v) => { h.updates.push([name, v]); return { eq: () => ({ eq: async () => ({ error: null }) }) }; },
       delete: () => { h.deletes.push(name); return { eq: () => ({ eq: async () => ({ error: null }) }) }; },
       upsert: async () => ({ error: null }),
@@ -57,6 +57,7 @@ function appleHarness({ steps = 'empty', workouts = [], sleep = [], timezone = '
     require: (name) => ({
       'react-native': { Platform: { OS: 'ios' }, TurboModuleRegistry: { get: () => ({}) } },
       './supabase': { supabase },
+      './healthTransport': { healthTransport: async (owner) => ({ client: supabase, guard: core.createHealthSyncGuard(owner, async () => h.session) }) },
       './dashboardFreshness': { markDashboardStale: () => {} },
       './healthSyncCore': core,
       './healthRefreshWindow': { nextRefreshDays: async () => 7, markRefreshCompleted: async () => {} },
@@ -90,14 +91,15 @@ test('workouts: actual durations feed active minutes once; days without workouts
 
 test('reconciliation: a failed read never sends values for that metric; an empty read cannot erase history', async () => {
   const failed = appleHarness({ steps: 'fail', workouts: [[DAY, 20]] });
-  await failed.api.syncAppleHealth('user-a', 7);
+  await assert.rejects(failed.api.syncAppleHealth('user-a', 7), /health_read_incomplete/);
+  assert.equal(failed.rpc[0][1].p_complete, false);
   const metrics = failed.rpc[0][1].p_metrics;
   assert.ok(metrics.every((m) => m.metric_type !== 'steps'), 'failed step read sends no step rows');
   assert.ok(metrics.some((m) => m.metric_type === 'active_mins'));
 
   const empty = appleHarness();
   const result = await empty.api.syncAppleHealth('user-a', 7);
-  assert.deepEqual(empty.rpc[0][1], { p_metrics: [], p_sleep: [] }, 'nothing readable: nothing overwritten');
+  assert.deepEqual(empty.rpc[0][1], { p_provider: 'apple_health', p_connection_id: 'connection-a', p_complete: false, p_metrics: [], p_sleep: [] }, 'nothing readable: nothing overwritten');
   assert.equal(result.readableData, false, 'the screen can say no data was readable instead of claiming access');
 });
 
@@ -150,7 +152,7 @@ test('wiring: logout/account switch invalidate syncs; hooks ignore stale results
   assert.match(hc, /aggregateGroupByDuration\(\{\s*recordType: 'Steps'/);
   assert.match(hc, /readAllRecords\(healthConnect, 'ExerciseSession'/);
   assert.match(hc, /reconcileMetric\('active_mins', exercise, windowDays, true\)/, 'Health Connect confirms permission, so empty reads are genuine zeros');
-  assert.match(hc, /await guard\.assertCurrent\(\);\s*const \{ data, error \} = await supabase\.rpc\('upsert_health_connect_daily_data'/);
+  assert.match(hc, /await guard\.assertCurrent\(\);[\s\S]*?const \{ data, error \} = await healthClient\.rpc\('sync_native_health_daily_data'/);
   const screen = read('screens/subscreens/HealthPermissionsScreen.tsx');
   assert.match(screen, /'Apple Health linked'/);
   assert.match(screen, /no Apple Health data was readable/);
@@ -161,7 +163,7 @@ test('wiring: logout/account switch invalidate syncs; hooks ignore stale results
 test('wiring: routine syncs pick the window from the per-account schedule and record only successful extended runs', () => {
   for (const [file, provider, fn] of [['lib/appleHealth.ts', 'apple_health', 'syncAppleHealth'], ['lib/healthConnect.ts', 'health_connect', 'syncHealthConnect']]) {
     const src = read(file);
-    const expected = `  const days = options.days ?? await nextRefreshDays('${provider}', userId);\n  const result = await ${fn}(userId, days);\n  await markRefreshCompleted('${provider}', userId, days);`;
+    const expected = `  const days = options.days ?? await nextRefreshDays('${provider}', userId);\n  const result = await ${fn}(userId, days);\n  if (result.syncedAt) await markRefreshCompleted('${provider}', userId, days);`;
     assert.ok(src.replace(/\r\n/g, '\n').includes(expected), file);
   }
   const store = read('lib/healthRefreshWindow.ts');

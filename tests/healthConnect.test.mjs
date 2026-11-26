@@ -68,7 +68,7 @@ test('Health Connect writes only normalized metrics and preserves manual sleep h
   }
   // Client blocker 6: resting heart rate is out of scope (no request, read or upload).
   assert.doesNotMatch(integration, /resting_hr|RestingHeartRate/);
-  assert.match(integration, /upsert_health_connect_daily_data/);
+  assert.match(integration, /sync_native_health_daily_data/);
   assert.match(offlineSync, /WEARABLE_SLEEP_SOURCES\.has/);
   assert.ok(offlineSync.includes("'health_connect'"));
   assert.match(offlineSync, /\.eq\('source', 'manual'\)/);

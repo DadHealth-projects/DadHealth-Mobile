@@ -1,9 +1,9 @@
 import { Platform, TurboModuleRegistry } from 'react-native';
 
 import { supabase } from './supabase';
+import { healthTransport } from './healthTransport';
 import { markDashboardStale } from './dashboardFreshness';
 import {
-  createHealthSyncGuard,
   dayKeysBetween,
   invalidateHealthSyncs,
   isValidTimeZone,
@@ -44,7 +44,7 @@ export type AppleHealthIntegration = {
 export type AppleHealthSyncResult = {
   metricsWritten: number;
   sleepWritten: number;
-  syncedAt: string;
+  syncedAt: string | null;
   /** False when every read came back empty: Apple does not reveal whether read access was granted. */
   readableData: boolean;
 };
@@ -117,14 +117,14 @@ export async function connectAppleHealth(userId: string): Promise<AppleHealthSyn
     throw new AppleHealthError('unavailable', 'Apple Health is unavailable.');
   }
 
-  const guard = createHealthSyncGuard(userId, currentSessionUserId);
+  const { client: healthClient, guard } = await healthTransport(userId);
   // A completed request does not prove read access: Apple never reveals denied reads.
   const requestCompleted = await healthKit.requestAuthorization({ toRead: READ_TYPES });
   if (!requestCompleted) {
     throw new AppleHealthError('permission_denied', 'Apple Health authorization was not completed.');
   }
   await guard.assertCurrent();
-  const { error } = await supabase.from('user_integrations').upsert(
+  const { error } = await healthClient.from('user_integrations').upsert(
     {
       user_id: userId,
       provider: APPLE_HEALTH_PROVIDER,
@@ -169,12 +169,12 @@ export async function syncAppleHealthIfConnected(
 
   const days = options.days ?? await nextRefreshDays('apple_health', userId);
   const result = await syncAppleHealth(userId, days);
-  await markRefreshCompleted('apple_health', userId, days);
+  if (result.syncedAt) await markRefreshCompleted('apple_health', userId, days);
   return result;
 }
 
 async function performAppleHealthSync(userId: string, days: number): Promise<AppleHealthSyncResult> {
-  const guard = createHealthSyncGuard(userId, currentSessionUserId);
+  const { client: healthClient, guard } = await healthTransport(userId);
   const healthKit = loadHealthKit();
   if (!healthKit || !healthKit.isHealthDataAvailable()) {
     throw new AppleHealthError('unavailable', 'Apple Health is unavailable.');
@@ -185,7 +185,11 @@ async function performAppleHealthSync(userId: string, days: number): Promise<App
     throw new AppleHealthError('permission_denied', 'Apple Health authorization is not ready.');
   }
 
-  const timeZone = await accountTimeZone(userId);
+  const { data: connection, error: connectionError } = await healthClient.from('user_integrations')
+    .select('id').eq('user_id', userId).eq('provider', 'apple_health').maybeSingle();
+  if (connectionError) throw connectionError;
+  if (!connection) throw new AppleHealthError('not_connected', 'The health connection is no longer linked.');
+  const timeZone = await accountTimeZone(userId, healthClient);
   const endMs = Date.now();
   const windowDays = dayKeysBetween(timeZone, endMs - (days - 1) * 86_400_000, endMs);
   const startDate = new Date(startOfDayIn(timeZone, windowDays[0]));
@@ -204,7 +208,12 @@ async function performAppleHealthSync(userId: string, days: number): Promise<App
 
   // The server takes the owner from the session token; never upload under a different session.
   await guard.assertCurrent();
-  const { data, error } = await supabase.rpc('upsert_apple_health_daily_data', {
+  const failed = [steps, workouts, sleep].some(outcome => outcome.state === 'failed');
+  const complete = !failed && [steps, workouts, sleep].every(outcome => outcome.state === 'read' && [...outcome.values.values()].some(value => value > 0));
+  const { data, error } = await healthClient.rpc('sync_native_health_daily_data', {
+    p_provider: 'apple_health',
+    p_connection_id: connection.id,
+    p_complete: complete,
     p_metrics: metrics,
     p_sleep: sleepRows,
   });
@@ -215,18 +224,11 @@ async function performAppleHealthSync(userId: string, days: number): Promise<App
     throw new AppleHealthError('not_connected', 'The health connection is no longer linked.');
   }
   if (error) throw error;
-  markDashboardStale(userId);
-
-  const syncedAt = new Date().toISOString();
   await guard.assertCurrent();
-  const { error: integrationError } = await supabase
-    .from('user_integrations')
-    .update({ last_sync_at: syncedAt })
-    .eq('user_id', userId)
-    .eq('provider', APPLE_HEALTH_PROVIDER);
-  if (integrationError) throw integrationError;
-
-  const counts = (data ?? {}) as { metrics_written?: number; sleep_written?: number };
+  markDashboardStale(userId);
+  if (failed) throw new Error('health_read_incomplete');
+  const counts = (data ?? {}) as { metrics_written?: number; sleep_written?: number; synced_at?: string | null };
+  const syncedAt = counts.synced_at ?? null;
   return {
     metricsWritten: Number(counts.metrics_written ?? 0),
     sleepWritten: Number(counts.sleep_written ?? 0),
@@ -243,23 +245,20 @@ async function performAppleHealthSync(userId: string, days: number): Promise<App
 export async function disconnectAppleHealth(userId: string): Promise<void> {
   invalidateHealthSyncs();
   activeSyncs.delete(userId);
-  const { error } = await supabase.from('user_integrations').delete()
+  const { client: healthClient } = await healthTransport(userId);
+  const { error } = await healthClient.from('user_integrations').delete()
     .eq('user_id', userId).eq('provider', APPLE_HEALTH_PROVIDER);
   if (error) throw error;
 }
 
-async function currentSessionUserId(): Promise<string | null> {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.user.id ?? null;
-}
-
-/** Canonical account calendar: the saved account timezone, falling back to the phone only when none is saved. */
-async function accountTimeZone(userId: string): Promise<string> {
-  const { data } = await supabase.from('user_profile').select('timezone').eq('user_id', userId).maybeSingle();
-  const saved = (data as { timezone?: string | null } | null)?.timezone;
-  if (isValidTimeZone(saved)) return saved;
-  const device = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return isValidTimeZone(device) ? device : 'UTC';
+/** Failed profile reads must never reinterpret history in the phone timezone. */
+async function accountTimeZone(userId: string, client: typeof supabase): Promise<string> {
+  const { data, error } = await client.from('user_profile').select('timezone').eq('user_id', userId).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('health_calendar_unavailable');
+  const saved = data.timezone ?? 'UTC';
+  if (!isValidTimeZone(saved)) throw new Error('health_calendar_invalid');
+  return saved;
 }
 
 async function readOutcome(read: () => Promise<Map<string, number>>): Promise<ReadOutcome> {
