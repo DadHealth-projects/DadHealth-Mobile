@@ -168,7 +168,7 @@ test('actual sheet done-today and completed states expose no next-action complet
 test('hook clears synchronously on account/access change, fetches despite unknown dashboard access and refreshes on return',async()=>{
  const h=harness();let owner='a',access=null,focused=true,offline=false,resume;const calls=[];
  const hook=load('hooks/useMindPlan.ts',{react:h.react,'react-native':{AppState:{addEventListener(_,fn){resume=fn;return {remove(){}};}}},
- '../contexts/NetworkContext':{useNetworkStatus:()=>({isOffline:offline})},'../lib/mindPlan':{...api,requestMindPlan:async(o,op)=>{calls.push({o,op});return fixture();}}}).useMindPlan;
+ '../contexts/NetworkContext':{useNetworkStatus:()=>({isOffline:offline})},'../lib/mindPlan':{...api,requestMindPlanWithRetry:async(o,op)=>{calls.push({o,op});return fixture();}}}).useMindPlan;
  const render=()=>h.render(()=>hook(owner,access,focused));render();await tick();let result=render();assert.equal(result.view.result.state,'available');assert.ok(calls.length);
  owner='b';result=render();assert.equal(result.view,null);await tick();result=render();assert.equal(result.view.result.state,'available');
  access=false;result=render();assert.equal(result.view,null);await tick();render();const n=calls.length;focused=false;render();focused=true;render();await tick();assert.ok(calls.length>n);

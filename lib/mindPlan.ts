@@ -74,6 +74,36 @@ export async function requestMindPlan(owner: string, operation: PlanOperation | 
   } finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
 }
 
+/** A read retry only follows a failure that came back quickly; a slow failure is never repeated. */
+export const PLAN_RETRY_FAST_FAILURE_MS = 8000;
+export const PLAN_RETRY_DELAY_MS = 1000;
+const wait = (ms: number, signal: AbortSignal) => new Promise<void>((resolve) => {
+  const timer = setTimeout(resolve, ms);
+  signal.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
+});
+/**
+ * Plan reads get one automatic retry after a quick temporary failure: the server answered
+ * "unavailable" (503), the network failed, or a gateway error page came back instead of JSON.
+ * Start/complete are never repeated automatically (the controller owns their recovery).
+ * Sign-in or account changes, invalid content, timeouts, slow failures and cancellations are
+ * never retried; an abort (account change, invalidate, dispose) stops the retry. The 15 s
+ * per-request limit is unchanged.
+ */
+export async function requestMindPlanWithRetry(owner: string, operation: PlanOperation | null, signal: AbortSignal,
+  request: typeof requestMindPlan = requestMindPlan, now: () => number = () => Date.now()): Promise<MindPlanResult> {
+  if (operation) return request(owner, operation, signal);
+  const started = now();
+  let first: MindPlanResult | null = null, failure: unknown = null;
+  try { first = await request(owner, null, signal); } catch (error) { failure = error; }
+  if (first && first.state !== 'unavailable') return first;
+  const transient = first !== null || failure instanceof TypeError || failure instanceof SyntaxError;
+  const giveUp = () => { if (first) return first; throw failure; };
+  if (!transient || now() - started >= PLAN_RETRY_FAST_FAILURE_MS || signal.aborted) return giveUp();
+  await wait(PLAN_RETRY_DELAY_MS, signal);
+  if (signal.aborted) return giveUp();
+  return request(owner, null, signal);
+}
+
 export type PlanView = { result: MindPlanResult | null; loading: boolean; busy: boolean; verified: boolean;
   uncertain: PlanOperation | null; canRetryOperation: boolean; error: string | null };
 export const PLAN_UNAVAILABLE = 'Your plan is temporarily unavailable.';

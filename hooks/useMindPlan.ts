@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { useNetworkStatus } from '../contexts/NetworkContext';
-import { createMindPlanController, requestMindPlan, type PlanView } from '../lib/mindPlan';
+import { createMindPlanController, requestMindPlanWithRetry, type PlanView } from '../lib/mindPlan';
 
 export function useMindPlan(owner: string | undefined, accessSignal: boolean | null, focused: boolean) {
   const { isOffline } = useNetworkStatus();
@@ -12,7 +12,7 @@ export function useMindPlan(owner: string | undefined, accessSignal: boolean | n
   const scope = useRef<{ owner: string; controller: ReturnType<typeof createMindPlanController> } | null>(null);
   useEffect(() => {
     if (!owner) { setState(null); return; }
-    const controller = createMindPlanController(owner, requestMindPlan, view => {
+    const controller = createMindPlanController(owner, requestMindPlanWithRetry, view => {
       if (current.current === owner) setState({ owner, key: configuredKey.current, view });
     });
     scope.current = { owner, controller };
