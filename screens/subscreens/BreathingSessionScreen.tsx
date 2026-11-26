@@ -1,5 +1,5 @@
 import { useNotificationPresentation } from '../../contexts/NotificationInboxContext';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useMindResetSound } from '../../hooks/useMindResetSound';
 import { useMindResetSession } from '../../hooks/useMindResetSession';
 import { trackEvent } from '../../lib/analytics';
+import { subscribeOfflineSync } from '../../lib/offlineStorage';
 import {
   BREATHING_DURATION_SECONDS,
   getMindResetPhase,
@@ -29,6 +30,16 @@ export default function BreathingSessionScreen() {
   useNotificationPresentation(Boolean(user), false, 'mind-reset');
   const preference = useMindResetSound(user?.id);
   const session = useMindResetSession();
+  // Honest save state: shown only while a finished reset could not be stored or sent yet.
+  const [saveProblem, setSaveProblem] = useState<string | null>(null);
+  useEffect(() => {
+    setSaveProblem(null);
+    return subscribeOfflineSync((event) => {
+      if (event.userId !== user?.id || event.kind !== 'mind_reset_complete') return;
+      if (event.status === 'failed') setSaveProblem(event.message ?? null);
+      if (event.status === 'synced' || event.status === 'cleared') setSaveProblem(null);
+    });
+  }, [user?.id]);
   const elapsedSeconds = session.seconds;
   const active = session.running;
   const scale = useRef(new Animated.Value(1)).current;
@@ -137,6 +148,7 @@ export default function BreathingSessionScreen() {
 
         <View className="gap-md">
           {session.error ? <Text accessibilityRole="alert" className="font-body text-white text-[14px]">{session.error}</Text> : null}
+          {saveProblem ? <Text accessibilityRole="alert" className="font-body text-white text-[14px]">{saveProblem}</Text> : null}
           {phase === 'complete' ? (
             <>
               <LimeButton label="Done" onPress={finishHere} />

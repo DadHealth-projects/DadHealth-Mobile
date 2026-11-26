@@ -5,6 +5,7 @@ import {
   blockPrivateOfflineUser,
   clearPrivateOfflineData,
   emitOfflineSync,
+  enqueueOfflineWrite,
   markJournalEntryFailed,
   markJournalEntrySynced,
   markOfflineQueueItemFailed,
@@ -279,11 +280,61 @@ export function setOfflineSyncUser(userId: string | null) {
   if (userId) allowPrivateOfflineUser(userId);
 }
 
+// ── Mind Reset completions the device could not store ──────────────────────
+// If the durable queue write fails, the completion is held here (memory only) and every sync
+// first retries it: back into the durable queue, otherwise straight to the server. The queue id
+// is the server's idempotent session id, so no retry can credit twice. Only the signed-in owner's
+// items are ever sent; sign-out drops them. Never reported as saved until the server confirms.
+export const MIND_RESET_SAVE_FAILED = 'We couldn’t save this Mind Reset yet. We’ll keep trying while Dad Health is open.';
+const pendingMindResets = new Map<string, OfflineMindResetItem[]>();
+
+export function holdPendingMindReset(item: OfflineMindResetItem) {
+  const held = pendingMindResets.get(item.userId) ?? [];
+  if (!held.some((pending) => pending.id === item.id)) pendingMindResets.set(item.userId, [...held, item]);
+}
+
+export function pendingMindResetCount(userId: string) {
+  return pendingMindResets.get(userId)?.length ?? 0;
+}
+
+async function recoverPendingMindResets(userId: string, runGeneration: number) {
+  const held = pendingMindResets.get(userId);
+  if (!held?.length) return;
+  const sessionResult = await supabase.auth.getSession();
+  if (sessionResult.data.session?.user.id !== userId) return;
+  for (const item of [...held]) {
+    if (activeUserId !== userId || generation !== runGeneration) return;
+    let done = false;
+    try {
+      await enqueueOfflineWrite(item);
+      done = true; // durable again: the normal queue below sends it
+    } catch {
+      try {
+        await persistMindReset(item);
+        done = true;
+        emitOfflineSync({ userId, kind: 'mind_reset_complete', status: 'synced' });
+      } catch (error) {
+        // Invalid or too old for the server: it can never be accepted, so stop holding it.
+        if (error instanceof Error && (error.message === 'invalid_mind_reset' || error.message === 'mind_reset_expired')) done = true;
+      }
+    }
+    if (done) {
+      const remaining = (pendingMindResets.get(userId) ?? []).filter((pending) => pending.id !== item.id);
+      if (remaining.length) pendingMindResets.set(userId, remaining); else pendingMindResets.delete(userId);
+    }
+  }
+  if (pendingMindResetCount(userId)) {
+    emitOfflineSync({ userId, kind: 'mind_reset_complete', status: 'failed', message: MIND_RESET_SAVE_FAILED });
+  }
+}
+
 export function syncOfflineQueue(userId: string) {
   if (activeUserId !== userId) return Promise.resolve();
   if (inFlight) return inFlight;
   const runGeneration = generation;
-  const request = runQueue(userId, runGeneration).finally(() => {
+  const request = recoverPendingMindResets(userId, runGeneration)
+    .catch(() => undefined)
+    .then(() => runQueue(userId, runGeneration)).finally(() => {
     if (inFlight === request) inFlight = null;
   });
   inFlight = request;
@@ -292,6 +343,7 @@ export function syncOfflineQueue(userId: string) {
 
 export async function pauseAndClearOfflineUser(userId: string) {
   blockPrivateOfflineUser(userId);
+  pendingMindResets.delete(userId);
   if (activeUserId === userId) {
     activeUserId = null;
     generation += 1;
