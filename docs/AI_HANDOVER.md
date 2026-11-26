@@ -39,7 +39,9 @@ Some backend tests start a real PostgreSQL in Docker; with Docker stopped they f
 ## 3. Environment variables (names only — never commit values)
 
 Mobile `.env` (all `EXPO_PUBLIC_*`, inlined into the app bundle, so never put a secret here):
-`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_WEB_URL`, `EXPO_PUBLIC_ONESIGNAL_APP_ID`, `EXPO_PUBLIC_APPLE_IAP_PRO_MONTHLY_PRODUCT_ID`, `EXPO_PUBLIC_APPLE_IAP_PRO_ANNUAL_PRODUCT_ID`, `EXPO_PUBLIC_GOOGLE_PLAY_PRO_PRODUCT_ID`, `EXPO_PUBLIC_GOOGLE_PLAY_PRO_MONTHLY_BASE_PLAN_ID`, `EXPO_PUBLIC_GOOGLE_PLAY_PRO_ANNUAL_BASE_PLAN_ID`, `EXPO_PUBLIC_GOOGLE_PLAY_PRO_MONTHLY_TRIAL_OFFER_ID`, `EXPO_PUBLIC_GOOGLE_PLAY_PRO_ANNUAL_TRIAL_OFFER_ID`, `EXPO_PUBLIC_POSTHOG_KEY`, `EXPO_PUBLIC_POSTHOG_HOST`.
+`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_WEB_URL`, `EXPO_PUBLIC_ONESIGNAL_APP_ID`, `EXPO_PUBLIC_APPLE_IAP_PRO_MONTHLY_PRODUCT_ID`, `EXPO_PUBLIC_APPLE_IAP_PRO_ANNUAL_PRODUCT_ID`, `EXPO_PUBLIC_GOOGLE_PLAY_PRO_PRODUCT_ID`, `EXPO_PUBLIC_GOOGLE_PLAY_PRO_MONTHLY_BASE_PLAN_ID`, `EXPO_PUBLIC_GOOGLE_PLAY_PRO_ANNUAL_BASE_PLAN_ID`, `EXPO_PUBLIC_GOOGLE_PLAY_PRO_MONTHLY_TRIAL_OFFER_ID`, `EXPO_PUBLIC_GOOGLE_PLAY_PRO_ANNUAL_TRIAL_OFFER_ID`, `EXPO_PUBLIC_ANALYTICS_ENABLED`.
+
+Analytics is routed through the backend: the app never talks to PostHog. `EXPO_PUBLIC_ANALYTICS_ENABLED` only lets a consenting member's choice reach the backend (`/api/analytics/events`); it does **not** enable delivery to PostHog. Delivery is a separate backend switch (`ANALYTICS_DELIVERY_ENABLED`, default false) plus worker job 32 (inactive); both stay off until the privacy, export and deletion acceptance is complete. `EXPO_PUBLIC_POSTHOG_KEY` / `EXPO_PUBLIC_POSTHOG_HOST` may still exist in old local `.env` files; no app code reads them, so do not rely on them.
 
 Backend `.env.local`: see `dadHealth/.env.local.example`. It includes server secrets (Supabase service role, Stripe, Apple/Google subscription verification, OneSignal REST, Resend, cron and webhook secrets). Treat every one as confidential. The phone-push switch `ITEM03_EXACT_PUSH_ENABLED` is read by the backend but is not listed in that example file.
 
@@ -81,7 +83,7 @@ grep -E "^✖ " after.txt | grep -vE "tests\\\\|tests/|failing" | sed -E 's/ \([
 comm -13 main-fails.txt after-fails.txt    # newly failing — must be empty
 ```
 
-- Line endings (`core.autocrlf=true` on Windows) do not change results; this was checked.
+- Line endings (`core.autocrlf=true` on Windows) did not change the current suites' results. A new test that matches exact multi-line source text can still be line-ending sensitive: match line breaks with `\s` or `\r?\n`.
 
 ## 7. Reusable bug-fix prompt
 
@@ -132,12 +134,12 @@ Resolved on local branches (pending client review):
 | Tests | About 20 notification and deep-link tests pinned moved code or missed new imports | Re-pointed to current behaviour |
 
 Open (detail lives in the milestone investigation record kept outside the repository; nothing here depends on it):
-- Mind Reset completions are never recorded (`complete_mind_reset` exists; awaiting the early-finish decision).
+- (Resolved since: Mind Reset completions are recorded through `complete_mind_reset`; 60 s+ "Finish here" counts, with offline and keychain recovery; see `lib/mindResetCompletion.ts`.)
 - Account timezone defaults to UTC and is not taken from the device (owner decision; it also moves the scoring calendar).
 - Backend-dependent: phone-push switch, Apple-only trial notice and its copy, lowest-pillar trigger, 50% retention offer, badge awarding, Mind plan server logging, database load, Dad Days failures, analytics delivery.
 
 Disproved theories — do not repeat:
-- "Line endings cause the test failures" — identical results on LF-only clones.
+- "Line endings cause the test failures" — identical results on LF-only clones for the current suites (see section 6 for new tests).
 - "The reminder picker allows any minute" — the check-in reminder uses a fixed 15-minute list on both platforms; only the native picker for other timed types allows any minute.
 - "Bedtime story, workout window and journal prompt are never sent" — the backend's legacy dispatch loop sends them.
 - "Saved activities don't update scores because the client doesn't refresh" — the activity log screen does refresh; the visible cause was the baseline rule hiding scores for new accounts.
