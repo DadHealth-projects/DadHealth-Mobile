@@ -2,12 +2,15 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
+  AUTOMATIC_RETRY_MS,
   DASHBOARD_FRESHNESS_MS,
   clearDashboardFreshness,
   dashboardReadGeneration,
+  isAutomaticReloadThrottled,
   isDashboardFresh,
   markDashboardStale,
   recordCompleteDashboardRead,
+  recordDashboardAttempt,
 } from '../lib/dashboardFreshness.js';
 
 const root = new URL('../', import.meta.url);
@@ -80,4 +83,44 @@ test('writes that feed dashboard data mark it stale after server confirmation', 
     'screens/subscreens/MilestoneTrackerScreen.tsx': /else \{\s*markDashboardStale\(user\.id\);/,
   };
   for (const [path, pattern] of Object.entries(sites)) assert.match(await source(path), pattern, path);
+});
+
+// Production 2026-11-25 21:18-21:36 UTC: one device re-read the full dashboard every 12 s
+// (each read hit the 12 s timeout). Automatic retries are now spaced out.
+test('automatic reloads after an attempt wait the retry window on the same account day', () => {
+  clearDashboardFreshness();
+  const at = { userId: 'user-a', day: '2026-11-24' };
+  assert.equal(isAutomaticReloadThrottled({ ...at, now: 1_000 }), false, 'no attempt yet');
+  recordDashboardAttempt('user-a', '2026-11-24', 1_000);
+  assert.equal(isAutomaticReloadThrottled({ ...at, now: 1_000 + 12_000 }), true, 'the 12 s storm cadence is blocked');
+  assert.equal(isAutomaticReloadThrottled({ ...at, now: 1_000 + AUTOMATIC_RETRY_MS - 1 }), true);
+  assert.equal(isAutomaticReloadThrottled({ ...at, now: 1_000 + AUTOMATIC_RETRY_MS }), false, 'retries after the window');
+  assert.equal(isAutomaticReloadThrottled({ ...at, day: '2026-11-25', now: 1_500 }), false, 'day change is never held back');
+  assert.equal(isAutomaticReloadThrottled({ ...at, now: 500 }), false, 'clock moved backwards does not block');
+  assert.equal(isAutomaticReloadThrottled({ userId: 'user-b', day: '2026-11-24', now: 1_500 }), false, 'per account');
+});
+
+test('a write clears the retry backoff so saved changes are re-read on the next focus', () => {
+  clearDashboardFreshness();
+  recordDashboardAttempt('user-a', '2026-11-24', 1_000);
+  markDashboardStale('user-a');
+  assert.equal(isAutomaticReloadThrottled({ userId: 'user-a', day: '2026-11-24', now: 1_500 }), false);
+  recordDashboardAttempt('user-a', '2026-11-24', 2_000);
+  clearDashboardFreshness();
+  assert.equal(isAutomaticReloadThrottled({ userId: 'user-a', day: '2026-11-24', now: 2_500 }), false, 'account change clears it');
+});
+
+test('dashboard wiring: attempts recorded, only automatic reloads throttled, entitlement budget under the dashboard limit', async () => {
+  const hook = await source('hooks/useDashboard.ts');
+  const load = hook.slice(hook.indexOf('function loadDashboard('), hook.indexOf('function markDashboardEntitlementUnknown'));
+  assert.match(load, /if \(existingRequest\) return existingRequest;[\s\S]*recordDashboardAttempt\(userId, todayKey\(\), Date\.now\(\)\);/, 'joins in-flight before recording a new attempt');
+  const idle = hook.slice(hook.indexOf('export function refreshDashboardIfIdle'), hook.indexOf('export function useDashboard'));
+  assert.match(idle, /const inFlight = inFlightByUser\.get\(userId\);\s*if \(inFlight\) return inFlight;/);
+  assert.match(idle, /isAutomaticReloadThrottled\(\{ userId, day: todayKey\(\), now: Date\.now\(\) \}\)\) return Promise\.resolve\(\);\s*return loadDashboard\(userId\);/);
+  const explicit = hook.slice(hook.indexOf('export function refreshDashboardForUser'), hook.indexOf('/**', hook.indexOf('export function refreshDashboardForUser')));
+  assert.doesNotMatch(explicit, /Throttled/, 'explicit refreshes are never throttled');
+  const budget = Number(hook.match(/DASHBOARD_ENTITLEMENT_BUDGET_MS = ([\d_]+)/)[1].replace(/_/g, ''));
+  const limit = Number(hook.match(/function withTimeout<T>\(promise: Promise<T>, ms = (\d+)\)/)[1]);
+  assert.ok(budget < limit, 'a slow subscription check cannot time out the whole dashboard');
+  assert.match(hook, /withTimeout\(loadNativeSubscriptionStatus\(\), DASHBOARD_ENTITLEMENT_BUDGET_MS\)\.then\(\s*\(status\) => \(\{ status, failed: false \}\),\s*\(\) => \(\{ status: null, failed: true \}\)/);
 });

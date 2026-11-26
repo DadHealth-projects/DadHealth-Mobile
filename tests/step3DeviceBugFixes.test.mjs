@@ -39,7 +39,7 @@ test('dashboard ignores responses from prior login identity after logout or acco
   assert.match(dashboard, /dashboardIdentityVersion !== identityVersion/);
   assert.match(dashboard, /if \(!userId\)[\s\S]*?setStore\(\{ userId: null, data: null, loading: false/);
   // a37a846: a failed status read is recorded as failed (unknown), never silently treated as Free.
-  assert.match(dashboard, /postsResult,[\s\S]*?subscriptionStatusResult,[\s\S]*?loadNativeSubscriptionStatus\(\)\.then\(\s*\(status\) => \(\{ status, failed: false \}\),\s*\(\) => \(\{ status: null, failed: true \}\),/);
+  assert.match(dashboard, /postsResult,[\s\S]*?subscriptionStatusResult,[\s\S]*?withTimeout\(loadNativeSubscriptionStatus\(\), DASHBOARD_ENTITLEMENT_BUDGET_MS\)\.then\(\s*\(status\) => \(\{ status, failed: false \}\),\s*\(\) => \(\{ status: null, failed: true \}\),/);
 });
 
 test('Today uses Body workout source and separates assignment loading, empty and failure states', async () => {

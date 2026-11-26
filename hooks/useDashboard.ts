@@ -22,9 +22,11 @@ import { refreshAfterInFlight } from '../lib/refreshAfterInFlight';
 import {
   clearDashboardFreshness,
   dashboardReadGeneration,
+  isAutomaticReloadThrottled,
   isDashboardFresh,
   markDashboardStale,
   recordCompleteDashboardRead,
+  recordDashboardAttempt,
 } from '../lib/dashboardFreshness';
 import { mergeDashboardRefreshState, type DashboardReadFailures } from '../lib/dashboardRefreshState';
 
@@ -248,6 +250,11 @@ function mapDadDateRows(rows: unknown[] | null | undefined): DadDateItem[] {
   });
 }
 
+// The subscription check calls the web API (15 s client limit). Inside the dashboard it
+// gets a shorter budget than the 12 s dashboard limit, so a slow check marks access
+// unknown instead of discarding database reads that already succeeded.
+export const DASHBOARD_ENTITLEMENT_BUDGET_MS = 10_000;
+
 async function withTimeout<T>(promise: Promise<T>, ms = 12000): Promise<T> {
   return Promise.race([
     promise,
@@ -347,7 +354,7 @@ async function fetchDashboard(userId: string): Promise<DashboardFetchResult> {
     supabase.from('user_circles').select('circle_id').eq('user_id', userId),
     supabase.from('earned_badges').select('badges(icon,name)').eq('user_id', userId),
     supabase.from('posts').select('id,content,tag,anonymous,author_initials,author_name').order('created_at', { ascending: false }).limit(20),
-    loadNativeSubscriptionStatus().then(
+    withTimeout(loadNativeSubscriptionStatus(), DASHBOARD_ENTITLEMENT_BUDGET_MS).then(
       (status) => ({ status, failed: false }),
       () => ({ status: null, failed: true }),
     ),
@@ -719,6 +726,7 @@ function loadDashboard(userId: string): Promise<void> {
     error: null,
     syncError: store.userId === userId ? store.syncError : null,
   });
+  recordDashboardAttempt(userId, todayKey(), Date.now());
   const request = (async () => {
     if (!hasCurrentData) await hydrateDashboardCache(userId, false, identityVersion);
     if (dashboardIdentityVersion !== identityVersion) return;
@@ -756,7 +764,8 @@ export function refreshDashboardForUser(userId: string): Promise<void> {
 /**
  * Focus/resume refreshes join an in-flight read instead of queuing another one,
  * and skip the full reload when a complete read finished within the freshness
- * window today. Unknown access, errors and day changes always reload.
+ * window today. Unknown access, errors and day changes reload, at most once per
+ * AUTOMATIC_RETRY_MS after the previous attempt. Explicit refreshes are not limited.
  */
 export function refreshDashboardIfIdle(userId: string): Promise<void> {
   const current = store.userId === userId ? store.data : null;
@@ -770,6 +779,11 @@ export function refreshDashboardIfIdle(userId: string): Promise<void> {
       hasError: Boolean(store.error || store.syncError),
     })
   ) return inFlightByUser.get(userId) ?? Promise.resolve();
+  const inFlight = inFlightByUser.get(userId);
+  if (inFlight) return inFlight;
+  // A failed, partial or unknown-access read is retried on the next focus/resume,
+  // but never more than once per AUTOMATIC_RETRY_MS: no back-to-back reload storm.
+  if (isAutomaticReloadThrottled({ userId, day: todayKey(), now: Date.now() })) return Promise.resolve();
   return loadDashboard(userId);
 }
 

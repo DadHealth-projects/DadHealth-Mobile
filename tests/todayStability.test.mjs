@@ -94,7 +94,7 @@ test('resume refresh is active-screen scoped and coalesces with an in-flight das
   const hook = await source('hooks/useDashboard.ts');
   // Focus/resume now skips a reload inside a short freshness window (tests/dashboardFreshness.test.mjs);
   // outside it, the refresh still joins any in-flight read via loadDashboard.
-  assert.match(hook, /export function refreshDashboardIfIdle\(userId: string\): Promise<void> \{[\s\S]*?return inFlightByUser\.get\(userId\) \?\? Promise\.resolve\(\);\s*return loadDashboard\(userId\);/);
+  assert.match(hook, /export function refreshDashboardIfIdle\(userId: string\): Promise<void> \{[\s\S]*?return inFlightByUser\.get\(userId\) \?\? Promise\.resolve\(\);\s*const inFlight = inFlightByUser\.get\(userId\);\s*if \(inFlight\) return inFlight;[\s\S]*?isAutomaticReloadThrottled\([\s\S]*?\) return Promise\.resolve\(\);\s*return loadDashboard\(userId\);/);
   assert.match(hook, /useFocusEffect\(useCallback\(\(\) => \{[\s\S]*?AppState\.addEventListener/);
   assert.match(hook, /refreshDashboardIfIdle\(userId\)/);
   assert.doesNotMatch(hook, /useEffect\(\(\) => \{\s*if \(!userId\) return;\s*let previousState = AppState\.currentState/);
