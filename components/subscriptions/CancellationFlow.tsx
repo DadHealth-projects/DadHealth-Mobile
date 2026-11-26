@@ -3,7 +3,8 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Crypto from 'expo-crypto';
-import { saveCancellationFeedback, type CancellationReason, type MembershipSubscription } from '../../lib/nativeSubscriptions';
+import { saveCancellationFeedback, type CancellationReason, type MembershipSubscription, type RetentionOffer } from '../../lib/nativeSubscriptions';
+import type { OfferOutcome } from '../../hooks/useNativeSubscriptions';
 import { colors } from '../../theme';
 
 export const REASONS: ReadonlyArray<{ value: CancellationReason; label: string }> = [
@@ -17,16 +18,32 @@ type Props = {
   owner: string; subscriptions: MembershipSubscription[] | null; loading: boolean; loadError: string | null;
   refresh(): Promise<boolean>; manage(id: string): Promise<boolean>; onClose(): void;
   returnState: string; offline: boolean;
+  /** Retention offer (brief 01). Optional: without it, or when the server signs nothing, the flow is unchanged. */
+  loadOffer?(subscriptionId: string): Promise<RetentionOffer | null>;
+  redeemOffer?(offer: RetentionOffer): Promise<boolean>;
+  offerOutcome?: OfferOutcome;
 };
+// Copy for the offer step is provisional and awaits the client's approval (decision H2d).
+export const OFFER_COPY = {
+  title: 'Before you go',
+  body: 'Stay with Dad Health Pro for 50% off for the next 3 months.',
+  accept: 'Keep Pro at 50% off',
+  decline: 'No thanks, continue cancelling',
+  kept: 'Thanks for staying. Apple has confirmed your subscription. Your App Store subscription shows the discounted price.',
+  pending: 'Apple is still confirming this. Check your App Store subscription for the latest status.',
+  cancelled: 'The offer wasn’t applied. You can try again or continue cancelling.',
+  failed: 'We couldn’t apply the offer. You can continue cancelling as normal.',
+} as const;
 // Brief 01: after "Cancel subscription", one screen asks why (five reasons plus optional free text).
-type Step = 'reason' | 'handoff' | 'receipt';
-export default function CancellationFlow({ owner, subscriptions, loading, loadError, refresh, manage, onClose, returnState, offline }: Props) {
+type Step = 'reason' | 'offer' | 'handoff' | 'receipt' | 'kept';
+export default function CancellationFlow({ owner, subscriptions, loading, loadError, refresh, manage, onClose, returnState, offline, loadOffer, redeemOffer, offerOutcome = 'idle' }: Props) {
   const [step, setStep] = useState<Step>('reason');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reason, setReason] = useState<CancellationReason | null>(null);
   const [details, setDetails] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [offer, setOffer] = useState<RetentionOffer | null>(null);
   const scope = useRef({ owner, alive: true, busy: false });
   if (scope.current.owner !== owner) scope.current = { owner, alive: true, busy: false };
   const intent = useRef<{ id: string; subscriptionId: string; reason: CancellationReason; details: string; saved: boolean } | null>(null);
@@ -35,6 +52,7 @@ export default function CancellationFlow({ owner, subscriptions, loading, loadEr
     void refresh();
     return () => { current.alive = false; };
   }, [owner, refresh]);
+  useEffect(() => { if (step === 'offer' && offerOutcome === 'accepted') setStep('kept'); }, [step, offerOutcome]);
   const eligible = (subscriptions ?? []).filter(item => item.provider === 'apple' && item.canCancel);
   const selected = (subscriptions ?? []).find(item => item.provider === 'apple' && item.id === selectedId)
     ?? (selectedId === null && eligible.length === 1 ? eligible[0] : null);
@@ -43,8 +61,37 @@ export default function CancellationFlow({ owner, subscriptions, loading, loadEr
   const back = () => {
     if (busy) return;
     setError(null);
-    if (step === 'reason' || step === 'receipt') onClose();
+    if (step === 'reason' || step === 'receipt' || step === 'kept') onClose();
     else setStep('reason');
+  };
+  // Continue from the reason step: ask the server for a signed offer; on no offer (not configured,
+  // not eligible, offline, Android or any failure) go straight to the normal hand-off.
+  const continueFromReason = async () => {
+    const current = scope.current;
+    if (!selected || !reason || current.busy) return;
+    setSelectedId(selected.id);
+    if (offline || !loadOffer || !redeemOffer) { setStep('handoff'); return; }
+    current.busy = true; setBusy(true); setError(null);
+    try {
+      const signed = await loadOffer(selected.id);
+      if (!current.alive || scope.current !== current) return;
+      setOffer(signed);
+      setStep(signed ? 'offer' : 'handoff');
+    } finally { current.busy = false; if (current.alive && scope.current === current) setBusy(false); }
+  };
+  const acceptOffer = async () => {
+    const current = scope.current;
+    if (!offer || !redeemOffer || !selected || !reason || current.busy || offline) return;
+    current.busy = true; setBusy(true); setError(null);
+    try {
+      // Save the reason first (best effort): the outcome is recorded from the verified store result.
+      intent.current ??= { id: Crypto.randomUUID(), subscriptionId: selected.id, reason, details: details.trim(), saved: false };
+      if (!intent.current.saved) {
+        try { await saveCancellationFeedback(owner, intent.current); intent.current.saved = true; } catch { /* never blocks the offer */ }
+      }
+      if (!current.alive || scope.current !== current) return;
+      await redeemOffer(offer);
+    } finally { current.busy = false; if (current.alive && scope.current === current) setBusy(false); }
   };
   const handoff = async (save: boolean) => {
     const current = scope.current;
@@ -80,8 +127,12 @@ export default function CancellationFlow({ owner, subscriptions, loading, loadEr
   };
   const title = !selected && eligible.length > 1 ? 'Choose subscription'
     : step === 'reason' ? 'Tell us why'
+    : step === 'offer' ? OFFER_COPY.title
+    : step === 'kept' ? 'You’re staying'
     : step === 'handoff' ? `Manage with\n${provider ?? 'your provider'}` : 'Thanks for\nyour feedback';
   const description = step === 'reason' ? 'We’re sorry to see you go. What’s the main reason for cancelling?'
+    : step === 'offer' ? OFFER_COPY.body
+    : step === 'kept' ? OFFER_COPY.kept
     : step === 'handoff' ? `You’ll be taken to Apple’s subscription settings to cancel your Dad Health subscription.`
     : 'We’ve received your feedback. You can manage your subscription anytime with your provider.';
   return (
@@ -136,7 +187,13 @@ export default function CancellationFlow({ owner, subscriptions, loading, loadEr
         {offline ? <Text className="font-body text-white text-[14px]">Reconnect to continue with your provider.</Text> : null}
         <View className="flex-1" />
         {selected ? <View className="gap-sm">
-          {step === 'reason' ? <Action label="Continue" disabled={!reason || !selected.canCancel} onPress={() => { setSelectedId(selected.id); setStep('handoff'); }} /> : null}
+          {step === 'reason' ? <Action label="Continue" disabled={!reason || !selected.canCancel || busy} onPress={() => void continueFromReason()} /> : null}
+          {step === 'offer' && offerOutcome === 'pending' ? <Text className="font-body text-white text-[14px]">{OFFER_COPY.pending}</Text> : null}
+          {step === 'offer' && offerOutcome === 'cancelled' ? <Text className="font-body text-white text-[14px]">{OFFER_COPY.cancelled}</Text> : null}
+          {step === 'offer' && offerOutcome === 'failed' ? <Text accessibilityRole="alert" className="font-body text-white text-[14px]">{OFFER_COPY.failed}</Text> : null}
+          {step === 'offer' && offerOutcome !== 'failed' && offerOutcome !== 'pending' ? <Action label={OFFER_COPY.accept} disabled={busy || offline || offerOutcome === 'redeeming'} onPress={() => void acceptOffer()} /> : null}
+          {step === 'offer' ? <Action outlined label={OFFER_COPY.decline} onPress={() => setStep('handoff')} /> : null}
+          {step === 'kept' ? <Action label="Done" onPress={onClose} /> : null}
           {step === 'handoff' ? <Action label={error ? 'Retry' : `Continue to ${provider}`} disabled={busy || offline} onPress={() => void handoff(true)} /> : null}
           {error && step === 'handoff' ? <Action outlined label="Continue without saving feedback" disabled={busy || offline} onPress={() => void handoff(false)} /> : null}
           {step === 'receipt' && error ? <Action label={`Continue to ${provider}`} disabled={busy || offline} onPress={() => void handoff(false)} /> : null}

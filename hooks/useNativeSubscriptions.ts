@@ -19,12 +19,15 @@ import {
   type NativePlanProduct,
   type NativeSubscriptionStatus,
   type SubscriptionPlan,
+  type RetentionOffer,
 } from '../lib/nativeSubscriptions';
 
 let diagnosticSequence = 0;
 const diagnosticId = () => `iap-${Date.now().toString(36)}-${++diagnosticSequence}`;
 
-type Operation = { kind: 'purchase' | 'restore' | 'callback'; processing: boolean; diagnosticId: string };
+type Operation = { kind: 'purchase' | 'restore' | 'callback' | 'offer'; processing: boolean; diagnosticId: string };
+/** Retention offer result, from store and server evidence only. */
+export type OfferOutcome = 'idle' | 'redeeming' | 'accepted' | 'cancelled' | 'pending' | 'failed';
 type TransactionResult = { summary: NativeSubscriptionStatus; finishFailed: boolean };
 type Transaction = { summary?: NativeSubscriptionStatus; finished: boolean; work?: Promise<TransactionResult> };
 
@@ -54,7 +57,9 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
   const offline = useRef(isOffline);
   offline.current = isOffline;
   const [notice, setNotice] = useState<string | null>(null);
+  const [offerOutcome, setOfferOutcome] = useState<OfferOutcome>('idle');
   const statusRequestId = useRef(0);
+  const offerPending = useRef(false);
   const scope = useMemo(() => ({
     owner: userId, alive: false, lifecycle: 0, catalogId: 0, catalogReady: false,
     operation: null as Operation | null,
@@ -248,16 +253,20 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       return;
     }
     if (purchase.purchaseState === 'pending') {
+      const pendingOffer = scope.operation?.kind === 'offer' || offerPending.current;
       scope.purchaseAwaitingOutcome = false;
       scope.operation = null;
       setPurchasing(false);
       setError(null);
       setNotice('Your purchase is pending approval from the store.');
+      if (pendingOffer) { offerPending.current = false; setOfferOutcome('pending'); }
       return;
     }
     if (purchase.purchaseState !== 'purchased') return;
     scope.purchaseAwaitingOutcome = false;
     const operation = scope.operation ?? { kind: 'callback' as const, processing: false, diagnosticId: diagnosticId() };
+    const forOffer = operation.kind === 'offer';
+    offerPending.current = false;
 
     scope.operation = operation;
     operation.processing = true;
@@ -272,8 +281,11 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       setNotice(confirmed ? 'Dad Health Pro is now active.'
         : 'Your purchase was checked, but no active store subscription was confirmed.');
       if (result.finishFailed) setError('Your purchase was verified, but store completion failed. Please retry using Restore purchases.');
+      // Accepted only when the server verified Apple's transaction carries our offer and Pro is active for this store.
+      if (forOffer) setOfferOutcome(confirmed && result.summary.retentionOfferApplied === true ? 'accepted' : 'failed');
     } catch (purchaseError) {
       if (isCurrent() && scope.operation === operation) setError(nativeSubscriptionUserMessage(purchaseError, "We couldn't verify your purchase. Please try again."));
+      if (forOffer && isCurrent() && scope.operation === operation) setOfferOutcome('failed');
     } finally {
       if (isCurrent() && scope.operation === operation) {
 
@@ -328,13 +340,14 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
     const errorSubscription = iap?.purchaseErrorListener((purchaseError) => {
 
       if (!isCurrent() || scope.lifecycle !== lifecycle || !scope.purchaseAwaitingOutcome
-        || (scope.operation && (scope.operation.kind !== 'purchase' || scope.operation.processing))) return;
+        || (scope.operation && ((scope.operation.kind !== 'purchase' && scope.operation.kind !== 'offer') || scope.operation.processing))) return;
       scope.purchaseAwaitingOutcome = false;
       scope.operation = null;
       setPurchasing(false);
       const message = purchaseErrorMessage(purchaseError);
       setError(message);
       setNotice(message ? null : 'Purchase cancelled.');
+      if (offerPending.current) { offerPending.current = false; setOfferOutcome(message ? 'failed' : 'cancelled'); }
     });
     void refreshCatalog()
       .finally(() => { if (isCurrent() && scope.lifecycle === lifecycle) setLoading(false); });
@@ -431,6 +444,45 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       // the transaction. Do not treat that as failed confirmation.
     }
   }, [scope, isCurrent, products, storeAvailable, status]);
+
+  /**
+   * Redeems the server-signed 50% retention offer on the member's existing Apple subscription.
+   * The result comes only from the purchase listener and server verification (processPurchase);
+   * a closed store sheet is 'cancelled', never 'accepted'. Normal cancellation stays available.
+   */
+  const redeemRetentionOffer = useCallback(async (signed: RetentionOffer): Promise<boolean> => {
+    if (!isCurrent() || scope.operation || scope.management || !scope.owner) return false;
+    const iap = getNativeIapModule();
+    if (!iap || Platform.OS !== 'ios' || !nativeProductIds().includes(signed.productId)) {
+      setOfferOutcome('failed');
+      return false;
+    }
+    const operation: Operation = { kind: 'offer', processing: false, diagnosticId: diagnosticId() };
+    scope.operation = operation;
+    scope.purchaseAwaitingOutcome = true;
+    offerPending.current = true;
+    setOfferOutcome('redeeming');
+    setPurchasing(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await iap.requestPurchase({
+        type: 'subs',
+        request: { apple: { sku: signed.productId, appAccountToken: scope.owner, withOffer: signed.offer } },
+      });
+      return true;
+    } catch (purchaseError) {
+      if (!isCurrent() || scope.operation !== operation || operation.processing) return false;
+      scope.purchaseAwaitingOutcome = false;
+      scope.operation = null;
+      offerPending.current = false;
+      setPurchasing(false);
+      const message = purchaseErrorMessage(purchaseError);
+      setError(message ? nativeSubscriptionUserMessage(purchaseError, message) : null);
+      setOfferOutcome(message ? 'failed' : 'cancelled');
+      return false;
+    }
+  }, [scope, isCurrent]);
 
   const restore = useCallback(async () => {
     if (!isCurrent() || scope.operation || scope.management || !scope.owner) return;
@@ -561,5 +613,7 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
     membershipError: sameAccount ? membershipError : null, returnState: sameAccount ? returnState : 'idle',
     managedId: sameAccount ? managedId : null, refreshMembership, retryMembership,
     purchase, restore, manage, refreshStatus, retry,
+    offerOutcome: sameAccount ? offerOutcome : 'idle' as OfferOutcome, redeemRetentionOffer,
+    resetOfferOutcome: () => setOfferOutcome('idle'),
   };
 }

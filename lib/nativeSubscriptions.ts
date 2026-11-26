@@ -26,6 +26,8 @@ export interface NativeSubscriptionStatus {
   canPurchase: boolean;
   freezeUsedThisWeek?: boolean;
   freezesRemaining?: number;
+  /** Set only by purchase verification: Apple's verified transaction carries our retention offer. */
+  retentionOfferApplied?: boolean;
 }
 
 export interface NativePlanProduct {
@@ -234,7 +236,7 @@ export async function verifyNativePurchase(purchase: Purchase, expectedOwner: st
     throw new NativeSubscriptionError('Your purchase is still being processed by the store.', 'purchase_pending');
   }
   const provider = Platform.OS === 'ios' ? 'apple' : 'google';
-  const response = await authenticatedRequest<{ ok: true; summary: NativeSubscriptionStatus }>(
+  const response = await authenticatedRequest<{ ok: true; summary: NativeSubscriptionStatus; retentionOfferApplied?: unknown }>(
     `/api/native-subscriptions/verify/${provider}`,
     {
       method: 'POST',
@@ -251,7 +253,7 @@ export async function verifyNativePurchase(purchase: Purchase, expectedOwner: st
   if (response?.ok !== true) {
     throw new NativeSubscriptionError('We could not verify your purchase. Please try again.', 'invalid_response');
   }
-  return validatedSummary(response.summary);
+  return { ...validatedSummary(response.summary), retentionOfferApplied: response.retentionOfferApplied === true };
 }
 
 export async function openSubscriptionManagement(expectedOwner: string, isCurrent: () => boolean, subscriptionId?: string): Promise<void> {
@@ -427,6 +429,34 @@ export async function loadNativeMembership(expectedOwner: string): Promise<Membe
   }
   return result.subscriptions;
 }
+/** Signed Apple promotional offer for the 50%-for-3-months retention step (shape of react-native-iap `DiscountOfferInputIOS`). */
+export type RetentionOffer = {
+  productId: string;
+  offer: { identifier: string; keyIdentifier: string; nonce: string; signature: string; timestamp: number };
+};
+
+/**
+ * Asks the server whether this member's own subscription may be offered the retention discount.
+ * `null` means no offer (not configured in the store, not eligible, or Android): the normal
+ * cancellation continues unchanged. Any other failure also returns `null`, so cancelling is never blocked.
+ */
+export async function loadRetentionOffer(expectedOwner: string, subscriptionId: string): Promise<RetentionOffer | null> {
+  if (Platform.OS !== 'ios') return null;
+  try {
+    const result = await authenticatedRequest<{ state?: string } & Partial<RetentionOffer>>('/api/native-subscriptions/retention-offer', {
+      method: 'POST', body: JSON.stringify({ subscriptionId }),
+    }, expectedOwner, SUBSCRIPTION_READ_TIMEOUT_MS);
+    const offer = result?.offer;
+    if (result?.state !== 'available' || typeof result.productId !== 'string' || !nativeProductIds().includes(result.productId)
+      || !offer || [offer.identifier, offer.keyIdentifier, offer.nonce, offer.signature].some((value) => typeof value !== 'string' || !value)
+      || typeof offer.timestamp !== 'number' || !Number.isFinite(offer.timestamp)) return null;
+    return { productId: result.productId, offer: { identifier: offer.identifier, keyIdentifier: offer.keyIdentifier,
+      nonce: offer.nonce, signature: offer.signature, timestamp: offer.timestamp } };
+  } catch {
+    return null;
+  }
+}
+
 export async function saveCancellationFeedback(expectedOwner: string, input: {
   id: string; subscriptionId: string; reason: CancellationReason; details: string;
 }): Promise<void> {

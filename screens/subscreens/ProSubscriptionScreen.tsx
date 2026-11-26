@@ -12,7 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { refreshDashboardForUser } from '../../hooks/useDashboard';
 import { useNativeSubscriptions } from '../../hooks/useNativeSubscriptions';
-import { trialDisclosure, type SubscriptionPlan } from '../../lib/nativeSubscriptions';
+import { trialDisclosure, type SubscriptionPlan, loadRetentionOffer } from '../../lib/nativeSubscriptions';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { useAnalyticsPresentation } from '../../hooks/useAnalyticsPresentation';
 import { upgradeSource } from '../../lib/analyticsContract';
@@ -103,7 +103,9 @@ export default function ProSubscriptionScreen() {
     <CancellationFlow key={user.id} owner={user.id} subscriptions={subscriptions.memberships}
       loading={subscriptions.membershipLoading} loadError={subscriptions.membershipError}
       refresh={subscriptions.retryMembership} manage={subscriptions.manage}
-      returnState={subscriptions.returnState} offline={isOffline} onClose={() => setCancellationOwner(null)} />
+      returnState={subscriptions.returnState} offline={isOffline} onClose={() => { subscriptions.resetOfferOutcome(); setCancellationOwner(null); }}
+      loadOffer={(subscriptionId) => loadRetentionOffer(user.id, subscriptionId)}
+      redeemOffer={subscriptions.redeemRetentionOffer} offerOutcome={subscriptions.offerOutcome} />
   );
 
   return (
