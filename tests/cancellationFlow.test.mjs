@@ -18,7 +18,7 @@ function harness(overrides={}) {
  useEffect(fn,deps){const i=cursor++;if(!effects[i]||deps.some((d,j)=>d!==effects[i].deps[j]))pending.push(()=>{effects[i]?.cleanup?.();effects[i]={deps,cleanup:fn()};});}};
  const mocks={react:{...react,default:react},'react-native':Object.fromEntries(['View','Text','Pressable','ScrollView','TextInput','ActivityIndicator'].map(n=>[n,n])),
  '@expo/vector-icons':{Feather:'Feather',MaterialCommunityIcons:'MaterialCommunityIcons'},'react-native-safe-area-context':{SafeAreaView:'SafeAreaView'},
- 'expo-crypto':{randomUUID:()=> 'attempt-1'},'../../theme':{colors:{}},'../../lib/nativeSubscriptions':{saveCancellationFeedback:(...args)=>h.save(...args)}};
+ 'expo-crypto':{randomUUID:()=> 'attempt-1'},'../../theme':{colors:{}},'../../lib/nativeSubscriptions':{saveCancellationFeedback:(...args)=>h.save(...args)},'../../lib/offlineStorage':{enqueueOfflineWrite:async(item)=>{(h.queued??=[]).push(item);}}};
  const exports={};vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../components/subscriptions/CancellationFlow.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.React}}).outputText,{exports,require:n=>{assert.ok(n in mocks,n);return mocks[n];}});
  h.render=()=>{cursor=0;pending=[];h.tree=exports.default(h.props);pending.forEach(f=>f());h.nodes=[];h.text='';function walk(n){if(Array.isArray(n))return n.forEach(walk);if(typeof n==='string'||typeof n==='number'){h.text+=n+' ';return;}if(n&&typeof n==='object'){h.nodes.push(n);walk(n.children);}}walk(h.tree);};
  h.press=label=>{const n=h.nodes.find(n=>n.props.accessibilityLabel===label);assert.ok(n,`Missing ${label}: ${h.text}`);assert.ok(!n.props.disabled,`Disabled ${label}`);n.props.onPress();h.render();};

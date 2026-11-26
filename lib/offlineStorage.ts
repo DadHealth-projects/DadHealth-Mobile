@@ -65,7 +65,17 @@ export type OfflineMindResetItem = QueueItemBase & {
   };
 };
 
-export type OfflineQueueItem = OfflineDailyCheckInItem | OfflineJournalCreateItem | OfflineMindResetItem;
+export type OfflineCancellationFeedbackItem = QueueItemBase & {
+  kind: 'cancellation_feedback';
+  /** The queue item id is the server's idempotent feedback request id (client audit A3). */
+  payload: {
+    subscriptionId: string;
+    reason: 'too_expensive' | 'not_using' | 'missing_feature' | 'technical_problem' | 'other';
+    details: string;
+  };
+};
+
+export type OfflineQueueItem = OfflineDailyCheckInItem | OfflineJournalCreateItem | OfflineMindResetItem | OfflineCancellationFeedbackItem;
 
 export type OfflineSyncEvent = {
   userId: string;
@@ -322,6 +332,7 @@ export function enqueueOfflineWrite(item: OfflineQueueItem): Promise<void> {
         return existing.payload.entry.id === item.payload.entry.id;
       }
       if (item.kind === 'mind_reset_complete') return existing.id === item.id;
+      if (item.kind === 'cancellation_feedback') return existing.id === item.id;
       return false;
     });
     if (duplicateIndex >= 0) {

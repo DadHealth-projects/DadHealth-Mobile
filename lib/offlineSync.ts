@@ -1,5 +1,6 @@
 import { occurrenceHeader } from './analyticsOccurrence';
 import { supabase } from './supabase';
+import { saveCancellationFeedback } from './nativeSubscriptions';
 import { clearHeldMindResets, readHeldMindResets, updateHeldMindResets } from './mindResetPendingStore';
 import {
   allowPrivateOfflineUser,
@@ -228,6 +229,10 @@ export async function persistMindReset(item: OfflineMindResetItem, now = Date.no
 async function processItem(item: OfflineQueueItem) {
   if (item.kind === 'daily_checkin') await persistDailyCheckIn(item);
   else if (item.kind === 'mind_reset_complete') await persistMindReset(item);
+  else if (item.kind === 'cancellation_feedback') {
+    // Same request id as the first attempt: the server saves it once and returns that id.
+    await saveCancellationFeedback(item.userId, { id: item.id, ...item.payload });
+  }
   else await persistJournalEntry(item);
 }
 

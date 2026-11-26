@@ -82,7 +82,7 @@ function syncModule(rpcResult) {
   const calls = [];
   const supabase = { rpc: async (name, args) => { calls.push({ name, args }); return rpcResult(); } };
   const mod = load('lib/offlineSync.ts', {
-    './analyticsOccurrence': { occurrenceHeader: () => ({}) },
+    './nativeSubscriptions': { saveCancellationFeedback: async () => { throw new Error('unexpected feedback send'); } }, './analyticsOccurrence': { occurrenceHeader: () => ({}) },
     './supabase': { supabase },
     './offlineStorage': {},
     './mindResetPendingStore':{readHeldMindResets:async()=>[],writeHeldMindResets:async()=>true,clearHeldMindResets:async()=>{}},

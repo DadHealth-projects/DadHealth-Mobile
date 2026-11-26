@@ -151,7 +151,12 @@ test('cancellation flow: offer only when signed, normal cancellation always avai
   assert.match(ui, /if \(step === 'offer' && offerOutcome === 'accepted'\) setStep\('kept'\);/, '"You\'re staying" only after verified acceptance');
   const accept = ui.slice(ui.indexOf('const acceptOffer'), ui.indexOf('const handoff'));
   assert.ok(accept.indexOf('saveCancellationFeedback') < accept.indexOf('await redeemOffer(offer)'), 'the reason is saved before redeeming');
-  assert.match(accept, /catch \{ \/\* never blocks the offer \*\/ \}/);
+  // Client audit A3: a failed reason save never blocks the offer and is queued durably with the
+  // same request id; it is never marked saved until the server confirms.
+  assert.match(accept, /catch \{\r?\n\s+\/\/ Never blocks the offer, and never silently lost/);
+  assert.match(accept, /await enqueueOfflineWrite\(\{ id: pending\.id, userId: owner, kind: 'cancellation_feedback'/);
+  assert.match(accept, /catch \{ \/\* the offer still proceeds; the store outcome is recorded server-side \*\/ \}/);
+  assert.doesNotMatch(accept.slice(accept.indexOf('enqueueOfflineWrite')), /pending\.saved = true/);
 });
 
 test('the Pro screen wires the offer to the member\'s own subscription and resets it on close', () => {

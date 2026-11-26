@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Crypto from 'expo-crypto';
 import { saveCancellationFeedback, type CancellationReason, type MembershipSubscription, type RetentionOffer } from '../../lib/nativeSubscriptions';
 import type { OfferOutcome } from '../../hooks/useNativeSubscriptions';
+import { enqueueOfflineWrite } from '../../lib/offlineStorage';
 import { colors } from '../../theme';
 
 export const REASONS: ReadonlyArray<{ value: CancellationReason; label: string }> = [
@@ -87,7 +88,17 @@ export default function CancellationFlow({ owner, subscriptions, loading, loadEr
       // Save the reason first (best effort): the outcome is recorded from the verified store result.
       intent.current ??= { id: Crypto.randomUUID(), subscriptionId: selected.id, reason, details: details.trim(), saved: false };
       if (!intent.current.saved) {
-        try { await saveCancellationFeedback(owner, intent.current); intent.current.saved = true; } catch { /* never blocks the offer */ }
+        try { await saveCancellationFeedback(owner, intent.current); intent.current.saved = true; }
+        catch {
+          // Never blocks the offer, and never silently lost (client audit A3): queue the same
+          // request durably for this account; the server keeps it once.
+          const pending = intent.current;
+          try {
+            await enqueueOfflineWrite({ id: pending.id, userId: owner, kind: 'cancellation_feedback', createdAt: new Date().toISOString(),
+              payload: { subscriptionId: pending.subscriptionId, reason: pending.reason, details: pending.details } });
+            // Queued, not confirmed: `saved` stays false, so no screen claims it was saved.
+          } catch { /* the offer still proceeds; the store outcome is recorded server-side */ }
+        }
       }
       if (!current.alive || scope.current !== current) return;
       await redeemOffer(offer);

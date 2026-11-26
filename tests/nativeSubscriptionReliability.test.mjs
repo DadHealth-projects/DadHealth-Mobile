@@ -326,7 +326,7 @@ function screen(overrides = {}, harness = {}) {
   mocks['../../components/subscriptions/CancellationFlow'] = { __esModule: true, ...load('components/subscriptions/CancellationFlow.tsx', {
     react: { ...react, default: react }, 'react-native': mocks['react-native'], '@expo/vector-icons': mocks['@expo/vector-icons'],
     'react-native-safe-area-context': mocks['react-native-safe-area-context'], 'expo-crypto': { randomUUID: () => 'test' },
-    '../../lib/nativeSubscriptions': {}, '../../theme': { colors: {} },
+    '../../lib/nativeSubscriptions': {}, '../../theme': { colors: {} }, '../../lib/offlineStorage': { enqueueOfflineWrite: async () => {} },
   }) };
   const module = load('screens/subscreens/ProSubscriptionScreen.tsx', mocks, harness.globals);
   const tree = module.default(), nodes = [];

@@ -43,7 +43,7 @@ function world({ storageFails = false, serverDown = false, sessionUser = 'A', ke
     deleteItemAsync: async (k) => { if (w.keychainFails || w.keychainDeleteFails) throw new Error('keychain locked'); w.keychain.delete(k); },
   };
   const pendingStore = load('lib/mindResetPendingStore.ts', { 'expo-secure-store': secure }, { JSON, Array, Number, Map, Set, Math, Date, Promise });
-  const sync = load('lib/offlineSync.ts', { './supabase': { supabase }, './offlineStorage': storage, './analyticsOccurrence': { occurrenceHeader: () => 'none' },
+  const sync = load('lib/offlineSync.ts', { './supabase': { supabase }, './offlineStorage': storage, './nativeSubscriptions': { saveCancellationFeedback: async () => { throw new Error('unexpected feedback send'); } }, './analyticsOccurrence': { occurrenceHeader: () => 'none' },
     './mindResetPendingStore': pendingStore });
   let id = 0;
   const completion = load('lib/mindResetCompletion.ts', {
