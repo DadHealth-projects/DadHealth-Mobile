@@ -38,7 +38,7 @@ function world({ storageFails = false, serverDown = false, sessionUser = 'A', ke
     from: () => { throw new Error('unused'); },
   };
   const secure = {
-    getItemAsync: async (k) => { if (w.keychainFails || w.keychainReadFails) throw new Error('keychain locked'); return w.keychain.get(k) ?? null; },
+    getItemAsync: async (k) => { if (w.keychainFails || w.keychainReadFails) throw new Error('keychain locked'); if (w.beforeKeychainRead) await w.beforeKeychainRead(); return w.keychain.get(k) ?? null; },
     setItemAsync: async (k, v) => { if (w.keychainFails) throw new Error('keychain locked'); if (w.beforeKeychainWrite) await w.beforeKeychainWrite(); w.keychain.set(k, v); },
     deleteItemAsync: async (k) => { if (w.keychainFails || w.keychainDeleteFails) throw new Error('keychain locked'); w.keychain.delete(k); },
   };
@@ -162,26 +162,45 @@ test('sign-out clears the keychain copy too', async () => {
 });
 
 // Client audit A4 (26 Nov): edge cases of the keychain fallback.
-const heldIds = (w) => { const raw = [...w.keychain.values()][0]; return raw ? JSON.parse(raw).map((i) => i.id) : []; };
+const heldIds = (w) => [...new Set(
+  [...w.keychain.values()].flatMap(raw =>
+    JSON.parse(raw).map(item => item.id)
+  )
+)];
 
-test('a 9th completion is never silently dropped: it is reported as not durable and still recovered', async () => {
-  const { w, sync } = world({ storageFails: true, serverDown: true });
-  const results = [];
+test('all nine held completions remain durable', async () => {
+  const { w, sync } = world({
+    storageFails: true,
+    serverDown: true,
+  });
+
   for (let i = 1; i <= 9; i++) {
-    const item = sync.createMindResetQueueItem('A', `00000000-0000-4000-8000-00000000000${i}`.slice(-36), 60 + i, `2026-11-26T0${Math.min(i, 9)}:00:00Z`);
-    results.push(await sync.holdPendingMindReset(item));
+    const item = sync.createMindResetQueueItem(
+      'A',
+      '00000000-0000-4000-8000-00000000000' + i,
+      60 + i,
+      '2026-11-26T12:00:00Z'
+    );
+
+    assert.equal(await sync.holdPendingMindReset(item), true);
   }
-  assert.deepEqual(results.slice(0, 8), Array(8).fill(true), 'first eight are durable');
-  assert.equal(heldIds(w).length, 8, 'keychain capacity respected');
-  assert.equal(sync.pendingMindResetCount('A'), 9, 'all nine still held in memory');
-  // The overflow is the oldest item; its hold call already returned true before the 9th arrived,
-  // so the recovery message must not claim everything is kept on the phone.
+
+  assert.equal(heldIds(w).length, 9);
+  assert.equal(sync.pendingMindResetCount('A'), 9);
+
   await sync.syncOfflineQueue('A');
-  const last = w.events.filter((e) => e.kind === 'mind_reset_complete' && e.status === 'failed').at(-1);
-  assert.equal(last?.message, sync.MIND_RESET_SAVE_FAILED, 'honest: not everything is kept on this phone');
+
+  const last = w.events.filter(
+    e => e.kind === 'mind_reset_complete' &&
+         e.status === 'failed'
+  ).at(-1);
+
+  assert.equal(last?.message, sync.MIND_RESET_SAVE_DELAYED);
+
   w.serverDown = false;
   await sync.syncOfflineQueue('A');
-  assert.equal(credits(w), 9, 'every completion credited once the server is back');
+
+  assert.equal(credits(w), 9);
   assert.equal(w.keychain.size, 0);
 });
 
@@ -213,15 +232,142 @@ test('a completion held while recovery is running is not overwritten by it', asy
   const { w, sync, completion } = world({ storageFails: true, serverDown: true });
   await completion.recordMindResetCompletion('A', 120);
   const late = sync.createMindResetQueueItem('A', '00000000-0000-4000-8000-0000000000ee', 200, '2026-11-26T12:00:00Z');
-  // A real concurrent hold arrives while recovery is mid-write; it must queue behind the lock
-  // (not wait inside it) and must survive the recovery's write.
+  // A real concurrent hold arrives while recovery is reading storage; it must queue behind the lock
+  // (not wait inside it) and must survive recovery.
   let lateHold = null;
-  w.beforeKeychainWrite = async () => { if (!lateHold) lateHold = sync.holdPendingMindReset(late); };
+  w.beforeKeychainRead = async () => { if (!lateHold) lateHold = sync.holdPendingMindReset(late); };
   await sync.syncOfflineQueue('A');
-  w.beforeKeychainWrite = null;
+  w.beforeKeychainRead = null;
   assert.equal(await lateHold, true, 'the late hold is stored durably after the recovery write');
   assert.ok(heldIds(w).includes(late.id), 'recovery did not overwrite it');
   w.serverDown = false;
   await sync.syncOfflineQueue('A');
   assert.equal(credits(w), 2, 'both completions credited, once each');
+});
+
+test('more than eight held completions survive restart without loss', async () => {
+  const first = world({
+    storageFails: true,
+    serverDown: true,
+  });
+
+  for (let i = 0; i < 17; i++) {
+    await first.completion.recordMindResetCompletion('A', 120);
+  }
+
+  assert.equal(first.sync.pendingMindResetCount('A'), 17);
+  assert.equal(credits(first.w), 0);
+
+  const second = world({
+    storageFails: true,
+    serverDown: false,
+    keychain: first.w.keychain,
+    server: first.w.server,
+  });
+
+  await second.sync.syncOfflineQueue('A');
+
+  assert.equal(credits(second.w), 17);
+  assert.equal(second.sync.pendingMindResetCount('A'), 0);
+  assert.equal(second.w.keychain.size, 0);
+
+  await second.sync.syncOfflineQueue('A');
+
+  assert.equal(credits(second.w), 17);
+});
+
+test('concurrent held completions survive restart', async () => {
+  const first = world({
+    storageFails: true,
+    serverDown: true,
+  });
+
+  await Promise.all(
+    Array.from({ length: 12 }, () =>
+      first.completion.recordMindResetCompletion('A', 120),
+    ),
+  );
+
+  const second = world({
+    storageFails: true,
+    keychain: first.w.keychain,
+    server: first.w.server,
+  });
+
+  await second.sync.syncOfflineQueue('A');
+
+  assert.equal(credits(second.w), 12);
+  assert.equal(second.w.keychain.size, 0);
+});
+
+test('sign-out clears every pending storage page', async () => {
+  const { w, sync, completion } = world({
+    storageFails: true,
+    serverDown: true,
+  });
+
+  for (let i = 0; i < 17; i++) {
+    await completion.recordMindResetCompletion('A', 120);
+  }
+
+  await sync.pauseAndClearOfflineUser('A');
+
+  assert.equal(w.keychain.size, 0);
+  assert.equal(sync.pendingMindResetCount('A'), 0);
+});
+
+test('a failed new page write preserves previously durable completions', async () => {
+  const first = world({
+    storageFails: true,
+    serverDown: true,
+  });
+
+  for (let i = 0; i < 8; i++) {
+    await first.completion.recordMindResetCompletion('A', 120);
+  }
+
+  assert.equal(heldIds(first.w).length, 8);
+
+  first.w.beforeKeychainWrite = async () => {
+    throw new Error('interrupted storage write');
+  };
+
+  await first.completion.recordMindResetCompletion('A', 120);
+
+  assert.equal(heldIds(first.w).length, 8);
+
+  const second = world({
+    storageFails: true,
+    serverDown: false,
+    keychain: first.w.keychain,
+    server: first.w.server,
+  });
+
+  await second.sync.syncOfflineQueue('A');
+
+  assert.equal(credits(second.w), 8);
+  assert.equal(second.w.keychain.size, 0);
+});
+
+test('interrupted sign-out cleanup leaves remaining pages discoverable', async () => {
+  const { w, sync, completion } = world({
+    storageFails: true,
+    serverDown: true,
+  });
+
+  for (let i = 0; i < 17; i++) {
+    await completion.recordMindResetCompletion('A', 120);
+  }
+
+  w.keychainDeleteFails = true;
+
+  await assert.rejects(sync.pauseAndClearOfflineUser('A'));
+
+  assert.equal(heldIds(w).length, 17);
+
+  w.keychainDeleteFails = false;
+
+  await sync.pauseAndClearOfflineUser('A');
+
+  assert.equal(w.keychain.size, 0);
 });
