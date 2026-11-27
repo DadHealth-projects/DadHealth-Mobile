@@ -1,9 +1,9 @@
 import { NativeModules, Platform, TurboModuleRegistry } from 'react-native';
 
 import { supabase } from './supabase';
+import { healthTransport } from './healthTransport';
 import { markDashboardStale } from './dashboardFreshness';
 import {
-  createHealthSyncGuard,
   dayKeysBetween,
   invalidateHealthSyncs,
   isValidTimeZone,
@@ -53,7 +53,7 @@ export type HealthConnectIntegration = {
 export type HealthConnectSyncResult = {
   metricsWritten: number;
   sleepWritten: number;
-  syncedAt: string;
+  syncedAt: string | null;
   /** False when no steps, exercise or sleep data was readable in the window. */
   readableData: boolean;
 };
@@ -130,7 +130,7 @@ export async function getHealthConnectIntegration(userId: string): Promise<Healt
 
 export async function connectHealthConnect(userId: string): Promise<HealthConnectSyncResult> {
   const healthConnect = await initializeAvailableHealthConnect();
-  const guard = createHealthSyncGuard(userId, currentSessionUserId);
+  const { client: healthClient, guard } = await healthTransport(userId);
   const granted = await healthConnect.requestPermission(READ_PERMISSIONS);
   if (getGrantedRecordTypes(granted).size === 0) {
     throw new HealthConnectError('permission_denied', 'Health Connect access was not enabled.');
@@ -138,7 +138,7 @@ export async function connectHealthConnect(userId: string): Promise<HealthConnec
   await guard.assertCurrent();
 
   const connectedAt = new Date().toISOString();
-  const { error } = await supabase.from('user_integrations').upsert(
+  const { error } = await healthClient.from('user_integrations').upsert(
     {
       user_id: userId,
       provider: HEALTH_CONNECT_PROVIDER,
@@ -183,7 +183,7 @@ export async function syncHealthConnectIfConnected(
 
   const days = options.days ?? await nextRefreshDays('health_connect', userId);
   const result = await syncHealthConnect(userId, days);
-  await markRefreshCompleted('health_connect', userId, days);
+  if (result.syncedAt) await markRefreshCompleted('health_connect', userId, days);
   return result;
 }
 
@@ -194,21 +194,25 @@ export function openHealthConnectSettings() {
 }
 
 async function performHealthConnectSync(userId: string, days: number): Promise<HealthConnectSyncResult> {
-  const guard = createHealthSyncGuard(userId, currentSessionUserId);
+  const { client: healthClient, guard } = await healthTransport(userId);
   const healthConnect = await initializeAvailableHealthConnect();
   const granted = getGrantedRecordTypes(await healthConnect.getGrantedPermissions());
   if (granted.size === 0) {
     throw new HealthConnectError('permission_denied', 'Health Connect access is not enabled.');
   }
 
-  const timeZone = await accountTimeZone(userId);
+  const { data: connection, error: connectionError } = await healthClient.from('user_integrations')
+    .select('id').eq('user_id', userId).eq('provider', 'health_connect').maybeSingle();
+  if (connectionError) throw connectionError;
+  if (!connection) throw new HealthConnectError('not_connected', 'The health connection is no longer linked.');
+  const timeZone = await accountTimeZone(userId, healthClient);
   const endMs = Date.now();
   const windowDays = dayKeysBetween(timeZone, endMs - (days - 1) * 86_400_000, endMs);
   const startDate = new Date(startOfDayIn(timeZone, windowDays[0]));
   const endDate = new Date(endMs);
   const notPermitted: ReadOutcome = { state: 'not_permitted' };
 
-  const [steps, exercise, sleep] = await Promise.all([
+  let [steps, exercise, sleep] = await Promise.all([
     granted.has('Steps')
       ? readOutcome(() => queryStepSlices(healthConnect, startDate, endDate).then((slices) => sumSlicesByDay(slices, timeZone)))
       : Promise.resolve(notPermitted),
@@ -220,6 +224,16 @@ async function performHealthConnectSync(userId: string, days: number): Promise<H
       : Promise.resolve(notPermitted),
   ]);
 
+  // Permission may have been withdrawn while the native reads were pending.
+  // Discard that type before upload; never turn revoked access into zero totals.
+  const stillGranted = getGrantedRecordTypes(await healthConnect.getGrantedPermissions());
+  if (!stillGranted.has('Steps')) steps = notPermitted;
+  if (!stillGranted.has('ExerciseSession')) exercise = notPermitted;
+  if (!stillGranted.has('SleepSession')) sleep = notPermitted;
+  if (stillGranted.size === 0) {
+    throw new HealthConnectError('permission_denied', 'Health Connect access is not enabled.');
+  }
+
   // Health Connect confirms each granted read permission, so an empty successful read is a genuine zero.
   const metrics = [
     ...reconcileMetric('steps', steps, windowDays, true),
@@ -229,7 +243,12 @@ async function performHealthConnectSync(userId: string, days: number): Promise<H
 
   // The server takes the owner from the session token; never upload under a different session.
   await guard.assertCurrent();
-  const { data, error } = await supabase.rpc('upsert_health_connect_daily_data', {
+  const failed = [steps, exercise, sleep].some(outcome => outcome.state === 'failed');
+  const complete = !failed;
+  const { data, error } = await healthClient.rpc('sync_native_health_daily_data', {
+    p_provider: 'health_connect',
+    p_connection_id: connection.id,
+    p_complete: complete,
     p_metrics: metrics,
     p_sleep: sleepRows,
   });
@@ -240,18 +259,11 @@ async function performHealthConnectSync(userId: string, days: number): Promise<H
     throw new HealthConnectError('not_connected', 'The health connection is no longer linked.');
   }
   if (error) throw error;
-  markDashboardStale(userId);
-
-  const syncedAt = new Date().toISOString();
   await guard.assertCurrent();
-  const { error: integrationError } = await supabase
-    .from('user_integrations')
-    .update({ last_sync_at: syncedAt })
-    .eq('user_id', userId)
-    .eq('provider', HEALTH_CONNECT_PROVIDER);
-  if (integrationError) throw integrationError;
-
-  const counts = (data ?? {}) as { metrics_written?: number; sleep_written?: number };
+  markDashboardStale(userId);
+  if (failed) throw new Error('health_read_incomplete');
+  const counts = (data ?? {}) as { metrics_written?: number; sleep_written?: number; synced_at?: string | null };
+  const syncedAt = counts.synced_at ?? null;
   return {
     metricsWritten: Number(counts.metrics_written ?? 0),
     sleepWritten: Number(counts.sleep_written ?? 0),
@@ -268,23 +280,20 @@ async function performHealthConnectSync(userId: string, days: number): Promise<H
 export async function disconnectHealthConnect(userId: string): Promise<void> {
   invalidateHealthSyncs();
   activeSyncs.delete(userId);
-  const { error } = await supabase.from('user_integrations').delete()
+  const { client: healthClient } = await healthTransport(userId);
+  const { error } = await healthClient.from('user_integrations').delete()
     .eq('user_id', userId).eq('provider', HEALTH_CONNECT_PROVIDER);
   if (error) throw error;
 }
 
-async function currentSessionUserId(): Promise<string | null> {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.user.id ?? null;
-}
-
-/** Canonical account calendar: the saved account timezone, falling back to the phone only when none is saved. */
-async function accountTimeZone(userId: string): Promise<string> {
-  const { data } = await supabase.from('user_profile').select('timezone').eq('user_id', userId).maybeSingle();
-  const saved = (data as { timezone?: string | null } | null)?.timezone;
-  if (isValidTimeZone(saved)) return saved;
-  const device = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return isValidTimeZone(device) ? device : 'UTC';
+/** Failed profile reads must never reinterpret history in the phone timezone. */
+async function accountTimeZone(userId: string, client: typeof supabase): Promise<string> {
+  const { data, error } = await client.from('user_profile').select('timezone').eq('user_id', userId).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('health_calendar_unavailable');
+  const saved = data.timezone ?? 'UTC';
+  if (!isValidTimeZone(saved)) throw new Error('health_calendar_invalid');
+  return saved;
 }
 
 async function readOutcome(read: () => Promise<Map<string, number>>): Promise<ReadOutcome> {
