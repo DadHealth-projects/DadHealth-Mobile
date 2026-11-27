@@ -1,7 +1,7 @@
 import { occurrenceHeader } from './analyticsOccurrence';
 import { supabase } from './supabase';
 import { saveCancellationFeedback } from './nativeSubscriptions';
-import { clearHeldMindResets, readHeldMindResets, updateHeldMindResets } from './mindResetPendingStore';
+import { clearHeldMindResets, readHeldMindResets, writeHeldMindResets } from './mindResetPendingStore';
 import {
   allowPrivateOfflineUser,
   blockPrivateOfflineUser,
@@ -295,6 +295,26 @@ export function setOfflineSyncUser(userId: string | null) {
 export const MIND_RESET_SAVE_FAILED = 'We couldn’t save this Mind Reset yet. We’ll keep trying while Dad Health is open.';
 export const MIND_RESET_SAVE_DELAYED = 'We couldn’t send this Mind Reset yet. It’s kept on this phone and we’ll try again.';
 const pendingMindResets = new Map<string, OfflineMindResetItem[]>();
+const heldOperations = new Map<string, Promise<unknown>>();
+
+function withHeldOwner<T>(
+  owner: string,
+  work: () => Promise<T>,
+): Promise<T> {
+  const result = (heldOperations.get(owner) ?? Promise.resolve())
+    .catch(() => undefined)
+    .then(work);
+
+  heldOperations.set(owner, result);
+
+  void result.finally(() => {
+    if (heldOperations.get(owner) === result) {
+      heldOperations.delete(owner);
+    }
+  }).catch(() => undefined);
+
+  return result;
+}
 
 function mergeHeld(...lists: OfflineMindResetItem[][]) {
   const byId = new Map<string, OfflineMindResetItem>();
@@ -302,53 +322,113 @@ function mergeHeld(...lists: OfflineMindResetItem[][]) {
   return [...byId.values()];
 }
 
-/** Holds a completion the queue could not store. Resolves true only when THIS item is also saved durably. */
-export async function holdPendingMindReset(item: OfflineMindResetItem): Promise<boolean> {
-  pendingMindResets.set(item.userId, mergeHeld(pendingMindResets.get(item.userId) ?? [], [item]));
-  const result = await updateHeldMindResets(item.userId, (stored) => mergeHeld(stored, [item]));
-  return result.ok && result.storedIds.has(item.id);
+/** Holds a completion the queue could not store. Resolves true when it is also saved durably. */
+export async function holdPendingMindReset(
+  item: OfflineMindResetItem,
+): Promise<boolean> {
+  return withHeldOwner(item.userId, async () => {
+    if (activeUserId !== item.userId) return false;
+
+    const held = mergeHeld(
+      pendingMindResets.get(item.userId) ?? [],
+      [item],
+    );
+    pendingMindResets.set(item.userId, held);
+
+    let durable = false;
+
+    try {
+      const stored = await readHeldMindResets(item.userId);
+      durable = await writeHeldMindResets(
+        item.userId,
+        mergeHeld(stored, held),
+      );
+    } catch {
+      // Preserve unread storage; retain this completion in memory.
+    }
+
+    if (!durable) {
+      emitOfflineSync({
+        userId: item.userId,
+        kind: 'mind_reset_complete',
+        status: 'failed',
+        message: MIND_RESET_SAVE_FAILED,
+      });
+    }
+
+    return durable;
+  });
 }
 
 export function pendingMindResetCount(userId: string) {
   return pendingMindResets.get(userId)?.length ?? 0;
 }
 
-async function recoverPendingMindResets(userId: string, runGeneration: number) {
-  const durable = await readHeldMindResets(userId);
-  const held = mergeHeld(pendingMindResets.get(userId) ?? [], durable.items);
-  if (!held.length) {
-    // An unreadable keychain is not "nothing held": say so instead of staying silent.
-    if (!durable.ok) emitOfflineSync({ userId, kind: 'mind_reset_complete', status: 'failed', message: MIND_RESET_SAVE_FAILED });
-    return;
+async function recoverPendingMindResets(
+  userId: string,
+  runGeneration: number,
+) {
+  return withHeldOwner(
+    userId,
+    () => recoverHeldMindResets(userId, runGeneration),
+  );
+}
+
+async function recoverHeldMindResets(
+  userId: string,
+  runGeneration: number,
+) {
+  if (activeUserId !== userId || generation !== runGeneration) return;
+
+  let durable: OfflineMindResetItem[] = [];
+  let readable = true;
+
+  try {
+    durable = await readHeldMindResets(userId);
+  } catch {
+    readable = false;
   }
+  const held = mergeHeld(pendingMindResets.get(userId) ?? [], durable);
+  if (!held.length) {
+  if (!readable) {
+    emitOfflineSync({
+      userId,
+      kind: 'mind_reset_complete',
+      status: 'failed',
+      message: MIND_RESET_SAVE_FAILED,
+    });
+  }
+
+  return;
+}
   pendingMindResets.set(userId, held);
   const sessionResult = await supabase.auth.getSession();
   if (sessionResult.data.session?.user.id !== userId) return;
-  const finished = new Set<string>();
+  const remaining: OfflineMindResetItem[] = [];
   for (const item of held) {
-    if (activeUserId !== userId || generation !== runGeneration) break;
+    if (activeUserId !== userId || generation !== runGeneration) { remaining.push(item); continue; }
+    let done = false;
     try {
       await enqueueOfflineWrite(item);
-      finished.add(item.id); // durable in the queue again: the normal queue below sends it
+      done = true; // durable in the queue again: the normal queue below sends it
     } catch {
       try {
         await persistMindReset(item);
-        finished.add(item.id);
+        done = true;
         emitOfflineSync({ userId, kind: 'mind_reset_complete', status: 'synced' });
       } catch (error) {
         // Invalid or too old for the server: it can never be accepted, so stop holding it.
-        if (error instanceof Error && (error.message === 'invalid_mind_reset' || error.message === 'mind_reset_expired')) finished.add(item.id);
+        if (error instanceof Error && (error.message === 'invalid_mind_reset' || error.message === 'mind_reset_expired')) done = true;
       }
     }
+    if (!done) remaining.push(item);
   }
-  const remaining = (pendingMindResets.get(userId) ?? []).filter((item) => !finished.has(item.id));
   if (remaining.length) pendingMindResets.set(userId, remaining); else pendingMindResets.delete(userId);
-  // Remove only what was finished; items held meanwhile by another call are kept.
-  const update = await updateHeldMindResets(userId, (stored) => mergeHeld(stored, remaining).filter((item) => !finished.has(item.id)));
+  const durableNow =
+    readable && await writeHeldMindResets(userId, remaining);
   if (remaining.length) {
-    const allDurable = update.ok && remaining.every((item) => update.storedIds.has(item.id));
     emitOfflineSync({ userId, kind: 'mind_reset_complete', status: 'failed',
-      message: allDurable ? MIND_RESET_SAVE_DELAYED : MIND_RESET_SAVE_FAILED });
+      message: durableNow ? MIND_RESET_SAVE_DELAYED : MIND_RESET_SAVE_FAILED });
   }
 }
 
@@ -367,18 +447,24 @@ export function syncOfflineQueue(userId: string) {
 
 export async function pauseAndClearOfflineUser(userId: string) {
   blockPrivateOfflineUser(userId);
-  pendingMindResets.delete(userId);
+
   if (activeUserId === userId) {
     activeUserId = null;
     generation += 1;
   }
+
   const running = inFlight;
   if (running) await running.catch(() => undefined);
-  // Every step runs; a failed keychain clear is reported afterwards, never hidden as success.
-  let keychainError: unknown = null;
-  try { await clearHeldMindResets(userId); } catch (error) { keychainError = error; }
-  await clearPrivateOfflineData(userId);
-  if (keychainError) throw keychainError;
+
+  await withHeldOwner(userId, async () => {
+    pendingMindResets.delete(userId);
+
+    try {
+      await clearHeldMindResets(userId);
+    } finally {
+      await clearPrivateOfflineData(userId);
+    }
+  });
 }
 
 export function createJournalQueueItem(
