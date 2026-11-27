@@ -47,13 +47,17 @@ export function useAppleHealth(userId?: string) {
       setAuthorization(nextAuthorization);
       setError(null);
     } catch {
+      if (owner.current !== userId) return;
       setError('We couldn’t load your Apple Health connection. Please try again.');
     } finally {
-      setLoading(false);
+      if (owner.current === userId) setLoading(false);
     }
   }, [userId]);
 
   useEffect(() => {
+    setIntegration(null);
+    setError(null);
+    setSaving(false);
     void refresh();
   }, [refresh]);
 
@@ -71,7 +75,7 @@ export function useAppleHealth(userId?: string) {
       setError(getAppleHealthConnectionError(caughtError));
       return null;
     } finally {
-      setSaving(false);
+      if (owner.current === userId) setSaving(false);
     }
   }, [refresh, userId]);
 
@@ -97,7 +101,7 @@ export function useAppleHealth(userId?: string) {
       if (caughtError instanceof AppleHealthError && caughtError.code === 'not_connected') void refresh();
       return null;
     } finally {
-      setSaving(false);
+      if (owner.current === userId) setSaving(false);
     }
   }, [refresh, userId]);
 

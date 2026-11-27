@@ -29,6 +29,7 @@ export function useHealthConnect(userId?: string) {
     setLoading(Boolean(userId));
     try {
       const nextCapability = await getHealthConnectCapability();
+      if (owner.current !== userId) return;
       setCapability(nextCapability);
       if (!userId || nextCapability === 'unsupported') {
         setIntegration(null);
@@ -48,13 +49,17 @@ export function useHealthConnect(userId?: string) {
       setAuthorization(nextAuthorization);
       setError(null);
     } catch {
+      if (owner.current !== userId) return;
       setError('We couldn’t load your Health Connect connection. Please try again.');
     } finally {
-      setLoading(false);
+      if (owner.current === userId) setLoading(false);
     }
   }, [userId]);
 
   useEffect(() => {
+    setIntegration(null);
+    setError(null);
+    setSaving(false);
     void refresh();
   }, [refresh]);
 
@@ -72,7 +77,7 @@ export function useHealthConnect(userId?: string) {
       setError(getHealthConnectConnectionError(caughtError));
       return null;
     } finally {
-      setSaving(false);
+      if (owner.current === userId) setSaving(false);
     }
   }, [refresh, userId]);
 
@@ -98,7 +103,7 @@ export function useHealthConnect(userId?: string) {
       if (caughtError instanceof HealthConnectError && caughtError.code === 'not_connected') void refresh();
       return null;
     } finally {
-      setSaving(false);
+      if (owner.current === userId) setSaving(false);
     }
   }, [refresh, userId]);
 
