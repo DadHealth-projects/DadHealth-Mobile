@@ -30,3 +30,14 @@ test('the toggle uses the helper for both the initial read and a change', () => 
   assert.match(src, /getAnalyticsConsentStatus\(owner \?\? null\)\.then\(\(\{ granted, ready, enabled \}\)/);
   assert.match(src, /const \{ granted: saved, ready, enabled \} = await getAnalyticsConsentStatus/);
 });
+
+
+test('both consent controls keep feedback internal', () => {
+  for (const file of [
+    'components/AnalyticsConsentControl.tsx',
+    'components/BillingAnalyticsConsentControl.tsx',
+  ]) {
+    const source = read(file);
+    assert.doesNotMatch(source, /accessibilityRole="alert"/);
+  }
+});

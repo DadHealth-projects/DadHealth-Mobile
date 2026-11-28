@@ -169,7 +169,7 @@ test('welcome places optional consent below introduction in scroll content and p
  h.run=()=>C();h.render();const scroll=nodes(h.value,'ScrollView')[0];assert.equal(nodes(scroll,'Consent').length,1);assert.equal(nodes(scroll,'Consent')[0].props.card,true);assert.equal(nodes(scroll,'Button').length,0);assert.equal(nodes(h.value,'Button')[0].props.label,'Continue');assert.ok(!scroll.props.contentContainerClassName.includes('justify-between'));
 });
 
-test('saved consent without registration stays selected with truthful feedback and never fires activation callback',async()=>{
+test('saved consent without registration stays selected silently and never fires activation callback',async()=>{
  const h=renderHarness();let granted=false,ready=false,activated=0;
  const C=load('components/AnalyticsConsentControl.tsx',{react:h.react,'react-native':{View:'View',Text:'Text',Pressable:'Pressable',Switch:'Switch'},
  '@react-navigation/native':{useNavigation:()=>({navigate(){}})},'../theme':{colors:{lime:'lime'}},
@@ -177,7 +177,7 @@ test('saved consent without registration stays selected with truthful feedback a
  h.run=()=>C({owner:'a',onGranted:()=>activated++});h.render();await h.flush();
  nodes(h.value,'Switch')[0].props.onValueChange(true);await h.flush();
  assert.equal(nodes(h.value,'Switch')[0].props.value,true);assert.equal(activated,0);
- assert.ok(nodes(h.value,'Text').some(n=>n.children.includes('We couldn’t turn this on right now. Please try again later.')));
+ assert.equal(nodes(h.value,'Text').filter(n=>n.props.accessibilityRole==='alert').length,0);
  nodes(h.value,'Switch')[0].props.onValueChange(false);await h.flush();assert.equal(nodes(h.value,'Switch')[0].props.value,false);
  ready=true;nodes(h.value,'Switch')[0].props.onValueChange(true);await h.flush();assert.equal(activated,1);
 });
