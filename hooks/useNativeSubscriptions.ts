@@ -172,6 +172,11 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       if (confirmedStatus.isPro) {
         setProducts([]);
         setStoreAvailable(false);
+
+        if (confirmedStatus.primaryProvider === 'apple') {
+          await refreshMembership();
+        }
+
         return;
       }
       if (!iap || (Platform.OS !== 'ios' && Platform.OS !== 'android')) {
@@ -205,7 +210,7 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
     } finally {
       if (valid()) setCatalogLoading(false);
     }
-  }, [scope, isCurrent, refreshStatus]);
+  }, [scope, isCurrent, refreshStatus, refreshMembership]);
 
   const publishSummary = useCallback((summary: NativeSubscriptionStatus) => {
     if (!isCurrent()) return;

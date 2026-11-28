@@ -81,11 +81,8 @@ export default function ProSubscriptionScreen() {
     && !multipleProviders && subscriptions.memberships?.length === 1
     ? subscriptions.memberships[0] : undefined;
 
+  // Keep verified cancellation content visible during background refresh.
   if (user && subscriptions.status?.isPro === true
-    && !subscriptions.statusLoading && !subscriptions.statusError
-    && !subscriptions.membershipLoading && !subscriptions.membershipError
-    && subscriptions.returnState !== 'pending'
-    && subscriptions.returnState !== 'unknown'
     && isScheduledAppleMembership(scheduledMembership)) return (
     <CancellationScheduled subscription={scheduledMembership!} busy={subscriptions.managing}
       error={subscriptions.actionError} offline={isOffline} onBack={() => navigation.goBack()}
@@ -113,8 +110,24 @@ export default function ProSubscriptionScreen() {
           </View>
         </Pressable>
 
-        {user && (subscriptions.loading || checking) && !subscriptions.status ? (
+        {user && (
+          ((subscriptions.loading || checking) && !subscriptions.status)
+          || (subscriptions.status?.isPro === true
+            && subscriptions.status.primaryProvider === 'apple'
+            && !multipleProviders
+            && subscriptions.memberships === null
+            && !subscriptions.membershipError
+            && !subscriptions.statusError)
+        ) ? (
           <SubscriptionSkeleton />
+        ) : user && subscriptions.status?.isPro === true
+          && subscriptions.status.primaryProvider === 'apple'
+          && !multipleProviders
+          && subscriptions.memberships === null ? (
+          <ProHeader
+            title="Dad Health Pro"
+            description="Your membership details are temporarily unavailable."
+          />
         ) : subscriptions.status?.isPro === true ? (
           <>
             <ProHeader
