@@ -59,6 +59,5 @@ export default function AnalyticsConsentControl({ owner, onGranted, card = false
     <Pressable accessibilityRole="link" onPress={() => navigation.navigate('TermsPrivacy')} className="min-h-[48px] justify-center">
       <Text className="font-body text-lime text-[14px] underline">Privacy policy</Text>
     </Pressable>
-    {state.owner === owner && state.error ? <Text accessibilityRole="alert" className="font-body text-white text-[14px]">{state.error}</Text> : null}
   </View>;
 }

@@ -68,6 +68,5 @@ export default function BillingAnalyticsConsentControl({ owner }: { owner: strin
         disabled={!owned || state.busy} onValueChange={value => void change(value)} trackColor={{ true: colors.lime }} />
     </View>
     <Text className="font-body text-white text-[14px] leading-[20px]">Optional: share verified trial starts, paid trial conversions and renewal cancellations for this account, even while the app is closed. This is separate from app usage analytics. Turning it off stops future collection; it doesn’t cancel your subscription or erase information already shared.</Text>
-    {state.error ? <Text accessibilityRole="alert" className="font-body text-white text-[14px]">{state.error}</Text> : null}
   </View>;
 }
