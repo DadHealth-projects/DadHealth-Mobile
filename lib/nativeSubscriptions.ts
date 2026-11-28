@@ -26,8 +26,6 @@ export interface NativeSubscriptionStatus {
   canPurchase: boolean;
   freezeUsedThisWeek?: boolean;
   freezesRemaining?: number;
-  /** Set only by purchase verification: Apple's verified transaction carries our retention offer. */
-  retentionOfferApplied?: boolean;
 }
 
 export interface NativePlanProduct {
@@ -194,8 +192,50 @@ function validatedSummary(value: unknown): NativeSubscriptionStatus {
   return item as NativeSubscriptionStatus;
 }
 
-export async function loadNativeSubscriptionStatus(expectedOwner?: string): Promise<NativeSubscriptionStatus> {
-  const response = await authenticatedRequest<unknown>('/api/native-subscriptions/status', undefined, expectedOwner, SUBSCRIPTION_READ_TIMEOUT_MS);
+const SUBSCRIPTION_SNAPSHOT_TTL_MS = 60_000;
+let subscriptionSnapshotGeneration = 0;
+
+export function beginSubscriptionSnapshotRead(): number {
+  return ++subscriptionSnapshotGeneration;
+}
+
+let subscriptionSnapshot: {
+  owner: string;
+  status: NativeSubscriptionStatus;
+  savedAt: number;
+} | null = null;
+
+export function rememberSubscriptionStatus(
+  owner: string,
+  status: NativeSubscriptionStatus,
+  generation?: number,
+): void {
+  if (generation !== undefined && generation !== subscriptionSnapshotGeneration) return;
+  subscriptionSnapshotGeneration++;
+  subscriptionSnapshot = { owner, status, savedAt: Date.now() };
+}
+
+export function getVerifiedSubscriptionSnapshot(
+  owner: string | undefined,
+): NativeSubscriptionStatus | null {
+  const snapshot = subscriptionSnapshot;
+  if (!owner || !snapshot || snapshot.owner !== owner) return null;
+  if (Date.now() - snapshot.savedAt >= SUBSCRIPTION_SNAPSHOT_TTL_MS) return null;
+  const expiry = snapshot.status.currentPeriodEnd;
+  if (expiry && Date.parse(expiry) <= Date.now()) return null;
+  return snapshot.status;
+}
+
+export function clearSubscriptionSnapshot(): void {
+  subscriptionSnapshotGeneration++;
+  subscriptionSnapshot = null;
+}
+
+export async function loadNativeSubscriptionStatus(expectedOwner?: string, includeFreeze = true): Promise<NativeSubscriptionStatus> {
+  const response = await authenticatedRequest<unknown>(
+    includeFreeze ? '/api/native-subscriptions/status' : '/api/native-subscriptions/status?includeFreeze=false',
+    undefined, expectedOwner, SUBSCRIPTION_READ_TIMEOUT_MS,
+  );
   if (!response || typeof response !== 'object' || Array.isArray(response)) return validatedSummary(response);
   const details = response as Partial<NativeSubscriptionStatus>;
   return validatedSummary({
@@ -236,7 +276,7 @@ export async function verifyNativePurchase(purchase: Purchase, expectedOwner: st
     throw new NativeSubscriptionError('Your purchase is still being processed by the store.', 'purchase_pending');
   }
   const provider = Platform.OS === 'ios' ? 'apple' : 'google';
-  const response = await authenticatedRequest<{ ok: true; summary: NativeSubscriptionStatus; retentionOfferApplied?: unknown }>(
+  const response = await authenticatedRequest<{ ok: true; summary: NativeSubscriptionStatus }>(
     `/api/native-subscriptions/verify/${provider}`,
     {
       method: 'POST',
@@ -253,10 +293,10 @@ export async function verifyNativePurchase(purchase: Purchase, expectedOwner: st
   if (response?.ok !== true) {
     throw new NativeSubscriptionError('We could not verify your purchase. Please try again.', 'invalid_response');
   }
-  return { ...validatedSummary(response.summary), retentionOfferApplied: response.retentionOfferApplied === true };
+  return validatedSummary(response.summary);
 }
 
-export async function openSubscriptionManagement(expectedOwner: string, isCurrent: () => boolean, subscriptionId?: string): Promise<void> {
+export async function openSubscriptionManagement(expectedOwner: string, isCurrent: () => boolean, subscriptionId?: string): Promise<'native' | 'external' | undefined> {
   const assertCurrent = async () => {
     if (!isCurrent()) throw new NativeSubscriptionError('Your account changed. Please try again.', 'account_changed');
     const { data, error } = await supabase.auth.getSession();
@@ -270,6 +310,28 @@ export async function openSubscriptionManagement(expectedOwner: string, isCurren
     body: JSON.stringify(subscriptionId ? { subscriptionId } : {}),
   }, expectedOwner);
   await assertCurrent();
+
+  if (
+    Platform.OS === 'ios' &&
+    response.url === 'https://apps.apple.com/account/subscriptions'
+  ) {
+    const iap = getNativeIapModule();
+
+    if (!iap) {
+      throw new NativeSubscriptionError(
+        'Apple subscription management is unavailable.',
+        'store_unavailable',
+      );
+    }
+
+    await iap.initConnection();
+    await assertCurrent();
+    if (!isCurrent()) return;
+
+    await iap.showManageSubscriptionsIOS();
+    return 'native';
+  }
+
   if (!response.url || !(await Linking.canOpenURL(response.url))) {
     throw new NativeSubscriptionError('We couldn\'t open subscription management. Please try again.', 'link_unavailable');
   }
@@ -277,6 +339,7 @@ export async function openSubscriptionManagement(expectedOwner: string, isCurren
   // No asynchronous work between the final lifecycle check and handing off to the OS.
   if (!isCurrent()) return;
   await Linking.openURL(response.url);
+  return 'external';
 }
 
 function configuredProducts() {
@@ -429,34 +492,6 @@ export async function loadNativeMembership(expectedOwner: string): Promise<Membe
   }
   return result.subscriptions;
 }
-/** Signed Apple promotional offer for the 50%-for-3-months retention step (shape of react-native-iap `DiscountOfferInputIOS`). */
-export type RetentionOffer = {
-  productId: string;
-  offer: { identifier: string; keyIdentifier: string; nonce: string; signature: string; timestamp: number };
-};
-
-/**
- * Asks the server whether this member's own subscription may be offered the retention discount.
- * `null` means no offer (not configured in the store, not eligible, or Android): the normal
- * cancellation continues unchanged. Any other failure also returns `null`, so cancelling is never blocked.
- */
-export async function loadRetentionOffer(expectedOwner: string, subscriptionId: string): Promise<RetentionOffer | null> {
-  if (Platform.OS !== 'ios') return null;
-  try {
-    const result = await authenticatedRequest<{ state?: string } & Partial<RetentionOffer>>('/api/native-subscriptions/retention-offer', {
-      method: 'POST', body: JSON.stringify({ subscriptionId }),
-    }, expectedOwner, SUBSCRIPTION_READ_TIMEOUT_MS);
-    const offer = result?.offer;
-    if (result?.state !== 'available' || typeof result.productId !== 'string' || !nativeProductIds().includes(result.productId)
-      || !offer || [offer.identifier, offer.keyIdentifier, offer.nonce, offer.signature].some((value) => typeof value !== 'string' || !value)
-      || typeof offer.timestamp !== 'number' || !Number.isFinite(offer.timestamp)) return null;
-    return { productId: result.productId, offer: { identifier: offer.identifier, keyIdentifier: offer.keyIdentifier,
-      nonce: offer.nonce, signature: offer.signature, timestamp: offer.timestamp } };
-  } catch {
-    return null;
-  }
-}
-
 export async function saveCancellationFeedback(expectedOwner: string, input: {
   id: string; subscriptionId: string; reason: CancellationReason; details: string;
 }): Promise<void> {
