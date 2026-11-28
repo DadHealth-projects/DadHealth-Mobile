@@ -12,7 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNetworkStatus } from '../../contexts/NetworkContext';
 import { refreshDashboardForUser } from '../../hooks/useDashboard';
 import { useNativeSubscriptions } from '../../hooks/useNativeSubscriptions';
-import { trialDisclosure, type SubscriptionPlan, loadRetentionOffer } from '../../lib/nativeSubscriptions';
+import { trialDisclosure, type SubscriptionPlan } from '../../lib/nativeSubscriptions';
 import type { AppStackParamList } from '../../navigation/AppNavigator';
 import { useAnalyticsPresentation } from '../../hooks/useAnalyticsPresentation';
 import { upgradeSource } from '../../lib/analyticsContract';
@@ -29,7 +29,7 @@ export default function ProSubscriptionScreen() {
   const { user } = useAuth();
   const route = useRoute();
   const presented = useAnalyticsPresentation(user?.id, 'paywall_viewed', { source: upgradeSource((route.params as {source?:string} | undefined)?.source) });
-  const { isOffline, showOfflineAction, dismissToast } = useNetworkStatus();
+  const { isOffline, showOfflineAction } = useNetworkStatus();
   const [cancellationOwner, setCancellationOwner] = useState<string | null>(null);
   useEffect(() => { setCancellationOwner(null); }, [user?.id]);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('annual');
@@ -64,20 +64,7 @@ export default function ProSubscriptionScreen() {
   const multipleProviders = new Set(subscriptions.status?.activeProviders ?? []).size > 1;
   const checking = subscriptions.statusLoading || subscriptions.catalogLoading;
   useNotificationPresentation(!checking && Boolean(subscriptions.status) && !subscriptions.statusError, !checking && Boolean(subscriptions.statusError), 'plan');
-  const loadError = subscriptions.statusError ?? (
-    subscriptions.storeSupported && subscriptions.status?.isPro === false ? subscriptions.catalogError : null
-  );
-  const needsRecovery = checking || !subscriptions.status || Boolean(loadError)
-    || (subscriptions.status.isPro === false && subscriptions.storeSupported && !optionReady);
-  const displayError = subscriptions.actionError ?? (checking ? null : needsRecovery
-    ? isOffline ? 'You are offline. Reconnect and try again.'
-      : loadError ?? 'We could not confirm this subscription option. Please try again.'
-    : null);
-  const retry = () => {
-    if (isOffline || checking) return;
-    dismissToast();
-    void subscriptions.retry();
-  };
+  const displayError = subscriptions.actionError;
 
   const planCopy = useMemo(() => ({
     monthly: {
@@ -90,22 +77,26 @@ export default function ProSubscriptionScreen() {
     },
   }), [subscriptions.products]);
 
-  const managedMembership = subscriptions.memberships?.find(item => item.id === subscriptions.managedId);
-  if (user && subscriptions.status?.isPro === true && subscriptions.returnState === 'refreshed'
+  const scheduledMembership = subscriptions.status?.primaryProvider === 'apple'
+    && !multipleProviders && subscriptions.memberships?.length === 1
+    ? subscriptions.memberships[0] : undefined;
+
+  if (user && subscriptions.status?.isPro === true
+    && !subscriptions.statusLoading && !subscriptions.statusError
     && !subscriptions.membershipLoading && !subscriptions.membershipError
-    && isScheduledAppleMembership(managedMembership)) return (
-    <CancellationScheduled subscription={managedMembership!} busy={subscriptions.managing}
+    && subscriptions.returnState !== 'pending'
+    && subscriptions.returnState !== 'unknown'
+    && isScheduledAppleMembership(scheduledMembership)) return (
+    <CancellationScheduled subscription={scheduledMembership!} busy={subscriptions.managing}
       error={subscriptions.actionError} offline={isOffline} onBack={() => navigation.goBack()}
-      onManage={() => void subscriptions.manage(managedMembership!.id)} />
+      onManage={() => void subscriptions.manage(scheduledMembership!.id)} />
   );
 
   if (user && cancellationOwner === user.id) return (
     <CancellationFlow key={user.id} owner={user.id} subscriptions={subscriptions.memberships}
       loading={subscriptions.membershipLoading} loadError={subscriptions.membershipError}
       refresh={subscriptions.retryMembership} manage={subscriptions.manage}
-      returnState={subscriptions.returnState} offline={isOffline} onClose={() => { subscriptions.resetOfferOutcome(); setCancellationOwner(null); }}
-      loadOffer={(subscriptionId) => loadRetentionOffer(user.id, subscriptionId)}
-      redeemOffer={subscriptions.redeemRetentionOffer} offerOutcome={subscriptions.offerOutcome} />
+      returnState={subscriptions.returnState} offline={isOffline} onClose={() => setCancellationOwner(null)} />
   );
 
   return (
@@ -122,7 +113,7 @@ export default function ProSubscriptionScreen() {
           </View>
         </Pressable>
 
-        {(subscriptions.loading || checking) && !subscriptions.status ? (
+        {user && (subscriptions.loading || checking) && !subscriptions.status ? (
           <SubscriptionSkeleton />
         ) : subscriptions.status?.isPro === true ? (
           <>
@@ -228,7 +219,7 @@ export default function ProSubscriptionScreen() {
                   else void subscriptions.purchase(selectedPlan, 'button');
                 }}
                 loading={subscriptions.purchasing}
-                disabled={checking || subscriptions.managing || subscriptions.restoring || subscriptions.status?.canPurchase !== true} />
+                disabled={checking || Boolean(subscriptions.statusError) || subscriptions.managing || subscriptions.restoring || subscriptions.status?.canPurchase !== true} />
             ) : null}
             {user && optionReady && trialTerms ? (
               <Text className="font-body text-white text-[14px] leading-[20px] text-center">
@@ -240,17 +231,15 @@ export default function ProSubscriptionScreen() {
             ) : null}
           </>
         ) : (
-          <View className="items-center gap-sm">
-            <Text className="font-heading-bold text-lime text-[11px] tracking-label uppercase">Dad Health Pro</Text>
-          </View>
+          <ProHeader
+            title="Dad Health Pro"
+            description={isOffline
+              ? 'Your membership will update when you reconnect.'
+              : 'Your membership is temporarily unavailable.'}
+          />
         )}
 
         <InlineFormError message={displayError} />
-        {needsRecovery && !subscriptions.loading && !checking ? (
-          <Pressable onPress={retry} disabled={isOffline || checking || subscriptions.purchasing || subscriptions.restoring} accessibilityRole="button" accessibilityState={{ busy: checking }} className="min-h-[44px] self-center justify-center border-b border-lime">
-            <Text className="font-heading-bold text-lime text-[11px] uppercase">Retry</Text>
-          </Pressable>
-        ) : null}
         {subscriptions.notice && !displayError ? (
           <Text accessibilityLiveRegion="polite" className="font-body text-lime text-[14px] leading-[18px] text-center">
             {subscriptions.notice}
