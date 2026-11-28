@@ -31,9 +31,16 @@ const tick = () => new Promise((resolve) => setImmediate(resolve));
 
 function serviceHarness() {
   const h = { owner: 'owner-a', requests: [], payload: free, ownership: 'standalone', opened: [], capability: async () => true };
+  h.nativeOpened = 0;
+  h.nativeInit = async () => true;
+  h.nativeManage = async () => { h.nativeOpened++; return []; };
   const linking = { canOpenURL: (...args) => h.capability(...args), openURL: async url => { h.opened.push(url); } };
   h.api = load('lib/nativeSubscriptions.ts', {
     'react-native': { Platform: { OS: 'ios' }, Linking: linking },
+    'react-native-iap': {
+      initConnection: () => h.nativeInit(),
+      showManageSubscriptionsIOS: () => h.nativeManage(),
+    },
     'expo-constants': { default: { appOwnership: h.ownership } },
     './supabase': { supabase: { auth: { getSession: async () => ({ data: { session: {
       access_token: 'mock-token', user: { id: h.owner },
@@ -75,7 +82,7 @@ function hookHarness(initial = {}) {
     loadNativeSubscriptionStatus: async () => h.summary,
     prepareNativePurchase: async (plan, account) => { h.prepares.push(account); return { provider: 'apple', productId: plan === 'monthly' ? monthly : annual, appAccountToken: account }; },
     verifyNativePurchase: async (purchase, account) => { h.verifies.push([purchase.id, account]); h.summary = pro; return h.summary; },
-    openSubscriptionManagement: async () => {},
+    openSubscriptionManagement: async () => 'external',
     loadNativeMembership: async () => [],
   };
   let now = 0, timerId = 0; const timers = new Map();
@@ -285,14 +292,14 @@ test('unmount during verification suppresses all late finish/UI refresh work', a
   h.api.verifyNativePurchase = () => gate.promise; h.update(receipt()); h.unmount(); gate.resolve(pro); await tick();
   assert.equal(h.finishes.length, 0); assert.equal(h.changes, 0);
 });
-test('same-account refresh retains canonical access; resume refreshes catalog eligibility', async () => {
+test('same-account refresh retains canonical access; Pro resume skips purchase catalog', async () => {
   const h = hookHarness({ summary: pro }); await h.flush(); const gate = deferred();
   h.api.loadNativeSubscriptionStatus = () => gate.promise; const work = h.result.retry(); h.render();
   assert.equal(h.result.status.isPro, true); gate.reject(Error('offline')); await work; await h.flush();
   assert.equal(h.result.status.isPro, true); const count = h.catalogCalls;
   h.api.loadNativeSubscriptionStatus = async () => pro; await h.result.retry(); await h.flush();
   h.resume('background'); h.resume('active'); await h.flush();
-  assert.ok(h.catalogCalls > count); h.unmount();
+  assert.equal(h.catalogCalls, count); assert.equal(h.result.status.isPro, true); h.unmount();
 });
 test('Expo Go keeps canonical access without loading store products', async () => {
   const h = hookHarness({ supported: false, summary: pro }); await h.flush();
@@ -335,7 +342,7 @@ function screen(overrides = {}, harness = {}) {
   } }
   visit(tree); return { nodes, text: JSON.stringify(tree), actions };
 }
-test('paywall renders trial/paid CTAs, blocks unknown/loading and wires Retry plus Back', () => {
+test('paywall renders trial/paid CTAs, blocks unknown/loading and preserves Back', () => {
   const trial = screen();
   assert.match(trial.text, /START MY 7-DAY FREE TRIAL/);
   assert.ok(trial.nodes.some((n) => n.type === 'Pressable' && n.props.accessibilityLabel === 'Start my 7-day free trial'));
@@ -345,9 +352,9 @@ test('paywall renders trial/paid CTAs, blocks unknown/loading and wires Retry pl
   const unknown = screen({ products: [{ plan: 'annual', displayPrice: 'GBP 49.99', trialEligibility: 'unknown' }] });
   assert.equal(unknown.nodes.filter((n) => n.type === 'Pressable' && ['Start my 7-day free trial', 'Subscribe'].includes(n.props.accessibilityLabel)).length, 0);
   assert.doesNotMatch(unknown.text, /free trial ends|first payment/);
-  unknown.nodes.find((n) => n.type === 'Pressable' && JSON.stringify(n.children).includes('Retry')).props.onPress();
+  assert.doesNotMatch(unknown.text, /"Retry"/);
   unknown.nodes.find((n) => n.props?.accessibilityLabel === 'Close Dad Health Pro').props.onPress();
-  assert.deepEqual(unknown.actions, ['retry', 'back']);
+  assert.deepEqual(unknown.actions, ['back']);
   const loading = screen({ catalogLoading: true, products: [], storeAvailable: false }); assert.doesNotMatch(loading.text, /START MY 7-DAY|Start my 7-day|Subscribe"|free trial ends|first payment/);
   assert.doesNotMatch(loading.text, /Checking subscription|"Retry"/);
   const unsupported = screen({ products: [], storeAvailable: false, storeSupported: false });
@@ -549,12 +556,13 @@ test('catalog-only failure leaves canonical status intact and separate from acti
   await h.result.retry(); await h.flush(); assert.equal(h.result.catalogError, null);
   assert.match(h.result.actionError, /complete restore/); h.unmount();
 });
-test('offline to online keeps failure until explicit Retry and holds progress until settlement', async () => {
+test('offline to online automatically recovers and retains verified access', async () => {
   const h = hookHarness({ summary: pro }); await h.flush();
   h.offline = true; h.render(); await h.result.retry(); await h.flush();
   assert.match(h.result.statusError, /offline/); assert.equal(h.result.status.isPro, true);
-  h.offline = false; h.render(); h.resume('background'); h.resume('active'); await h.flush();
-  assert.match(h.result.statusError, /offline/);
+  h.offline = false; h.render(); await h.flush();
+  assert.equal(h.result.statusError, null);
+  assert.equal(h.result.status.isPro, true);
   const gate = deferred(); h.api.loadNativeSubscriptionStatus = () => gate.promise;
   const retry = h.result.retry(); h.render();
   assert.equal(h.result.statusError, null); assert.equal(h.result.statusLoading, true);
@@ -565,13 +573,14 @@ test('offline to online keeps failure until explicit Retry and holds progress un
   h.api.loadNativeSubscriptionStatus = async () => pro;
   await h.result.retry(); await h.flush(); assert.equal(h.result.statusError, null); h.unmount();
 });
-test('Pro rendering has one error, one heading and stable retry/offline presentation', () => {
+test('Pro rendering preserves action errors and removes routine Retry presentation', () => {
   const heading = screen({ context: 'Dad Health Pro' });
   assert.equal(heading.nodes.filter((n) => n.type === 'Text' && n.children.includes('Dad Health Pro')).length, 0);
   assert.equal(heading.nodes.filter((n) => n.type === 'Text' && n.children.includes('DAD HEALTH PRO')).length, 1);
   const unknown = screen({ status: null, statusError: 'Status failed', catalogError: 'Catalog failed' });
-  assert.equal(unknown.nodes.filter((n) => n.type === 'InlineFormError' && n.props.message).length, 1);
-  assert.match(unknown.text, /Status failed/); assert.doesNotMatch(unknown.text, /Catalog failed/);
+  assert.equal(unknown.nodes.filter((n) => n.type === 'InlineFormError' && n.props.message).length, 0);
+  assert.match(unknown.text, /membership is temporarily unavailable/);
+  assert.doesNotMatch(unknown.text, /Status failed|Catalog failed|"Retry"/);
   const busy = screen({ status: null, statusLoading: true, catalogLoading: true });
   assert.equal(busy.nodes.filter((n) => n.type === 'InlineFormError' && n.props.message).length, 0);
   // Client instruction: no blocking "Checking your subscription" text; show the screen's skeleton instead.
@@ -583,8 +592,8 @@ test('Pro rendering has one error, one heading and stable retry/offline presenta
   assert.doesNotMatch(proRetry.text, /Checking subscription|"Retry"/);
   assert.equal(proRetry.nodes.filter((n) => n.type === 'InlineFormError' && n.props.message).length, 0);
   const offline = screen({ offline: true, status: null, statusError: 'Status failed' });
-  assert.match(offline.text, /You are offline/);
-  assert.equal(offline.nodes.find((n) => n.type === 'Pressable' && JSON.stringify(n.children).includes('Retry')).props.disabled, true);
+  assert.match(offline.text, /membership will update when you reconnect/);
+  assert.doesNotMatch(offline.text, /"Retry"/);
   const action = screen({ statusError: 'Status failed', actionError: 'Restore incomplete', notice: 'Old success' });
   assert.match(action.text, /Restore incomplete/); assert.doesNotMatch(action.text, /Status failed|Old success/);
 });
@@ -610,7 +619,7 @@ test('manual, trial, overlap and missing billing information use truthful member
 });
 test('Free and expired preserve paywall; missing access never becomes Free',()=>{
  for(const status of [free,{...free,status:'expired'}]) {const h=screen({status});assert.match(h.text,/START MY 7-DAY FREE TRIAL/);assert.ok(h.nodes.some(n=>n.props.accessibilityLabel==='Close Dad Health Pro'));assert.doesNotMatch(h.text,/Membership/);}
- const unknown=screen({status:null,statusError:'Could not verify access',products:[]});assert.doesNotMatch(unknown.text,/START MY 7-DAY|Start my 7-day|free trial ends|Everything is unlocked/);assert.match(unknown.text,/Could not verify access/);
+ const unknown=screen({status:null,statusError:'Could not verify access',products:[]});assert.doesNotMatch(unknown.text,/START MY 7-DAY|Start my 7-day|free trial ends|Everything is unlocked/);assert.match(unknown.text,/membership is temporarily unavailable/);
  const loadingScreen=screen({status:null,loading:true});
  assert.ok(loadingScreen.nodes.some(n=>n.props?.accessibilityLabel==='Loading your subscription'));
  assert.doesNotMatch(loadingScreen.text,/Checking your subscription|START MY 7-DAY|Everything is unlocked/);
@@ -634,7 +643,7 @@ test('management is blocked during a purchase operation',async()=>{
  const h=hookHarness();await h.flush();const gate=deferred();let manages=0;h.iap.requestPurchase=()=>gate.promise;h.api.openSubscriptionManagement=async()=>manages++;
  const purchase=h.result.purchase('monthly');await tick();await h.result.manage();assert.equal(manages,0);gate.resolve();await purchase;h.unmount();
 });
-for(const url of ['https://apps.apple.com/account/subscriptions','https://billing.stripe.com/p/session/mock'])test(`management opens unchanged provider URL: ${url}`,async()=>{
+for(const url of ['https://billing.stripe.com/p/session/mock'])test(`management opens unchanged provider URL: ${url}`,async()=>{
  const h=serviceHarness();h.payload={url};await h.api.openSubscriptionManagement('owner-a',()=>true);assert.deepEqual(h.opened,[url]);assert.match(h.requests[0][0],/native-subscriptions\/manage$/);
 });
 test('management does not open URL after account switch during HTTP',async()=>{
@@ -642,7 +651,7 @@ test('management does not open URL after account switch during HTTP',async()=>{
  await assert.rejects(h.api.openSubscriptionManagement('owner-a',()=>true),/account changed/);assert.equal(h.opened.length,0);
 });
 for(const mode of ['switch','unmount'])test(`management checks ${mode} after URL capability check`,async()=>{
- const h=serviceHarness();h.payload={url:'https://apps.apple.com/account/subscriptions'};let live=true;
+ const h=serviceHarness();h.payload={url:'https://billing.stripe.com/p/session/mock'};let live=true;
  h.capability=async()=>{if(mode==='switch')h.owner='owner-b';else live=false;return true;};
  await assert.rejects(h.api.openSubscriptionManagement('owner-a',()=>live),/account changed/);assert.equal(h.opened.length,0);
 });
@@ -654,7 +663,7 @@ test('invalid and missing period-end dates are omitted, not normalised into bill
  for(const date of [null,undefined,'invalid','123','2027-02-30T00:00:00Z']) assert.doesNotMatch(screen({status:{...pro,currentPeriodEnd:date}}).text,/Current period ends/);
 });
 test('unsupported URL and offline management settle safely without opening a provider',async()=>{
- const service=serviceHarness();service.payload={url:'https://apps.apple.com/account/subscriptions'};service.capability=async()=>false;
+ const service=serviceHarness();service.payload={url:'https://billing.stripe.com/p/session/mock'};service.capability=async()=>false;
  await assert.rejects(service.api.openSubscriptionManagement('owner-a',()=>true),/open subscription management/);assert.equal(service.opened.length,0);
  const h=hookHarness({summary:pro,offline:true});await h.flush();let calls=0;h.api.openSubscriptionManagement=async()=>calls++;await h.result.manage();h.render();assert.equal(calls,0);assert.equal(h.result.managing,false);h.unmount();
 });
@@ -815,10 +824,12 @@ for (const mode of ['switch', 'unmount']) test(`action error timers are cleared 
   h.unmount(); assert.equal(h.timers.size, 0); old();
 });
 
-test('selected management sends the owned subscription ID without changing the provider URL', async()=>{
+test('selected Apple management sends the owned subscription ID and opens the native sheet', async()=>{
  const h=serviceHarness();h.payload={url:'https://apps.apple.com/account/subscriptions'};
- await h.api.openSubscriptionManagement('owner-a',()=>true,'sub-a');
- assert.equal(JSON.parse(h.requests[0][1].body).subscriptionId,'sub-a');assert.equal(h.opened.length,1);
+ assert.equal(await h.api.openSubscriptionManagement('owner-a',()=>true,'sub-a'),'native');
+ assert.equal(JSON.parse(h.requests[0][1].body).subscriptionId,'sub-a');
+ assert.equal(h.nativeOpened,1);
+ assert.equal(h.opened.length,0);
 });
 test('provider return refresh needs both canonical status and details; failures retain access',async()=>{
  const h=hookHarness({summary:pro});await h.flush();let reads=0;
@@ -857,7 +868,7 @@ test('dedicated scheduled presentation requires current Apple evidence after aut
  const h=screen(props);assert.ok(h.nodes.some(n=>n.type==='Text'&&n.children.includes('Cancellation\nScheduled')));assert.match(h.text,/Access ends/);assert.doesNotMatch(h.text,/Thanks for|Pro is Active/);
  h.nodes.find(n=>n.props.accessibilityLabel==='Go back').props.onPress();assert.deepEqual(h.actions,['back']);
  h.nodes.find(n=>n.props.accessibilityLabel==='Manage subscription').props.onPress();assert.deepEqual(h.actions,['back','manage']);
- for(const patch of [{returnState:'pending'},{returnState:'unknown'},{returnState:'idle'},{status:null},{status:free},{membershipError:'Unavailable'},{membershipLoading:true},{memberships:[{...scheduledMembership,provider:'stripe'}]},{memberships:[{...scheduledMembership,cancellation:{state:'unknown',end:null}}]},{memberships:[{...scheduledMembership,status:'revoked'}]},{memberships:[{...scheduledMembership,currentPeriodEnd:'2000-01-01T00:00:00Z'}]}]){
+ for(const patch of [{returnState:'pending'},{returnState:'unknown'},{status:null},{status:free},{membershipError:'Unavailable'},{membershipLoading:true},{memberships:[{...scheduledMembership,provider:'stripe'}]},{memberships:[{...scheduledMembership,cancellation:{state:'unknown',end:null}}]},{memberships:[{...scheduledMembership,status:'revoked'}]},{memberships:[{...scheduledMembership,currentPeriodEnd:'2000-01-01T00:00:00Z'}]}]){
   const rendered=screen({...props,...patch});assert.ok(!rendered.nodes.some(n=>n.type==='Text'&&n.children.includes('Cancellation\nScheduled')));
  }
 });
@@ -1009,7 +1020,7 @@ test('a stalled status check ends with a truthful, retryable error instead of an
   // Purchase verification never gets a client-side timeout.
   const src = read('lib/nativeSubscriptions.ts');
   assert.match(src, /`\/api\/native-subscriptions\/verify\/\$\{provider\}`,[\s\S]*?expectedOwner,\s*\);/);
-  assert.match(src, /'\/api\/native-subscriptions\/status', undefined, expectedOwner, SUBSCRIPTION_READ_TIMEOUT_MS\)/);
+  assert.match(src, /includeFreeze \? '\/api\/native-subscriptions\/status' : '\/api\/native-subscriptions\/status\?includeFreeze=false',\s*undefined, expectedOwner, SUBSCRIPTION_READ_TIMEOUT_MS,\s*\)/);
   void h;
 });
 
@@ -1017,4 +1028,141 @@ test('known Free status shows plan rows at once, with a placeholder only for pri
   const h = screen({ status: free, catalogLoading: true, products: [] });
   assert.match(h.text, /Annual/); assert.match(h.text, /Monthly/);
   assert.ok(h.nodes.filter((n) => n.type === 'skeleton/SkeletonBlock').length >= 2, 'price placeholders while the store catalogue loads');
+});
+
+
+test('Apple management opens the native sheet instead of an external URL', async () => {
+  const h = serviceHarness();
+  h.payload = { url: 'https://apps.apple.com/account/subscriptions' };
+  assert.equal(await h.api.openSubscriptionManagement('owner-a', () => true), 'native');
+  assert.equal(h.nativeOpened, 1);
+  assert.equal(h.opened.length, 0);
+});
+
+for (const mode of ['switch', 'unmount']) {
+  test(`native Apple management checks ${mode} after initialization`, async () => {
+    const h = serviceHarness();
+    h.payload = { url: 'https://apps.apple.com/account/subscriptions' };
+    let live = true;
+    h.nativeInit = async () => {
+      if (mode === 'switch') h.owner = 'owner-b';
+      else live = false;
+      return true;
+    };
+    await assert.rejects(
+      h.api.openSubscriptionManagement('owner-a', () => live),
+      /account changed/
+    );
+    assert.equal(h.nativeOpened, 0);
+    assert.equal(h.opened.length, 0);
+  });
+}
+
+test('native management refreshes canonical status and membership without AppState handoff', async () => {
+  const h = hookHarness({ summary: pro });
+  await h.flush();
+  let statusReads = 0, membershipReads = 0;
+  h.api.loadNativeSubscriptionStatus = async () => {
+    statusReads++;
+    return pro;
+  };
+  h.api.loadNativeMembership = async () => {
+    membershipReads++;
+    return [scheduledMembership];
+  };
+  h.api.openSubscriptionManagement = async () => 'native';
+  assert.equal(await h.result.manage('sub-a'), true);
+  await h.flush();
+  assert.equal(statusReads, 1);
+  assert.equal(membershipReads, 1);
+  assert.equal(h.result.returnState, 'refreshed');
+  assert.equal(h.result.status.isPro, true);
+  h.unmount();
+});
+
+test('verified scheduled cancellation is visible on reopening the Pro screen', () => {
+  const h = screen({
+    status: pro,
+    memberships: [scheduledMembership],
+    returnState: 'idle',
+  });
+  assert.ok(h.nodes.some(n => n.type === 'Text' &&
+    n.children.includes('Cancellation\nScheduled')));
+});
+
+test('scheduled cancellation cannot replace the full membership screen during provider overlap', () => {
+  const h = screen({
+    status: { ...pro, activeProviders: ['apple', 'stripe'] },
+    memberships: [scheduledMembership],
+    returnState: 'refreshed',
+    managedId: 'sub-a',
+  });
+  assert.ok(!h.nodes.some(n => n.type === 'Text' &&
+    n.children.includes('Cancellation\nScheduled')));
+  assert.match(h.text, /Another active subscription may exist/);
+});
+
+test('subscription snapshot is isolated by account and cleared on logout', () => {
+  const api = serviceHarness().api;
+  api.rememberSubscriptionStatus('owner-a', free);
+  assert.equal(api.getVerifiedSubscriptionSnapshot('owner-a').isPro, false);
+  assert.equal(api.getVerifiedSubscriptionSnapshot('owner-b'), null);
+  assert.equal(api.getVerifiedSubscriptionSnapshot(undefined), null);
+  api.clearSubscriptionSnapshot();
+  assert.equal(api.getVerifiedSubscriptionSnapshot('owner-a'), null);
+});
+
+test('expired subscription snapshots are not reused', () => {
+  const api = serviceHarness().api;
+  api.rememberSubscriptionStatus('owner-a', {
+    ...pro, currentPeriodEnd: '2000-01-01T00:00:00Z'
+  });
+  assert.equal(api.getVerifiedSubscriptionSnapshot('owner-a'), null);
+});
+
+test('older subscription response cannot replace a newer verified snapshot', () => {
+  const api = serviceHarness().api;
+  const generation = api.beginSubscriptionSnapshotRead();
+  api.rememberSubscriptionStatus('owner-a', free);
+  api.rememberSubscriptionStatus('owner-a', pro, generation);
+  assert.equal(api.getVerifiedSubscriptionSnapshot('owner-a').isPro, false);
+});
+
+test('outstanding snapshot read cannot repopulate cache after logout', () => {
+  const api = serviceHarness().api;
+  const generation = api.beginSubscriptionSnapshotRead();
+  api.clearSubscriptionSnapshot();
+  api.rememberSubscriptionStatus('owner-a', pro, generation);
+  assert.equal(api.getVerifiedSubscriptionSnapshot('owner-a'), null);
+});
+
+test('temporary subscription timeout automatically retries once', async () => {
+  const h = hookHarness();
+  await h.flush();
+  let calls = 0;
+  h.api.loadNativeSubscriptionStatus = async () => {
+    calls++;
+    if (calls === 1) {
+      throw new h.api.NativeSubscriptionError('Temporary timeout', 'timeout');
+    }
+    return free;
+  };
+  const work = h.result.retry();
+  await tick();
+  h.advance(1000);
+  await work;
+  await h.flush();
+  assert.equal(calls, 2);
+  assert.equal(h.result.statusError, null);
+  assert.equal(h.result.status.isPro, false);
+  h.unmount();
+});
+
+test('uncertain subscription status disables purchase CTA', () => {
+  const h = screen({ statusError: 'Status unavailable' });
+  const button = h.nodes.find(n =>
+    n.props?.accessibilityLabel === 'Start my 7-day free trial');
+  assert.ok(button);
+  assert.equal(button.props.disabled, true);
+  assert.doesNotMatch(h.text, /"Retry"/);
 });
