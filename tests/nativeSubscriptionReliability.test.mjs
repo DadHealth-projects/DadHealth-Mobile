@@ -839,9 +839,40 @@ test('provider return refresh needs both canonical status and details; failures 
  h.api.loadNativeMembership=async()=>{throw Error('offline');};await h.result.manage('sub-a');h.resume('background');h.resume('active');await h.flush();
  assert.equal(h.result.returnState,'unknown');assert.equal(h.result.status.isPro,true);h.unmount();
 });
-test('late membership read cannot cross accounts or replace newer results',async()=>{
- const h=hookHarness({summary:pro});await h.flush();const gate=deferred();h.api.loadNativeMembership=()=>gate.promise;
- const old=h.result.refreshMembership();h.switch('owner-b');await h.flush();gate.resolve([{id:'old'}]);await old;h.render();assert.equal(h.result.memberships,null);h.unmount();
+test('late membership read cannot cross accounts or replace newer results', async () => {
+  const h = hookHarness({summary: pro});
+  await h.flush();
+
+  const gate = deferred();
+  h.api.loadNativeMembership = owner =>
+    owner === 'owner-a' ? gate.promise : Promise.resolve([{id:'new-account'}]);
+
+  const old = h.result.refreshMembership();
+  h.switch('owner-b');
+  await h.flush();
+
+  assert.deepEqual(h.result.memberships, [{id:'new-account'}]);
+
+  gate.resolve([{id:'old'}]);
+  await old;
+  await h.flush();
+
+  assert.deepEqual(h.result.memberships, [{id:'new-account'}]);
+
+  const olderGate = deferred();
+  h.api.loadNativeMembership = () => olderGate.promise;
+  const older = h.result.refreshMembership();
+
+  h.api.loadNativeMembership = async () => [{id:'latest'}];
+  await h.result.refreshMembership();
+  h.render();
+
+  olderGate.resolve([{id:'outdated'}]);
+  await older;
+  h.render();
+
+  assert.deepEqual(h.result.memberships, [{id:'latest'}]);
+  h.unmount();
 });
 test('manual and unknown membership never show a cancellation entry',()=>{
  for(const status of [null,{...pro,primaryProvider:'manual',activeProviders:[]},{...pro,primaryProvider:null,activeProviders:[]},{...pro,primaryProvider:'stripe',activeProviders:['stripe']},free])assert.ok(!screen({status}).nodes.some(n=>n.props.accessibilityLabel==='Cancel subscription'));
@@ -868,7 +899,7 @@ test('dedicated scheduled presentation requires current Apple evidence after aut
  const h=screen(props);assert.ok(h.nodes.some(n=>n.type==='Text'&&n.children.includes('Cancellation\nScheduled')));assert.match(h.text,/Access ends/);assert.doesNotMatch(h.text,/Thanks for|Pro is Active/);
  h.nodes.find(n=>n.props.accessibilityLabel==='Go back').props.onPress();assert.deepEqual(h.actions,['back']);
  h.nodes.find(n=>n.props.accessibilityLabel==='Manage subscription').props.onPress();assert.deepEqual(h.actions,['back','manage']);
- for(const patch of [{returnState:'pending'},{returnState:'unknown'},{status:null},{status:free},{membershipError:'Unavailable'},{membershipLoading:true},{memberships:[{...scheduledMembership,provider:'stripe'}]},{memberships:[{...scheduledMembership,cancellation:{state:'unknown',end:null}}]},{memberships:[{...scheduledMembership,status:'revoked'}]},{memberships:[{...scheduledMembership,currentPeriodEnd:'2000-01-01T00:00:00Z'}]}]){
+ for(const patch of [{status:null},{status:free},{memberships:[{...scheduledMembership,provider:'stripe'}]},{memberships:[{...scheduledMembership,cancellation:{state:'unknown',end:null}}]},{memberships:[{...scheduledMembership,status:'revoked'}]},{memberships:[{...scheduledMembership,currentPeriodEnd:'2000-01-01T00:00:00Z'}]}]){
   const rendered=screen({...props,...patch});assert.ok(!rendered.nodes.some(n=>n.type==='Text'&&n.children.includes('Cancellation\nScheduled')));
  }
 });
@@ -1165,4 +1196,68 @@ test('uncertain subscription status disables purchase CTA', () => {
   assert.ok(button);
   assert.equal(button.props.disabled, true);
   assert.doesNotMatch(h.text, /"Retry"/);
+});
+
+
+test('verified cancellation remains visible during background refresh', () => {
+  for (const patch of [
+    {returnState:'pending', managing:true},
+    {returnState:'unknown'},
+    {membershipLoading:true},
+    {statusLoading:true},
+    {membershipError:'Unavailable'},
+    {statusError:'Unavailable'},
+  ]) {
+    const h = screen({
+      status:pro,
+      memberships:[scheduledMembership],
+      ...patch,
+    });
+
+    assert.ok(h.nodes.some(n => n.type === 'Text' &&
+      n.children.includes('Cancellation\nScheduled')));
+    assert.doesNotMatch(h.text, /Pro is Active/);
+  }
+});
+
+test('initial Apple membership verification never flashes active Pro content', () => {
+  const h = screen({
+    status:pro,
+    memberships:null,
+    membershipLoading:true,
+    catalogLoading:true,
+  });
+
+  assert.ok(h.nodes.some(n =>
+    n.props.accessibilityLabel === 'Loading your subscription'));
+  assert.doesNotMatch(h.text, /Pro is Active/);
+  assert.doesNotMatch(h.text, /Cancellation Scheduled/);
+});
+
+test('Apple membership failure does not display an unverified cancellation state', () => {
+  const h = screen({
+    status:pro,
+    memberships:null,
+    membershipLoading:false,
+    membershipError:'Unavailable',
+  });
+
+  assert.doesNotMatch(h.text, /Pro is Active/);
+  assert.match(h.text, /membership details are temporarily unavailable/);
+});
+
+test('Apple Pro membership details automatically load on account entry', async () => {
+  const h = hookHarness({summary:pro});
+  const owners = [];
+
+  h.api.loadNativeMembership = async owner => {
+    owners.push(owner);
+    return [scheduledMembership];
+  };
+
+  await h.flush();
+
+  assert.deepEqual(owners, ['owner-a']);
+  assert.deepEqual(h.result.memberships, [scheduledMembership]);
+  h.unmount();
 });
