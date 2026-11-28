@@ -13,7 +13,7 @@ test('resolved mobile Pro gates use the authenticated server entitlement status'
     read('screens/FitnessScreen.tsx'),
     read('screens/subscreens/ManualActivityHistoryScreen.tsx'),
   ]);
-  assert.match(dashboard, /loadNativeSubscriptionStatus\(\)/);
+  assert.match(dashboard, /loadNativeSubscriptionStatus\(userId\)/);
   assert.match(dashboard, /isPro: subscriptionStatus \? subscriptionStatus\.isPro === true : null/);
   assert.match(dashboard, /isPro: null/);
   assert.match(dashboard, /AppState\.addEventListener\('change'/);
@@ -81,7 +81,7 @@ test('routine resume refresh preserves confirmed access and unknown status does 
   assert.match(library, /if \(isOffline\) \{/);
   assert.doesNotMatch(library, /setIsPro/);
   assert.match(library, /requestId !== latestRequest\.current/);
-  assert.match(native, /const requestId = \+\+statusRequestId\.current;[\s\S]*?setStatus\(null\)/);
+  assert.match(native, /setStatus\(getVerifiedSubscriptionSnapshot\(scope\.owner\)\)/);
   assert.match(native, /statusRequestId\.current === requestId/);
   assert.match(dadDays, /setAccessReady\(false\);[\s\S]*?loadAccess\(\)/);
   assert.match(dadDays, /useFocusEffect/);
@@ -116,7 +116,7 @@ test('client check-in sync no longer writes authoritative streak state', async (
   ]);
   assert.doesNotMatch(offline, /from\('user_streaks'\)[\s\S]{0,180}\.upsert/);
   assert.doesNotMatch(dashboard, /from\("user_streaks"\)[\s\S]{0,180}\.upsert/);
-  assert.match(dashboard, /loadNativeSubscriptionStatus\(\)/);
+  assert.match(dashboard, /loadNativeSubscriptionStatus\(userId\)/);
 });
 
 test('streak freeze copy uses the server-provided state and never derives it locally', async () => {

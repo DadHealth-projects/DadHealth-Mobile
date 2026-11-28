@@ -71,8 +71,8 @@ test('dashboard hook applies the window only to focus/resume and keeps explicit 
 
 test('writes that feed dashboard data mark it stale after server confirmation', async () => {
   const sites = {
-    'lib/appleHealth.ts': /if \(error\) throw error;\s*markDashboardStale\(userId\);/,
-    'lib/healthConnect.ts': /if \(error\) throw error;\s*markDashboardStale\(userId\);/,
+    'lib/appleHealth.ts': /if \(error\) throw error;\s*await guard\.assertCurrent\(\);\s*markDashboardStale\(userId\);/,
+    'lib/healthConnect.ts': /if \(error\) throw error;\s*await guard\.assertCurrent\(\);\s*markDashboardStale\(userId\);/,
     'lib/communityPostActions.ts': /if \(error \|\| data !== true\) return 'We could not delete this post\.';\s*markDashboardStale\(userId\);/,
     'hooks/useCookTogetherRecipes.ts': /if \(completeError\) return[^\n]*\n\s*markDashboardStale\(userId\);/,
     'hooks/usePresentDadMode.ts': /if \(result\.error\) throw result\.error;[\s\S]{0,80}markDashboardStale\(userId\);/,
@@ -122,5 +122,5 @@ test('dashboard wiring: attempts recorded, only automatic reloads throttled, ent
   const budget = Number(hook.match(/DASHBOARD_ENTITLEMENT_BUDGET_MS = ([\d_]+)/)[1].replace(/_/g, ''));
   const limit = Number(hook.match(/function withTimeout<T>\(promise: Promise<T>, ms = (\d+)\)/)[1]);
   assert.ok(budget < limit, 'a slow subscription check cannot time out the whole dashboard');
-  assert.match(hook, /withTimeout\(loadNativeSubscriptionStatus\(\), DASHBOARD_ENTITLEMENT_BUDGET_MS\)\.then\(\s*\(status\) => \(\{ status, failed: false \}\),\s*\(\) => \(\{ status: null, failed: true \}\)/);
+  assert.match(hook, /withTimeout\(loadNativeSubscriptionStatus\(userId\), DASHBOARD_ENTITLEMENT_BUDGET_MS\)\.then\(\s*\(status\) => \{\s*rememberSubscriptionStatus\(userId, status, subscriptionGeneration\);\s*return \{ status, failed: false \};\s*\},\s*\(\) => \(\{ status: null, failed: true \}\)/);
 });
