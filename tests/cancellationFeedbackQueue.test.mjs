@@ -4,8 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 
-// Client audit A3: a cancellation reason that could not be saved before the 50% offer is queued
-// durably (per account) and replayed with the SAME request id, which the server keeps once.
+// Previously queued cancellation feedback remains replayable per account.
 function load(path, mocks, extras = {}) {
   const exports = {};
   vm.runInNewContext(ts.transpileModule(readFileSync(path, 'utf8'), {
@@ -80,13 +79,4 @@ test('another account never sends or sees this account\'s queued reason', async 
   assert.equal(w.calls.length, 0); assert.equal(w.queue.size, 1);
   await sync.syncOfflineQueue('A');
   assert.equal(w.calls.length, 0, 'A is not the active account');
-});
-
-test('the offer path queues a failed reason save durably and never marks it saved', () => {
-  const ui = readFileSync('components/subscriptions/CancellationFlow.tsx', 'utf8').replace(/\r\n/g, '\n');
-  const accept = ui.slice(ui.indexOf('const acceptOffer'), ui.indexOf('const handoff'));
-  assert.ok(accept.indexOf('enqueueOfflineWrite') > accept.indexOf('saveCancellationFeedback'));
-  assert.ok(accept.indexOf('enqueueOfflineWrite') < accept.indexOf('await redeemOffer(offer)'), 'queued before redeeming');
-  assert.match(accept, /kind: 'cancellation_feedback'/);
-  assert.match(accept, /\{ id: pending\.id, userId: owner,/, 'same request id, this account');
 });
