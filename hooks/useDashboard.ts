@@ -15,7 +15,7 @@ import {
 } from '../lib/offlineStorage';
 import { isRetryableOfflineError, PartialDailyCheckInSaveError, persistDailyCheckIn } from '../lib/offlineSync';
 import { supabase } from '../lib/supabase';
-import { loadNativeSubscriptionStatus } from '../lib/nativeSubscriptions';
+import { loadNativeSubscriptionStatus, rememberSubscriptionStatus, beginSubscriptionSnapshotRead } from '../lib/nativeSubscriptions';
 import { getCurrentWeekDayKeys, toLocalDateKey } from '../lib/dashboard.utils';
 import { buildBodyWeekSeries } from '../lib/bodyActivityWeek';
 import { refreshAfterInFlight } from '../lib/refreshAfterInFlight';
@@ -288,6 +288,7 @@ async function fetchDashboard(userId: string): Promise<DashboardFetchResult> {
 
   // One round trip, same table set as the web hook. Only the profile read is
   // fatal — every other table degrades to an empty section.
+  const subscriptionGeneration = beginSubscriptionSnapshotRead();
   const [
     profileResult,
     scoresResult,
@@ -354,8 +355,11 @@ async function fetchDashboard(userId: string): Promise<DashboardFetchResult> {
     supabase.from('user_circles').select('circle_id').eq('user_id', userId),
     supabase.from('earned_badges').select('badges(icon,name)').eq('user_id', userId),
     supabase.from('posts').select('id,content,tag,anonymous,author_initials,author_name').order('created_at', { ascending: false }).limit(20),
-    withTimeout(loadNativeSubscriptionStatus(), DASHBOARD_ENTITLEMENT_BUDGET_MS).then(
-      (status) => ({ status, failed: false }),
+    withTimeout(loadNativeSubscriptionStatus(userId), DASHBOARD_ENTITLEMENT_BUDGET_MS).then(
+      (status) => {
+        rememberSubscriptionStatus(userId, status, subscriptionGeneration);
+        return { status, failed: false };
+      },
       () => ({ status: null, failed: true }),
     ),
   ]);

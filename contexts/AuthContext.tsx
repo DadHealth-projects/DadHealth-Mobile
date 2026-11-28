@@ -11,6 +11,7 @@ import React, {
 import type { Session, User } from '@supabase/supabase-js';
 
 import { supabase } from '../lib/supabase';
+import { clearSubscriptionSnapshot } from '../lib/nativeSubscriptions';
 import {
   enrollBiometricCredential,
   isBiometricAvailable,
@@ -101,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } = supabase.auth.onAuthStateChange((_event, nextSession) => {
     const previousUserId = lastAuthenticatedUserId.current;
     if (previousUserId !== (nextSession?.user.id ?? null)) {
+      clearSubscriptionSnapshot();
       onboardingRequest.current++;
       setOnboarding(null);
       // Discard any native health read or upload started by the previous account.
@@ -251,6 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     const signedOutUserId = user?.id;
+    clearSubscriptionSnapshot();
     lastAuthenticatedUserId.current = null;
     setPendingEnrollment(null);
     invalidateHealthSyncs();
