@@ -112,9 +112,9 @@ function ProPromptModal({
                   accessibilityRole="button"
                   accessibilityLabel="Not now"
                   hitSlop={8}
-                  className="h-[40px] w-[40px] items-center justify-center active:opacity-70"
+                  className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"
                 >
-                  <Feather name="x" size={20} color={colors.mutedText} />
+                  <Feather name="x" size={20} color={colors.text} />
                 </Pressable>
               </View>
 
