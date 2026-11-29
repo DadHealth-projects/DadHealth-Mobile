@@ -33,8 +33,8 @@ export default function CrisisSupportSheet({ onClose }: { onClose(): void }) {
       <SafeAreaView edges={['bottom']} style={{ maxHeight: '85%' }} className="rounded-t-[28px] bg-dark px-lg pt-lg" accessibilityViewIsModal>
         <View className="flex-row items-start justify-between gap-md pb-md">
           <Text accessibilityRole="header" className="flex-1 font-heading-bold text-lime text-[24px] leading-[30px] uppercase">Need urgent help?</Text>
-          <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close urgent help" className="h-[48px] w-[48px] items-center justify-center rounded-full bg-muted">
-            <Feather name="x" size={24} color={colors.text} />
+          <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close urgent help" className="h-[48px] w-[48px] rounded-full border border-border items-center justify-center">
+            <Feather name="x" size={20} color={colors.text} />
           </Pressable>
         </View>
         <ScrollView style={{ flexShrink: 1 }} contentContainerClassName="gap-lg pb-xl">
