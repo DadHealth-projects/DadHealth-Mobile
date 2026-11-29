@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import DadScoreCard, { type ScoreItem } from './DadScoreCard';
 import SectionHeader from './SectionHeader';
+import SkeletonBlock from '../skeleton/SkeletonBlock';
 import { useProgressBadges } from '../../hooks/useProgressBadges';
 import { useProgressReport } from '../../hooks/useProgressReport';
 import { useDadScoreHistory } from '../../hooks/useDadScoreHistory';
@@ -107,7 +108,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
             <View>
               <SectionHeader title="Score trends" className="mb-sm" />
               {isPro ? (
-                history.loading ? <Text className="font-body text-muted-text text-[14px]">Loading your score history…</Text> : history.error ? <Text className="font-body text-muted-text text-[14px]">Your score history is unavailable right now. Please try again.</Text> : history.points.length > 0 ? (
+                history.loading ? <ScoreTrendsSkeleton /> : history.error ? <Text className="font-body text-muted-text text-[14px]">Your score history is unavailable right now. Please try again.</Text> : history.points.length > 0 ? (
                   <View className="h-[90px] flex-row items-end justify-between gap-xs border-b border-border pb-xs">
                     {history.points.slice(-8).map((point) => (
                       <View key={point.week_start} className="flex-1 items-center justify-end gap-xs">
@@ -124,7 +125,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
             <View>
               <SectionHeader title={`${month} report`} className="mb-sm" />
               {isPro ? (
-                report.loading ? <Text className="font-body text-muted-text text-[14px]">Loading your report…</Text> : report.error ? <Text className="font-body text-muted-text text-[14px]">Your report is unavailable right now. Please try again.</Text> : (
+                report.loading ? <ReportStatsSkeleton /> : report.error ? <Text className="font-body text-muted-text text-[14px]">Your report is unavailable right now. Please try again.</Text> : (
                   <View className="flex-row flex-wrap gap-sm">
                     {reportStats.map(([value, label]) => (
                       <View key={label} className="min-h-[72px] basis-[31%] grow border border-border px-sm py-sm">
@@ -139,7 +140,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
 
             <View>
               <SectionHeader title="Badges" className="mb-sm" />
-              {badgeData.loading ? <Text className="font-body text-muted-text text-[14px]">Loading badges…</Text> : badgeData.catalogue.length > 0 ? (
+              {badgeData.loading ? <BadgesSkeleton /> : badgeData.catalogue.length > 0 ? (
                 <View className="gap-sm">
                   {badgeData.earnedCount === 0 ? <Text className="font-body text-muted-text text-[14px] leading-[20px]">Complete a check-in or log an activity to earn your first badge.</Text> : null}
                   <View className="flex-row flex-wrap gap-sm">
@@ -210,4 +211,47 @@ function LockedPreview({ title, onUpgrade }: { title: string; onUpgrade: () => v
 function formatWeek(value: string) {
   const date = new Date(`${value}T12:00:00`);
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+
+function ScoreTrendsSkeleton() {
+  return (
+    <View accessible accessibilityLabel="Preparing score trends"
+      className="h-[90px] flex-row items-end justify-between gap-xs border-b border-border pb-xs">
+      {[38, 52, 44, 64, 48, 60, 54, 68].map((height, index) => (
+        <View key={index} className="flex-1 items-center justify-end gap-xs">
+          <SkeletonBlock width={22} height={height} radius={3} />
+          <SkeletonBlock width={24} height={8} radius={3} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function ReportStatsSkeleton() {
+  return (
+    <View accessible accessibilityLabel="Preparing monthly report"
+      className="flex-row flex-wrap gap-sm">
+      {Array.from({ length: 6 }, (_, index) => (
+        <View key={index} className="min-h-[72px] basis-[31%] grow border border-border px-sm py-sm gap-xs">
+          <SkeletonBlock width="45%" height={22} radius={4} />
+          <SkeletonBlock width="80%" height={10} radius={3} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function BadgesSkeleton() {
+  return (
+    <View accessible accessibilityLabel="Preparing badges"
+      className="flex-row flex-wrap gap-sm">
+      {Array.from({ length: 6 }, (_, index) => (
+        <View key={index} className="min-h-[66px] basis-[31%] grow items-center justify-center border border-border px-xs py-xs gap-xs">
+          <SkeletonBlock width={26} height={26} radius={13} />
+          <SkeletonBlock width="70%" height={10} radius={3} />
+        </View>
+      ))}
+    </View>
+  );
 }
