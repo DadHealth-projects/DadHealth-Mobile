@@ -40,7 +40,7 @@ export default function PersonalisedMindPlanSheet({ visible, view, offline, user
               <Text className="font-heading-bold text-[11px] text-lime tracking-label uppercase">Personalised</Text>
               <Text className="font-heading text-[26px] leading-[29px] text-white uppercase">Mind Plan</Text>
             </View>
-            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close personalised Mind plan" hitSlop={8} className="h-[44px] w-[44px] items-center justify-center">
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close personalised Mind plan" hitSlop={8} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center">
               <Feather name="x" size={20} color={colors.text} />
             </Pressable>
           </View>
