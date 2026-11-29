@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { analyticsOccurrence, occurrenceHeader } from './analyticsOccurrence';
 
 export type ManualActivityPillar = 'body' | 'bond' | 'mind';
 
@@ -133,7 +134,12 @@ export async function createManualActivity(userId: string, clientRequestId: stri
     notes: draft.notes.trim() || null,
     activity_date: draft.activityDate,
   };
-  const inserted = await supabase.from('activity_logs').insert(payload).select('id').maybeSingle();
+  const analytics = analyticsOccurrence(userId);
+  const inserted = await supabase.from('activity_logs')
+    .insert(payload)
+    .setHeader('x-dadhealth-analytics', occurrenceHeader(analytics))
+    .select('id')
+    .maybeSingle();
   if (!inserted.error) return;
   if (inserted.error.code !== '23505') throw inserted.error;
 
