@@ -770,58 +770,93 @@ test('compact footer preserves restore and existing policy destination; chevron 
 });
 
 
-test('Expo Go restore error shown in the screenshot clears after ten seconds', async () => {
-  const h = hookHarness({ supported: false }); await h.flush();
-  await h.result.restore(); await h.flush();
-  assert.equal(h.result.actionError, 'Purchases can only be restored from the Dad Health app installed through the store.');
-  assert.equal(h.timers.size, 1);
-  h.advance(9999); h.render(); assert.ok(h.result.actionError);
-  h.advance(1); h.render();
-  assert.equal(h.result.actionError, null);
-  assert.equal(h.result.error, null);
+test('restore errors remain visible without automatic dismissal', async () => {
+  const h = hookHarness({ supported: false });
+  await h.flush();
+  await h.result.restore();
+  await h.flush();
+
+  const error = h.result.actionError;
+  assert.ok(error);
+  h.advance(60000);
+  h.render();
+
+  assert.equal(h.result.actionError, error);
   assert.equal(h.result.status.isPro, false);
   h.unmount();
 });
 
-test('action errors clear at ten seconds without clearing status or catalog failures', async () => {
-  const h = hookHarness(); await h.flush();
-  h.api.loadNativeSubscriptionStatus = async () => { throw Error('status failed'); };
-  await h.result.refreshStatus().catch(() => {}); await h.flush();
-  h.iap.getAvailablePurchases = async () => { throw Error('restore failed'); };
-  await h.result.restore(); await h.flush();
+test('persistent action errors preserve independent status errors', async () => {
+  const h = hookHarness();
+  await h.flush();
+
+  h.api.loadNativeSubscriptionStatus = async () => {
+    throw Error('status failed');
+  };
+  await h.result.refreshStatus().catch(() => {});
+  await h.flush();
+
+  h.iap.getAvailablePurchases = async () => {
+    throw Error('restore failed');
+  };
+  await h.result.restore();
+  await h.flush();
+
+  const actionError = h.result.actionError;
   const statusError = h.result.statusError;
-  assert.ok(h.result.actionError); assert.ok(statusError);
-  h.advance(9999); h.render(); assert.ok(h.result.actionError);
-  h.advance(1); h.render(); assert.equal(h.result.actionError, null); assert.equal(h.result.statusError, statusError);
-  h.api.loadNativeSubscriptionStatus = async () => free;
-  h.iap.fetchProducts = async () => { throw Error('catalog failed'); };
-  await h.result.retry(); await h.flush(); const catalogError = h.result.catalogError;
-  assert.ok(catalogError); h.advance(10000); h.render(); assert.equal(h.result.catalogError, catalogError);
+  assert.ok(actionError);
+  assert.ok(statusError);
+
+  h.advance(60000);
+  h.render();
+  assert.equal(h.result.actionError, actionError);
+  assert.equal(h.result.statusError, statusError);
   h.unmount();
 });
 
-test('repeated identical action errors get a fresh timer; old callbacks cannot clear them', async () => {
-  const h = hookHarness(); await h.flush();
-  h.iap.getAvailablePurchases = async () => { throw Error('restore failed'); };
-  await h.result.restore(); await h.flush();
-  const old = [...h.timers.values()][0].fn;
-  h.advance(9000);
-  await h.result.restore(); await h.flush();
-  old(); h.render(); assert.ok(h.result.actionError);
-  h.advance(9999); h.render(); assert.ok(h.result.actionError);
-  h.advance(1); h.render(); assert.equal(h.result.actionError, null);
+test('successful restore clears previous action failure', async () => {
+  const h = hookHarness();
+  await h.flush();
+
+  h.iap.getAvailablePurchases = async () => {
+    throw Error('restore failed');
+  };
+  await h.result.restore();
+  await h.flush();
+  assert.ok(h.result.actionError);
+
+  h.iap.getAvailablePurchases = async () => [];
+  await h.result.restore();
+  await h.flush();
+  assert.equal(h.result.actionError, null);
   h.unmount();
 });
 
-for (const mode of ['switch', 'unmount']) test(`action error timers are cleared on ${mode}`, async () => {
-  const h = hookHarness(); await h.flush();
-  h.iap.getAvailablePurchases = async () => { throw Error('restore failed'); };
-  await h.result.restore(); await h.flush(); const old = [...h.timers.values()][0].fn;
-  if (mode === 'switch') {
-    h.switch('owner-b'); await h.flush(); assert.equal(h.timers.size, 0);
-    await h.result.restore(); await h.flush(); old(); h.render(); assert.ok(h.result.actionError);
-  }
-  h.unmount(); assert.equal(h.timers.size, 0); old();
+test('persistent errors never cross account boundaries', async () => {
+  const h = hookHarness();
+  await h.flush();
+
+  h.iap.getAvailablePurchases = async () => {
+    throw Error('restore failed');
+  };
+  await h.result.restore();
+  await h.flush();
+  assert.ok(h.result.actionError);
+
+  h.switch('owner-b');
+  await h.flush();
+  assert.equal(h.result.actionError, null);
+  h.unmount();
+});
+
+test('unmount leaves no action error dismissal timer', async () => {
+  const h = hookHarness({ supported: false });
+  await h.flush();
+  await h.result.restore();
+  await h.flush();
+  assert.ok(h.result.actionError);
+  h.unmount();
+  assert.equal(h.timers.size, 0);
 });
 
 test('selected Apple management sends the owned subscription ID and opens the native sheet', async()=>{
@@ -1260,4 +1295,86 @@ test('Apple Pro membership details automatically load on account entry', async (
   assert.deepEqual(owners, ['owner-a']);
   assert.deepEqual(h.result.memberships, [scheduledMembership]);
   h.unmount();
+});
+
+
+test('ownership conflict remains visible without granting Pro', async () => {
+  const h = hookHarness();
+  await h.flush();
+
+  h.api.verifyNativePurchase = async () => {
+    throw new h.api.NativeSubscriptionError(
+      'Subscription already linked', 'already_linked'
+    );
+  };
+
+  await h.result.purchase('monthly');
+  h.update(receipt());
+  await h.flush();
+
+  assert.match(h.result.actionError, /another Dad Health account/);
+  assert.equal(h.result.status.isPro, false);
+  assert.equal(h.finishes.length, 0);
+
+  h.advance(60000);
+  h.render();
+  assert.match(h.result.actionError, /another Dad Health account/);
+  h.unmount();
+});
+
+test('restore explains ownership conflict without granting access', async () => {
+  const h = hookHarness();
+  await h.flush();
+  h.available = [receipt()];
+
+  h.api.verifyNativePurchase = async () => {
+    throw new h.api.NativeSubscriptionError(
+      'Subscription already linked', 'already_linked'
+    );
+  };
+
+  await h.result.restore();
+  await h.flush();
+
+  assert.match(h.result.actionError, /another Dad Health account/);
+  assert.equal(h.result.status.isPro, false);
+  assert.equal(h.finishes.length, 0);
+  h.unmount();
+});
+
+for (const mode of ['purchase', 'restore']) {
+  test('verified ' + mode + ' automatically loads Apple membership', async () => {
+    const h = hookHarness();
+    const owners = [];
+    await h.flush();
+
+    h.api.loadNativeMembership = async owner => {
+      owners.push(owner);
+      return [scheduledMembership];
+    };
+
+    if (mode === 'purchase') {
+      await h.result.purchase('monthly');
+      h.update(receipt());
+    } else {
+      h.available = [receipt()];
+      await h.result.restore();
+    }
+
+    await h.flush();
+    assert.equal(h.result.status.isPro, true);
+    assert.ok(owners.length > 0);
+    assert.ok(owners.every(owner => owner === 'owner-a'));
+    assert.deepEqual(h.result.memberships, [scheduledMembership]);
+    h.unmount();
+  });
+}
+
+test('subscription screens do not render loading circles', () => {
+  for (const path of [
+    'screens/subscreens/ProSubscriptionScreen.tsx',
+    'components/subscriptions/CancellationFlow.tsx',
+  ]) {
+    assert.doesNotMatch(read(path), /ActivityIndicator/);
+  }
 });
