@@ -44,7 +44,7 @@ interface AuthContextType {
   onboardingLoading: boolean;
   /** Re-fetch onboarding status and report whether the new flow is complete. */
   refreshOnboarding: () => Promise<boolean>;
-  signUp: (email: string, password: string) => Promise<AuthResult>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<AuthResult>;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   /** Send a password-reset email (same behaviour as the web AuthModal). */
   resetPassword: (email: string) => Promise<AuthResult>;
@@ -179,10 +179,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return loadOnboarding(user.id);
   }, [user?.id, loadOnboarding]);
 
-  const signUp = useCallback(async (email: string, password: string): Promise<AuthResult> => {
+  const signUp = useCallback(async (email: string, password: string, fullName?: string): Promise<AuthResult> => {
     const { error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
+      ...(fullName?.trim() ? {
+        options: {
+          data: { full_name: fullName.trim() },
+        },
+      } : {}),
     });
     return { error: error ? 'We could not create your account. Please try again.' : null };
   }, []);
