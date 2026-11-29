@@ -74,9 +74,9 @@ export default function CommunityActionsMenu({ target, own = false }: { target: 
                 accessibilityLabel="Close community options"
                 disabled={busy}
                 onPress={close}
-                className="h-[48px] w-[48px] items-center justify-center rounded-full bg-muted"
+                className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"
               >
-                <Feather name="x" size={22} color={colors.text} />
+                <Feather name="x" size={20} color={colors.text} />
               </Pressable>
             </View>
             {mode === 'done' ? (
