@@ -64,7 +64,7 @@ export default function BlockedAccountsScreen() {
   }
   const rows = view.owner === owner ? view.rows : [];
   return <SafeAreaView edges={['top','bottom']} className="flex-1 bg-dark"><ScrollView contentContainerClassName="p-lg gap-lg pb-xl">
-    <AppTopBar title="Blocked accounts" showNotifications={false} leftAccessory={<Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} className="h-[48px] w-[48px] rounded-full bg-muted items-center justify-center"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />
+    <AppTopBar title="Blocked accounts" showNotifications={false} leftAccessory={<Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => navigation.goBack()} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="chevron-left" size={20} color={colors.text} /></Pressable>} />
     <Text className="font-body text-white text-[16px] leading-[24px]">Blocked accounts are labelled privately to protect anonymous authors. Unblocking makes their content visible again.</Text>
     {view.owner === owner && view.error ? <Text accessibilityRole="alert" className="font-body text-white text-[16px]">{view.error}</Text> : null}
     {view.owner === owner && view.loaded && !view.error && !rows.length ? <Text className="font-body text-white text-[16px]">No blocked accounts.</Text> : null}
