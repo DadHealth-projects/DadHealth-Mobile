@@ -384,9 +384,9 @@ export default function FitnessScreen({
                 accessibilityRole="button"
                 accessibilityLabel="Close Workout Library"
                 hitSlop={12}
-                className="h-11 w-11 items-center justify-center rounded-full border border-border"
+                className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"
               >
-                <Feather name="x" size={22} color={colors.text} />
+                <Feather name="x" size={20} color={colors.text} />
               </Pressable>
             </View>
             <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20, paddingBottom: 40 }}>
