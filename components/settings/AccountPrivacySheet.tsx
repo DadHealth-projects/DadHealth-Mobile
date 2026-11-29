@@ -118,7 +118,7 @@ export default function AccountPrivacySheet({ owner, kind, onClose }: { owner?: 
       >
         <View className="flex-row justify-between items-center gap-md pb-md">
           <Text className="font-heading-bold text-white text-[24px] flex-1">{deleting ? 'Delete your account?' : 'Export your data'}</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} className="min-h-[44px] min-w-[44px] items-center justify-center"><Feather name="x" size={24} color={colors.text} /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="x" size={20} color={colors.text} /></Pressable>
         </View>
         <ScrollView
           ref={scroll}
