@@ -89,7 +89,7 @@ export default function WeeklyReportSheet({ visible, report, loading, empty, emp
             </Text>
           </View>
           <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={4}
-            className="h-[42px] w-[42px] items-center justify-center rounded-full border border-border">
+            className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center">
             <Feather name="x" size={20} color={colors.text} />
           </Pressable>
         </View>

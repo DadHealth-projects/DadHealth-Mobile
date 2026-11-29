@@ -76,7 +76,7 @@ export default function ScoreDetailSheet({ visible, onClose, score, scoreUnavail
               <Text className="font-heading-bold text-lime text-[19px] tracking-[1px] uppercase">Score details</Text>
               <Text className="font-body text-muted-text text-[14px] mt-xs">Your health, in context.</Text>
             </View>
-            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" className="h-[42px] w-[42px] items-center justify-center rounded-full bg-white/5">
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center">
               <Feather name="x" size={20} color={colors.text} />
             </Pressable>
           </View>
