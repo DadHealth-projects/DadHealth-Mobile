@@ -1,6 +1,6 @@
 import { useNotificationPresentation } from '../../contexts/NotificationInboxContext';
 import React, { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
-import { ActivityIndicator, AppState, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { AppState, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRoute, useNavigation, type NavigationProp } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -268,7 +268,7 @@ export default function ProSubscriptionScreen() {
             className="min-h-[44px] justify-center active:opacity-70"
           >
             <Text className="font-body text-white text-[12px]">
-              {subscriptions.restoring ? 'Restoring purchases…' : 'Restore purchases'}
+              Restore purchases
             </Text>
           </Pressable>
         ) : null}
@@ -336,8 +336,7 @@ function ProAction({ label, accessibilityLabel, onPress, loading = false, disabl
       accessibilityLabel={accessibilityLabel ?? label} accessibilityState={{ disabled: disabled || loading, busy: loading }}
       className={`min-h-[48px] rounded-[14px] px-md flex-row items-center justify-center gap-sm active:opacity-70 ${outlined ? 'border border-white/70 bg-white/5' : 'bg-lime'} ${disabled || loading ? 'opacity-60' : ''}`}>
       <Text className={`font-body-semibold text-[16px] ${outlined ? 'text-white' : 'text-dark'}`}>{label}</Text>
-      {loading ? <ActivityIndicator size="small" color={outlined ? colors.text : colors.dark} />
-        : outlined ? <Feather name="external-link" size={18} color={colors.text} /> : null}
+      {outlined ? <Feather name="external-link" size={18} color={colors.text} /> : null}
     </Pressable>
   );
 }

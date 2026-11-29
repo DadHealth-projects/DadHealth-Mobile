@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Crypto from 'expo-crypto';
@@ -111,7 +111,7 @@ export default function CancellationFlow({ owner, subscriptions, loading, loadEr
             </Pressable>)}
           </View>
         ) : null}
-        {loading && !subscriptions ? <ActivityIndicator size="small" color={colors.lime} /> : null}
+        {loading && !subscriptions ? <View accessible accessibilityLabel="Loading membership details" className="rounded-[16px] bg-card h-[80px]" /> : null}
         {loadError ? <View className="gap-sm"><Text className="font-body text-white">{loadError}</Text><Action label="Try again" disabled={loading || offline} onPress={() => void refresh()} outlined /></View> : null}
         {!loading && !loadError && subscriptions && !eligible.length && !selected ? <Text className="font-body text-white">No eligible subscription is available to cancel.</Text> : null}
         {selected && step === 'reason' ? <View className="gap-sm">{REASONS.map(item => (
@@ -146,7 +146,6 @@ export default function CancellationFlow({ owner, subscriptions, loading, loadEr
           {error && step === 'handoff' ? <Action outlined label="Continue without saving feedback" disabled={busy || offline} onPress={() => void handoff(false)} /> : null}
           {step === 'receipt' && error ? <Action label={`Continue to ${provider}`} disabled={busy || offline} onPress={() => void handoff(false)} /> : null}
           {step === 'receipt' ? <Action outlined label="Done" disabled={busy} onPress={onClose} /> : null}
-          {busy ? <ActivityIndicator size="small" color={colors.lime} /> : null}
         </View> : null}
       </ScrollView>
     </SafeAreaView>
@@ -191,7 +190,6 @@ export function CancellationScheduled({ subscription, busy, offline, error, onBa
         <Text className="font-body-semibold text-white text-[16px]">Manage subscription</Text>
         <Feather name="external-link" size={18} color={colors.text} />
       </Pressable>
-      {busy ? <ActivityIndicator size="small" color={colors.lime} /> : null}
     </ScrollView>
   </SafeAreaView>;
 }
