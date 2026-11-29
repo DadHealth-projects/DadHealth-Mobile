@@ -145,12 +145,12 @@ test('dashboard unknown plan entry opens verification sheet instead of an upgrad
 });
 function sheetHarness(){const h=harness();const Sheet=load('components/mind/PersonalisedMindPlanSheet.tsx',{react:h.react,
  'react-native':{ActivityIndicator:'Spinner',Modal:'Modal',Platform:{OS:'ios'},Pressable:'Pressable',ScrollView:'Scroll',Text:'Text',View:'View'},
- 'react-native-safe-area-context':{SafeAreaView:'Safe'},'@expo/vector-icons':{Feather:'Icon'},'../LimeButton':{__esModule:true,default:'LimeButton'},'./MindPlanLockedCard':{__esModule:true,default:'Locked'},'../../theme':{colors:{}}}).default;
+ 'react-native-safe-area-context':{SafeAreaView:'Safe'},'@expo/vector-icons':{Feather:'Icon'},'../LimeButton':{__esModule:true,default:'LimeButton'},'../skeleton/SkeletonBlock':{__esModule:true,default:'SkeletonBlock'},'./MindPlanLockedCard':{__esModule:true,default:'Locked'},'../../theme':{colors:{}}}).default;
  return {...h,show:props=>h.render(()=>Sheet({visible:true,userId:'a',onClose(){},onDismiss(){},onShow(){},...props}))};}
 test('actual sheet renders locked/unknown/start states without personal content or Retry',()=>{
  const h=sheetHarness();for(const result of [null,{state:'locked'},{state:'not_started'}]){
  const view={result,verified:result?.state==='not_started',error:null};const tree=h.show({view});const str=JSON.stringify(tree);
- assert.doesNotMatch(str,/Saved instruction|Retry/);if(result?.state==='locked')assert.ok(walk(tree).some(n=>n.type==='Locked'));
+ assert.doesNotMatch(str,/Saved instruction|Retry|Spinner|Checking your plan/);if(result?.state==='locked')assert.ok(walk(tree).some(n=>n.type==='Locked'));
  if(result?.state==='not_started')assert.ok(walk(tree).some(n=>n.props.label==='Start my plan'));
  }
 });
