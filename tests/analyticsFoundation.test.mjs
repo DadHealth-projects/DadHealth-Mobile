@@ -65,7 +65,7 @@ test('concurrent drains never overlap and HTTP rejection is not retried',async()
  const h=fixture();await h.q.consent(null,true);await h.q.capture('app_opened',{},null);h.mode='rejected';await Promise.all([h.q.flush(),h.q.flush(),h.q.flush()]);assert.equal(h.sent.length,1);
 });
 test('frontend and backend event contracts are byte-identical',()=>{
- assert.equal(readFileSync('lib/analyticsContract.ts','utf8'),readFileSync('../dadHealth/src/lib/analytics/contract.ts','utf8'));
+ assert.equal(readFileSync('lib/analyticsContract.ts','utf8'),readFileSync(process.env.ANALYTICS_BACKEND_CONTRACT_PATH || '../dadHealth/src/lib/analytics/contract.ts','utf8'));
 });
 
 test('corrupt persisted consent cannot authorize capture and orphaned queue records never send',async()=>{
