@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import LimeButton from '../LimeButton';
+import SkeletonBlock from '../skeleton/SkeletonBlock';
 import MindPlanLockedCard from './MindPlanLockedCard';
 import { colors } from '../../theme';
 import type { PlanView } from '../../lib/mindPlan';
@@ -46,7 +47,7 @@ export default function PersonalisedMindPlanSheet({ visible, view, offline, user
           </View>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-lg pb-lg">
             {result?.state === 'locked' ? <MindPlanLockedCard userId={userId} onUnlock={onUnlock} /> : null}
-            {!result && !view?.error && !offline ? <View className="flex-row items-center gap-sm"><ActivityIndicator size="small" color={colors.lime} /><Text className={body + ' flex-1'}>Checking your plan...</Text></View> : null}
+            {!result && !view?.error && !offline ? <MindPlanSkeleton /> : null}
             {offline ? <Text className={body}>Your plan is temporarily unavailable.</Text> : view?.error ? <Text accessibilityRole="alert" className={body}>{view.error}</Text> : null}
             {view?.verified && result?.state === 'not_started' ? <>
               <Text className={body}>A seven-day plan shaped around your goals.</Text>
@@ -81,10 +82,32 @@ export default function PersonalisedMindPlanSheet({ visible, view, offline, user
                 </Pressable>;
               })}
             </> : null}
-            {view?.busy && view.uncertain?.kind !== 'start' ? <ActivityIndicator accessibilityLabel="Saving progress" size="small" color={colors.lime} /> : null}
+
           </ScrollView>
         </SafeAreaView>
       </View>
     </Modal>
+  );
+}
+
+
+function MindPlanSkeleton() {
+  return (
+    <View accessible accessibilityLabel="Preparing your Mind plan" className="gap-md">
+      <SkeletonBlock width="65%" height={16} radius={4} />
+      <View className="gap-sm border-b border-border pb-lg">
+        <SkeletonBlock width="25%" height={12} radius={4} />
+        <SkeletonBlock width="80%" height={26} radius={4} />
+        <SkeletonBlock height={14} radius={4} />
+        <SkeletonBlock width="75%" height={14} radius={4} />
+        <SkeletonBlock height={44} radius={12} />
+      </View>
+      {Array.from({ length: 3 }, (_, index) => (
+        <View key={index} className="min-h-[44px] flex-row items-center gap-sm border-b border-border pb-sm">
+          <SkeletonBlock width={18} height={18} radius={9} />
+          <SkeletonBlock width="65%" height={14} radius={4} />
+        </View>
+      ))}
+    </View>
   );
 }
