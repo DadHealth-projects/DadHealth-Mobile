@@ -93,7 +93,7 @@ export default function CancellationFlow({ owner, subscriptions, loading, loadEr
     <SafeAreaView edges={['top','bottom']} className="flex-1 bg-dark">
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="flex-grow px-lg pt-sm pb-lg gap-lg">
         <Pressable onPress={back} disabled={busy} accessibilityRole="button" accessibilityLabel="Go back" className="h-[44px] w-[44px] items-center justify-center">
-          <View className="h-[32px] w-[32px] rounded-full bg-card items-center justify-center"><Feather name="chevron-left" size={22} color={colors.text} /></View>
+          <View className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="chevron-left" size={20} color={colors.text} /></View>
         </Pressable>
         <View className="items-center gap-md">
           <View className="h-[56px] w-[56px] rounded-[16px] bg-lime/10 items-center justify-center">
@@ -168,7 +168,7 @@ export function CancellationScheduled({ subscription, busy, offline, error, onBa
   return <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-dark">
     <ScrollView contentContainerClassName="flex-grow px-lg pt-sm pb-lg gap-lg">
       <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Go back" className="h-[44px] w-[44px] items-center justify-center">
-        <View className="h-[32px] w-[32px] rounded-full bg-card items-center justify-center"><Feather name="chevron-left" size={22} color={colors.text} /></View>
+        <View className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"><Feather name="chevron-left" size={20} color={colors.text} /></View>
       </Pressable>
       <View className="items-center gap-md">
         <View className="h-[56px] w-[56px] rounded-[16px] bg-lime/10 items-center justify-center"><MaterialCommunityIcons name="crown" size={32} color={colors.lime} /></View>

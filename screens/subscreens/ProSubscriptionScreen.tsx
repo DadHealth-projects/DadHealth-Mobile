@@ -105,8 +105,8 @@ export default function ProSubscriptionScreen() {
           accessibilityLabel="Close Dad Health Pro"
           className="h-[44px] w-[44px] items-center justify-center self-start active:opacity-70"
         >
-          <View className="h-[32px] w-[32px] rounded-full bg-card items-center justify-center">
-            <Feather name="chevron-left" size={22} color={colors.text} />
+          <View className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center">
+            <Feather name="chevron-left" size={20} color={colors.text} />
           </View>
         </Pressable>
 
