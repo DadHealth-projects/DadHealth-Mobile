@@ -79,6 +79,8 @@ export default function LoginScreen() {
 } = useAuth();
   const navigation = useNavigation<any>();
 
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const passwordInputRef = useRef<TextInputInstance>(null);
@@ -118,7 +120,7 @@ export default function LoginScreen() {
   useEffect(() => {
   if (error) setError(null);
   if (info) setInfo(null);
-}, [email, password]);
+}, [email, password, fullName]);
 
   const validate = (): boolean => {
     if (!email.trim()) {
@@ -251,6 +253,10 @@ export default function LoginScreen() {
 };
 
   const handleCreateAccount = async () => {
+  if (!fullName.trim()) {
+    setError('Enter your name.');
+    return;
+  }
   if (!validate()) return;
 
   setError(null);
@@ -258,7 +264,7 @@ export default function LoginScreen() {
   setLoading('signup');
 
   try {
-    const { error: err } = await signUp(email, password);
+    const { error: err } = await signUp(email, password, fullName.trim());
 
     if (err) {
       setError('We could not create your account. Please try again.');
@@ -272,6 +278,19 @@ export default function LoginScreen() {
 };
 
   const busy = loading !== null;
+
+  const switchAuthMode = () => {
+    Keyboard.dismiss();
+    setError(null);
+    setInfo(null);
+    setPassword('');
+    setIsCreatingAccount(previous => !previous);
+  };
+
+  const handleSubmit = () => {
+    if (busy) return;
+    void (isCreatingAccount ? handleCreateAccount() : handleSignIn());
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.dark }}>
@@ -301,19 +320,21 @@ export default function LoginScreen() {
               <View className="h-[18px] w-[4px] rounded-full bg-lime" />
 
               <Text className="font-heading-semibold text-muted-text text-[13px] tracking-label uppercase">
-                Welcome Back
+                {isCreatingAccount ? 'Create Account' : 'Welcome Back'}
               </Text>
             </View>
 
 
             <Text className="font-body text-muted-text text-[15px] leading-[24px] mt-md">
-              Continue your health journey.
+              {isCreatingAccount
+                ? 'Create your account and start your health journey.'
+                : 'Continue your health journey.'}
             </Text>
           </View>
 
           {/* Continue with — biometric + social providers */}
           <View className="gap-md">
-            {bioEnabled && (
+            {!isCreatingAccount && bioEnabled && (
               <AuthProviderButton
                 icon={<Feather name="unlock" size={18} color={colors.text} />}
                 label={`Continue with ${bioLabel}`}
@@ -351,6 +372,25 @@ export default function LoginScreen() {
             <View className="flex-1 h-[1px] bg-border" />
           </View>
 
+          {/* Name - registration only */}
+          {isCreatingAccount && (
+            <>
+              <Text className="font-heading-semibold text-muted-text text-[12px] tracking-label uppercase mb-sm">
+                Full Name
+              </Text>
+              <TextInput
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Enter your name"
+                placeholderTextColor={colors.tertiaryText}
+                autoCapitalize="words"
+                textContentType="name"
+                editable={!busy}
+                className="bg-muted/40 border border-border rounded-button px-md py-md text-white text-[16px] font-body focus:border-lime mb-md"
+              />
+            </>
+          )}
+
           {/* Email */}
           <Text className="font-heading-semibold text-muted-text text-[12px] tracking-label uppercase mb-sm">
             Email
@@ -373,7 +413,7 @@ export default function LoginScreen() {
 
           {/* Password */}
           <Text className="font-heading-semibold text-muted-text text-[12px] tracking-label uppercase mb-sm">
-            Password
+            {isCreatingAccount ? 'Create Password' : 'Password'}
           </Text>
 
           <TextInput
@@ -384,14 +424,15 @@ export default function LoginScreen() {
             placeholderTextColor={colors.tertiaryText}
             secureTextEntry
             autoCapitalize="none"
-            textContentType="password"
+            textContentType={isCreatingAccount ? "newPassword" : "password"}
             returnKeyType="done"
-            onSubmitEditing={() => { Keyboard.dismiss(); void handleSignIn(); }}
+            onSubmitEditing={() => { Keyboard.dismiss(); handleSubmit(); }}
             editable={!busy}
             className="bg-muted/40 border border-border rounded-button px-md py-md text-white text-[16px] font-body focus:border-lime"
           />
 
           {/* Forgot Password */}
+          {!isCreatingAccount && (
           <View className="flex-row justify-end mt-sm">
             <Pressable onPress={handleForgotPassword} disabled={busy} hitSlop={8}>
               <Text className="font-heading-semibold text-lime text-[12px] tracking-[0.5px] uppercase">
@@ -399,6 +440,7 @@ export default function LoginScreen() {
               </Text>
             </Pressable>
           </View>
+          )}
 
           {/* Error / info */}
           {error && (
@@ -415,30 +457,28 @@ export default function LoginScreen() {
 
           {/* Sign In */}
           <Pressable
-            onPress={handleSignIn}
+            onPress={handleSubmit}
             disabled={busy}
             className="bg-lime rounded-button px-lg py-md items-center justify-center mt-xl active:bg-lime-hover active:opacity-90 disabled:opacity-60"
           >
-            {loading === 'in' ? (
+            {(loading === 'in' || loading === 'signup') ? (
               <ActivityIndicator size="small" color={colors.dark} />
             ) : (
               <Text className="font-heading-bold text-dark text-[15px] tracking-[1px] uppercase">
-                Sign In
+                {isCreatingAccount ? 'Create Account' : 'Sign In'}
               </Text>
             )}
           </Pressable>
 
-          {/* Create Account */}
-          <View className="flex-row items-center justify-center gap-sm mt-lg">
-            <Text className="font-body text-muted-text text-[14px]">New here?</Text>
-            <Pressable onPress={handleCreateAccount} disabled={busy} hitSlop={8}>
-              {loading === 'signup' ? (
-                <ActivityIndicator size="small" color={colors.lime} />
-              ) : (
-                <Text className="font-heading-semibold text-lime text-[14px] tracking-[0.5px] uppercase">
-                  Create Account
-                </Text>
-              )}
+          {/* Switch authentication mode */}
+          <View className="flex-row flex-wrap items-center justify-center gap-sm mt-lg">
+            <Text className="font-body text-muted-text text-[14px]">
+              {isCreatingAccount ? 'Already have an account?' : 'New here?'}
+            </Text>
+            <Pressable onPress={switchAuthMode} disabled={busy} hitSlop={8}>
+              <Text className="font-heading-semibold text-lime text-[14px] tracking-[0.5px] uppercase">
+                {isCreatingAccount ? 'Sign In' : 'Create Account'}
+              </Text>
             </Pressable>
           </View>
         </ScrollView>
