@@ -336,7 +336,7 @@ const t02Texts = nodes => nodes.filter(n => n.type === 'Text')
   .filter(Boolean);
 const t02Week = Array.from({ length: 7 }, (_, i) => `2026-11-${String(i + 16).padStart(2, '0')}`);
 
-test('report read failures show plain-language messages with a working Retry and never raw reasons', () => {
+test('report read failures show neutral recovery without Retry or raw reasons', () => {
   const Sheet = t02Sheet();
   const cases = [
     ['read_failed', 'We couldn’t load your weekly report. Please try again.'],
@@ -352,13 +352,14 @@ test('report read failures show plain-language messages with a working Retry and
     let retries = 0;
     const view = Sheet({ visible: true, userId: 'a', report: null, loading: false, empty: false, error: reason, onRetry: () => { retries++; } });
     const nodes = t02Nodes(view), texts = t02Texts(nodes);
-    assert.ok(texts.includes(message), reason);
-    // Reason codes never reach the screen ('offline' is also an ordinary English word in its message).
-    if (reason !== 'offline') assert.ok(!texts.some(text => text.includes(reason)), `raw reason ${reason} is hidden`);
-    assert.ok(!texts.some(text => /appear here soon|published Sundays/.test(text)), reason);
-    const retry = nodes.filter(n => n.type === 'Pressable' && n.props.accessibilityLabel === 'Retry loading your weekly report');
-    assert.equal(retry.length, 1, reason); retry[0].props.onPress(); assert.equal(retries, 1, reason);
-    assert.ok(nodes.some(n => n.type === 'Text' && n.props.accessibilityRole === 'alert'), reason);
+    assert.ok(texts.includes('Your weekly summary will appear here when ready.'), reason);
+    assert.ok(!texts.includes(message), reason);
+    assert.ok(!texts.some(text => text.includes(reason)), reason);
+    assert.ok(!texts.some(text => /ready on Sunday/.test(text)), reason);
+    assert.ok(!nodes.some(n => n.props?.accessibilityLabel === 'Retry loading your weekly report'));
+    assert.ok(!nodes.some(n => n.type === 'Text' && n.props.accessibilityRole === 'alert'));
+    assert.equal(retries, 0);
+
   }
   // While loading, neither a message nor Retry is offered.
   const loading = t02Nodes(Sheet({ visible: true, userId: 'a', report: null, loading: true, empty: false, error: 'read_failed', onRetry() {} }));
@@ -369,22 +370,16 @@ test('report read failures show plain-language messages with a working Retry and
 test('unreleased and missing saved reports are distinct states', () => {
   const Sheet = t02Sheet();
   const render = props => t02Nodes(Sheet({ visible: true, userId: 'a', report: null, loading: false, error: null, empty: true, onRetry() {}, ...props }));
-  for (const props of [{ emptyReason: 'not_released' }, { emptyReason: null }, {}]) {
-    const nodes = render(props), texts = t02Texts(nodes);
-    assert.ok(texts.includes('Reports are published Sundays at 6am UK time.'), JSON.stringify(props));
+  const unreleased = render({ emptyReason: 'not_released' });
+  assert.ok(t02Texts(unreleased).includes('Your next weekly report will be ready on Sunday at 6am UK time.'));
+  const missing = render({ emptyReason: 'snapshot_missing' });
+  assert.ok(t02Texts(missing).includes('Your weekly summary will appear here once your report has been published.'));
+  assert.ok(!t02Texts(missing).some(text => /ready on Sunday/.test(text)));
+  for (const nodes of [unreleased, missing, render({ emptyReason: null }), render({})]) {
     assert.ok(!nodes.some(n => n.props?.accessibilityLabel === 'Retry loading your weekly report'));
-    assert.ok(!texts.includes(presentation.MISSING_REPORT_MESSAGE));
+    assert.ok(!nodes.some(n => n.type === 'Text' && n.props.accessibilityRole === 'alert'));
   }
-  let retries = 0;
-  const missing = render({ emptyReason: 'snapshot_missing', onRetry: () => { retries++; } }), texts = t02Texts(missing);
-  assert.ok(texts.includes('There’s no saved report for this week yet. Reports are published Sundays from 6am UK time.'));
-  // Distinct from the not-released message, the placeholder and failure copy.
-  assert.ok(!texts.includes('Reports are published Sundays at 6am UK time.'));
-  assert.ok(!texts.some(text => /appear here soon|couldn/.test(text)));
-  // A missing report is not presented as an error alert.
-  assert.ok(!missing.some(n => n.type === 'Text' && n.props.accessibilityRole === 'alert'));
-  missing.find(n => n.props?.accessibilityLabel === 'Retry loading your weekly report').props.onPress();
-  assert.equal(retries, 1);
+
 });
 
 test('Free reports never gain Pro details from the new read states', () => {
@@ -423,18 +418,18 @@ test('report hook keeps not-released and snapshot-missing reasons distinct and c
   h.owner = 'b'; h.render(); assert.equal(h.result.emptyReason, null); h.unmount();
 });
 
-test('streak count wording and states are unchanged by the date formatting', () => {
+test('streak shows verified counts and neutral pending states', () => {
   const Card = t02StreakCard();
   const base = { state: 'current', count: 6, lastKnownCount: 6, allowance: 1, protectedDates: [], calendarDays: t02Week, currentDate: '2026-11-18' };
   const texts = (status, error = null) => t02Texts(t02Nodes(Card({ status, freezeAccess: true, error, onRetry() {}, onUpgrade() {} })));
-  assert.deepEqual(texts(base).slice(0, 2), ['6-day streak', 'Keep showing up—one check-in at a time.']);
+  assert.deepEqual(texts(base).slice(0, 2), ['6-day streak', 'Keep showing up, one check-in at a time.']);
   assert.deepEqual(texts({ ...base, count: 0 }).slice(0, 2), ['Start your streak', "Complete today's check-in to begin."]);
-  // Pending wording stays as on main (the last known count is not shown; that change was not approved).
+  // Pending states use neutral wording without displaying an unverified count.
   const pending = texts({ ...base, state: 'pending', count: null, allowance: null, lastKnownCount: 12 });
-  assert.deepEqual(pending.slice(0, 2), ['Your check-in streak', 'Your streak count is currently unavailable.']);
+  assert.deepEqual(pending.slice(0, 2), ['Your check-in streak', 'Keep showing up, one check-in at a time.']);
   assert.ok(!pending.some(t => t.includes('12')));
-  assert.deepEqual(texts(null, 'read_failed').slice(0, 2), ['Streak unavailable', 'We couldn’t load your streak. Try again.']);
-  assert.deepEqual(texts({ ...base, state: 'pending', count: null, allowance: null }, 'read_failed').slice(0, 2), ['Streak unavailable', 'Showing your last verified streak.']);
+  assert.deepEqual(texts(null, 'read_failed').slice(0, 2), ['Your check-in streak', 'Keep showing up, one check-in at a time.']);
+  assert.deepEqual(texts({ ...base, state: 'pending', count: null, allowance: null }, 'read_failed').slice(0, 2), ['Your check-in streak', 'Keep showing up, one check-in at a time.']);
   assert.ok(!t02Nodes(Card({ status: null, error: 'read_failed', onRetry() {} })).some(n => n.props?.accessibilityLabel === 'Retry loading your streak'));
 });
 

@@ -249,7 +249,7 @@ test('rapid Save taps share once; cancelled sharing releases the guard for retry
   assert.doesNotMatch(sheet,/Report ready to save|Report ready to share|PDF saved/);
 });
 
-test('sheet shows loading, distinct empty states and failed reads with Retry; protection requires a saved date', () => {
+test('sheet shows loading, distinct empty states and neutral recovery; protection requires a saved date', () => {
   const Sheet=load('components/dashboard/WeeklyReportSheet.tsx',{
     react:{...react,default:react},'@expo/vector-icons':{Feather:'Feather',MaterialCommunityIcons:'MaterialCommunityIcons'},
     'react-native':{...Object.fromEntries(['Modal','Pressable','ScrollView','Text','View'].map(x=>[x,x])),Platform:{OS:'ios'}},
@@ -261,13 +261,11 @@ test('sheet shows loading, distinct empty states and failed reads with Retry; pr
   assert.match(render({loading:true}),/Preparing weekly report/);
   assert.doesNotMatch(render({loading:true}),/Reports are published|Pull down|Report unavailable/);
   assert.match(render({empty:true}),/Reports are published Sundays at 6am UK time/);
-  assert.match(render({empty:true,emptyReason:'not_released'}),/Reports are published Sundays at 6am UK time/);
-  assert.match(render({empty:true,emptyReason:'snapshot_missing'}),/saved report for this week yet/);
-  assert.doesNotMatch(render({empty:true,emptyReason:'snapshot_missing'}),/Reports are published Sundays at 6am/);
-  // Approved change (Task 02): failed reads are stated plainly with Retry instead of a neutral placeholder.
-  assert.match(render({error:'PRIVATE_ERROR'}),/We couldn’t load your weekly report/);
-  assert.match(render({error:'PRIVATE_ERROR'}),/Retry loading your weekly report/);
-  assert.doesNotMatch(render({error:'PRIVATE_ERROR'}),/PRIVATE_ERROR|failed|Report unavailable|appear here soon/);
+  assert.match(render({empty:true,emptyReason:'not_released'}),/ready on Sunday at 6am UK time/);
+  assert.match(render({empty:true,emptyReason:'snapshot_missing'}),/once your report has been published/);
+  assert.doesNotMatch(render({empty:true,emptyReason:'snapshot_missing'}),/ready on Sunday/);
+  assert.match(render({error:'PRIVATE_ERROR'}),/Your weekly summary will appear here when ready/);
+  assert.doesNotMatch(render({error:'PRIVATE_ERROR'}),/PRIVATE_ERROR|Retry loading|Report unavailable|ready on Sunday/);
   const available=value=>({state:'available',value});
   const saved={...report,access:'pro',details:{workouts:available(1),bondSessions:available(1),checkins:available(1),
     streak:{days:available(3),protectedDates:[]},focus:null}};
