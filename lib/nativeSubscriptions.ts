@@ -124,6 +124,9 @@ export class NativeSubscriptionError extends Error {
 }
 
 export function nativeSubscriptionUserMessage(error: unknown, fallback: string): string {
+  if (error instanceof NativeSubscriptionError && error.code === 'already_linked') {
+    return 'This store subscription is linked to another Dad Health account. Log in to the original account and select Restore purchases. If you need help, contact hello@dadhealth.co.uk.';
+  }
   return error instanceof NativeSubscriptionError ? error.message : fallback;
 }
 

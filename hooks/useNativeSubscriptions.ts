@@ -250,6 +250,10 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       transaction.summary = summary;
       publishSummary(summary);
 
+      if (summary.isPro && summary.primaryProvider === 'apple') {
+        void refreshMembership();
+      }
+
       if (!transaction.finished) {
         try {
 
@@ -269,7 +273,7 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       throw error;
     }
     finally { transaction.work = undefined; }
-  }, [scope, isCurrent, publishSummary]);
+  }, [scope, isCurrent, publishSummary, refreshMembership]);
 
   const processPurchase = useCallback(async (purchase: Purchase): Promise<void> => {
     if (!isCurrent() || !scope.owner || !nativeProductIds().includes(purchase.productId)) return;
@@ -380,16 +384,6 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
     };
   }, [processPurchase, refreshStatus]);
 
-  useEffect(() => {
-    if (!actionFailure || stateScope !== scope || !isCurrent()) return;
-    let active = true;
-    const timer = setTimeout(() => {
-      if (active && isCurrent()) {
-        setActionFailure((current) => current === actionFailure ? null : current);
-      }
-    }, 10_000);
-    return () => { active = false; clearTimeout(timer); };
-  }, [actionFailure, stateScope, scope, isCurrent]);
 
   useEffect(() => {
     let previousState = AppState.currentState;
@@ -514,6 +508,7 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       const purchases = available.filter((item) => configured.has(item.productId));
       let verified = 0;
       let failed = 0;
+      let ownershipConflict = false;
       let finishFailed = false;
       for (const restored of purchases) {
         if (!valid()) return;
@@ -521,7 +516,12 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
           const result = await settleTransaction(restored);
           verified += 1;
           finishFailed ||= result.finishFailed;
-        } catch { failed += 1; }
+        } catch (failure) {
+          failed += 1;
+          if (failure instanceof NativeSubscriptionError && failure.code === 'already_linked') {
+            ownershipConflict = true;
+          }
+        }
         scope.queued.delete(restored.id);
       }
       if (!valid()) return;
@@ -531,7 +531,12 @@ export function useNativeSubscriptions(userId: string | undefined, onEntitlement
       const restoredAccess = verified > 0 && latest.isPro && latest.activeProviders.includes(provider);
 
       setNotice(null);
-      if (failed) {
+      if (ownershipConflict && !restoredAccess) {
+        setError(nativeSubscriptionUserMessage(
+          new NativeSubscriptionError('Subscription already linked', 'already_linked'),
+          'Please log in to the original Dad Health account.'
+        ));
+      } else if (failed) {
         setError(restoredAccess
           ? 'Your Pro access is confirmed, but restore is incomplete. Retry Restore purchases for the remaining items.'
           : 'Some purchases could not be restored. Please try again with the Dad Health account used to subscribe.');
