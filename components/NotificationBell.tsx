@@ -10,7 +10,7 @@ export default function NotificationBell(){
  useFocusEffect(useCallback(()=>{void inbox.refreshCount();},[inbox.refreshCount]));
  return <Pressable accessibilityRole="button" accessibilityLabel={inbox.unreadCount>0?'Notifications, unread updates':'Notifications'}
   onPress={()=>navigation.navigate('Notifications')} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-80">
-  <Feather name="bell" size={22} color={colors.text}/>
+  <Feather name="bell" size={20} color={colors.text}/>
   {inbox.unreadCount>0?<View className="absolute right-[7px] top-[7px] h-[7px] w-[7px] rounded-full bg-lime"/>:null}
  </Pressable>;
 }
