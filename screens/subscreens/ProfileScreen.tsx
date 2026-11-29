@@ -266,9 +266,9 @@ export default function ProfileScreen() {
               onPress={() => setPhotoPreviewOpen(false)}
               accessibilityRole="button"
               accessibilityLabel="Close profile photo"
-              className="h-[44px] w-[44px] rounded-full border border-white/20 items-center justify-center active:opacity-70"
+              className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"
             >
-              <Feather name="x" size={22} color={colors.text} />
+              <Feather name="x" size={20} color={colors.text} />
             </Pressable>
           </View>
           <Pressable onPress={() => setPhotoPreviewOpen(false)} className="flex-1 items-center justify-center">
