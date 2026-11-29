@@ -241,8 +241,8 @@ export default function PresentDadMode({ userId, onScoreRefresh, onViewBondScore
             keyboardShouldPersistTaps="handled"
           >
             <View className="mb-xl flex-row justify-start">
-              <Pressable onPress={() => void dismiss()} accessibilityRole="button" accessibilityLabel={sessionActive ? 'Back to Bond; session continues' : 'Back to Bond'} className="h-[44px] w-[44px] items-center justify-center">
-                <Feather name="chevron-left" size={26} color={colors.text} />
+              <Pressable onPress={() => void dismiss()} accessibilityRole="button" accessibilityLabel={sessionActive ? 'Back to Bond; session continues' : 'Back to Bond'} className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center">
+                <Feather name="chevron-left" size={20} color={colors.text} />
               </Pressable>
             </View>
 
