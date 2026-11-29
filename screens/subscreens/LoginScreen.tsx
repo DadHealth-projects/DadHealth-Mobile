@@ -308,9 +308,9 @@ export default function LoginScreen() {
             <Pressable
               onPress={() => { if (navigation.canGoBack()) navigation.goBack(); }}
               hitSlop={8}
-              className="h-[40px] w-[40px] rounded-full border border-border items-center justify-center"
+              className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center"
             >
-              <Feather name="x" size={22} color={colors.text} />
+              <Feather name="x" size={20} color={colors.text} />
             </Pressable>
           </View>
 
