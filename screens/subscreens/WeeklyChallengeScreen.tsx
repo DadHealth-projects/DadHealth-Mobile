@@ -346,7 +346,7 @@ export default function WeeklyChallengeScreen() {
               accessibilityLabel="Back to Home"
               className="h-[44px] w-[44px] rounded-full border border-border items-center justify-center active:opacity-70"
             >
-              <Feather name="arrow-left" size={20} color={colors.text} />
+              <Feather name="chevron-left" size={20} color={colors.text} />
             </Pressable>
           )}
         />
