@@ -5,7 +5,7 @@ import { Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../theme';
 import { trackEvent } from '../../lib/analytics';
-import { displayReportValue, reportHeadline, reportChange, overallReportChange, reportFocus, reportProtection, hasReportChanges, reportStreakLabel, reportReadMessage, MISSING_REPORT_MESSAGE, UNRELEASED_REPORT_MESSAGE, type ReportFocusPillar } from '../../lib/weeklyReportPresentation';
+import { displayReportValue, reportHeadline, reportChange, overallReportChange, reportFocus, reportProtection, hasReportChanges, reportStreakLabel, type ReportFocusPillar } from '../../lib/weeklyReportPresentation';
 import { reportDates, type SavedWeeklyReport } from '../../lib/weeklyReport';
 import type { EmptyReason } from '../../hooks/useWeeklyReport';
 
@@ -13,8 +13,8 @@ type Props = { visible: boolean; report: SavedWeeklyReport | null; loading: bool
   empty: boolean; emptyReason?: EmptyReason | null; userId: string; accountName?: string; onClose: () => void; onDismiss: () => void; onShow?: () => void;
   onRetry: () => void; onUpgrade: () => void; onFocus: (pillar: ReportFocusPillar) => void };
 
-export default function WeeklyReportSheet({ visible, report, loading, error, empty, emptyReason,
-  userId, accountName, onClose, onDismiss, onShow, onRetry, onUpgrade, onFocus }: Props) {
+export default function WeeklyReportSheet({ visible, report, loading, empty, emptyReason,
+  userId, accountName, onClose, onDismiss, onShow, onUpgrade, onFocus }: Props) {
   const lockKey = useRef('');
   const [preparingExport, setPreparingExport] = useState(false);
 
@@ -89,26 +89,40 @@ export default function WeeklyReportSheet({ visible, report, loading, error, emp
             </Text>
           </View>
           <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={4}
-            className="h-[42px] w-[42px] items-center justify-center rounded-full bg-white/5">
+            className="h-[42px] w-[42px] items-center justify-center rounded-full border border-border">
             <Feather name="x" size={20} color={colors.text} />
           </Pressable>
         </View>
-        <ScrollView contentContainerClassName="px-lg pb-xl gap-lg" showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerClassName="px-lg pb-xl gap-lg"
+          contentContainerStyle={!report ? { flexGrow: 1, justifyContent: 'center' } : undefined}
+          showsVerticalScrollIndicator={false}>
           {!report ? <View className="min-h-[160px] justify-center gap-sm">
-            {loading ? <View accessibilityLabel="Preparing weekly report" className="h-[4px] w-[64px] rounded-full bg-card" />
-              : error || (empty && emptyReason === 'snapshot_missing') ? <>
-                <Text accessibilityRole={error ? 'alert' : 'text'} className="font-body text-white text-[14px] leading-[20px]">
-                  {error ? reportReadMessage(error) : MISSING_REPORT_MESSAGE}
+            {loading && !empty ? (
+              <View accessibilityLabel="Preparing weekly report" className="gap-md">
+                <View className="h-[22px] w-3/4 rounded-lg bg-card" />
+                <View className="h-[100px] rounded-[24px] bg-card" />
+              </View>
+            ) : (
+              <View className="rounded-[24px] bg-card p-lg gap-sm items-center">
+                <Feather name="calendar" size={26} color={colors.lime} />
+                <Text className="font-heading-bold text-white text-[22px] uppercase text-center">
+                  {emptyReason === 'not_released' ? 'Your next weekly report' : 'Your week in review'}
                 </Text>
-                <Pressable onPress={onRetry} accessibilityRole="button" accessibilityLabel="Retry loading your weekly report"
-                  className="min-h-[44px] self-start justify-center border-b border-lime">
-                  <Text className="font-heading-bold text-lime text-[11px] uppercase">Retry</Text>
-                </Pressable>
-              </>
-              : <Text className="font-body text-white text-[14px] leading-[20px]">
-                {empty ? UNRELEASED_REPORT_MESSAGE
-                  : 'Your report will appear here soon. Pull down on Today to refresh.'}
-              </Text>}
+                <Text className="font-body text-white text-[14px] leading-[20px] text-center">
+                  {emptyReason === 'not_released'
+                    ? 'Your next weekly report will be ready on Sunday at 6am UK time.'
+                    : emptyReason === 'snapshot_missing'
+                      ? 'Your weekly summary will appear here once your report has been published.'
+                      : 'Your weekly summary will appear here when ready.'}
+                </Text>
+                {emptyReason !== 'not_released' ? (
+                  <Text className="font-body text-muted-text text-[12px] text-center">
+                    Reports are published Sundays at 6am UK time.
+                  </Text>
+                ) : null}
+              </View>
+            )}
           </View> : <>
             <View className="gap-sm">
               <Text className="font-heading-bold text-white text-[22px] leading-[26px] tracking-[0.5px] uppercase">{headlineTitle}</Text>

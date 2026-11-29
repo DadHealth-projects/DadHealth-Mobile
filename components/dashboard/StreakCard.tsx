@@ -48,18 +48,12 @@ function StreakCard({
           >
             {count !== null
               ? count > 0 ? `${count}-day streak` : 'Start your streak'
-              : error ? 'Streak unavailable' : 'Your check-in streak'}
+              : 'Your check-in streak'}
           </Text>
           <Text className="font-body text-white text-[14px] leading-[20px] mt-xs">
-            {error
-              ? status
-                ? 'Showing your last verified streak.'
-                : 'We couldn’t load your streak. Try again.'
-              : count === null
-                ? 'Your streak count is currently unavailable.'
-                : count > 0
-                  ? 'Keep showing up—one check-in at a time.'
-                  : "Complete today's check-in to begin."}
+            {count === null || count > 0
+              ? 'Keep showing up, one check-in at a time.'
+              : "Complete today's check-in to begin."}
           </Text>
         </View>
       </View>
